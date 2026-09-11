@@ -51,6 +51,7 @@ echo "== 8. Processus =="
 # Un tunnel « en cours » ne prouve pas qu'il fonctionne : le verdict est à l'étape 7.
 pgrep -f cloudflared >/dev/null && echo "cloudflared : en cours" || echo "cloudflared : arrêté"
 pgrep -f "nokey@localhost.run" >/dev/null && echo "localhost.run : en cours" || echo "localhost.run : arrêté"
+pgrep -f "a.pinggy.io" >/dev/null && echo "pinggy : en cours" || echo "pinggy : arrêté"
 # Motif volontairement strict : « server/index.js » seul matcherait aussi un
 # éditeur ouvert sur le fichier.
 N=$(pgrep -f "node .*server/index\.js" | wc -l)

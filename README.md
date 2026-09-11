@@ -148,7 +148,7 @@ nano .env          # colle ton BOT_TOKEN
 ./demarrer.sh
 ```
 
-`./demarrer.sh` monte un tunnel, écrit son adresse dans `WEBAPP_URL`, puis lance le serveur au premier plan. Quelques secondes après, il confirme que la mini app est bien servie :
+`./demarrer.sh` monte un tunnel, écrit son adresse dans `WEBAPP_URL`, puis lance le serveur au premier plan. Sans tunnel joignable, il démarre quand même le serveur : le bot répondra, seule la mini app restera inaccessible. Quelques secondes après, il confirme que la mini app est bien servie :
 
 ```
 Tunnel actif, mini app déjà joignable : https://xxxx.trycloudflare.com
@@ -159,10 +159,23 @@ Bot @ton_bot démarré (interrogation longue)
 
 | Commande | À quoi ça sert |
 |---|---|
-| `./demarrer.sh` | tunnel cloudflared, avec bascule automatique sur localhost.run s'il est injoignable |
-| `./demarrer.sh ssh` | force localhost.run, utile si ton réseau bloque `trycloudflare.com` |
+| `./demarrer.sh` | essaie les tunnels à tour de rôle jusqu'à en trouver un joignable |
+| `./demarrer.sh ssh` | force localhost.run, si ton réseau bloque `trycloudflare.com` |
+| `./demarrer-pinggy.sh` | force pinggy, le plus susceptible de passer sur un réseau qui filtre |
 | `./tunnel.sh` | monte seulement le tunnel et met `WEBAPP_URL` à jour |
 | `./diagnostic.sh` | dit ce qui cloche : jeton, webhook, serveur, adresse publique, doublons de processus |
+
+### Quel tunnel choisir
+
+Trois services gratuits sont câblés, essayés dans cet ordre par `./demarrer.sh`. Celui qui a fonctionné est retenu et réessayé en premier au lancement suivant.
+
+| Service | Adresse | À savoir |
+|---|---|---|
+| cloudflared | `*.trycloudflare.com` | le plus rapide, mais certains opérateurs ne résolvent pas ce domaine |
+| localhost.run | `*.lhr.life` | SSH sur le port 22, rien à installer de plus |
+| pinggy | `*.pinggy-free.link` | SSH sur le **port 443** : son trafic ressemble à du HTTPS, donc il passe là où les autres sont bloqués. Le tunnel gratuit **expire au bout de 60 minutes** |
+
+Si aucun ne répond alors que le reste d'Internet fonctionne, c'est en général le DNS de ton opérateur. Sur Android : *Paramètres* → *Connexions* → *Plus de paramètres de connexion* → **DNS privé** → `dns.google`.
 
 > **Le bot n'a pas besoin du tunnel pour répondre.** L'interrogation longue sort vers Telegram : `npm start` seul suffit à ce que `/start` réponde. Le tunnel ne sert qu'à afficher la mini app. C'est pourquoi `./demarrer.sh` démarre le serveur même quand aucun tunnel ne fonctionne.
 

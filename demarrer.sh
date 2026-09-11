@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # Lance le tunnel puis le serveur, et garde le serveur au premier plan.
 #
-# Usage : ./demarrer.sh [auto|cloudflared|ssh]
+# Usage : ./demarrer.sh [auto|cloudflared|ssh|pinggy]
 #
 # Le serveur démarre même sans tunnel : le bot répond à /start par l'interrogation
 # longue, qui sort vers Telegram et n'a besoin d'aucune adresse entrante. Le tunnel
@@ -11,8 +11,9 @@ cd "$(dirname "$0")"
 MODE="${1:-auto}"
 VERIF_PID=""
 
-# Quoi proposer quand ça coince : l'autre tunnel que celui qu'on vient d'essayer.
-if [ "$MODE" = ssh ]; then CONSEIL="./demarrer.sh cloudflared"; else CONSEIL="./demarrer.sh ssh"; fi
+# Quoi proposer quand ça coince : pinggy passe sur les réseaux qui filtrent les autres,
+# donc c'est lui qu'on suggère, sauf si c'est justement lui qui vient d'échouer.
+if [ "$MODE" = pinggy ]; then CONSEIL="./demarrer.sh cloudflared"; else CONSEIL="./demarrer.sh pinggy"; fi
 
 if [ ! -f .env ]; then
   echo "Fichier .env absent. Fais : cp .env.example .env, puis colle ton BOT_TOKEN dedans."
@@ -28,6 +29,7 @@ nettoyer() {
   [ -n "$VERIF_PID" ] && kill "$VERIF_PID" 2>/dev/null
   pkill cloudflared 2>/dev/null
   pkill -f "nokey@localhost.run" 2>/dev/null
+  pkill -f "a.pinggy.io" 2>/dev/null
 }
 trap nettoyer EXIT INT TERM
 
