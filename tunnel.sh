@@ -142,19 +142,27 @@ monter_pinggy() {
   return 1
 }
 
-for type in $ORDRE; do
+monter() {
   URL_TROUVEE=""
-  monte=1
-  case "$type" in
-    cloudflared) monter_cloudflared && monte=0 ;;
-    ssh)         monter_ssh && monte=0 ;;
-    pinggy)      monter_pinggy && monte=0 ;;
+  case "$1" in
+    cloudflared) monter_cloudflared ;;
+    ssh)         monter_ssh ;;
+    pinggy)      monter_pinggy ;;
+    *) return 1 ;;
   esac
-  [ "$monte" = 0 ] || continue
+}
+
+# Dernier service monté que mon contrôle n'a pas su joindre : gardé faute de mieux
+CANDIDAT=""
+
+for type in $ORDRE; do
+  monter "$type" || continue
 
   case "$(code_tunnel "$URL_TROUVEE")" in
     000)
-      echo "$URL_TROUVEE ne répond pas depuis ce téléphone : ton réseau bloque ce service."
+      echo "$URL_TROUVEE ne répond pas à mon contrôle."
+      # On retient le dernier : l'ordre va du plus rapide au plus robuste face aux filtrages
+      CANDIDAT="$type"
       arreter_tunnels
       continue
       ;;
@@ -181,6 +189,21 @@ for type in $ORDRE; do
       ;;
   esac
 done
+
+# Mon contrôle passe par curl, qui utilise le résolveur du système. Chrome fait souvent
+# du DNS chiffré, et Telegram a son propre cheminement : une adresse que curl ne joint pas
+# peut très bien s'ouvrir chez eux. Plutôt que de ne rien rendre, on remonte le premier
+# tunnel obtenu et on laisse l'utilisateur trancher dans un vrai navigateur.
+if [ -n "$CANDIDAT" ] && monter "$CANDIDAT"; then
+  ecrire_url "$URL_TROUVEE"
+  echo
+  echo "Aucune adresse n'a répondu à mon contrôle, mais il peut se tromper :"
+  echo "curl, Chrome et Telegram ne résolvent pas les noms de la même façon."
+  echo "Adresse retenue quand même : $URL_TROUVEE"
+  echo "Ouvre-la dans Chrome : si elle s'affiche, Telegram devrait l'ouvrir aussi."
+  limite_pinggy "$CANDIDAT"
+  exit 0
+fi
 
 echo "Aucun tunnel joignable. Change de réseau (Wi-Fi ou données mobiles), ou change de DNS"
 echo "(Android : Paramètres, DNS privé, dns.google), puis réessaie."

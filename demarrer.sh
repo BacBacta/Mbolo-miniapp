@@ -44,7 +44,8 @@ if ./tunnel.sh "$MODE"; then
         exit 0
       fi
     done
-    echo "--- $URL ne sert toujours pas la mini app. Arrête avec Ctrl-C, puis essaie $CONSEIL ---"
+    echo "--- $URL ne répond pas à mon contrôle. Ouvre-la dans Chrome : si elle s'affiche,"
+    echo "    essaie la mini app dans Telegram. Sinon, Ctrl-C puis $CONSEIL ---"
   ) &
   VERIF_PID=$!
 else
