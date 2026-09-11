@@ -1,40 +1,39 @@
-# Service Fly. Le nom de l'app est fixé au déploiement (flyctl deploy -a <nom>) :
-# les noms sont uniques dans le monde entier, « mbolo » est probablement déjà pris.
-app = "mbolo"
-primary_region = "cdg"
+# fly.toml app configuration file generated for mbolo-miniapp on 2026-09-11T16:54:05Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'mbolo-miniapp'
+primary_region = 'ams'
 
 [build]
 
 [env]
-  PORT = "8080"
-  DATA_DIR = "/data"
-  NODE_ENV = "production"
-  # Telegram appelle le serveur, au lieu que le bot aille chercher les messages
-  USE_WEBHOOK = "true"
-  # Tests uniquement : profils de démonstration et selfies validés sans modération
-  SEED_DEMO = "true"
-  AUTO_APPROVE = "true"
+  AUTO_APPROVE = 'true'
+  DATA_DIR = '/data'
+  NODE_ENV = 'production'
+  PORT = '8080'
+  SEED_DEMO = 'true'
+  USE_WEBHOOK = 'true'
+
+[[mounts]]
+  source = 'mbolo_data'
+  destination = '/data'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  # La machine s'arrête quand personne ne s'en sert, et redémarre à la requête suivante
-  auto_stop_machines = "stop"
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
 
   [[http_service.checks]]
-    interval = "30s"
-    timeout = "5s"
-    grace_period = "10s"
-    method = "GET"
-    path = "/health"
-
-# Base JSON et photos : conservées d'un déploiement à l'autre
-[[mounts]]
-  source = "mbolo_data"
-  destination = "/data"
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/health'
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "256mb"
+  size = 'shared-cpu-1x'
+  memory = '256mb'
