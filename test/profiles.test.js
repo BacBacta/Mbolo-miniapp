@@ -29,9 +29,9 @@ const call = async (user, p, method = 'GET', body) => {
   const r = await fetch(base + p, { method, headers: { 'Content-Type': 'application/json', 'x-dev-user': user }, body: body ? JSON.stringify(body) : undefined });
   return { status: r.status, body: await r.json() };
 };
-async function makeUser(id, name, gender) {
+async function makeUser(id, name, gender, area = '') {
   await call(id, '/me');
-  const r = await call(id, '/me/profile', 'PUT', { name, age: 25, gender, intent: 'amitie', city: 'Douala', promptA: 'Le poisson braisé' });
+  const r = await call(id, '/me/profile', 'PUT', { name, age: 25, gender, intent: 'amitie', city: 'Douala', area, promptA: 'Le poisson braisé' });
   assert.equal(r.status, 200);
   store.updateUser(id, { verification: 'approved' });
 }
@@ -100,4 +100,27 @@ test('un « Passer » peut devenir un « J\'aime », pas l\'inverse', async () =
   // Un like envoyé a pu prévenir la personne : il ne se retire pas en silence
   await call('7101', '/swipes', 'POST', { targetId: '7102', action: 'pass' });
   assert.equal(store.swipeOf('7101', '7102').action, 'like');
+});
+
+test('« Nouveau » la première semaine, dérivé sans exposer la date', async () => {
+  await makeUser('7201', 'Bilal', 'homme');
+  await makeUser('7202', 'Chloé', 'femme');
+  await makeUser('7203', 'Dora', 'femme');
+  store.updateUser('7203', { createdAt: Date.now() - 8 * 86400e3 });
+  const r = await call('7201', '/profiles');
+  const by = Object.fromEntries(r.body.profiles.map((p) => [p.id, p]));
+  assert.equal(by['7202'].isNew, true, 'inscrite aujourd\'hui');
+  assert.equal(by['7203'].isNew, false, 'inscrite il y a huit jours');
+  assert.ok(!JSON.stringify(r.body).includes('createdAt'), 'la date d\'inscription ne sort jamais');
+});
+
+test('mon quartier d\'abord, sans position GPS', async () => {
+  await makeUser('7301', 'Éric', 'homme', 'Bastos');
+  await makeUser('7302', 'Fanta', 'femme', 'Essos');
+  await makeUser('7303', 'Gaëlle', 'femme', 'Bastos');
+  const liste = (await call('7301', '/profiles')).body.profiles.filter((p) => ['7302', '7303'].includes(p.id)).map((p) => p.id);
+  assert.deepEqual(liste, ['7303', '7302'], 'liste : Bastos avant Essos');
+  // Le paquet est limité à dix cartes : on vérifie que le quartier passe en tête, pas la présence de tous
+  const cartes = (await call('7301', '/discover')).body.profiles.map((p) => p.id);
+  assert.equal(cartes[0], '7303', 'cartes : Bastos en tête du paquet');
 });
