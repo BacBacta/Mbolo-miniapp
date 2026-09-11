@@ -1,0 +1,21 @@
+{
+  "name": "moyo-miniapp",
+  "version": "0.1.0",
+  "description": "Mini app Telegram de rencontres vérifiées pour l'Afrique (prototype déployable)",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "grammy": "^1.35.0",
+    "qrcode": "^1.5.4"
+  }
+}
