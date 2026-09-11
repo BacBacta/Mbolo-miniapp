@@ -223,9 +223,9 @@ Si tu obtiens `000`, c'est le résolveur DNS du téléphone qui bloque, et chang
 4. Au bout de trois à cinq minutes, l'app répond sur `https://<ton-app>.fly.dev`.
 5. Dans Telegram : `/start` → **Ouvrir Mbolo**.
 
-Le workflow crée l'app et le volume s'ils manquent, pose les secrets, puis déploie. Relance-le à chaque fois que tu veux publier une nouvelle version.
+Le workflow crée l'app, le volume et les adresses IP publiques s'ils manquent, pose les secrets, puis déploie. Relance-le à chaque fois que tu veux publier une nouvelle version.
 
-**En ligne de commande**, avec `deployer-fly.sh`. Le script crée l'app et le volume s'ils manquent, pose les secrets, déploie, puis vérifie que `/health` répond. Relançable sans risque : il ne recrée pas ce qui existe, et s'arrête avant toute modification si le jeton est invalide.
+**En ligne de commande**, avec `deployer-fly.sh`. Le script crée l'app, le volume et les adresses IP publiques s'ils manquent, pose les secrets, déploie, puis vérifie que `/health` répond. Relançable sans risque : il ne recrée pas ce qui existe, et s'arrête avant toute modification si le jeton est invalide.
 
 ```bash
 curl -fsSL https://fly.io/install.sh | sh          # une seule fois
@@ -246,6 +246,8 @@ bash ./deployer-fly.sh mon-app cdg
 C'est ce même script qu'exécute le workflow GitHub : une seule logique, donc pas de dérive entre les deux chemins.
 
 Pas besoin de `WEBAPP_URL` : le serveur déduit l'adresse de `FLY_APP_NAME`, que Fly fournit.
+
+> **Adresse publique toute neuve.** Sans IP publique, `<ton-app>.fly.dev` ne se résout nulle part : l'app démarre et `/health` répond en interne, mais ni Telegram ni personne ne peut la joindre. Le script s'en charge. Juste après la première allocation, Telegram met parfois une quinzaine de minutes à résoudre le nom, et le journal affiche `setWebhook failed: Failed to resolve host`. Rien à corriger : attends, puis relance `flyctl apps restart <ton-app>`. Vérifie l'état avec `flyctl ips list -a <ton-app>`.
 
 > Crée de préférence un **jeton limité à l'application** (Fly propose des jetons de déploiement à portée réduite) plutôt qu'un jeton de compte : en cas de fuite, il ne donne accès qu'à cette app, et se révoque sans toucher au reste.
 

@@ -47,6 +47,25 @@ else
   flyctl volumes create "$VOLUME" -a "$APP" --region "$REGION" --size 1 --yes
 fi
 
+echo "== Adresses IP publiques =="
+# Sans IP publique, <app>.fly.dev ne se résout nulle part. L'app démarre et
+# répond à /health en interne, mais ni Telegram ni personne ne peut la joindre.
+IPS=$(flyctl ips list -a "$APP" --json 2>/dev/null || true)
+IP_NEUVE=0
+if echo "$IPS" | grep -qE '"(shared_)?v4"'; then
+  echo "IPv4 déjà allouée."
+else
+  # --shared : gratuite, et suffisante ici (Fly route par SNI)
+  flyctl ips allocate-v4 --shared -a "$APP"
+  IP_NEUVE=1
+fi
+if echo "$IPS" | grep -q '"v6"'; then
+  echo "IPv6 déjà allouée."
+else
+  flyctl ips allocate-v6 -a "$APP"
+  IP_NEUVE=1
+fi
+
 echo "== Secrets =="
 # --stage : posés maintenant, appliqués par le déploiement qui suit, sans redémarrage inutile
 flyctl secrets set --stage -a "$APP" \
@@ -63,6 +82,11 @@ URL="https://$APP.fly.dev"
 for _ in $(seq 1 20); do
   if curl -fsS --max-time 10 "$URL/health" | grep -q '"ok":true'; then
     echo "Mini app joignable sur $URL"
+    if [ "$IP_NEUVE" = 1 ]; then
+      echo "Adresse publique toute neuve : Telegram met parfois une quinzaine de"
+      echo "minutes à la résoudre. Tant que le journal affiche « setWebhook failed »,"
+      echo "attends, puis relance : flyctl apps restart $APP"
+    fi
     exit 0
   fi
   sleep 3
