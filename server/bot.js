@@ -102,7 +102,32 @@ export function setupBot() {
   bot.catch((err) => console.error('Erreur du bot :', err.error?.message || err.message));
 }
 
-export async function startBot(app) {
+// Telegram refuse parfois le webhook pour une cause passagère : nom de domaine pas encore
+// résolu après l'allocation d'une adresse publique, coupure réseau au démarrage. Sans reprise,
+// le bot restait muet jusqu'au prochain redémarrage — et comme c'est l'appel du webhook qui
+// réveille une machine arrêtée, l'échec s'entretenait lui-même.
+export const WEBHOOK_RETRY_DELAYS_MS = [5e3, 15e3, 30e3, 60e3, 120e3, 300e3];
+
+// Ne jette jamais : le serveur doit rester debout même si Telegram refuse.
+export async function poseWebhook(url, { delais = WEBHOOK_RETRY_DELAYS_MS } = {}) {
+  for (let essai = 0; ; essai += 1) {
+    try {
+      await bot.api.setWebhook(url);
+      console.log(essai ? `Bot en mode webhook (tentative ${essai + 1})` : 'Bot en mode webhook');
+      return true;
+    } catch (e) {
+      if (essai >= delais.length) {
+        console.error(`Webhook non posé après ${essai + 1} tentatives : ${e.message}. Il sera reposé au prochain démarrage.`);
+        return false;
+      }
+      console.warn(`Webhook refusé (${e.message}), nouvelle tentative dans ${Math.round(delais[essai] / 1000)} s.`);
+      await new Promise((r) => setTimeout(r, delais[essai]));
+    }
+  }
+}
+
+// delais : uniquement pour les tests, afin de ne pas attendre les vraies reprises
+export async function startBot(app, { delais } = {}) {
   if (!bot) return;
   const me = await bot.api.getMe();
   runtime.botUsername = me.username;
@@ -110,17 +135,18 @@ export async function startBot(app) {
     // Bouton « Ouvrir » à côté du champ de saisie, pour toutes les discussions avec le bot
     await bot.api.setChatMenuButton({ menu_button: { type: 'web_app', text: 'Ouvrir', web_app: { url: appUrl() } } }).catch((e) => console.warn('Bouton de menu non configuré :', e.message));
   }
+  // Purement cosmétique : un échec ici ne doit pas empêcher la pose du webhook
   await bot.api.setMyCommands([
     { command: 'start', description: `Ouvrir ${config.appName}` },
     { command: 'aide', description: 'Sécurité et aide' },
-  ]);
+  ]).catch((e) => console.warn('Commandes non publiées :', e.message));
 
   if (config.useWebhook) {
     const { webhookCallback } = await import('grammy');
     const secretPath = `/telegram/${config.botToken.split(':')[0]}-${config.adminKey || 'hook'}`;
     app.use(secretPath, webhookCallback(bot, 'express'));
-    await bot.api.setWebhook(`${config.webAppUrl}${secretPath}`);
-    console.log('Bot en mode webhook');
+    // Sans await : le serveur répond tout de suite, la reprise se poursuit en arrière-plan
+    poseWebhook(`${config.webAppUrl}${secretPath}`, delais ? { delais } : {});
   } else {
     await bot.api.deleteWebhook();
     bot.start({ onStart: (me) => console.log(`Bot @${me.username} démarré (interrogation longue)`) });
