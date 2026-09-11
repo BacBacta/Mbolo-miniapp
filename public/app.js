@@ -8,6 +8,10 @@ const S = {
   me: null,
   profiles: [],
   remaining: 0,
+  // Découvrir : « cards » (une carte à la fois) ou « list » (tous les profils compatibles)
+  discoverMode: 'cards',
+  people: [],
+  person: null,
   revealed: {},
   photoUrls: {},
   dataSaver: false,
@@ -93,7 +97,7 @@ function compressImage(file, max = 720, quality = 0.8) {
 // ============================================================
 // Navigation
 // ============================================================
-const PARENT = { profile: () => (S.me?.verification === 'approved' ? 'me' : 'welcome'), verify: () => 'profile', match: () => 'discover', chat: () => 'matches', date: () => 'chat' };
+const PARENT = { profile: () => (S.me?.verification === 'approved' ? 'me' : 'welcome'), verify: () => 'profile', match: () => 'discover', person: () => 'discover', chat: () => 'matches', date: () => 'chat' };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
 const TABS = [['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']];
 
@@ -260,6 +264,86 @@ const listRow = ({ iconName, tile = '', title, sub = '', action = '', extra = ''
     ${trailing === 'chev' && action ? `<span class="chev">${icon('chevron-right', 18)}</span>` : trailing === 'chev' ? '' : trailing}
   </${action ? 'button' : 'div'}>`;
 
+// Barre de Découvrir : ville, choix Cartes / Liste, et le quota du jour en mode cartes
+function discoverBar() {
+  const list = S.discoverMode === 'list';
+  return `
+    <div class="dbar">
+      <span class="pill">${icon('pin', 15)} ${esc(S.me.profile.city)}</span>
+      <div class="seg seg-mini" aria-label="Affichage">
+        <button type="button" data-action="mode" data-mode="cards" aria-pressed="${!list}">${icon('card', 15)} Cartes</button>
+        <button type="button" data-action="mode" data-mode="list" aria-pressed="${list}">${icon('rows', 15)} Liste</button>
+      </div>
+      ${list ? '' : `<span class="quota">${S.remaining} ${S.remaining > 1 ? 'restants' : 'restant'}</span>`}
+    </div>`;
+}
+
+// Liste de tous les profils compatibles, balayés ou non. Initiales seules : les photos ne se
+// chargent qu'en ouvrant un profil (économie de data).
+const PERSON_STATUS = { liked: ['Aimé', 'chip-like'], passed: ['Passé', ''], match: ['Match', 'chip-ok'] };
+async function renderPeople() {
+  if (!S.people.length) {
+    render(`${discoverBar()}<div class="group">${skeleton.rows(6)}</div>`);
+    tg.setButtons(null);
+    try {
+      S.people = (await api('/profiles')).profiles;
+    } catch (e) {
+      return renderError(e, () => go('discover'));
+    }
+    if (S.screen !== 'discover' || S.discoverMode !== 'list') return;
+  }
+  if (!S.people.length) {
+    render(`${discoverBar()}
+      <div class="empty">
+        <span class="glyph">${icon('users', 34)}</span>
+        <h2>Personne pour l'instant</h2>
+        <p>Aucun profil vérifié à ${esc(S.me.profile.city)} avec ton intention. Reviens un peu plus tard.</p>
+      </div>`);
+    return tg.setButtons(null);
+  }
+  render(`${discoverBar()}
+    <div class="group">
+      <div class="list">${S.people.map((p) => {
+        const st = PERSON_STATUS[p.status];
+        const act = ACTIVITY_LABELS[p.activity];
+        return `
+        <button type="button" class="list-row" data-action="${p.status === 'match' ? 'open-chat' : 'person'}" data-id="${esc(p.status === 'match' ? p.matchId : p.id)}">
+          ${avatar(p, 'sm')}
+          <div class="body">
+            <div class="title">${esc(p.name)}, ${esc(p.age)}${p.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${p.likedYou && !p.status ? `<span class="chip chip-like">T'a liké</span>` : ''}${st ? `<span class="chip ${st[1]}">${st[0]}</span>` : ''}</div>
+            <div class="sub">${esc(p.area ? `${p.area} · ` : '')}${esc(p.intentLabel)}${act ? ` · <span class="act act-${p.activity}">${act}</span>` : ''}</div>
+          </div>
+          <span class="chev">${icon('chevron-right', 18)}</span>
+        </button>`;
+      }).join('')}</div>
+    </div>`);
+  tg.setButtons(null);
+}
+
+// « J'aime » ou « Passer » depuis le détail d'un profil ouvert par la liste
+async function swipePerson(action) {
+  const p = S.person;
+  if (!p || swiping) return;
+  swiping = true;
+  tg.haptic(action === 'like' ? 'medium' : 'select');
+  try {
+    const r = await api('/swipes', { method: 'POST', body: { targetId: p.id, action } });
+    S.people = []; // la liste se rechargera avec les nouveaux statuts
+    S.profiles = S.profiles.filter((x) => x.id !== p.id); // et la carte quitte le paquet
+    if (r.match) {
+      S.lastMatch = r.match;
+      go('match');
+    } else {
+      toast(action === 'like' ? 'Aimé. Tu seras prévenu en cas de match.' : 'Passé.');
+      go('discover');
+    }
+  } catch (e) {
+    showError(e, null);
+  } finally {
+    swiping = false;
+  }
+}
+
 // ============================================================
 // Écrans
 // ============================================================
@@ -403,11 +487,8 @@ const SCREENS = {
   },
 
   async discover() {
-    const dbar = () => `
-      <div class="dbar">
-        <span class="pill">${icon('pin', 15)} ${esc(S.me.profile.city)}</span>
-        <span class="quota">${S.remaining} ${S.remaining > 1 ? 'profils restants' : 'profil restant'} aujourd'hui</span>
-      </div>`;
+    if (S.discoverMode === 'list') return renderPeople();
+    const dbar = discoverBar;
     if (!S.profiles.length) {
       render(`${dbar()}${skeleton.card()}`);
       tg.setButtons(null);
@@ -438,6 +519,19 @@ const SCREENS = {
     loadCardPhoto(p);
     S.detachSwipe = attachSwipe(app.querySelector('.deck .card.top'), { onLike: () => swipe('like'), onPass: () => swipe('pass') });
     tg.setButtons({ main: { text: "J'aime", onClick: () => swipe('like') }, secondary: { text: 'Passer', onClick: () => swipe('pass') } });
+  },
+
+  person({ id }) {
+    const p = S.people.find((x) => x.id === id);
+    if (!p) return go('discover');
+    S.person = p;
+    const note = p.status === 'liked' ? `${icon('heart', 14)}<span>Tu as déjà aimé ce profil. Le bot te prévient en cas de match.</span>`
+      : p.status === 'passed' ? `${icon('clock', 14)}<span>Tu avais passé ce profil. Tu peux revenir sur ta décision.</span>` : '';
+    render(`<div class="deck">${profileCard(p, { cls: 'top' })}</div>${note ? `<p class="fine">${note}</p>` : ''}`);
+    loadCardPhoto(p);
+    if (p.status === 'liked') tg.setButtons(null);
+    else if (p.status === 'passed') tg.setButtons({ main: { text: "J'aime", onClick: () => swipePerson('like') } });
+    else tg.setButtons({ main: { text: "J'aime", onClick: () => swipePerson('like') }, secondary: { text: 'Passer', onClick: () => swipePerson('pass') } });
   },
 
   match() {
@@ -717,6 +811,7 @@ async function swipe(action) {
     ]);
     S.profiles.shift();
     S.remaining = Math.max(0, S.remaining - 1);
+    S.people = []; // les statuts de la liste ont changé
     if (r.match) {
       S.lastMatch = r.match;
       go('match');
@@ -926,6 +1021,13 @@ app.addEventListener('click', async (e) => {
     case 'report-profile': report(el.dataset.id); break;
     case 'report-chat': report(S.chat.other.id, S.chat.id); break;
     case 'open-chat': go('chat', { id: el.dataset.id }); break;
+    case 'person': go('person', { id: el.dataset.id }); break;
+    case 'mode':
+      tg.haptic('select');
+      S.discoverMode = el.dataset.mode;
+      tg.cloudSet('discover_mode', el.dataset.mode);
+      SCREENS.discover();
+      break;
     case 'venue':
     case 'slot':
       tg.haptic('select');
@@ -1038,6 +1140,7 @@ async function boot() {
       </div>`);
   }
   S.dataSaver = (await tg.cloudGet('data_saver')) === '1';
+  S.discoverMode = (await tg.cloudGet('discover_mode')) === 'list' ? 'list' : 'cards';
   tg.onSettings(() => go('me'));
 
   const params = tg.launchParams();

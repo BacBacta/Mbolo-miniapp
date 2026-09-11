@@ -244,6 +244,9 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-1); }
 .seg button { height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--hint); font-weight: 600; font-size: 14px; transition: background .2s, color .2s; }
 .seg button[aria-pressed="true"] { background: var(--button); color: var(--button-text); }
+/* Sélecteur Cartes / Liste de Découvrir : même composant, en plus compact */
+.seg-mini { padding: 3px; border-radius: 12px; box-shadow: none; }
+.seg-mini button { height: 28px; font-size: 13px; padding: 0 10px; border-radius: 9px; display: inline-flex; align-items: center; gap: 5px; }
 
 .choice { display: flex; gap: 14px; align-items: center; width: 100%; text-align: left; padding: 13px 14px; border-radius: 18px; background: var(--bg); border: 1.5px solid var(--line); box-shadow: var(--shadow-1); color: inherit; }
 .choice[aria-pressed="true"] { border-color: var(--button); background: var(--tint); }
@@ -299,7 +302,7 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .trust-labels svg { flex-shrink: 0; margin-top: 1px; }
 
 /* Pile de cartes et geste de balayage */
-.dbar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--hint); }
+.dbar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--hint); flex-wrap: wrap; }
 .dbar .pill { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 999px; background: var(--bg); box-shadow: var(--shadow-1); border: 1px solid var(--line); color: var(--text); font-weight: 500; }
 .dbar .quota { margin-left: auto; }
 .ring { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--button) var(--p, 0%), var(--line) 0); }
