@@ -181,6 +181,22 @@ Si aucun ne répond alors que le reste d'Internet fonctionne, c'est en général
 
 L'adresse d'un tunnel change à chaque lancement, et les scripts l'écrivent dans `.env` à ta place. Ferme avec Ctrl-C : le tunnel est coupé en même temps que le serveur.
 
+### Voir l'interface sans tunnel
+
+Le serveur tourne sur le téléphone : son navigateur peut donc l'ouvrir directement, sans aucun tunnel. Pratique quand le réseau les bloque tous, ou pour travailler l'interface.
+
+Ajoute ces lignes à `.env`, puis relance :
+
+```
+ALLOW_DEV_AUTH=true
+SEED_DEMO=true
+AUTO_APPROVE=true
+```
+
+Ouvre ensuite `http://localhost:3000/?dev_user=1001` dans Chrome. Tout le parcours fonctionne ; seuls les éléments natifs de Telegram (vibrations, bouton Retour, scanner QR) sont remplacés par leurs équivalents web.
+
+> Retire `ALLOW_DEV_AUTH=true` ensuite. Avec un tunnel actif, n'importe qui ayant l'adresse pourrait se faire passer pour n'importe quel compte.
+
 ## Changer le nom de l'application
 
 1. Dans `.env`, modifie la ligne `APP_NAME=Mbolo` (ex. `APP_NAME=Imani`).

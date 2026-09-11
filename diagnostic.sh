@@ -61,3 +61,22 @@ case "$N" in
   *) echo "Serveur : $N instances. Telegram n'en sert qu'une, les autres reçoivent une erreur 409."
      echo "          Fais : pkill -f \"node server/index.js\" puis ./demarrer.sh" ;;
 esac
+
+echo "== 9. Domaines des tunnels =="
+# api.telegram.org sert de témoin : s'il répond et que les autres non, le problème
+# vient de ces domaines précis, pas de ta connexion.
+for H in api.telegram.org trycloudflare.com localhost.run pinggy.io; do
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 "https://$H/")
+  if [ "$CODE" != "000" ]; then
+    printf "%-20s joignable (code %s)\n" "$H" "$CODE"
+    continue
+  fi
+  # Injoignable : on cite l'erreur exacte de curl plutôt que de la deviner
+  ERR=$(curl -sS -o /dev/null --max-time 8 "https://$H/" 2>&1 | head -1)
+  case "$ERR" in
+    *esolve*) printf "%-20s NOM NON RÉSOLU par ton DNS\n" "$H" ;;
+    *)        printf "%-20s injoignable : %s\n" "$H" "$ERR" ;;
+  esac
+done
+echo "Si api.telegram.org passe et que les autres non : change de DNS"
+echo "(Android : Paramètres, Connexions, Plus de paramètres de connexion, DNS privé, dns.google)."
