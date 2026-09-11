@@ -178,13 +178,47 @@ api.get('/discover', requireApproved, (req, res) => {
   res.json({ profiles, remaining });
 });
 
+// Liste des profils compatibles, balayés ou non : la vue d'ensemble que les cartes n'offrent pas.
+// Parcourir ne consomme rien ; seul un « J'aime » compte dans le quota du jour (route /swipes).
+const ACTIVITY_RANK = { recent: 3, today: 2, week: 1 };
+const listRank = (p) => (p.status === 'match' ? 0 : p.status ? 1 : p.likedYou ? 3 : 2);
+api.get('/profiles', requireApproved, (req, res) => {
+  const me = req.user;
+  const profiles = store.allUsers()
+    .filter((u) => u.id !== me.id && isApproved(u) && !store.isBlocked(me.id, u.id) && compatible(me, u))
+    .map((u) => {
+      const p = publicProfile(u);
+      const swipe = store.swipeOf(me.id, u.id);
+      const match = store.matchBetween(me.id, u.id);
+      return {
+        ...p,
+        // Même règle qu'en découverte : la tranche fine d'activité est réservée aux matchs
+        activity: match ? p.activity : (p.activity ? 'week' : null),
+        likedYou: store.likedBy(u.id, me.id),
+        status: match ? 'match' : swipe ? (swipe.action === 'like' ? 'liked' : 'passed') : null,
+        matchId: match?.id || null,
+        since: u.createdAt,
+      };
+    })
+    // Ceux qui attendent ta réponse d'abord, puis ceux que tu n'as pas encore vus, puis les balayés,
+    // et les matchs en dernier : ils sont déjà dans Messages. À égalité, les plus actifs, puis les plus récents.
+    .sort((a, b) => listRank(b) - listRank(a) || (ACTIVITY_RANK[b.activity] || 0) - (ACTIVITY_RANK[a.activity] || 0) || b.since - a.since)
+    .slice(0, 50)
+    .map(({ since, ...p }) => p);
+  res.json({ profiles });
+});
+
 api.post('/swipes', requireApproved, async (req, res) => {
   const me = req.user;
   const { targetId, action } = req.body || {};
   const target = store.getUser(targetId);
   if (!target || !['like', 'pass'].includes(action) || target.id === me.id) return fail(res, 400, 'SWIPE_INVALID', 'Action impossible.');
   if (store.swipesToday(me.id) >= config.dailyProfiles) return fail(res, 429, 'DAILY_LIMIT', "Tu as vu tous tes profils du jour. Reviens demain.");
-  if (!store.hasSwiped(me.id, target.id)) store.addSwipe(me.id, target.id, action);
+  const previous = store.swipeOf(me.id, target.id);
+  if (!previous) store.addSwipe(me.id, target.id, action);
+  // Rattrapage depuis la liste : un « Passer » peut devenir un « J'aime ». L'inverse, non : un like
+  // a pu prévenir la personne, on ne le retire pas en silence.
+  else if (previous.action === 'pass' && action === 'like') store.updateSwipe(me.id, target.id, 'like');
 
   if (action === 'like') {
     // Les profils de démonstration « likent » en retour pour pouvoir tester seul

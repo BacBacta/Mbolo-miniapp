@@ -103,6 +103,21 @@ export const store = {
 
   likedBy: (from, to) => db.swipes.some((s) => s.from === String(from) && s.to === String(to) && s.action === 'like'),
 
+  swipeOf: (from, to) => db.swipes.find((s) => s.from === String(from) && s.to === String(to)) || null,
+
+  // Rattrapage depuis la liste : un « Passer » peut devenir un « J'aime ». La date est mise à jour,
+  // donc ce nouveau choix compte dans le quota du jour comme n'importe quel balayage.
+  updateSwipe(from, to, action) {
+    const s = db.swipes.find((x) => x.from === String(from) && x.to === String(to));
+    if (!s) return false;
+    s.action = action;
+    s.at = Date.now();
+    save();
+    return true;
+  },
+
+  matchBetween: (a, b) => Object.values(db.matches).find((m) => m.key === pairKey(a, b)) || null,
+
   swipesToday(from) {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
