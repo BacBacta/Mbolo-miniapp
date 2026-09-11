@@ -1,8 +1,12 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # Monte un tunnel HTTPS vers le port 3000 et écrit son adresse dans .env (WEBAPP_URL).
 #
-# Usage : ./tunnel.sh [auto|cloudflared|ssh]
-#   auto (défaut) : essaie cloudflared, bascule sur localhost.run s'il est injoignable
+# Usage : ./tunnel.sh [auto|cloudflared|ssh|pinggy]
+#   auto (défaut) : essaie chaque service à tour de rôle jusqu'à en trouver un joignable,
+#                   en commençant par celui qui a marché la dernière fois
+#   pinggy        : SSH sur le port 443, donc son trafic ressemble à du HTTPS ordinaire.
+#                   C'est souvent le seul qui passe sur un réseau qui filtre.
+#                   Limite du service gratuit : le tunnel expire au bout de 60 minutes.
 #
 # Sort 0 si un tunnel joignable est actif, 1 sinon.
 
@@ -10,6 +14,9 @@ cd "$(dirname "$0")"
 MODE="${1:-auto}"
 LOG_CF="$HOME/.cf-tunnel.log"
 LOG_SSH="$HOME/.ssh-tunnel.log"
+LOG_PG="$HOME/.pinggy-tunnel.log"
+# Dernier service qui a fonctionné : réessayé en premier au lancement suivant
+MEMO="$HOME/.mbolo-tunnel"
 URL_TROUVEE=""
 
 if [ ! -f .env ]; then
@@ -18,11 +25,25 @@ if [ ! -f .env ]; then
 fi
 
 case "$MODE" in
-  auto)        ORDRE="cloudflared ssh" ;;
+  auto)
+    # Sur un réseau qui en bloque deux sur trois, commencer par celui qui a marché
+    # la dernière fois évite d'attendre deux échecs à chaque lancement.
+    case "$(cat "$MEMO" 2>/dev/null)" in
+      ssh)    ORDRE="ssh pinggy cloudflared" ;;
+      pinggy) ORDRE="pinggy cloudflared ssh" ;;
+      *)      ORDRE="cloudflared ssh pinggy" ;;
+    esac
+    ;;
   cloudflared) ORDRE="cloudflared" ;;
   ssh)         ORDRE="ssh" ;;
-  *) echo "Usage : ./tunnel.sh [auto|cloudflared|ssh]"; exit 1 ;;
+  pinggy)      ORDRE="pinggy" ;;
+  *) echo "Usage : ./tunnel.sh [auto|cloudflared|ssh|pinggy]"; exit 1 ;;
 esac
+
+limite_pinggy() {
+  [ "$1" = pinggy ] && echo "Le tunnel gratuit pinggy expire au bout de 60 minutes : relance ce script pour en obtenir un nouveau."
+  return 0
+}
 
 ecrire_url() {
   if grep -q '^WEBAPP_URL=' .env; then
@@ -35,6 +56,7 @@ ecrire_url() {
 arreter_tunnels() {
   pkill cloudflared 2>/dev/null
   pkill -f "nokey@localhost.run" 2>/dev/null
+  pkill -f "a.pinggy.io" 2>/dev/null
 }
 
 # Ce contrôle dit seulement si l'adresse répond, pas si la mini app est servie.
@@ -98,12 +120,35 @@ monter_ssh() {
   return 1
 }
 
+monter_pinggy() {
+  if ! command -v ssh >/dev/null 2>&1; then
+    echo "ssh n'est pas installé. Pour l'ajouter : pkg install openssh"
+    return 1
+  fi
+  pkill -f "a.pinggy.io" 2>/dev/null
+  rm -f "$LOG_PG"
+  # Port 443 : le trafic ressemble à du HTTPS, ce qui passe les filtrages qui bloquent le reste
+  nohup ssh -p 443 -T -n -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -R0:localhost:3000 a.pinggy.io > "$LOG_PG" 2>&1 &
+  echo "pinggy : connexion…"
+  for _ in $(seq 1 30); do
+    sleep 1
+    # pinggy annonce plusieurs adresses (pinggy-free.link, free.pinggy.net) : la première suffit
+    URL_TROUVEE=$(grep -oE 'https://[a-z0-9.-]+\.pinggy(-free)?\.(link|net)' "$LOG_PG" 2>/dev/null | head -1)
+    [ -n "$URL_TROUVEE" ] && return 0
+  done
+  echo "pinggy : adresse introuvable. Fin du journal :"
+  tail -8 "$LOG_PG"
+  pkill -f "a.pinggy.io" 2>/dev/null
+  return 1
+}
+
 for type in $ORDRE; do
   URL_TROUVEE=""
   monte=1
   case "$type" in
     cloudflared) monter_cloudflared && monte=0 ;;
     ssh)         monter_ssh && monte=0 ;;
+    pinggy)      monter_pinggy && monte=0 ;;
   esac
   [ "$monte" = 0 ] || continue
 
@@ -121,17 +166,22 @@ for type in $ORDRE; do
       ;;
     200)
       ecrire_url "$URL_TROUVEE"
+      echo "$type" > "$MEMO"
       echo "Tunnel actif, mini app déjà joignable : $URL_TROUVEE"
+      limite_pinggy "$type"
       exit 0
       ;;
     *)
       ecrire_url "$URL_TROUVEE"
+      echo "$type" > "$MEMO"
       echo "Tunnel monté : $URL_TROUVEE"
       echo "L'adresse répond, mais rien n'est encore servi derrière : c'est normal tant que le serveur n'est pas lancé."
+      limite_pinggy "$type"
       exit 0
       ;;
   esac
 done
 
-echo "Aucun tunnel joignable. Change de réseau (Wi-Fi ou données mobiles) et réessaie."
+echo "Aucun tunnel joignable. Change de réseau (Wi-Fi ou données mobiles), ou change de DNS"
+echo "(Android : Paramètres, DNS privé, dns.google), puis réessaie."
 exit 1
