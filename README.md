@@ -1,6 +1,6 @@
-# Moyo : mini app Telegram de rencontres vérifiées
+# Mbolo : rencontres vérifiées, face à face
 
-**Moyo** signifie « cœur » en swahili, une langue parlée par plus de cent millions de personnes et adoptée comme langue de travail par l'Union africaine. Le nom est court, se prononce de la même façon en français et en anglais, et ne rattache l'app à aucun pays en particulier.
+**Mbolo** signifie « salut, bienvenue » dans plusieurs langues d'Afrique centrale. C'est le mot qu'on dit en arrivant, au moment où deux personnes se rencontrent pour de vrai : c'est exactement la promesse de l'app. Il est court, se prononce de la même façon en français et en anglais, et se retient du premier coup.
 
 > Le nom se change sans toucher au code : variable `APP_NAME` dans `.env` (voir « Changer le nom de l'application »).
 
@@ -42,7 +42,7 @@ Ce dépôt contient tout ce qu'il faut pour la tester sur ton propre téléphone
 
 1. Dans Telegram, ouvre **@BotFather**.
 2. Envoie `/newbot`.
-3. Donne un nom affiché (ex. `Moyo Test`), puis un nom d'utilisateur finissant par `bot` (ex. `moyo_test_bot`).
+3. Donne un nom affiché (ex. `Mbolo Test`), puis un nom d'utilisateur finissant par `bot` (ex. `mbolo_test_bot`).
 4. BotFather te donne un **jeton** du type `123456789:AAH...`. Garde-le secret : quiconque l'a contrôle ton bot.
 
 ## Étape 2 : installer le projet
@@ -81,21 +81,21 @@ Tu dois voir :
 
 ```
 Profils de démonstration chargés : 6
-Moyo écoute sur le port 3000
-Bot @moyo_test_bot démarré (interrogation longue)
+Mbolo écoute sur le port 3000
+Bot @mbolo_test_bot démarré (interrogation longue)
 ```
 
 Sur ton téléphone :
 
 1. Cherche ton bot dans Telegram et envoie `/start`.
-2. Appuie sur **Ouvrir Moyo** sous le message (ou sur le bouton **Ouvrir** à côté du champ de saisie).
+2. Appuie sur **Ouvrir Mbolo** sous le message (ou sur le bouton **Ouvrir** à côté du champ de saisie).
 3. Crée ton profil : choisis **Yaoundé** comme ville pour voir les profils de démonstration.
 4. Prends le selfie avec le geste demandé. Avec `AUTO_APPROVE=true`, il est validé au bout de 3 secondes et le bot t'écrit.
 5. Aime un profil : les profils de démonstration aiment en retour, donc tu obtiens un match.
 6. Écris un message, essaie « envoie-moi 2000 F par MoMo » pour voir le blocage, puis propose un rendez-vous.
 7. **Teste les notifications** :
    - Onglet **Profil** → **Tester les notifications** : le bot t'écrit tout de suite.
-   - Envoie un message à un profil de démo, puis **ferme immédiatement Moyo** : environ 15 secondes plus tard, le bot te prévient de sa réponse, avec un bouton qui rouvre la bonne discussion.
+   - Envoie un message à un profil de démo, puis **ferme immédiatement Mbolo** : environ 15 secondes plus tard, le bot te prévient de sa réponse, avec un bouton qui rouvre la bonne discussion.
    - Une minute après la validation de ton selfie, un profil de démo te « like » : le bot t'annonce que tu as plu à quelqu'un, et ce profil apparaît en premier dans Découvrir.
 
 **Quels profils de démo vas-tu voir ?**
@@ -111,18 +111,18 @@ Sur ton téléphone :
 
 1. Mets une valeur à `ADMIN_KEY` dans `.env` et redémarre.
 2. Sur ton ordinateur, ouvre `https://TON-ADRESSE/qr/palmier.png?key=TA_CLE`.
-3. Dans la discussion Moyo sur ton téléphone, appuie sur **Je suis arrivé(e) : scanner le code** et vise l'écran.
+3. Dans la discussion Mbolo sur ton téléphone, appuie sur **Je suis arrivé(e) : scanner le code** et vise l'écran.
 
 Lieux disponibles : `palmier`, `etudiants`, `lac` (Yaoundé) et `wouri` (Douala). Ils se modifient dans `server/config.js`.
 
 ## Étape 6 : activer la vraie modération des selfies
 
-1. Crée un groupe Telegram privé « Modération Moyo » et ajoute ton bot.
+1. Crée un groupe Telegram privé « Modération Mbolo » et ajoute ton bot.
 2. Envoie `/id` dans le groupe : le bot répond l'identifiant (ex. `-1001234567890`).
 3. Dans `.env` : `ADMIN_CHAT_ID=-1001234567890` et `AUTO_APPROVE=false`.
 4. Redémarre. Chaque nouveau selfie arrive dans le groupe avec le geste demandé et deux boutons : **Valider** ou **Refuser**. Le selfie est supprimé du serveur dès la décision.
 
-## Étape 7 (facultative) : faire de Moyo l'app principale du bot
+## Étape 7 (facultative) : faire de Mbolo l'app principale du bot
 
 Dans @BotFather : `/mybots` → ton bot → **Bot Settings** → **Configure Mini App** → active-la avec ton `WEBAPP_URL`. Tu obtiens :
 
@@ -136,7 +136,7 @@ Pense aussi à renseigner ta **politique de confidentialité** dans BotFather (o
 
 ## Changer le nom de l'application
 
-1. Dans `.env`, modifie la ligne `APP_NAME=Moyo` (ex. `APP_NAME=Imani`).
+1. Dans `.env`, modifie la ligne `APP_NAME=Mbolo` (ex. `APP_NAME=Imani`).
 2. Redémarre le serveur : le nom change dans l'app, les messages du bot, les notifications et les avantages des lieux partenaires.
 3. Dans @BotFather : `/mybots` → ton bot → **Edit Bot** → **Edit Name** pour le nom affiché en haut de la mini app, puis **Edit About** et **Edit Description** pour les textes de présentation.
 4. L'identifiant du bot (`@...`) ne se modifie généralement pas : si tu veux un identifiant assorti au nouveau nom, crée un nouveau bot avec `/newbot` et mets son jeton dans `BOT_TOKEN`.

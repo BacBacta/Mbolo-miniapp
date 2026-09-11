@@ -1,6 +1,6 @@
-# Moyo : instructions pour l'agent de code
+# Mbolo : instructions pour l'agent de code
 
-Tu reprends **Moyo**, une mini app Telegram de rencontres vérifiées pour l'Afrique francophone, lancée d'abord à Yaoundé (Cameroun). Le prototype fonctionne : il a été testé sur un vrai téléphone Android dans Telegram. Ton rôle est de le faire évoluer vers une bêta fermée, sans casser ce qui marche.
+Tu reprends **Mbolo**, une mini app Telegram de rencontres vérifiées pour l'Afrique francophone, lancée d'abord à Yaoundé (Cameroun). Le prototype fonctionne : il a été testé sur un vrai téléphone Android dans Telegram. Ton rôle est de le faire évoluer vers une bêta fermée, sans casser ce qui marche.
 
 Lis ce fichier en entier avant toute modification.
 
@@ -27,7 +27,7 @@ Des rencontres entre personnes réelles et vérifiées, dans des lieux publics, 
 - **Interface :** HTML, CSS et JavaScript sans framework ni étape de build, SDK officiel `telegram-web-app.js`.
 - **Stockage :** fichier JSON avec écriture atomique (`server/store.js`), à migrer vers PostgreSQL.
 - **Tests :** `node --test test/*.test.js` (lancé par `npm test`).
-- **Nom de l'app :** variable `APP_NAME` (par défaut `Moyo`), injectée dans `index.html` par le serveur.
+- **Nom de l'app :** variable `APP_NAME` (par défaut `Mbolo`), injectée dans `index.html` par le serveur.
 - **Dépendances :** `express`, `grammy`, `qrcode`, `dotenv`. N'en ajoute pas sans justification.
 
 ## 3. Organisation du code

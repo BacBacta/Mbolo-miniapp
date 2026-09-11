@@ -28,7 +28,7 @@ const S = {
 
 const app = document.getElementById('app');
 // Nom de l'app injecté par le serveur (variable APP_NAME)
-const APP = document.querySelector('meta[name="app-name"]')?.content || 'Moyo';
+const APP = document.querySelector('meta[name="app-name"]')?.content || 'Mbolo';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const ICONS = {

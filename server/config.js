@@ -8,7 +8,7 @@ const bool = (v, d = false) => (v === undefined || v === '' ? d : ['1', 'true', 
 export const config = {
   root,
   // Nom affiché partout (app, bot, notifications). Modifiable sans toucher au code.
-  appName: (process.env.APP_NAME || 'Moyo').trim(),
+  appName: (process.env.APP_NAME || 'Mbolo').trim(),
   // DATA_DIR permet de placer les données sur un volume persistant (hébergeur) ou dans un dossier de test
   dataDir: process.env.DATA_DIR || path.join(root, 'data'),
   uploadsDir: path.join(process.env.DATA_DIR || path.join(root, 'data'), 'uploads'),
