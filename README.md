@@ -21,7 +21,7 @@ Ce dépôt contient tout ce qu'il faut pour la tester sur ton propre téléphone
 | Match et discussion | En tête de Messages, ceux qui ont aimé ton profil et attendent ta réponse (visibles quel que soit leur âge). Discussion plein écran, heure des messages, compteur de non lus, pseudos Telegram jamais montrés |
 | Activité | « En ligne récemment », « aujourd'hui » ou « cette semaine », jamais l'heure exacte ni de temps réel. La tranche fine est réservée aux matchs ; en découverte, « cette semaine » au plus |
 | Notifications | Le bot prévient d'un match, d'un message ou d'un like (« tu as plu à quelqu'un », une fois par jour), mais pas si la personne lit déjà la discussion |
-| Onglet Profil | Aperçu de son profil tel que les autres le voient, modification, test des notifications, paramètres |
+| Onglet Profil | Taux de complétion avec les étapes qui manquent (photo, quartier, langues), chacune ouvrant directement la bonne étape du formulaire. Aperçu de son profil tel que les autres le voient, en sections (réponse, infos, confiance), modification, test des notifications, paramètres |
 | Anti-arnaque | Demandes d'argent bloquées ; liens, numéros et pseudos bloqués avant 10 messages (`server/antiscam.js`) |
 | Rendez-vous sûr | Lieux partenaires uniquement, arrivée confirmée par le scanner QR natif de Telegram |
 | Signalement | Bloque immédiatement et prévient la modération |
