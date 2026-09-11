@@ -145,6 +145,17 @@ export const store = {
 
   isViewing: (userId, matchId, withinMs = 10000) => Date.now() - (presence.get(`${userId}:${matchId}`) || 0) < withinMs,
 
+  // ---------- Activité ----------
+  // Un seul horodatage par personne, jamais exposé brut : les autres ne voient qu'une tranche
+  // (voir publicProfile dans routes.js). Écrit au plus une fois par minute, sinon chaque personne
+  // réécrirait db.json toutes les 20 s, au rythme des appels à /summary.
+  touchActivity(userId) {
+    const u = db.users[String(userId)];
+    if (!u || Date.now() - (u.lastActiveAt || 0) < 60000) return;
+    u.lastActiveAt = Date.now();
+    save();
+  },
+
   // ---------- Messages ----------
   messagesOf: (matchId) => db.messages[matchId] || [],
 

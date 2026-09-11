@@ -19,6 +19,7 @@ Ce dépôt contient tout ce qu'il faut pour la tester sur ton propre téléphone
 | Vérification par selfie | Geste aléatoire, selfie envoyé à ta discussion de modération avec les boutons Valider / Refuser, puis **supprimé** |
 | Découverte | Profils vérifiés de la même ville et de la même intention, 20 par jour |
 | Match et discussion | Discussion plein écran, heure des messages, compteur de non lus, pseudos Telegram jamais montrés |
+| Activité | « En ligne récemment », « aujourd'hui » ou « cette semaine », jamais l'heure exacte ni de temps réel. La tranche fine est réservée aux matchs ; en découverte, « cette semaine » au plus |
 | Notifications | Le bot prévient d'un match, d'un message ou d'un like (« tu as plu à quelqu'un », une fois par jour), mais pas si la personne lit déjà la discussion |
 | Onglet Profil | Aperçu de son profil tel que les autres le voient, modification, test des notifications, paramètres |
 | Anti-arnaque | Demandes d'argent bloquées ; liens, numéros et pseudos bloqués avant 10 messages (`server/antiscam.js`) |
@@ -333,7 +334,7 @@ Avec `USE_WEBHOOK=true`, Telegram envoie les messages du bot directement à ton 
 
 Ce prototype sert à une **bêta fermée**. Avant un lancement public :
 
-- [ ] **Autorisation de l'Autorité de protection des données** (loi n° 2024/017, applicable depuis le 23 juin 2026) : tu traites des photos, des données de vie intime et des données biométriques.
+- [ ] **Autorisation de l'Autorité de protection des données** (loi n° 2024/017, applicable depuis le 23 juin 2026) : tu traites des photos, des données de vie intime, des données biométriques, et un horodatage de dernière activité par personne (montré aux autres par tranche seulement, effacé avec le compte).
 - [ ] Conditions d'utilisation et politique de confidentialité publiées, et renseignées dans BotFather.
 - [ ] `SEED_DEMO=false` et `AUTO_APPROVE=false`.
 - [ ] Une équipe de modération disponible chaque jour (selfies et signalements).

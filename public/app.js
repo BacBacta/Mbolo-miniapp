@@ -189,6 +189,10 @@ function loadAvatar(p, { own = false } = {}) {
   });
 }
 
+// Tranche d'activité calculée par le serveur, jamais l'heure exacte. Formulation sans accord : le genre n'est pas exposé
+const ACTIVITY_LABELS = { recent: 'En ligne récemment', today: "En ligne aujourd'hui", week: 'En ligne cette semaine' };
+const activityChip = (p, cls = 'chip') => (ACTIVITY_LABELS[p.activity] ? `<span class="${cls} act-${p.activity}">${ACTIVITY_LABELS[p.activity]}</span>` : '');
+
 // Carte de profil, partagée entre la découverte et l'aperçu de son propre profil.
 // cls = 'top' (carte manipulable) ou 'next' (carte suivante, en retrait)
 function profileCard(p, { own = false, cls = '' } = {}) {
@@ -206,6 +210,7 @@ function profileCard(p, { own = false, cls = '' } = {}) {
           ${p.verified ? `<span class="pill-glass">${icon('shield', 14)} Vérifié</span>` : ''}
           ${p.likedYou ? `<span class="pill-glass pill-like">${icon('heart', 14, { fill: true })} T'a liké</span>` : ''}
           ${p.demo ? '<span class="pill-glass">démo</span>' : ''}
+          ${own ? '' : activityChip(p, 'pill-glass')}
         </div>
         <div class="overlay">
           <div class="name">${esc(p.name)}<span class="age">${esc(p.age)}</span></div>
@@ -483,7 +488,7 @@ const SCREENS = {
           <button type="button" class="list-row ${m.unread ? 'unread' : ''}" data-action="open-chat" data-id="${m.id}">
             ${avatar(m.other, 'sm')}
             <div class="body">
-              <div class="title">${esc(m.other.name)}${m.other.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${m.isNew ? '<span class="chip chip-accent">Nouveau</span>' : ''}</div>
+              <div class="title">${esc(m.other.name)}${m.other.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${m.isNew ? '<span class="chip chip-accent">Nouveau</span>' : ''}${activityChip(m.other)}</div>
               <div class="preview">${m.lastMessage ? `${m.lastMessage.from === S.me.id ? 'Toi : ' : ''}${esc(m.lastMessage.text)}` : 'Nouveau match, écris le premier message'}</div>
             </div>
             ${m.unread ? `<span class="count-badge">${m.unread}</span>` : `<span class="chev">${icon('chevron-right', 18)}</span>`}
@@ -777,7 +782,7 @@ function renderChat() {
         ${avatar(c.other, 'sm')}
         <div class="body">
           <div class="name">${esc(c.other.name)}, ${esc(c.other.age)}${c.other.verified ? `<span class="ok">${icon('shield', 15)}</span>` : ''}</div>
-          <div class="sub">${icon('lock', 12)} Pseudos et numéros masqués</div>
+          <div class="sub">${ACTIVITY_LABELS[c.other.activity] ? `${activityChip(c.other, 'act')}<span aria-hidden="true">·</span>` : ''}${icon('lock', 12)} Pseudos et numéros masqués</div>
         </div>
         <button type="button" class="icon-btn" data-action="report-chat" aria-label="Signaler">${icon('flag', 18)}</button>
       </div>
