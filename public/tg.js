@@ -16,6 +16,38 @@ function applyScheme(scheme) {
   document.documentElement.dataset.scheme = scheme === 'dark' ? 'dark' : 'light';
 }
 
+// Couleur d'une variable CSS telle que le navigateur la calcule (les color-mix ne se lisent pas
+// directement), en hexadécimal : c'est ce que Telegram attend pour peindre son cadre.
+function resolvedColor(varName) {
+  const probe = document.createElement('span');
+  probe.style.cssText = `position:absolute;visibility:hidden;color:var(${varName})`;
+  document.body.appendChild(probe);
+  const c = getComputedStyle(probe).color;
+  probe.remove();
+  let parts = c.match(/[\d.]+/g);
+  if (!parts) return null;
+  if (c.startsWith('color(')) parts = parts.map((x) => Math.round(Number(x) * 255)); // color(srgb r g b)
+  return '#' + parts.slice(0, 3).map((n) => Number(n).toString(16).padStart(2, '0')).join('');
+}
+
+// Les boutons natifs prennent les couleurs de la marque ; le cadre Telegram, celle de la page
+const BRAND = { color: '#e0784f', text_color: '#141210' };
+const secondaryColors = () => {
+  const color = resolvedColor('--btn-secondary');
+  const text_color = resolvedColor('--text');
+  return color && text_color ? { color, text_color } : {};
+};
+function syncChrome() {
+  if (!inTelegram) return;
+  const bg = resolvedColor('--bg2');
+  if (bg && supports('6.1')) {
+    W.setHeaderColor(bg);
+    W.setBackgroundColor(bg);
+  }
+  if (bg && supports('7.10')) W.setBottomBarColor(bg);
+  W.MainButton.setParams(BRAND);
+}
+
 export function init() {
   if (!inTelegram) {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -26,14 +58,10 @@ export function init() {
   W.ready();
   W.expand();
   if (supports('7.7')) W.disableVerticalSwipes(); // évite de fermer l'app en faisant défiler
-  // En-tête, fond et barre du bas sur la même couleur secondaire : la page et le cadre Telegram ne font qu'un
-  if (supports('6.1')) {
-    W.setHeaderColor('secondary_bg_color');
-    W.setBackgroundColor('secondary_bg_color');
-  }
-  if (supports('7.10')) W.setBottomBarColor('secondary_bg_color');
+  // En-tête, fond et barre du bas prennent la couleur de la page : le cadre Telegram et l'app ne font qu'un
   applyScheme(W.colorScheme);
-  W.onEvent('themeChanged', () => applyScheme(W.colorScheme));
+  syncChrome();
+  W.onEvent('themeChanged', () => { applyScheme(W.colorScheme); syncChrome(); });
 }
 
 export const initData = () => (inTelegram ? W.initData : '');
@@ -62,7 +90,7 @@ export function setButtons(buttons = {}) {
     mainHandler = null;
     if (main) {
       mainHandler = () => main.onClick?.();
-      W.MainButton.setParams({ text: main.text, is_visible: true, is_active: !main.progress });
+      W.MainButton.setParams({ ...BRAND, text: main.text, is_visible: true, is_active: !main.progress });
       W.MainButton.onClick(mainHandler);
       main.progress ? W.MainButton.showProgress(false) : W.MainButton.hideProgress();
     } else {
@@ -74,7 +102,7 @@ export function setButtons(buttons = {}) {
       secondaryHandler = null;
       if (secondary) {
         secondaryHandler = () => secondary.onClick?.();
-        W.SecondaryButton.setParams({ text: secondary.text, is_visible: true, position: 'left' });
+        W.SecondaryButton.setParams({ ...secondaryColors(), text: secondary.text, is_visible: true, position: 'left' });
         W.SecondaryButton.onClick(secondaryHandler);
       } else {
         W.SecondaryButton.hide();
