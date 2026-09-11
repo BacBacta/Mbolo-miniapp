@@ -45,6 +45,9 @@ function publicProfile(user) {
     demo: !!user.demo,
     // Les profils de démonstration répondent en quelques secondes : « aujourd'hui » est cohérent
     activity: user.demo ? 'today' : activityBucket(user.lastActiveAt),
+    // Inscrit depuis moins d'une semaine. Dérivé, jamais la date elle-même. Les profils de
+    // démonstration sont recréés à chaque démarrage : ils ne sont jamais « nouveaux »
+    isNew: !user.demo && Date.now() - user.createdAt < 7 * 86400e3,
   };
 }
 
@@ -165,6 +168,9 @@ function compatible(me, other) {
   return true;
 }
 
+// Même quartier que moi ? Le quartier déclaré tient lieu de proximité, sans jamais demander la position
+const sameArea = (me, p) => Number(!!me.profile.area && p.area === me.profile.area);
+
 api.get('/discover', requireApproved, (req, res) => {
   const me = req.user;
   const remaining = Math.max(0, config.dailyProfiles - store.swipesToday(me.id));
@@ -173,7 +179,8 @@ api.get('/discover', requireApproved, (req, res) => {
     .filter((u) => u.id !== me.id && isApproved(u) && !store.hasSwiped(me.id, u.id) && !store.isBlocked(me.id, u.id) && compatible(me, u))
     // Avant le match, on ne dit que « cette semaine » ou rien : la tranche fine est réservée aux matchs
     .map((u) => { const p = publicProfile(u); return { ...p, activity: p.activity ? 'week' : null, likedYou: store.likedBy(u.id, me.id) }; })
-    .sort((a, b) => Number(b.likedYou) - Number(a.likedYou))
+    // Ceux qui t'ont liké, puis ton quartier
+    .sort((a, b) => Number(b.likedYou) - Number(a.likedYou) || sameArea(me, b) - sameArea(me, a))
     .slice(0, Math.min(10, remaining));
   res.json({ profiles, remaining });
 });
@@ -201,8 +208,8 @@ api.get('/profiles', requireApproved, (req, res) => {
       };
     })
     // Ceux qui attendent ta réponse d'abord, puis ceux que tu n'as pas encore vus, puis les balayés,
-    // et les matchs en dernier : ils sont déjà dans Messages. À égalité, les plus actifs, puis les plus récents.
-    .sort((a, b) => listRank(b) - listRank(a) || (ACTIVITY_RANK[b.activity] || 0) - (ACTIVITY_RANK[a.activity] || 0) || b.since - a.since)
+    // et les matchs en dernier : ils sont déjà dans Messages. À égalité : ton quartier, les plus actifs, les plus récents.
+    .sort((a, b) => listRank(b) - listRank(a) || sameArea(me, b) - sameArea(me, a) || (ACTIVITY_RANK[b.activity] || 0) - (ACTIVITY_RANK[a.activity] || 0) || b.since - a.since)
     .slice(0, 50)
     .map(({ since, ...p }) => p);
   res.json({ profiles });

@@ -17,7 +17,7 @@ Ce dépôt contient tout ce qu'il faut pour la tester sur ton propre téléphone
 | Connexion sans mot de passe | Identité Telegram, signature vérifiée côté serveur (`server/auth.js`) |
 | Profil 18+ | Âge contrôlé, ni numéro ni lien accepté dans le profil |
 | Vérification par selfie | Geste aléatoire, selfie envoyé à ta discussion de modération avec les boutons Valider / Refuser, puis **supprimé** |
-| Découverte | Profils vérifiés de la même ville et de la même intention, 20 par jour. Une vue **Liste** montre tous les profils compatibles, balayés ou non, avec leur statut (aimé, passé, match) ; la parcourir ne consomme rien, seul un « J'aime » compte, et un « Passer » peut y être rattrapé |
+| Découverte | Profils vérifiés de la même ville et de la même intention, 20 par jour, ceux de ton quartier d'abord (sans jamais demander ta position). Badge « Nouveau » la première semaine. Une vue **Liste** montre tous les profils compatibles, balayés ou non, avec leur statut (aimé, passé, match) et des vignettes chargées à l'apparition, jamais en économie de data ; la parcourir ne consomme rien, seul un « J'aime » compte, et un « Passer » peut y être rattrapé |
 | Match et discussion | Discussion plein écran, heure des messages, compteur de non lus, pseudos Telegram jamais montrés |
 | Activité | « En ligne récemment », « aujourd'hui » ou « cette semaine », jamais l'heure exacte ni de temps réel. La tranche fine est réservée aux matchs ; en découverte, « cette semaine » au plus |
 | Notifications | Le bot prévient d'un match, d'un message ou d'un like (« tu as plu à quelqu'un », une fois par jour), mais pas si la personne lit déjà la discussion |

@@ -12,6 +12,7 @@ const S = {
   discoverMode: 'cards',
   people: [],
   person: null,
+  avatarObserver: null,
   revealed: {},
   photoUrls: {},
   dataSaver: false,
@@ -108,6 +109,7 @@ function go(screen, params = {}) {
   clearInterval(S.summaryTimer);
   S.detachSwipe?.();
   S.detachSwipe = null;
+  S.avatarObserver?.disconnect();
   tg.closingConfirmation(false);
   S.screen = screen;
   // La discussion occupe toute la hauteur de l'écran, champ de saisie fixé en bas
@@ -212,6 +214,7 @@ function profileCard(p, { own = false, cls = '' } = {}) {
         ${p.hasPhoto && hidePhoto ? `<button type="button" class="btn btn-glass reveal" data-action="reveal" data-id="${esc(p.id)}">${icon('image', 18)} Afficher la photo</button>` : ''}
         <div class="corners">
           ${p.verified ? `<span class="pill-glass pill-verified">${icon('shield', 14)} Vérifié</span>` : ''}
+          ${p.isNew && !own ? `<span class="pill-glass">${icon('sparkles', 13)} Nouveau</span>` : ''}
           ${p.likedYou ? `<span class="pill-glass pill-like">${icon('heart', 14, { fill: true })} T'a liké</span>` : ''}
           ${p.demo ? '<span class="pill-glass">démo</span>' : ''}
           ${own ? '' : activityChip(p, 'pill-glass')}
@@ -310,7 +313,7 @@ async function renderPeople() {
         <button type="button" class="list-row" data-action="${p.status === 'match' ? 'open-chat' : 'person'}" data-id="${esc(p.status === 'match' ? p.matchId : p.id)}">
           ${avatar(p, 'sm')}
           <div class="body">
-            <div class="title">${esc(p.name)}, ${esc(p.age)}${p.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${p.likedYou && !p.status ? `<span class="chip chip-like">T'a liké</span>` : ''}${st ? `<span class="chip ${st[1]}">${st[0]}</span>` : ''}</div>
+            <div class="title">${esc(p.name)}, ${esc(p.age)}${p.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${p.likedYou && !p.status ? `<span class="chip chip-like">T'a liké</span>` : ''}${p.isNew && !p.status ? '<span class="chip chip-accent">Nouveau</span>' : ''}${st ? `<span class="chip ${st[1]}">${st[0]}</span>` : ''}</div>
             <div class="sub">${esc(p.area ? `${p.area} · ` : '')}${esc(p.intentLabel)}${act ? ` · <span class="act act-${p.activity}">${act}</span>` : ''}</div>
           </div>
           <span class="chev">${icon('chevron-right', 18)}</span>
@@ -318,6 +321,23 @@ async function renderPeople() {
       }).join('')}</div>
     </div>`);
   tg.setButtons(null);
+  lazyAvatars();
+}
+
+// Vignettes de la liste : chargées seulement quand la ligne apparaît à l'écran, et jamais en
+// économie de data (loadAvatar s'en assure). Cinquante photos d'un coup coûteraient trop cher.
+function lazyAvatars() {
+  S.avatarObserver?.disconnect();
+  if (S.dataSaver || !('IntersectionObserver' in window)) return;
+  S.avatarObserver = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      S.avatarObserver.unobserve(e.target);
+      const p = S.people.find((x) => x.id === e.target.dataset.avatar);
+      if (p) loadAvatar(p);
+    }
+  }, { rootMargin: '120px' });
+  app.querySelectorAll('.list-row .avatar[data-avatar]').forEach((el) => S.avatarObserver.observe(el));
 }
 
 // « J'aime » ou « Passer » depuis le détail d'un profil ouvert par la liste
