@@ -15,7 +15,8 @@ export const config = {
   publicDir: path.join(root, 'public'),
   port: Number(process.env.PORT || 3000),
   botToken: process.env.BOT_TOKEN || '',
-  webAppUrl: (process.env.WEBAPP_URL || '').replace(/\/$/, ''),
+  // Adresse HTTPS publique. Chez Render, RENDER_EXTERNAL_URL est fournie par l'hébergeur : inutile de la recopier.
+  webAppUrl: (process.env.WEBAPP_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, ''),
   adminChatId: process.env.ADMIN_CHAT_ID || '',
   adminKey: process.env.ADMIN_KEY || '',
   autoApprove: bool(process.env.AUTO_APPROVE, false),

@@ -197,6 +197,48 @@ Ouvre ensuite `http://localhost:3000/?dev_user=1001` dans Chrome. Tout le parcou
 
 > Retire `ALLOW_DEV_AUTH=true` ensuite. Avec un tunnel actif, n'importe qui ayant l'adresse pourrait se faire passer pour n'importe quel compte.
 
+---
+
+## Tester dans Telegram sans tunnel : hébergement gratuit
+
+Quand aucun tunnel ne passe sur ton réseau, fais tourner le serveur chez un hébergeur : Telegram y accède comme n'importe quel utilisateur, et l'adresse ne change plus. L'offre gratuite de [Render](https://render.com) suffit pour une bêta fermée de quelques testeurs. Il faut un compte, ouvert avec ton compte GitHub, sans carte bancaire.
+
+Vérifie d'abord que ton réseau atteint les adresses Render. Une adresse inexistante doit répondre `404`, pas `000` :
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://mbolo-inexistant.onrender.com/
+```
+
+Si tu obtiens `000` ici aussi, c'est le résolveur DNS de ton téléphone qui bloque, et aucun hébergeur n'y changera rien : règle le **DNS privé** d'Android sur `dns.google` (Paramètres → Connexions → Plus de paramètres de connexion).
+
+### Mise en place
+
+1. Sur https://dashboard.render.com : **New** → **Web Service** → connecte le dépôt `BacBacta/Mbolo-miniapp`.
+2. Remplis : **Branch** la branche à tester, **Runtime** Node, **Build command** `npm ci`, **Start command** `npm start`, **Instance type** Free.
+3. Dans **Environment variables**, ajoute :
+
+   | Clé | Valeur |
+   |---|---|
+   | `BOT_TOKEN` | ton jeton BotFather |
+   | `ADMIN_KEY` | une longue chaîne aléatoire |
+   | `USE_WEBHOOK` | `true` |
+   | `NODE_ENV` | `production` |
+   | `SEED_DEMO` | `true` : profils de démonstration |
+   | `AUTO_APPROVE` | `true` : selfies validés sans modération, tests uniquement |
+
+   Pas besoin de `WEBAPP_URL` : le serveur utilise `RENDER_EXTERNAL_URL`, que Render fournit tout seul.
+4. **Deploy**. Au bout de deux à trois minutes, le journal affiche `Mbolo écoute sur le port 10000` puis `Bot en mode webhook`.
+5. Dans Telegram : `/start` → **Ouvrir Mbolo**.
+
+Le fichier `render.yaml` à la racine décrit le même service : **New** → **Blueprint** le lit et pré-remplit tout, il ne reste que `BOT_TOKEN` à saisir. Render doit le trouver sur la branche choisie.
+
+### À savoir
+
+- **Le service s'endort après 15 minutes sans requête** et met 30 à 60 secondes à se réveiller. Le premier `/start` peut donc tarder : ouvre d'abord l'adresse du service dans Chrome pour le réveiller, puis Telegram.
+- **Le disque est effacé à chaque redéploiement** sur l'offre gratuite : profils et discussions de test disparaissent, les profils de démo sont recréés. Pour de vrais utilisateurs, il faut un disque persistant ou PostgreSQL : voir « Mettre en ligne ».
+- Chaque `git push` sur la branche choisie redéploie automatiquement.
+- Ne lance pas en même temps le serveur sur ton téléphone avec `USE_WEBHOOK=false` : il retirerait le webhook, et le serveur hébergé ne recevrait plus rien.
+
 ## Changer le nom de l'application
 
 1. Dans `.env`, modifie la ligne `APP_NAME=Mbolo` (ex. `APP_NAME=Imani`).
