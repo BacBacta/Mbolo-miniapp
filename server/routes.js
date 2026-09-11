@@ -10,9 +10,20 @@ import { DEMO_REPLIES } from './seed.js';
 
 export const api = express.Router();
 api.use(requireAuth);
+// Chaque appel authentifié vaut signe de vie : l'app interroge /summary toutes les 20 s tant qu'elle est ouverte
+api.use((req, res, next) => { store.touchActivity(req.user.id); next(); });
 
 const fail = (res, status, code, message) => res.status(status).json({ code, message });
 const GESTURES = ['Lève deux doigts et souris', 'Touche ton oreille gauche', 'Fais un pouce levé', 'Pose ta main sur ta joue'];
+
+// Tranche d'activité montrée aux autres. Volontairement floue : jamais l'heure exacte, jamais de
+// temps réel. Un « en ligne maintenant » précis servirait à faire pression sur qui ne répond pas.
+const ACTIVITY_STEPS = [['recent', 15 * 60e3], ['today', 24 * 3600e3], ['week', 7 * 86400e3]];
+export function activityBucket(lastActiveAt, now = Date.now()) {
+  if (!lastActiveAt) return null;
+  const age = now - lastActiveAt;
+  return ACTIVITY_STEPS.find(([, max]) => age < max)?.[0] || null;
+}
 
 // Profil visible par les autres : aucune donnée Telegram (pseudo, numéro) n'est exposée
 function publicProfile(user) {
@@ -32,6 +43,8 @@ function publicProfile(user) {
     verified: user.verification === 'approved',
     trust: p.trust || { selfie: user.verification === 'approved', guarantor: false, seniority: Date.now() - user.createdAt > 90 * 864e5 },
     demo: !!user.demo,
+    // Les profils de démonstration répondent en quelques secondes : « aujourd'hui » est cohérent
+    activity: user.demo ? 'today' : activityBucket(user.lastActiveAt),
   };
 }
 
@@ -158,7 +171,8 @@ api.get('/discover', requireApproved, (req, res) => {
   if (!remaining) return res.json({ profiles: [], remaining: 0 });
   const profiles = store.allUsers()
     .filter((u) => u.id !== me.id && isApproved(u) && !store.hasSwiped(me.id, u.id) && !store.isBlocked(me.id, u.id) && compatible(me, u))
-    .map((u) => ({ ...publicProfile(u), likedYou: store.likedBy(u.id, me.id) }))
+    // Avant le match, on ne dit que « cette semaine » ou rien : la tranche fine est réservée aux matchs
+    .map((u) => { const p = publicProfile(u); return { ...p, activity: p.activity ? 'week' : null, likedYou: store.likedBy(u.id, me.id) }; })
     .sort((a, b) => Number(b.likedYou) - Number(a.likedYou))
     .slice(0, Math.min(10, remaining));
   res.json({ profiles, remaining });
