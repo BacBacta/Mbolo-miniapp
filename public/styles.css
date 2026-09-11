@@ -277,6 +277,14 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .stepper span.on { background: var(--button); }
 
 .avatar-picker { display: grid; justify-items: center; gap: 10px; padding: 6px 0; }
+/* Trois emplacements de photo dans le formulaire */
+.photo-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.photo-slot { position: relative; aspect-ratio: 4 / 5; border-radius: 18px; overflow: hidden; background: var(--btn-secondary); border: 1.5px dashed var(--line-strong); display: grid; place-items: center; color: var(--hint); cursor: pointer; }
+.photo-slot.has { border-style: solid; border-color: var(--line); }
+.photo-slot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.photo-slot .rm { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgb(20 18 16 / .7); color: #f3ede4; display: grid; place-items: center; z-index: 1; }
+.photo-slot .state { position: absolute; left: 6px; right: 6px; bottom: 6px; justify-content: center; font-size: 11px; padding: 3px 8px; background: rgb(20 18 16 / .7); color: #f3ede4; border-color: transparent; }
+.photo-slot .num { position: absolute; top: 8px; left: 10px; font-size: 12px; font-weight: 600; color: #f3ede4; text-shadow: 0 1px 2px rgb(0 0 0 / .5); z-index: 1; }
 .avatar-big { position: relative; width: 116px; height: 116px; border-radius: 40px; display: grid; place-items: center; overflow: visible; background: linear-gradient(150deg, var(--tint-strong), var(--tint)); color: var(--accent); cursor: pointer; box-shadow: var(--shadow-1); }
 .avatar-big img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 40px; }
 .avatar-big .cam { position: absolute; right: -6px; bottom: -6px; width: 38px; height: 38px; border-radius: 50%; background: var(--button); color: var(--button-text); display: grid; place-items: center; border: 3px solid var(--bg2); }
@@ -289,6 +297,12 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .card-photo .initial { font-family: var(--font-display); font-size: 150px; font-weight: 400; color: #f3ede4; opacity: .12; user-select: none; }
 .card-photo .scrim { position: absolute; left: 0; right: 0; bottom: 0; height: 64%; background: linear-gradient(to top, rgb(20 18 16 / .96), rgb(20 18 16 / .62) 40%, transparent); pointer-events: none; }
 .card-photo .corners { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+/* Plusieurs photos : repères en haut, on change de photo en touchant la moitié droite ou gauche */
+.card-photo .dots { position: absolute; top: 7px; left: 12px; right: 12px; display: flex; gap: 4px; z-index: 2; pointer-events: none; }
+.card-photo .dots span { flex: 1; height: 3px; border-radius: 2px; background: rgb(243 237 228 / .35); transition: background .2s; }
+.card-photo .dots span.on { background: #f3ede4; }
+.card-photo:has(.dots) .corners { top: 18px; }
+.card-photo[data-action="photo-nav"] { cursor: pointer; }
 .card-photo .reveal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .card-photo:has(.reveal) .initial { opacity: .12; }
 .overlay { position: absolute; left: 18px; right: 18px; bottom: 18px; display: grid; gap: 10px; color: #f3ede4; }

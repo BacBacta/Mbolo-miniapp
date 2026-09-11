@@ -5,7 +5,7 @@ import { config, runtime, venues, INTENTS, GENDERS, CITIES } from './config.js';
 import { store } from './store.js';
 import { requireAuth } from './auth.js';
 import { checkMessage } from './antiscam.js';
-import { notify, notifyAdmin, sendSelfieToModeration, decideVerification, onApproved } from './bot.js';
+import { notify, notifyAdmin, sendSelfieToModeration, sendPhotoToModeration, decideVerification, onApproved } from './bot.js';
 import { DEMO_REPLIES } from './seed.js';
 
 export const api = express.Router();
@@ -39,7 +39,9 @@ function publicProfile(user) {
     promptQ: p.promptQ,
     promptA: p.promptA,
     languages: p.languages || '',
-    hasPhoto: !!p.hasPhoto,
+    // Seules les photos validées par la modération sont montrées aux autres
+    photos: store.photosOf(user).filter((x) => x.status === 'approved').map((x) => x.n),
+    hasPhoto: store.photosOf(user).some((x) => x.status === 'approved'),
     verified: user.verification === 'approved',
     trust: p.trust || { selfie: user.verification === 'approved', guarantor: false, seniority: Date.now() - user.createdAt > 90 * 864e5 },
     demo: !!user.demo,
@@ -75,13 +77,14 @@ api.get('/me', (req, res) => {
     botUsername: runtime.botUsername,
     appName: config.appName,
     publicProfile: u.profile ? publicProfile(u) : null,
+    photos: store.photosOf(u),
     filters: filtersOf(u),
     notificationsAvailable: !!config.botToken,
     options: { intents: INTENTS, genders: GENDERS, cities: CITIES },
   });
 });
 
-api.put('/me/profile', (req, res) => {
+api.put('/me/profile', async (req, res) => {
   const b = req.body || {};
   const name = String(b.name || '').trim().slice(0, 30);
   const age = Number(b.age);
@@ -95,11 +98,9 @@ api.put('/me/profile', (req, res) => {
   const profileText = [name, b.area, promptA, b.languages].filter(Boolean).join(' ');
   if (!checkMessage(profileText, 0, 1).ok) return fail(res, 400, 'PROFILE_CONTACT', "Ton profil ne doit contenir ni numéro, ni lien, ni pseudo, ni demande d'argent.");
 
-  let hasPhoto = !!req.user.profile?.hasPhoto;
-  if (b.photo) {
-    if (!saveJpeg(b.photo, path.join(config.uploadsDir, `${req.user.id}-profile.jpg`))) return fail(res, 400, 'PHOTO_INVALID', 'Photo trop lourde ou format non pris en charge.');
-    hasPhoto = true;
-  }
+  // Ancien champ « photo » : il alimente l'emplacement 1, avec la même modération
+  if (b.photo && !(await acceptPhoto(req.user, 1, b.photo))) return fail(res, 400, 'PHOTO_INVALID', 'Photo trop lourde ou format non pris en charge.');
+  const hasPhoto = store.photosOf(req.user).some((x) => x.status === 'approved');
   const profile = {
     name, age, gender: b.gender, intent: b.intent, city: b.city,
     area: String(b.area || '').trim().slice(0, 40),
@@ -152,6 +153,35 @@ api.delete('/me', (req, res) => {
   res.json({ deleted: true });
 });
 
+// ---------- Photos : jusqu'à trois, chacune modérée avant d'être montrée ----------
+const PHOTO_SLOTS = [1, 2, 3];
+async function acceptPhoto(user, n, dataUrl) {
+  if (!saveJpeg(dataUrl, path.join(config.uploadsDir, `${user.id}-photo-${n}.jpg`))) return false;
+  // Tests uniquement : validation automatique. En production : AUTO_APPROVE=false et ADMIN_CHAT_ID configuré.
+  store.setPhoto(user.id, n, config.autoApprove ? 'approved' : 'pending');
+  if (!config.autoApprove) {
+    const sent = await sendPhotoToModeration(user.id, n).catch((e) => { console.warn('Envoi en modération impossible :', e.message); return false; });
+    if (!sent) console.warn(`Photo ${n} de ${user.id} en attente : configure BOT_TOKEN et ADMIN_CHAT_ID pour la recevoir en modération.`);
+  }
+  return true;
+}
+const slotOf = (req) => (PHOTO_SLOTS.includes(Number(req.params.n)) ? Number(req.params.n) : null);
+
+api.put('/me/photos/:n', async (req, res) => {
+  const n = slotOf(req);
+  if (!n) return fail(res, 400, 'PHOTO_SLOT', 'Trois photos au plus.');
+  if (!req.user.profile) return fail(res, 400, 'PROFILE_REQUIRED', 'Crée ton profil avant d\'ajouter des photos.');
+  if (!(await acceptPhoto(req.user, n, req.body?.photo))) return fail(res, 400, 'PHOTO_INVALID', 'Photo trop lourde ou format non pris en charge.');
+  res.json({ photos: store.photosOf(req.user) });
+});
+
+api.delete('/me/photos/:n', (req, res) => {
+  const n = slotOf(req);
+  if (!n) return fail(res, 400, 'PHOTO_SLOT', 'Trois photos au plus.');
+  store.removePhoto(req.user.id, n);
+  res.json({ photos: store.photosOf(req.user) });
+});
+
 // ---------- Filtres : ce que je veux voir ----------
 // Seule la tranche d'âge se règle ; ville et intention viennent du profil
 const DEFAULT_FILTERS = { ageMin: 18, ageMax: 99 };
@@ -169,11 +199,22 @@ api.put('/me/filters', (req, res) => {
 });
 
 // ---------- Photos (servies uniquement aux membres vérifiés) ----------
+// Une photo n'est servie aux autres qu'une fois validée ; on voit les siennes quel que soit leur état
+function servePhoto(req, res, n) {
+  const target = store.getUser(req.params.userId);
+  if (!target || store.isBlocked(req.user.id, target.id)) return fail(res, 404, 'NO_PHOTO', 'Pas de photo.');
+  const own = target.id === req.user.id;
+  const photo = store.photosOf(target).find((x) => x.n === n && (own || x.status === 'approved'));
+  const file = path.join(config.uploadsDir, `${target.id}-photo-${n}.jpg`);
+  if (!photo || !fs.existsSync(file)) return fail(res, 404, 'NO_PHOTO', 'Pas de photo.');
+  res.set('Cache-Control', 'private, max-age=3600').sendFile(file);
+}
+api.get('/photos/:userId/:n', requireApproved, (req, res) => servePhoto(req, res, Number(req.params.n)));
+// Sans numéro : la première photo validée (adresse historique)
 api.get('/photos/:userId', requireApproved, (req, res) => {
   const target = store.getUser(req.params.userId);
-  const file = path.join(config.uploadsDir, `${req.params.userId}-profile.jpg`);
-  if (!target?.profile?.hasPhoto || !fs.existsSync(file) || store.isBlocked(req.user.id, target.id)) return fail(res, 404, 'NO_PHOTO', 'Pas de photo.');
-  res.set('Cache-Control', 'private, max-age=3600').sendFile(file);
+  const first = target && store.photosOf(target).find((x) => x.status === 'approved');
+  servePhoto(req, res, first ? first.n : 1);
 });
 
 // ---------- Découverte ----------

@@ -21,7 +21,7 @@ Ce dépôt contient tout ce qu'il faut pour la tester sur ton propre téléphone
 | Match et discussion | En tête de Messages, ceux qui ont aimé ton profil et attendent ta réponse (visibles quel que soit leur âge). Discussion plein écran, heure des messages, compteur de non lus, pseudos Telegram jamais montrés |
 | Activité | « En ligne récemment », « aujourd'hui » ou « cette semaine », jamais l'heure exacte ni de temps réel. La tranche fine est réservée aux matchs ; en découverte, « cette semaine » au plus |
 | Notifications | Le bot prévient d'un match, d'un message ou d'un like (« tu as plu à quelqu'un », une fois par jour), mais pas si la personne lit déjà la discussion |
-| Onglet Profil | Taux de complétion avec les étapes qui manquent (photo, quartier, langues), chacune ouvrant directement la bonne étape du formulaire. Aperçu de son profil tel que les autres le voient, en sections (réponse, infos, confiance), modification, test des notifications, paramètres |
+| Onglet Profil | Jusqu'à **3 photos**, chacune validée par la modération avant d'être montrée (refusée : supprimée, et la personne sait pourquoi) ; sur la carte, on change de photo en touchant la moitié droite ou gauche. Taux de complétion avec les étapes qui manquent (photo, quartier, langues), chacune ouvrant directement la bonne étape du formulaire. Aperçu de son profil tel que les autres le voient, en sections (réponse, infos, confiance), modification, test des notifications, paramètres |
 | Anti-arnaque | Demandes d'argent bloquées ; liens, numéros et pseudos bloqués avant 10 messages (`server/antiscam.js`) |
 | Rendez-vous sûr | Lieux partenaires uniquement, arrivée confirmée par le scanner QR natif de Telegram |
 | Signalement | Bloque immédiatement et prévient la modération |
@@ -123,7 +123,7 @@ Lieux disponibles : `palmier`, `etudiants`, `lac` (Yaoundé) et `wouri` (Douala)
 1. Crée un groupe Telegram privé « Modération Mbolo » et ajoute ton bot.
 2. Envoie `/id` dans le groupe : le bot répond l'identifiant (ex. `-1001234567890`).
 3. Dans `.env` : `ADMIN_CHAT_ID=-1001234567890` et `AUTO_APPROVE=false`.
-4. Redémarre. Chaque nouveau selfie arrive dans le groupe avec le geste demandé et deux boutons : **Valider** ou **Refuser**. Le selfie est supprimé du serveur dès la décision.
+4. Redémarre. Chaque nouveau selfie arrive dans le groupe avec le geste demandé et deux boutons : **Valider** ou **Refuser**. Le selfie est supprimé du serveur dès la décision. Chaque **photo de profil** arrive de la même façon : validée, elle devient visible ; refusée, elle est supprimée et la personne est prévenue par le bot.
 
 ## Étape 7 (facultative) : faire de Mbolo l'app principale du bot
 
@@ -338,7 +338,7 @@ Avec `USE_WEBHOOK=true`, Telegram envoie les messages du bot directement à ton 
 
 Ce prototype sert à une **bêta fermée**. Avant un lancement public :
 
-- [ ] **Autorisation de l'Autorité de protection des données** (loi n° 2024/017, applicable depuis le 23 juin 2026) : tu traites des photos, des données de vie intime, des données biométriques, un horodatage de dernière activité par personne (montré aux autres par tranche seulement), et la tranche d'âge recherchée — le tout effacé avec le compte.
+- [ ] **Autorisation de l'Autorité de protection des données** (loi n° 2024/017, applicable depuis le 23 juin 2026) : tu traites des photos (jusqu'à trois par personne, chacune validée par la modération avant d'être montrée), des données de vie intime, des données biométriques, un horodatage de dernière activité par personne (montré aux autres par tranche seulement), et la tranche d'âge recherchée — le tout effacé avec le compte.
 - [ ] Conditions d'utilisation et politique de confidentialité publiées, et renseignées dans BotFather.
 - [ ] `SEED_DEMO=false` et `AUTO_APPROVE=false`.
 - [ ] Une équipe de modération disponible chaque jour (selfies et signalements).
