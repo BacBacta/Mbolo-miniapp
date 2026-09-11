@@ -6,6 +6,7 @@ import { config, venues } from './config.js';
 import { api } from './routes.js';
 import { setupBot, startBot } from './bot.js';
 import { seedDemo } from './seed.js';
+import { assetVersion, versionImports } from './assets.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -32,12 +33,26 @@ app.get('/qr/:venueId.png', async (req, res) => {
   res.type('png').send(await QRCode.toBuffer(venue.code, { width: 600, margin: 2 }));
 });
 
-// La page d'accueil reçoit le nom de l'app (APP_NAME) avant d'être envoyée
-const indexHtml = fs.readFileSync(path.join(config.publicDir, 'index.html'), 'utf8');
+// Empreinte du contenu des fichiers du navigateur, calculée une fois au démarrage
+const assetV = assetVersion(config.publicDir);
+// app.js est servi à part : ses imports de tg.js et ui.js reçoivent la même empreinte
+const appJs = versionImports(fs.readFileSync(path.join(config.publicDir, 'app.js'), 'utf8'), assetV);
+const IMMUTABLE = 'public, max-age=31536000, immutable';
+
+// La page d'accueil reçoit le nom de l'app (APP_NAME) et l'empreinte avant d'être envoyée
+const indexHtml = fs.readFileSync(path.join(config.publicDir, 'index.html'), 'utf8').replaceAll('__ASSET_V__', assetV);
 const escapeHtml = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const renderIndex = (req, res) => res.type('html').set('Cache-Control', 'no-cache').send(indexHtml.replaceAll('__APP_NAME__', escapeHtml(config.appName)));
 app.get('/', renderIndex);
-app.use(express.static(config.publicDir, { index: false, maxAge: '1h' }));
+app.get('/app.js', (req, res) => res.type('js').set('Cache-Control', IMMUTABLE).send(appJs));
+// Les adresses portent une empreinte du contenu (?v=), donc le navigateur peut les garder
+// longtemps : une nouvelle version change l'adresse. index.html, lui, n'est jamais versionné.
+app.use(express.static(config.publicDir, {
+  index: false,
+  maxAge: '1y',
+  immutable: true,
+  setHeaders: (res, file) => { if (file.endsWith('index.html')) res.set('Cache-Control', 'no-cache'); },
+}));
 app.get('*', renderIndex);
 
 app.use((err, req, res, next) => {

@@ -262,6 +262,7 @@ Sur https://dashboard.render.com : **New** → **Web Service** → dépôt `BacB
 
 - **Ne lance pas en même temps le serveur sur ton téléphone** avec `USE_WEBHOOK=false` : il retirerait le webhook, et le serveur hébergé ne recevrait plus rien de Telegram.
 - `SEED_DEMO` et `AUTO_APPROVE` à `true` servent aux tests : profils de démonstration, selfies validés sans modération. À passer à `false` avant d'ouvrir à de vraies personnes.
+- **Après un déploiement, pas besoin de vider le cache de Telegram.** Le serveur calcule une empreinte du contenu de `app.js`, `tg.js`, `ui.js` et `styles.css`, et la pose sur leurs adresses (`/app.js?v=...`). Une nouvelle version change l'adresse, donc le navigateur la télécharge ; tant que rien ne change, l'adresse reste la même et le cache est conservé, y compris quand la machine s'arrête et repart. Seul `index.html` n'est jamais mis en cache, puisque c'est lui qui porte les nouvelles adresses.
 - Les réponses des profils de démonstration et la présence vivent en mémoire : une machine qui s'arrête les perd. Sans conséquence pour un test.
 
 ## Changer le nom de l'application

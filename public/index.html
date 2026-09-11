@@ -8,7 +8,7 @@
   <meta name="app-name" content="__APP_NAME__">
   <!-- SDK officiel : fournit window.Telegram.WebApp et les variables CSS du thème de l'utilisateur -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles.css?v=__ASSET_V__">
 </head>
 <body>
   <!-- Barre d'onglets persistante : construite une fois par app.js, affichée sur les écrans principaux -->
@@ -21,6 +21,7 @@
   <!-- Barre de secours : utilisée hors de Telegram (développement) ou si le bouton secondaire natif n'existe pas -->
   <div id="fallback-bar" class="fallback-bar" hidden></div>
   <div id="toast" class="toast" role="status" hidden></div>
-  <script type="module" src="/app.js"></script>
+  <!-- ?v= : empreinte du contenu, posée par le serveur, pour que le cache ne serve pas une ancienne version -->
+  <script type="module" src="/app.js?v=__ASSET_V__"></script>
 </body>
 </html>
