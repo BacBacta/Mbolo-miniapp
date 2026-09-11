@@ -248,7 +248,7 @@ C'est ce même script qu'exécute le workflow GitHub : une seule logique, donc p
 
 Pas besoin de `WEBAPP_URL` : le serveur déduit l'adresse de `FLY_APP_NAME`, que Fly fournit.
 
-> **Adresse publique toute neuve.** Sans IP publique, `<ton-app>.fly.dev` ne se résout nulle part : l'app démarre et `/health` répond en interne, mais ni Telegram ni personne ne peut la joindre. Le script s'en charge. Juste après la première allocation, Telegram met parfois une quinzaine de minutes à résoudre le nom, et le journal affiche `setWebhook failed: Failed to resolve host`. Rien à corriger : attends, puis relance `flyctl apps restart <ton-app>`. Vérifie l'état avec `flyctl ips list -a <ton-app>`.
+> **Adresse publique toute neuve.** Sans IP publique, `<ton-app>.fly.dev` ne se résout nulle part : l'app démarre et `/health` répond en interne, mais ni Telegram ni personne ne peut la joindre. Le script s'en charge. Juste après la première allocation, Telegram met parfois une quinzaine de minutes à résoudre le nom, et le journal affiche `setWebhook failed: Failed to resolve host`. Rien à faire : le serveur réessaie tout seul, à intervalles croissants sur une dizaine de minutes, et le journal affiche `Bot en mode webhook (tentative 3)` dès que Telegram accepte. Si la reprise s'épuise, le webhook est reposé au démarrage suivant — et toute visite de la mini app réveille la machine, donc relance le démarrage. Vérifie l'état avec `flyctl ips list -a <ton-app>` et `flyctl logs -a <ton-app>`.
 
 > Crée de préférence un **jeton limité à l'application** (Fly propose des jetons de déploiement à portée réduite) plutôt qu'un jeton de compte : en cas de fuite, il ne donne accès qu'à cette app, et se révoque sans toucher au reste.
 
@@ -260,6 +260,7 @@ Sur https://dashboard.render.com : **New** → **Web Service** → dépôt `BacB
 
 ### À savoir, quel que soit l'hébergeur
 
+- **Un webhook refusé n'est pas définitif.** Si Telegram refuse l'adresse au démarrage (nom pas encore résolu, réseau coupé), le serveur réessaie en arrière-plan à intervalles croissants — 5 s, 15 s, 30 s, 1 min, 2 min, 5 min — sans retarder le démarrage. La route du webhook est montée dès le départ, donc les messages arrivent dès que Telegram accepte l'adresse.
 - **Ne lance pas en même temps le serveur sur ton téléphone** avec `USE_WEBHOOK=false` : il retirerait le webhook, et le serveur hébergé ne recevrait plus rien de Telegram.
 - `SEED_DEMO` et `AUTO_APPROVE` à `true` servent aux tests : profils de démonstration, selfies validés sans modération. À passer à `false` avant d'ouvrir à de vraies personnes.
 - **Après un déploiement, pas besoin de vider le cache de Telegram.** Le serveur calcule une empreinte du contenu de `app.js`, `tg.js`, `ui.js` et `styles.css`, et la pose sur leurs adresses (`/app.js?v=...`). Une nouvelle version change l'adresse, donc le navigateur la télécharge ; tant que rien ne change, l'adresse reste la même et le cache est conservé, y compris quand la machine s'arrête et repart. Seul `index.html` n'est jamais mis en cache, puisque c'est lui qui porte les nouvelles adresses.
