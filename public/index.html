@@ -11,8 +11,12 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+  <!-- Barre d'onglets persistante : construite une fois par app.js, affichée sur les écrans principaux -->
+  <header id="topbar" class="topbar" hidden>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Sections"></nav>
+  </header>
   <main id="app" aria-live="polite">
-    <div class="center muted">Chargement de __APP_NAME__…</div>
+    <div class="boot"><span class="boot-mark">__APP_NAME__</span><span class="boot-sub">Chargement…</span></div>
   </main>
   <!-- Barre de secours : utilisée hors de Telegram (développement) ou si le bouton secondaire natif n'existe pas -->
   <div id="fallback-bar" class="fallback-bar" hidden></div>

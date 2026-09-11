@@ -185,7 +185,7 @@ Pour travailler l'interface dans un navigateur classique :
 ALLOW_DEV_AUTH=true npm start
 ```
 
-Puis ouvre `http://localhost:3000/?dev_user=1001`. Les boutons natifs sont remplacés par une barre en bas de page, le scanner QR par une fenêtre où tu colles le code (ex. `rdv:lieu:palmier`). Change `dev_user` pour simuler une autre personne.
+Puis ouvre `http://localhost:3000/?dev_user=1001`. Les boutons natifs sont remplacés par une barre en bas de page, le scanner QR par une fenêtre où tu colles le code (ex. `rdv:lieu:palmier`). Change `dev_user` pour simuler une autre personne. Hors Telegram, le thème sombre suit le réglage du système : dans les outils du navigateur, force `prefers-color-scheme: dark` pour le vérifier.
 
 > Ne jamais activer `ALLOW_DEV_AUTH` en production : n'importe qui pourrait se faire passer pour n'importe qui. Le serveur l'ignore automatiquement si `NODE_ENV=production`.
 
@@ -270,6 +270,7 @@ mbolo-miniapp/
 │   ├── index.html    Charge le SDK officiel telegram-web-app.js
 │   ├── tg.js         Accès aux fonctions natives Telegram, avec secours hors Telegram
 │   ├── app.js        Écrans et logique de l'interface
+│   ├── ui.js         Icônes, toast, squelettes de chargement, geste de balayage
 │   └── styles.css    Styles basés sur le thème Telegram de chaque utilisateur
 ├── test/             Tests automatiques
 └── data/             Base et photos (créé automatiquement, ignoré par Git)

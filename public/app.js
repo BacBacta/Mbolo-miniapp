@@ -1,4 +1,5 @@
 import * as tg from './tg.js';
+import { icon, toast, skeleton, attachSwipe, throwCard, dayLabel, timeLabel, isSameDay } from './ui.js';
 
 // ============================================================
 // État et utilitaires
@@ -20,43 +21,21 @@ const S = {
   selfie: null,
   gesture: null,
   form: null,
+  formStep: 0,
   dateDraft: { venueId: null, slot: null },
   venues: [],
   guideOpen: false,
   screen: null,
+  detachSwipe: null,
+  swiped: false,
 };
 
 const app = document.getElementById('app');
 // Nom de l'app injecté par le serveur (variable APP_NAME)
 const APP = document.querySelector('meta[name="app-name"]')?.content || 'Mbolo';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
-const ICONS = {
-  shield: '<path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/>',
-  users: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 15c2.5 0 5 1.5 5 4"/>',
-  heart: '<path d="M12 20s-7-4.5-7-10a4 4 0 017-2.5A4 4 0 0119 10c0 5.5-7 10-7 10z"/>',
-  duo: '<circle cx="7" cy="8" r="2.5"/><circle cx="17" cy="8" r="2.5"/><path d="M2 19c0-2.5 2.2-4 5-4s5 1.5 5 4"/><path d="M12 19c0-2.5 2.2-4 5-4s5 1.5 5 4"/>',
-  pin: '<path d="M12 21s-6-5.5-6-11a6 6 0 1112 0c0 5.5-6 11-6 11z"/><circle cx="12" cy="10" r="2"/>',
-  lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 118 0v3"/>',
-  flag: '<path d="M5 21V4h11l-2 4 2 4H5"/>',
-  camera: '<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 7l2-3h4l2 3"/>',
-  coffee: '<path d="M4 9h13v5a5 5 0 01-5 5H9a5 5 0 01-5-5V9z"/><path d="M17 11h2a2 2 0 010 4h-2"/>',
-  wifi: '<path d="M2 9a15 15 0 0120 0"/><path d="M5 12.5a10 10 0 0114 0"/><path d="M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19" r="1"/>',
-  ban: '<circle cx="12" cy="12" r="9"/><path d="M5.5 5.5l13 13"/>',
-  bell: '<path d="M6 16V11a6 6 0 1112 0v5l2 2H4l2-2z"/><path d="M10 20a2 2 0 004 0"/>',
-  alert: '<path d="M12 3l10 18H2L12 3z"/><path d="M12 10v5"/><circle cx="12" cy="18" r=".6"/>',
-};
-const icon = (name, size = 20) =>
-  `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
-
-let toastTimer;
-function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (el.hidden = true), 2800);
-}
+const INTENT_ICONS = { amitie: 'users', serieux: 'heart', duo: 'duo' };
+const INTENT_SUBS = { amitie: 'Élargir ton cercle en ville', serieux: 'Construire quelque chose de durable', duo: 'Rencontrer à quatre, avec un ami' };
 
 // ============================================================
 // Appels à l'API
@@ -67,10 +46,12 @@ function devUser() {
   return sessionStorage.getItem('dev_user');
 }
 
+function authHeaders() {
+  return tg.inTelegram ? { Authorization: `tma ${tg.initData()}` } : { 'x-dev-user': devUser() || '' };
+}
+
 async function api(path, { method = 'GET', body } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
-  if (tg.inTelegram) headers.Authorization = `tma ${tg.initData()}`;
-  else if (devUser()) headers['x-dev-user'] = devUser();
+  const headers = { 'Content-Type': 'application/json', ...authHeaders() };
   let res;
   try {
     res = await fetch(`/api${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
@@ -84,8 +65,7 @@ async function api(path, { method = 'GET', body } = {}) {
 
 async function photoUrl(userId) {
   if (S.photoUrls[userId]) return S.photoUrls[userId];
-  const headers = tg.inTelegram ? { Authorization: `tma ${tg.initData()}` } : { 'x-dev-user': devUser() || '' };
-  const res = await fetch(`/api/photos/${encodeURIComponent(userId)}`, { headers }).catch(() => null);
+  const res = await fetch(`/api/photos/${encodeURIComponent(userId)}`, { headers: authHeaders() }).catch(() => null);
   if (!res?.ok) return null;
   S.photoUrls[userId] = URL.createObjectURL(await res.blob());
   return S.photoUrls[userId];
@@ -105,7 +85,7 @@ function compressImage(file, max = 720, quality = 0.8) {
       URL.revokeObjectURL(url);
       resolve(c.toDataURL('image/jpeg', quality));
     };
-    img.onerror = () => reject(new Error("Impossible de lire cette image."));
+    img.onerror = () => reject(new Error('Impossible de lire cette image.'));
     img.src = url;
   });
 }
@@ -115,18 +95,22 @@ function compressImage(file, max = 720, quality = 0.8) {
 // ============================================================
 const PARENT = { profile: () => (S.me?.verification === 'approved' ? 'me' : 'welcome'), verify: () => 'profile', match: () => 'discover', chat: () => 'matches', date: () => 'chat' };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
+const TABS = [['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']];
 
 function go(screen, params = {}) {
   if (screen === 'settings') screen = 'me';
   clearInterval(S.chatTimer);
   clearInterval(S.pendingTimer);
   clearInterval(S.summaryTimer);
+  S.detachSwipe?.();
+  S.detachSwipe = null;
   tg.closingConfirmation(false);
   S.screen = screen;
   // La discussion occupe toute la hauteur de l'écran, champ de saisie fixé en bas
   document.body.classList.toggle('chat-mode', screen === 'chat');
   const parent = PARENT[screen]?.();
   tg.setBack(parent ? () => go(parent, parent === 'chat' ? { id: S.chat?.id } : {}) : null);
+  showTabs(screen);
   window.scrollTo(0, 0);
   SCREENS[screen](params);
   if (TAB_SCREENS.includes(screen) && S.me?.verification === 'approved') {
@@ -136,58 +120,111 @@ function go(screen, params = {}) {
 }
 
 function render(html) {
-  const back = !tg.inTelegram && window.__devBack ? `<button class="btn-link" data-action="dev-back">‹ Retour</button>` : '';
+  const back = !tg.inTelegram && window.__devBack ? `<button class="devback" data-action="dev-back">‹ Retour</button>` : '';
   app.innerHTML = back + html;
 }
 
-const tabBadge = (k) => {
-  const n = k === 'matches' ? S.summary.unread + S.summary.newMatches : 0;
-  return n ? `<span class="tab-badge" aria-label="${n} nouveautés">${n > 9 ? '9+' : n}</span>` : '';
-};
+// Écran d'erreur réseau, avec le bouton principal pour réessayer
+function renderError(e, retry) {
+  render(`
+    <div class="empty">
+      <span class="glyph glyph-warn">${icon(e.code === 'NETWORK' ? 'wifi-off' : 'alert', 34)}</span>
+      <h2>${e.code === 'NETWORK' ? 'Pas de connexion' : 'Un problème est survenu'}</h2>
+      <p>${e.code === 'NETWORK' ? 'Vérifie ton réseau et réessaie.' : esc(e.message)}</p>
+    </div>`);
+  tg.setButtons(retry ? { main: { text: 'Réessayer', onClick: retry } } : null);
+}
 
-const tabs = (active) => `
-  <div class="segmented tabs" role="tablist" id="tabs">
-    ${[['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']]
-      .map(([k, l]) => `<button role="tab" aria-pressed="${active === k}" data-action="tab" data-screen="${k}">${l}${tabBadge(k)}</button>`)
-      .join('')}
-  </div>`;
+// ---------- Barre d'onglets : construite une fois, hors de <main>, pour que l'indicateur glisse ----------
+function buildTabs() {
+  document.getElementById('tabs').innerHTML =
+    `<span class="tabs-ind" aria-hidden="true"></span>` +
+    TABS.map(([k, l]) => `<button type="button" role="tab" aria-selected="false" data-screen="${k}">${l}<span class="badge" hidden></span></button>`).join('');
+}
+
+function showTabs(screen) {
+  const on = TAB_SCREENS.includes(screen) && S.me?.verification === 'approved';
+  document.getElementById('topbar').hidden = !on;
+  document.body.classList.toggle('has-tabs', on);
+  if (!on) return;
+  const idx = TAB_SCREENS.indexOf(screen);
+  document.querySelectorAll('#tabs [role="tab"]').forEach((b, i) => b.setAttribute('aria-selected', String(i === idx)));
+  document.querySelector('#tabs .tabs-ind').style.transform = `translateX(${idx * 100}%)`;
+  updateTabBadges();
+}
+
+function updateTabBadges() {
+  const n = S.summary.unread + S.summary.newMatches;
+  const badge = document.querySelector('#tabs [data-screen="matches"] .badge');
+  if (!badge) return;
+  badge.textContent = n > 9 ? '9+' : String(n);
+  badge.setAttribute('aria-label', `${n} nouveautés`);
+  badge.hidden = !n;
+}
 
 async function refreshSummary() {
   try {
     const s = await api('/summary');
     const changed = s.unread !== S.summary.unread || s.newMatches !== S.summary.newMatches;
     S.summary = s;
-    const el = document.getElementById('tabs');
-    if (changed && el && TAB_SCREENS.includes(S.screen)) {
-      el.outerHTML = tabs(S.screen);
+    if (changed) {
+      updateTabBadges();
       if (S.screen === 'matches') SCREENS.matches({ silent: true });
     }
   } catch { /* hors ligne : on réessaiera */ }
 }
 
-// Carte de profil, partagée entre la découverte et l'aperçu de son propre profil
-function profileCard(p, { own = false } = {}) {
+// ============================================================
+// Briques partagées : avatars, carte de profil, photos à la demande
+// ============================================================
+const avatar = (p, size = 'sm') => `<span class="avatar ${size}" data-avatar="${esc(p.id)}">${esc(p.name?.[0] || '?')}</span>`;
+
+function loadAvatar(p, { own = false } = {}) {
+  if (!p?.hasPhoto || (!own && S.dataSaver)) return;
+  photoUrl(p.id).then((url) => {
+    if (!url) return;
+    document.querySelectorAll(`[data-avatar="${CSS.escape(p.id)}"]`).forEach((el) => {
+      if (!el.querySelector('img')) el.append(Object.assign(document.createElement('img'), { src: url, alt: '' }));
+    });
+  });
+}
+
+// Carte de profil, partagée entre la découverte et l'aperçu de son propre profil.
+// cls = 'top' (carte manipulable) ou 'next' (carte suivante, en retrait)
+function profileCard(p, { own = false, cls = '' } = {}) {
   const hidePhoto = !own && S.dataSaver && !S.revealed[p.id];
   const t = p.trust || {};
+  const score = [t.selfie, t.guarantor, t.seniority].filter(Boolean).length;
+  const trustItem = (on, label) => `<span class="${on ? 'on' : ''}">${icon(on ? 'check' : 'clock', 12)}${label}</span>`;
   return `
-    <article class="card">
-      <div class="photo" data-photo="${esc(p.id)}">
-        ${p.hasPhoto && hidePhoto ? `<button class="btn" data-action="reveal" data-id="${esc(p.id)}">Afficher la photo</button>` : `<span class="initial">${esc(p.name?.[0] || '?')}</span>`}
-        ${p.verified ? `<span class="badge chip chip-ok">${icon('shield', 14)} Vérifié</span>` : ''}
+    <article class="card ${cls}">
+      <div class="card-photo" data-photo="${esc(p.id)}">
+        <span class="initial">${esc(p.name?.[0] || '?')}</span>
+        <span class="scrim"></span>
+        ${p.hasPhoto && hidePhoto ? `<button type="button" class="btn btn-glass reveal" data-action="reveal" data-id="${esc(p.id)}">${icon('image', 18)} Afficher la photo</button>` : ''}
+        <div class="corners">
+          ${p.verified ? `<span class="pill-glass">${icon('shield', 14)} Vérifié</span>` : ''}
+          ${p.likedYou ? `<span class="pill-glass pill-like">${icon('heart', 14, { fill: true })} T'a liké</span>` : ''}
+          ${p.demo ? '<span class="pill-glass">démo</span>' : ''}
+        </div>
+        <div class="overlay">
+          <div class="name">${esc(p.name)}<span class="age">${esc(p.age)}</span></div>
+          <div class="meta">
+            <span class="pill-glass">${icon('pin', 13)} ${esc(p.area ? `${p.area}, ${p.city}` : p.city)}</span>
+            <span class="pill-glass">${icon(INTENT_ICONS[p.intent] || 'users', 13)} ${esc(p.intentLabel)}</span>
+          </div>
+        </div>
+        ${cls === 'top' ? `<span class="stamp like" aria-hidden="true">J'aime</span><span class="stamp pass" aria-hidden="true">Passer</span>` : ''}
       </div>
       <div class="card-body">
-        <div class="row"><strong style="font-size:20px">${esc(p.name)}, ${p.age}</strong><span class="spacer"></span>${p.likedYou ? '<span class="chip chip-accent">T\'a liké</span>' : ''}${p.demo ? '<span class="chip">démo</span>' : ''}</div>
-        <div class="row" style="flex-wrap:wrap;gap:6px">
-          <span class="chip">${icon('pin', 14)} ${esc(p.area ? `${p.area}, ${p.city}` : p.city)}</span>
-          <span class="chip chip-accent">${esc(p.intentLabel)}</span>
-        </div>
-        <div class="prompt"><div class="q">${esc(p.promptQ)}</div><div>${esc(p.promptA)}</div></div>
-        ${p.languages ? `<p class="small muted">Parle : ${esc(p.languages)}</p>` : ''}
-        <div class="trust" aria-label="Niveau de confiance">
+        <div class="prompt"><span class="q">${esc(p.promptQ)}</span><span class="a">${esc(p.promptA)}</span></div>
+        ${p.languages ? `<p class="lang">${icon('globe', 14)} Parle ${esc(p.languages)}</p>` : ''}
+        <div class="trust" aria-label="Niveau de confiance ${score} sur 3">
+          <div class="trust-head"><span class="eyebrow">Confiance</span><span class="score">${score}/3</span></div>
           <div class="trust-bars"><span class="${t.selfie ? 'on' : ''}"></span><span class="${t.guarantor ? 'on' : ''}"></span><span class="${t.seniority ? 'on' : ''}"></span></div>
-          <div class="trust-labels"><span class="${t.selfie ? 'on' : ''}">Selfie vérifié</span><span class="${t.guarantor ? 'on' : ''}">Un garant</span><span class="${t.seniority ? 'on' : ''}">Membre depuis 3 mois</span></div>
+          <div class="trust-labels">${trustItem(t.selfie, 'Selfie vérifié')}${trustItem(t.guarantor, 'Un garant')}${trustItem(t.seniority, 'Membre depuis 3 mois')}</div>
         </div>
-        ${own ? '' : `<button class="btn-link small" data-action="report-profile" data-id="${esc(p.id)}" style="color:var(--hint)">${icon('flag', 14)} Signaler ce profil</button>`}
+        ${own ? '' : `<button type="button" class="btn btn-ghost btn-sm report" data-action="report-profile" data-id="${esc(p.id)}">${icon('flag', 14)} Signaler ce profil</button>`}
       </div>
     </article>`;
 }
@@ -196,15 +233,27 @@ function loadCardPhoto(p, { own = false } = {}) {
   if (!p.hasPhoto || (!own && S.dataSaver && !S.revealed[p.id])) return;
   photoUrl(p.id).then((url) => {
     const box = document.querySelector(`[data-photo="${CSS.escape(p.id)}"]`);
-    if (url && box) box.querySelector('.initial')?.replaceWith(Object.assign(document.createElement('img'), { src: url, alt: `Photo de ${p.name}` }));
+    if (!url || !box || box.querySelector('img')) return;
+    const img = Object.assign(document.createElement('img'), { src: url, alt: `Photo de ${p.name}` });
+    img.onload = () => img.classList.add('loaded');
+    box.classList.add('has-photo');
+    box.prepend(img);
+    if (img.complete) img.classList.add('loaded');
   });
 }
 
 function showError(e, el = document.getElementById('form-error')) {
   tg.haptic('error');
   if (el) el.textContent = e.message;
-  else toast(e.message);
+  else toast(e.message, 'warn');
 }
+
+const listRow = ({ iconName, tile = '', title, sub = '', action = '', extra = '', trailing = 'chev' }) => `
+  <${action ? `button type="button" class="list-row" data-action="${action}"${extra}` : 'div class="list-row"'}>
+    <span class="tile ${tile}">${icon(iconName, 20)}</span>
+    <div class="body"><div class="title">${title}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>
+    ${trailing === 'chev' && action ? `<span class="chev">${icon('chevron-right', 18)}</span>` : trailing === 'chev' ? '' : trailing}
+  </${action ? 'button' : 'div'}>`;
 
 // ============================================================
 // Écrans
@@ -212,22 +261,27 @@ function showError(e, el = document.getElementById('form-error')) {
 const SCREENS = {
   welcome() {
     const name = tg.telegramUser()?.first_name || S.me?.firstName || '';
+    const prop = (i, t, s, tile = '') => `<div class="prop"><span class="tile ${tile}">${icon(i, 20)}</span><div><div class="t">${t}</div><div class="s">${s}</div></div></div>`;
     render(`
-      <h1>Salut ${esc(name)}, prête ou prêt pour de vraies rencontres ?</h1>
-      <div class="row notice notice-info">
-        <span>${icon('lock')}</span>
-        <span>Connecté avec Telegram, sans mot de passe. Ton pseudo et ton numéro restent cachés aux autres.</span>
+      <section class="hero">
+        <span class="orb orb-1"></span><span class="orb orb-2"></span>
+        <p class="eyebrow">${name ? `Salut ${esc(name)}` : 'Bienvenue'}</p>
+        <h1 class="display">Des rencontres vérifiées, face à face.</h1>
+        <p class="lead">Des personnes réelles, des lieux publics, aucune demande d'argent. ${esc(APP)} est fait pour se rencontrer pour de vrai.</p>
+      </section>
+      <div class="props">
+        ${prop('shield', 'Profils vérifiés par selfie', 'Chaque membre a prouvé qu\'il est une vraie personne', 'tile-ok')}
+        ${prop('ban', 'Demandes d\'argent bloquées', 'Automatiquement, dans chaque discussion', 'tile-danger')}
+        ${prop('coffee', 'Premier rendez-vous dans un lieu partenaire', 'Arrivée confirmée par QR code')}
+        ${prop('wifi', 'Léger en data', 'Photos chargées seulement si tu le demandes', 'tile-neutral')}
       </div>
-      <div class="stack">
-        <div class="row">${icon('shield')}<span>Tous les profils vérifiés par selfie</span></div>
-        <div class="row">${icon('ban')}<span>Demandes d'argent bloquées automatiquement</span></div>
-        <div class="row">${icon('wifi')}<span>Mode économie de data</span></div>
-      </div>
-      <p class="small muted">Réservé aux 18 ans et plus. En continuant, tu acceptes les règles de la communauté : respect, aucune demande d'argent, aucun contenu sexuel.</p>
+      <p class="fine">${icon('lock', 14)}<span>Connecté avec Telegram, sans mot de passe. Ton pseudo et ton numéro restent cachés aux autres.</span></p>
+      <p class="fine">${icon('info', 14)}<span>Réservé aux 18 ans et plus. En continuant, tu acceptes les règles de la communauté : respect, aucune demande d'argent, aucun contenu sexuel.</span></p>
     `);
     tg.setButtons({ main: { text: 'Créer mon profil', onClick: () => go('profile') } });
   },
 
+  // Formulaire en trois étapes : identité, recherche, touche personnelle
   profile() {
     const p = S.me.profile || {};
     const f = (S.form ||= {
@@ -242,58 +296,85 @@ const SCREENS = {
       languages: p.languages || '',
       photo: null,
     });
+    const step = S.formStep;
     const o = S.me.options;
-    const intentIcons = { amitie: 'users', serieux: 'heart', duo: 'duo' };
-    const intentSubs = { amitie: 'Élargir ton cercle en ville', serieux: 'Construire quelque chose de durable', duo: 'Rencontrer à quatre, avec un ami' };
-    render(`
-      <h2>Ton profil</h2>
-      <label class="field">Prénom<input name="name" maxlength="30" value="${esc(f.name)}" autocomplete="given-name"></label>
-      <label class="field">Âge<input name="age" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.age)}" placeholder="24"></label>
-      <div class="field"><span class="small muted">Tu es</span>
-        <div class="segmented">${Object.entries(o.genders).map(([k, l]) => `<button type="button" aria-pressed="${f.gender === k}" data-action="set" data-field="gender" data-value="${k}">${l}</button>`).join('')}</div>
+    const titles = [p.name ? 'Modifie ton profil' : 'Fais-toi connaître', 'Ce que tu cherches', 'Ta touche personnelle'];
+    const head = `
+      <div class="step-head">
+        <div class="stepper" aria-hidden="true">${[0, 1, 2].map((i) => `<span class="${i <= step ? 'on' : ''}"></span>`).join('')}</div>
+        <p class="eyebrow">Étape ${step + 1} sur 3</p>
+        <h1>${titles[step]}</h1>
+      </div>`;
+    const select = (name, options, current) => `
+      <span class="select-wrap"><select name="${name}">${options.map((c) => `<option ${c === current ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>${icon('chevron-down', 18)}</span>`;
+    const bodies = [
+      `
+      <label class="field"><span class="label">Prénom</span><input name="name" maxlength="30" value="${esc(f.name)}" autocomplete="given-name" placeholder="Ton prénom"></label>
+      <label class="field"><span class="label">Âge</span><input name="age" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.age)}" placeholder="24"></label>
+      <div class="field"><span class="label">Tu es</span>
+        <div class="seg">${Object.entries(o.genders).map(([k, l]) => `<button type="button" aria-pressed="${f.gender === k}" data-action="set" data-field="gender" data-value="${k}">${l}</button>`).join('')}</div>
       </div>
-      <div class="field"><span class="small muted">Tu cherches</span>
-        <div class="stack">${Object.entries(o.intents).map(([k, l]) => `
-          <button type="button" class="option" aria-pressed="${f.intent === k}" data-action="set" data-field="intent" data-value="${k}">
-            <span class="icon">${icon(intentIcons[k], 22)}</span><span><span class="title">${l}</span><br><span class="sub">${intentSubs[k]}</span></span>
-          </button>`).join('')}</div>
+      <p class="fine">${icon('lock', 14)}<span>Ton prénom et ton âge sont visibles. Ton pseudo et ton numéro Telegram ne le sont jamais.</span></p>`,
+      `
+      <div class="stack">${Object.entries(o.intents).map(([k, l]) => `
+        <button type="button" class="choice" aria-pressed="${f.intent === k}" data-action="set" data-field="intent" data-value="${k}">
+          <span class="tile">${icon(INTENT_ICONS[k], 22)}</span>
+          <div class="body"><div class="title">${l}</div><div class="sub">${INTENT_SUBS[k]}</div></div>
+          <span class="check">${icon('check', 14)}</span>
+        </button>`).join('')}</div>
+      <label class="field"><span class="label">Ville</span>${select('city', o.cities, f.city)}</label>
+      <label class="field"><span class="label">Quartier <span class="opt">facultatif</span></span><input name="area" maxlength="40" value="${esc(f.area)}" placeholder="Bastos"></label>`,
+      `
+      <div class="avatar-picker">
+        <label class="avatar-big" aria-label="Choisir une photo de profil">
+          ${f.photo ? `<img src="${f.photo}" alt="Aperçu de ta photo">` : icon('user', 44)}
+          <span class="cam">${icon('camera', 18)}</span>
+          <input type="file" name="photo" accept="image/*" hidden>
+        </label>
+        <span class="small muted">${f.photo ? 'Appuie pour changer de photo' : 'Photo facultative, compressée sur ton téléphone'}</span>
       </div>
-      <label class="field">Ville<select name="city">${o.cities.map((c) => `<option ${c === f.city ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
-      <label class="field">Quartier (facultatif)<input name="area" maxlength="40" value="${esc(f.area)}" placeholder="Bastos"></label>
-      <label class="field">Une question sur toi
-        <select name="promptQ">${['Mon plat du dimanche', 'Mon coin préféré', 'Mon week-end idéal', 'Je supporte', 'Ma chanson du moment'].map((q) => `<option ${q === f.promptQ ? 'selected' : ''}>${q}</option>`).join('')}</select>
-      </label>
-      <label class="field">Ta réponse<input name="promptA" maxlength="120" value="${esc(f.promptA)}" placeholder="Le ndolé plantain de ma tante"></label>
-      <label class="field">Langues parlées (facultatif)<input name="languages" maxlength="60" value="${esc(f.languages)}" placeholder="Français, anglais, ewondo"></label>
-      <label class="field">Photo de profil (facultative)
-        <input name="photo" type="file" accept="image/*">
-      </label>
-      ${f.photo ? `<img class="preview" src="${f.photo}" alt="Aperçu de ta photo">` : ''}
-      <p class="small muted">Ne mets ni numéro, ni pseudo, ni lien dans ton profil : ils seraient refusés.</p>
-      <p id="form-error" class="error" role="alert"></p>
-    `);
-    tg.setButtons({ main: { text: 'Enregistrer', onClick: saveProfile } });
+      <label class="field"><span class="label">Une question sur toi</span>${select('promptQ', ['Mon plat du dimanche', 'Mon coin préféré', 'Mon week-end idéal', 'Je supporte', 'Ma chanson du moment'], f.promptQ)}</label>
+      <label class="field"><span class="label">Ta réponse</span><input name="promptA" maxlength="120" value="${esc(f.promptA)}" placeholder="Le ndolé plantain de ma tante"></label>
+      <label class="field"><span class="label">Langues parlées <span class="opt">facultatif</span></span><input name="languages" maxlength="60" value="${esc(f.languages)}" placeholder="Français, anglais, ewondo"></label>
+      <p class="fine">${icon('ban', 14)}<span>Ni numéro, ni pseudo, ni lien dans ton profil : ils seraient refusés.</span></p>`,
+    ];
+    render(`${head}${bodies[step]}<p id="form-error" class="error" role="alert"></p>`);
+    // Retour : l'étape précédente, puis l'écran parent
+    tg.setBack(step > 0 ? () => { S.formStep = step - 1; SCREENS.profile(); } : () => go(PARENT.profile()));
+    tg.setButtons({ main: step < 2 ? { text: 'Continuer', onClick: nextStep } : { text: 'Enregistrer', onClick: saveProfile } });
   },
 
   async verify() {
-    render(`<h2>Vérifie que c'est bien toi</h2><p class="muted">Chargement du geste…</p>`);
-    tg.setButtons(null);
-    try {
-      if (!S.gesture) S.gesture = (await api('/me/verification/start', { method: 'POST' })).gesture;
-    } catch (e) {
-      return render(`<h2>Vérification indisponible</h2><p class="error">${esc(e.message)}</p>`);
+    const head = `<div class="step-head"><p class="eyebrow">Vérification</p><h1>Vérifie que c'est bien toi</h1></div>`;
+    if (!S.gesture) {
+      render(`${head}${skeleton.block(220)}`);
+      tg.setButtons(null);
+      try {
+        S.gesture = (await api('/me/verification/start', { method: 'POST' })).gesture;
+      } catch (e) {
+        return renderError(e, () => go('verify'));
+      }
     }
     render(`
-      <h2>Vérifie que c'est bien toi</h2>
-      <p class="muted">Prends un selfie en faisant le geste demandé. Seule l'équipe de vérification le voit, et il est supprimé juste après.</p>
-      <label class="camera-box">
-        ${icon('camera', 28)}
-        <span class="small muted">Geste demandé</span>
-        <span class="gesture">${esc(S.gesture)}</span>
-        <span class="btn btn-primary" style="justify-self:center;margin-top:8px">${S.selfie ? 'Reprendre le selfie' : 'Ouvrir la caméra'}</span>
-        <input type="file" name="selfie" accept="image/*" capture="user" hidden>
-      </label>
-      ${S.selfie ? `<img class="preview" src="${S.selfie}" alt="Aperçu du selfie">` : ''}
+      ${head}
+      <p class="lead">Un selfie avec le geste demandé. Seule l'équipe de vérification le voit, puis il est supprimé.</p>
+      ${S.selfie ? `
+        <div class="preview-wrap">
+          <img class="preview" src="${S.selfie}" alt="Aperçu du selfie">
+          <label class="btn btn-glass btn-sm retake">${icon('refresh', 16)} Reprendre<input type="file" name="selfie" accept="image/*" capture="user" hidden></label>
+        </div>` : `
+        <label class="gesture-card pressable">
+          <span class="tile tile-lg">${icon('hand', 30)}</span>
+          <span class="eyebrow">Geste demandé</span>
+          <span class="gesture">${esc(S.gesture)}</span>
+          <span class="btn btn-primary">${icon('camera', 18)} Ouvrir la caméra</span>
+          <input type="file" name="selfie" accept="image/*" capture="user" hidden>
+        </label>`}
+      <div class="list">
+        ${listRow({ iconName: 'lock', title: 'Jamais montré aux autres membres' })}
+        ${listRow({ iconName: 'trash', title: 'Supprimé dès la décision', tile: 'tile-neutral' })}
+        ${listRow({ iconName: 'clock', title: 'En général quelques minutes', tile: 'tile-neutral' })}
+      </div>
       <p id="form-error" class="error" role="alert"></p>
     `);
     tg.setButtons(S.selfie ? { main: { text: 'Envoyer pour vérification', onClick: sendSelfie } } : null);
@@ -301,96 +382,129 @@ const SCREENS = {
 
   pending() {
     render(`
-      <div class="center stack" style="justify-items:center">
-        <span style="color:var(--accent)">${icon('shield', 40)}</span>
-        <h2>Vérification en cours</h2>
-        <p class="muted">En général quelques minutes. Le bot t'écrira dans Telegram dès que c'est fait : tu peux fermer l'app.</p>
+      <div class="empty top">
+        <div class="pulse" aria-hidden="true"><span class="ring"></span><span class="ring"></span><span class="core">${icon('shield', 34)}</span></div>
+        <h1>Vérification en cours</h1>
+        <p>En général quelques minutes. Le bot t'écrit dans Telegram dès que c'est fait : tu peux fermer l'app.</p>
       </div>
+      <div class="list"><div class="timeline">
+        <div class="tl"><span class="dot done"></span><div><div class="t">Selfie envoyé</div><div class="s">Il sera supprimé dès la décision</div></div></div>
+        <div class="tl"><span class="dot now"></span><div><div class="t">Vérification par l'équipe</div><div class="s">Une vraie personne regarde le geste et le visage</div></div></div>
+        <div class="tl"><span class="dot"></span><div><div class="t">Profil visible</div><div class="s">Tu découvres les profils de ta ville</div></div></div>
+      </div></div>
     `);
     tg.setButtons({ main: { text: 'Actualiser', onClick: refreshStatus }, secondary: { text: 'Fermer', onClick: tg.close } });
     S.pendingTimer = setInterval(refreshStatus, 5000);
   },
 
   async discover() {
+    const dbar = () => `
+      <div class="dbar">
+        <span class="pill">${icon('pin', 15)} ${esc(S.me.profile.city)}</span>
+        <span class="quota">${S.remaining} ${S.remaining > 1 ? 'profils restants' : 'profil restant'} aujourd'hui</span>
+      </div>`;
     if (!S.profiles.length) {
-      render(`${tabs('discover')}<p class="center muted">Recherche de profils près de toi…</p>`);
+      render(`${dbar()}${skeleton.card()}`);
       tg.setButtons(null);
       try {
         const r = await api('/discover');
         S.profiles = r.profiles;
         S.remaining = r.remaining;
       } catch (e) {
-        return render(`${tabs('discover')}<p class="center error">${esc(e.message)}</p>`);
+        return renderError(e, () => go('discover'));
       }
+      if (S.screen !== 'discover') return;
     }
     const p = S.profiles[0];
+    const next = S.profiles[1];
     if (!p) {
-      render(`${tabs('discover')}
-        <div class="center stack" style="justify-items:center">
+      render(`
+        <div class="empty">
+          <span class="glyph">${icon('sparkles', 34)}</span>
           <h2>Tu as vu tous les profils du moment</h2>
-          <p class="muted">${S.remaining ? 'Reviens un peu plus tard : de nouveaux profils vérifiés arrivent chaque jour.' : 'Ta limite du jour est atteinte. Reviens demain.'}</p>
+          <p>${S.remaining ? 'Reviens un peu plus tard : de nouveaux profils vérifiés arrivent chaque jour.' : 'Ta limite du jour est atteinte. Reviens demain.'}</p>
         </div>`);
       return tg.setButtons({ main: { text: 'Voir mes messages', onClick: () => go('matches') } });
     }
-    render(`${tabs('discover')}
-      <div class="row small muted"><span>${icon('pin', 16)}</span><span>${esc(S.me.profile.city)}</span><span class="spacer"></span><span>${S.remaining} profils restants aujourd'hui</span></div>
-      ${profileCard(p)}`);
+    render(`
+      ${dbar()}
+      <div class="deck">${next ? profileCard(next, { cls: 'next' }) : ''}${profileCard(p, { cls: 'top' })}</div>
+      ${S.swiped ? '' : `<p class="fine">${icon('hand', 14)}<span>Glisse la carte vers la droite pour aimer, vers la gauche pour passer.</span></p>`}`);
     loadCardPhoto(p);
+    S.detachSwipe = attachSwipe(app.querySelector('.deck .card.top'), { onLike: () => swipe('like'), onPass: () => swipe('pass') });
     tg.setButtons({ main: { text: "J'aime", onClick: () => swipe('like') }, secondary: { text: 'Passer', onClick: () => swipe('pass') } });
   },
 
   match() {
     const m = S.lastMatch;
+    const me = S.me.publicProfile;
     render(`
-      <div class="center stack" style="justify-items:center">
-        <div class="row" style="gap:0">
-          <div class="avatar" style="width:76px;height:76px;font-size:30px">${esc(S.me.profile.name[0])}</div>
-          <div class="avatar" style="width:76px;height:76px;font-size:30px;margin-left:-16px;border:3px solid var(--bg)">${esc(m.other.name[0])}</div>
-        </div>
-        <h2>${esc(m.other.name)} et toi, vous vous plaisez</h2>
-        <p class="muted">Brisez la glace avec une question sur son profil. Les liens et numéros sont débloqués après quelques messages.</p>
+      <div class="match-hero">
+        <span class="orb orb-1"></span>
+        <p class="eyebrow">C'est un match</p>
+        <div class="pair">${avatar(me, 'xl')}<span class="spark">${icon('heart', 20, { fill: true })}</span>${avatar(m.other, 'xl')}</div>
+        <h1 class="display">${esc(m.other.name)} et toi, vous vous plaisez</h1>
+        <p class="lead">Brise la glace avec une question sur son profil. Les liens et numéros se débloquent après quelques messages.</p>
       </div>`);
+    loadAvatar(me, { own: true });
+    loadAvatar(m.other);
     tg.haptic('success');
     tg.setButtons({ main: { text: `Écrire à ${m.other.name}`, onClick: () => go('chat', { id: m.id }) }, secondary: { text: 'Plus tard', onClick: () => go('discover') } });
   },
 
   async matches({ silent = false } = {}) {
     if (!silent) {
-      render(`${tabs('matches')}<p class="center muted">Chargement…</p>`);
+      render(`<div class="group"><span class="eyebrow">Discussions</span>${skeleton.rows(4)}</div>`);
       tg.setButtons(null);
     }
     try {
       S.matches = (await api('/matches')).matches;
     } catch (e) {
-      return render(`${tabs('matches')}<p class="center error">${esc(e.message)}</p>`);
+      return renderError(e, () => go('matches'));
     }
     if (S.screen !== 'matches') return;
     if (!S.matches.length) {
-      render(`${tabs('matches')}<div class="center stack" style="justify-items:center"><h2>Tes matchs apparaîtront ici</h2><p class="muted">Quand vous vous plaisez tous les deux, la discussion s'ouvre. Tu es prévenu(e) par le bot, même app fermée.</p></div>`);
+      render(`
+        <div class="empty">
+          <span class="glyph">${icon('message', 34)}</span>
+          <h2>Tes matchs apparaîtront ici</h2>
+          <p>Quand vous vous plaisez tous les deux, la discussion s'ouvre. Le bot te prévient, même app fermée.</p>
+        </div>`);
       return tg.setButtons({ main: { text: 'Découvrir des profils', onClick: () => go('discover') } });
     }
-    render(`${tabs('matches')}<div>${S.matches.map((m) => `
-      <button class="list-row" data-action="open-chat" data-id="${m.id}">
-        <div class="avatar" style="width:46px;height:46px;font-size:18px">${esc(m.other.name[0])}</div>
-        <div style="flex:1;min-width:0">
-          <div class="row"><strong>${esc(m.other.name)}</strong>${m.other.verified ? `<span style="color:var(--ok)">${icon('shield', 14)}</span>` : ''}${m.isNew ? '<span class="chip chip-accent">Nouveau</span>' : ''}</div>
-          <div class="small ${m.unread ? '' : 'muted'}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${m.unread ? 'font-weight:600' : ''}">${m.lastMessage ? `${m.lastMessage.from === S.me.id ? 'Toi : ' : ''}${esc(m.lastMessage.text)}` : 'Nouveau match, écris le premier message'}</div>
+    const fresh = S.matches.filter((m) => m.isNew);
+    render(`
+      ${fresh.length ? `
+      <div class="group"><span class="eyebrow">Nouveaux matchs</span>
+        <div class="new-strip">${fresh.map((m) => `<button type="button" class="new-item" data-action="open-chat" data-id="${m.id}">${avatar(m.other, 'md')}<span>${esc(m.other.name)}</span></button>`).join('')}</div>
+      </div>` : ''}
+      <div class="group"><span class="eyebrow">Discussions</span>
+        <div class="list">${S.matches.map((m) => `
+          <button type="button" class="list-row ${m.unread ? 'unread' : ''}" data-action="open-chat" data-id="${m.id}">
+            ${avatar(m.other, 'sm')}
+            <div class="body">
+              <div class="title">${esc(m.other.name)}${m.other.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${m.isNew ? '<span class="chip chip-accent">Nouveau</span>' : ''}</div>
+              <div class="preview">${m.lastMessage ? `${m.lastMessage.from === S.me.id ? 'Toi : ' : ''}${esc(m.lastMessage.text)}` : 'Nouveau match, écris le premier message'}</div>
+            </div>
+            ${m.unread ? `<span class="count-badge">${m.unread}</span>` : `<span class="chev">${icon('chevron-right', 18)}</span>`}
+          </button>`).join('')}
         </div>
-        ${m.unread ? `<span class="count-badge">${m.unread}</span>` : ''}
-      </button>`).join('')}</div>`);
+      </div>`);
+    S.matches.slice(0, 8).forEach((m) => loadAvatar(m.other));
     tg.setButtons(null);
   },
 
   async chat({ id }) {
     if (!id) return go('matches');
-    render(`<p class="center muted">Ouverture de la discussion…</p>`);
+    render(`<div class="chat"><div class="chat-head"><span class="sk sk-avatar"></span><div class="body stack" style="gap:8px"><span class="sk sk-line w40"></span><span class="sk sk-line w60"></span></div></div>${skeleton.chat()}</div>`);
     tg.setButtons(null);
     try {
       const data = await api(`/matches/${id}`);
       S.chat = { id, other: data.other, messages: data.messages, dates: data.dates, unlockAfter: data.unlockAfter, notice: null };
     } catch (e) {
-      return render(`<h2>Discussion indisponible</h2><p class="error">${esc(e.message)}</p>`);
+      return renderError(e, () => go('chat', { id }));
     }
+    if (S.screen !== 'chat') return;
     renderChat();
     tg.setButtons({ main: { text: 'Proposer un rendez-vous', onClick: () => go('date') } });
     S.chatTimer = setInterval(pollChat, 4000);
@@ -399,21 +513,28 @@ const SCREENS = {
   async date() {
     if (!S.chat) return go('matches');
     if (!S.venues.length) {
-      try { S.venues = (await api('/venues')).venues; } catch (e) { return toast(e.message); }
+      try { S.venues = (await api('/venues')).venues; } catch (e) { return renderError(e, () => go('date')); }
     }
     const d = S.dateDraft;
     const slots = ["Aujourd'hui, 17 h", 'Demain, 16 h', 'Samedi, 11 h', 'Dimanche, 15 h'];
     render(`
-      <h2>Proposer un rendez-vous sûr</h2>
-      <p class="muted">Uniquement dans des lieux publics partenaires, où ton arrivée est confirmée par un code.</p>
-      <div class="stack">${S.venues.length ? S.venues.map((v) => `
-        <button class="option" aria-pressed="${d.venueId === v.id}" data-action="venue" data-id="${v.id}">
-          <span class="icon">${icon('coffee', 22)}</span><span><span class="title">${esc(v.name)}</span><br><span class="sub">${esc(v.area)}, ${esc(v.perk)}</span></span>
-        </button>`).join('') : '<p class="notice notice-info">Pas encore de lieu partenaire dans ta ville.</p>'}</div>
-      <div class="field"><span class="small muted">Quand ?</span>
-        <div class="stack">${slots.map((s) => `<button class="option" aria-pressed="${d.slot === s}" data-action="slot" data-value="${esc(s)}"><span class="title">${s}</span></button>`).join('')}</div>
+      <div class="step-head">
+        <p class="eyebrow">Avec ${esc(S.chat.other.name)}</p>
+        <h1>Proposer un rendez-vous sûr</h1>
+        <p class="lead">Uniquement dans des lieux publics partenaires, où ton arrivée est confirmée par un code.</p>
       </div>
-      <p class="small muted">Conseil : préviens une personne de confiance du lieu et de l'heure.</p>
+      <div class="group"><span class="eyebrow">Où</span>
+        <div class="stack">${S.venues.length ? S.venues.map((v) => `
+          <button type="button" class="choice" aria-pressed="${d.venueId === v.id}" data-action="venue" data-id="${v.id}">
+            <span class="tile">${icon('coffee', 20)}</span>
+            <div class="body"><div class="title">${esc(v.name)}</div><div class="sub">${esc(v.area)} · ${esc(v.perk)}</div></div>
+            <span class="check">${icon('check', 14)}</span>
+          </button>`).join('') : `<div class="notice notice-info">${icon('info', 18)}<span>Pas encore de lieu partenaire dans ta ville.</span></div>`}</div>
+      </div>
+      <div class="group"><span class="eyebrow">Quand</span>
+        <div class="slots">${slots.map((s) => `<button type="button" class="slot" aria-pressed="${d.slot === s}" data-action="slot" data-value="${esc(s)}">${s}</button>`).join('')}</div>
+      </div>
+      <div id="date-summary">${dateSummary()}</div>
       <p id="form-error" class="error" role="alert"></p>
     `);
     tg.closingConfirmation(!!(d.venueId || d.slot));
@@ -421,73 +542,126 @@ const SCREENS = {
   },
 
   safety() {
-    render(`${tabs('safety')}
-      <div>
-        <button class="list-row" data-action="toggle-guide" aria-expanded="${S.guideOpen}">
-          <span style="color:var(--danger)">${icon('alert', 22)}</span>
-          <span style="flex:1"><strong>Quelqu'un me fait du chantage</strong><br><span class="small muted">Que faire, étape par étape</span></span>
+    render(`
+      <div class="step-head"><h1>Ta sécurité</h1><p class="lead">Ce que ${esc(APP)} garantit, et quoi faire si quelque chose cloche.</p></div>
+      <div class="list">
+        <button type="button" class="list-row" data-action="toggle-guide" aria-expanded="${S.guideOpen}">
+          <span class="tile tile-danger">${icon('alert', 20)}</span>
+          <div class="body"><div class="title">Quelqu'un me fait du chantage</div><div class="sub">Que faire, étape par étape</div></div>
+          <span class="chev acc-chev">${icon('chevron-down', 18)}</span>
         </button>
-        ${S.guideOpen ? `<ol style="line-height:1.7;padding-left:22px">
+        <div class="acc ${S.guideOpen ? 'open' : ''}"><div><ol class="steps">
           <li>Ne paie rien, même sous la menace : payer n'arrête presque jamais le chantage.</li>
           <li>Garde les preuves : captures d'écran, prénom et date.</li>
           <li>Signale et bloque le profil depuis la discussion.</li>
           <li>Parle à une personne de confiance ou à une association d'aide aux victimes.</li>
-        </ol>` : ''}
-        <div class="list-row"><span>${icon('ban', 22)}</span><span style="flex:1"><strong>${esc(APP)} ne te demandera jamais d'argent</strong><br><span class="small muted">Ni pour vérifier ton compte, ni pour débloquer un profil.</span></span></div>
-        <div class="list-row"><span>${icon('coffee', 22)}</span><span style="flex:1"><strong>Premier rendez-vous dans un lieu public</strong><br><span class="small muted">Préviens un proche et rentre par tes propres moyens.</span></span></div>
-        <button class="list-row" data-action="go" data-screen="me"><span>${icon('lock', 22)}</span><span style="flex:1"><strong>Paramètres et confidentialité</strong><br><span class="small muted">Dans l'onglet Profil : données, notifications, suppression</span></span></button>
+        </ol></div></div>
+      </div>
+      <div class="group"><span class="eyebrow">Nos engagements</span>
+        <div class="list">
+          ${listRow({ iconName: 'ban', tile: 'tile-ok', title: `${esc(APP)} ne te demandera jamais d'argent`, sub: 'Ni pour vérifier ton compte, ni pour débloquer un profil.' })}
+          ${listRow({ iconName: 'coffee', title: 'Premier rendez-vous dans un lieu public', sub: 'Préviens un proche et rentre par tes propres moyens.' })}
+          ${listRow({ iconName: 'lock', title: 'Pseudo et numéro jamais montrés', sub: 'Les contacts se débloquent seulement après quelques messages.' })}
+        </div>
+      </div>
+      <div class="list">
+        ${listRow({ iconName: 'sliders', tile: 'tile-neutral', title: 'Paramètres et confidentialité', sub: 'Données, notifications, suppression du compte', action: 'go', extra: ' data-screen="me"' })}
       </div>`);
     tg.setButtons(null);
   },
 
   me() {
-    const v = { none: 'Non vérifié', pending: 'Vérification en cours', approved: 'Vérifié', rejected: 'Vérification refusée' }[S.me.verification];
+    const status = { none: ['Non vérifié', 'chip-warn'], pending: ['Vérification en cours', 'chip-warn'], approved: ['Vérifié', 'chip-ok'], rejected: ['Vérification refusée', 'chip-warn'] }[S.me.verification];
     const pp = S.me.publicProfile;
-    render(`${S.me.verification === 'approved' ? tabs('me') : ''}
-      <div class="row"><h2 style="flex:1">Ton profil</h2><span class="chip ${S.me.verification === 'approved' ? 'chip-ok' : ''}">${v}</span></div>
-      ${pp ? `<p class="small muted">Voici ce que les autres voient. Ton pseudo et ton numéro Telegram ne sont jamais montrés.</p>${profileCard(pp, { own: true })}` : '<p class="muted">Tu n\'as pas encore de profil.</p>'}
-      <h2 style="margin-top:8px">Paramètres</h2>
-      <div>
-        <button class="list-row" data-action="test-notif"><span>${icon('bell', 22)}</span><span style="flex:1"><strong>Tester les notifications</strong><br><span class="small muted">Le bot t'envoie un message de test dans Telegram</span></span></button>
-        <label class="list-row"><span>${icon('wifi', 22)}</span><span style="flex:1"><strong>Économie de data</strong><br><span class="small muted">Photos chargées seulement si tu les demandes</span></span>
-          <input type="checkbox" name="dataSaver" ${S.dataSaver ? 'checked' : ''} style="width:auto"></label>
-        <button class="list-row" data-action="invite"><span>${icon('heart', 22)}</span><span style="flex:1"><strong>Inviter une amie ou un ami</strong><br><span class="small muted">Plus il y a de profils vérifiés près de toi, mieux c'est</span></span></button>
-        ${tg.canAddToHome() ? `<button class="list-row" data-action="home"><span>${icon('pin', 22)}</span><span style="flex:1"><strong>Ajouter à l'écran d'accueil</strong></span></button>` : ''}
+    render(`
+      <div class="me-head">
+        ${pp ? avatar(pp, 'lg') : `<span class="avatar lg">${icon('user', 30)}</span>`}
+        <div class="body">
+          <div class="n">${pp ? `${esc(pp.name)}, ${esc(pp.age)}` : 'Ton profil'}</div>
+          <div class="c"><span class="chip ${status[1]}">${S.me.verification === 'approved' ? icon('shield', 13) : ''}${status[0]}</span>${pp ? `<span>${icon('pin', 13)} ${esc(pp.city)}</span>` : ''}</div>
+        </div>
       </div>
-      <button class="btn-danger" data-action="delete">Supprimer mon compte et mes données</button>
+      ${pp ? `
+      <div class="group"><span class="eyebrow">Ce que les autres voient</span>
+        ${profileCard(pp, { own: true })}
+        <p class="fine">${icon('lock', 14)}<span>Ton pseudo et ton numéro Telegram ne sont jamais montrés.</span></p>
+      </div>` : `<div class="notice notice-info">${icon('info', 18)}<span>Tu n'as pas encore de profil.</span></div>`}
+      <div class="group"><span class="eyebrow">Paramètres</span>
+        <div class="list">
+          ${listRow({ iconName: 'bell', title: 'Tester les notifications', sub: "Le bot t'envoie un message dans Telegram", action: 'test-notif' })}
+          <label class="list-row">
+            <span class="tile">${icon('wifi', 20)}</span>
+            <div class="body"><div class="title">Économie de data</div><div class="sub">Photos chargées seulement si tu les demandes</div></div>
+            <input type="checkbox" class="switch" name="dataSaver" ${S.dataSaver ? 'checked' : ''}>
+          </label>
+          ${listRow({ iconName: 'heart', tile: 'tile-like', title: 'Inviter une amie ou un ami', sub: 'Plus il y a de profils vérifiés près de toi, mieux c\'est', action: 'invite', trailing: `<span class="chev">${icon('share', 18)}</span>` })}
+          ${tg.canAddToHome() ? listRow({ iconName: 'home', title: "Ajouter à l'écran d'accueil", action: 'home' }) : ''}
+        </div>
+      </div>
+      <div class="danger-zone"><button type="button" class="btn btn-danger btn-block" data-action="delete">${icon('trash', 18)} Supprimer mon compte et mes données</button></div>
     `);
-    if (pp) loadCardPhoto(pp, { own: true });
-    tg.setButtons({ main: { text: pp ? 'Modifier mon profil' : 'Créer mon profil', onClick: () => { S.form = null; go('profile'); } } });
+    if (pp) { loadCardPhoto(pp, { own: true }); loadAvatar(pp, { own: true }); }
+    tg.setButtons({ main: { text: pp ? 'Modifier mon profil' : 'Créer mon profil', onClick: () => { S.form = null; S.formStep = 0; go('profile'); } } });
   },
 };
+
+function dateSummary() {
+  const d = S.dateDraft;
+  const v = S.venues.find((x) => x.id === d.venueId);
+  if (v && d.slot) return `<div class="notice notice-ok">${icon('calendar', 18)}<span><strong>${esc(v.name)}</strong>, ${esc(d.slot)}. Préviens une personne de confiance du lieu et de l'heure.</span></div>`;
+  return `<p class="fine">${icon('info', 14)}<span>Conseil : préviens une personne de confiance du lieu et de l'heure.</span></p>`;
+}
 
 // ============================================================
 // Actions
 // ============================================================
-async function saveProfile() {
+// Vérifie les champs d'une étape du profil ; renvoie le message d'erreur ou null
+function stepError(step) {
   const f = S.form;
-  const errEl = document.getElementById('form-error');
   const age = Number(f.age);
-  if (!f.name.trim()) return showError(new Error('Indique ton prénom.'), errEl);
-  if (!Number.isInteger(age) || age < 18) return showError(new Error(`${APP} est réservé aux 18 ans et plus.`), errEl);
-  if (!f.gender) return showError(new Error('Indique si tu es une femme ou un homme.'), errEl);
-  if (!f.intent) return showError(new Error('Choisis ce que tu cherches.'), errEl);
-  if (f.promptA.trim().length < 3) return showError(new Error('Réponds à la question sur toi.'), errEl);
+  if (step === 0) {
+    if (!f.name.trim()) return 'Indique ton prénom.';
+    if (!Number.isInteger(age) || age < 18) return `${APP} est réservé aux 18 ans et plus.`;
+    if (!f.gender) return 'Indique si tu es une femme ou un homme.';
+  }
+  if (step === 1 && !f.intent) return 'Choisis ce que tu cherches.';
+  if (step === 2 && f.promptA.trim().length < 3) return 'Réponds à la question sur toi.';
+  return null;
+}
+
+function nextStep() {
+  const err = stepError(S.formStep);
+  if (err) return showError(new Error(err));
+  tg.haptic('select');
+  S.formStep += 1;
+  SCREENS.profile();
+}
+
+async function saveProfile() {
+  for (let s = 0; s < 3; s += 1) {
+    const err = stepError(s);
+    if (err) {
+      if (S.formStep !== s) { S.formStep = s; SCREENS.profile(); }
+      return showError(new Error(err));
+    }
+  }
+  const f = S.form;
   tg.setButtons({ main: { text: 'Enregistrement', progress: true } });
   try {
-    const { profile } = await api('/me/profile', { method: 'PUT', body: { ...f, age } });
+    await api('/me/profile', { method: 'PUT', body: { ...f, age: Number(f.age) } });
     S.form = null;
+    S.formStep = 0;
     S.me = await api('/me');
     S.photoUrls = {};
     tg.haptic('success');
     if (S.me.verification === 'approved') {
-      toast('Profil mis à jour');
+      toast('Profil mis à jour', 'ok');
       go('me');
     } else {
       go('verify');
     }
   } catch (e) {
-    showError(e, errEl);
+    showError(e);
     tg.setButtons({ main: { text: 'Enregistrer', onClick: saveProfile } });
   }
 }
@@ -516,20 +690,26 @@ async function refreshStatus() {
       tg.haptic('success');
       go('discover');
     } else if (me.verification === 'rejected') {
-      toast("Vérification refusée : réessaie avec le visage bien visible.");
+      toast('Vérification refusée : réessaie avec le visage bien visible.', 'warn');
       go('verify');
     }
   } catch { /* on réessaiera au prochain passage */ }
 }
 
 let swiping = false;
+// La carte part sur le côté pendant que le serveur enregistre le choix ; elle revient en cas d'erreur
 async function swipe(action) {
   const p = S.profiles[0];
   if (!p || swiping) return;
   swiping = true;
+  S.swiped = true;
   tg.haptic(action === 'like' ? 'medium' : 'select');
+  const card = app.querySelector('.deck .card.top');
   try {
-    const r = await api('/swipes', { method: 'POST', body: { targetId: p.id, action } });
+    const [r] = await Promise.all([
+      api('/swipes', { method: 'POST', body: { targetId: p.id, action } }),
+      throwCard(card, action === 'like' ? 1 : -1),
+    ]);
     S.profiles.shift();
     S.remaining = Math.max(0, S.remaining - 1);
     if (r.match) {
@@ -539,23 +719,52 @@ async function swipe(action) {
       go('discover');
     }
   } catch (e) {
+    if (card) {
+      card.classList.remove('throw');
+      card.classList.add('settle');
+      card.style.transform = '';
+      card.querySelectorAll('.stamp').forEach((s) => (s.style.opacity = 0));
+    }
     showError(e);
   } finally {
     swiping = false;
   }
 }
 
+// ---------- Discussion ----------
 function chatBody(c) {
   const dateCards = c.dates.map((d) => `
-    <div class="notice ${d.arrivedMe ? 'notice-ok' : 'notice-info'}">
-      <strong>Rendez-vous : ${esc(d.venue?.name)}, ${esc(d.venue?.area)}</strong><br>${esc(d.slot)}
-      ${d.arrivedMe ? '<br>Arrivée confirmée. Bon rendez-vous.' : `<br><button class="btn btn-primary" style="margin-top:8px" data-action="checkin" data-id="${d.id}">Je suis arrivé(e) : scanner le code</button>`}
+    <div class="datecard ${d.arrivedMe ? 'ok' : ''}">
+      <div class="head">
+        <span class="tile ${d.arrivedMe ? 'tile-ok' : ''}">${icon(d.arrivedMe ? 'check' : 'coffee', 20)}</span>
+        <div class="body"><div class="v">${esc(d.venue?.name)}</div><div class="w">${esc(d.venue?.area)} · ${esc(d.slot)}</div></div>
+        <span class="chip ${d.arrivedMe ? 'chip-ok' : 'chip-accent'}">${d.arrivedMe ? 'Arrivée confirmée' : 'Proposé'}</span>
+      </div>
+      ${d.arrivedMe ? '' : `<button type="button" class="btn btn-primary btn-sm" data-action="checkin" data-id="${d.id}">${icon('qr', 16)} Je suis arrivé(e) : scanner le code</button>`}
     </div>`).join('');
-  const time = (at) => new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  const msgs = c.messages.length
-    ? c.messages.map((m) => `<div class="bubble ${m.mine ? 'mine' : 'theirs'}">${esc(m.text)}<span class="time">${time(m.at)}</span></div>`).join('')
-    : `<p class="system">Commence par une question sur son profil. Les liens et numéros sont débloqués après ${c.unlockAfter} messages.</p>`;
-  return `${dateCards}<div class="spacer"></div>${msgs}`;
+
+  let msgs = '';
+  if (!c.messages.length) {
+    msgs = `<p class="system">Commence par une question sur son profil.</p>`;
+  } else {
+    let prev = null;
+    msgs = c.messages.map((m) => {
+      let out = '';
+      if (!prev || !isSameDay(prev.at, m.at)) out += `<span class="day">${dayLabel(m.at)}</span>`;
+      // Messages groupés : même auteur, moins de trois minutes d'écart
+      const cont = prev && prev.mine === m.mine && isSameDay(prev.at, m.at) && m.at - prev.at < 3 * 60000;
+      out += `<div class="bubble ${m.mine ? 'mine' : 'theirs'} ${cont ? 'cont' : 'gap'}">${esc(m.text)}<span class="time">${timeLabel(m.at)}</span></div>`;
+      prev = m;
+      return out;
+    }).join('');
+  }
+  const n = Math.min(c.messages.length, c.unlockAfter);
+  const unlock = n >= c.unlockAfter ? '' : `
+    <div class="unlock">
+      <div class="head"><span>Liens et numéros débloqués à ${c.unlockAfter} messages</span><strong>${n}/${c.unlockAfter}</strong></div>
+      <div class="track"><div class="fill" style="width:${Math.round((100 * n) / c.unlockAfter)}%"></div></div>
+    </div>`;
+  return `${dateCards}<div class="spacer"></div>${unlock}${msgs}`;
 }
 
 // Structure fixe : en-tête en haut, messages défilants au milieu, champ de saisie en bas.
@@ -564,19 +773,23 @@ function renderChat() {
   const c = S.chat;
   render(`
     <div class="chat">
-      <div class="row chat-head">
-        <div class="avatar" style="width:40px;height:40px">${esc(c.other.name[0])}</div>
-        <div style="flex:1;min-width:0"><strong>${esc(c.other.name)}, ${c.other.age}</strong><br><span class="small muted">Pseudos Telegram masqués des deux côtés</span></div>
-        <button class="btn-link small" data-action="report-chat" aria-label="Signaler" style="color:var(--hint)">${icon('flag', 18)}</button>
+      <div class="chat-head">
+        ${avatar(c.other, 'sm')}
+        <div class="body">
+          <div class="name">${esc(c.other.name)}, ${esc(c.other.age)}${c.other.verified ? `<span class="ok">${icon('shield', 15)}</span>` : ''}</div>
+          <div class="sub">${icon('lock', 12)} Pseudos et numéros masqués</div>
+        </div>
+        <button type="button" class="icon-btn" data-action="report-chat" aria-label="Signaler">${icon('flag', 18)}</button>
       </div>
       <div class="messages" id="messages">${chatBody(c)}</div>
-      <div id="chat-notice"></div>
+      <div id="chat-notice" class="chat-notice"></div>
       <form class="composer" data-action="send">
-        <input name="message" autocomplete="off" maxlength="1000" placeholder="Écris ton message" aria-label="Message">
-        <button type="submit">Envoyer</button>
+        <input name="message" autocomplete="off" maxlength="1000" placeholder="Écris ton message" aria-label="Message" enterkeyhint="send">
+        <button type="submit" class="send" aria-label="Envoyer" disabled>${icon('send', 20)}</button>
       </form>
     </div>
   `);
+  loadAvatar(c.other);
   updateChat({ scroll: true });
 }
 
@@ -585,7 +798,7 @@ function updateChat({ scroll = false } = {}) {
   if (!box || !S.chat) return;
   const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
   box.innerHTML = chatBody(S.chat);
-  document.getElementById('chat-notice').innerHTML = S.chat.notice ? `<div class="notice notice-warn" role="alert">${esc(S.chat.notice)}</div>` : '';
+  document.getElementById('chat-notice').innerHTML = S.chat.notice ? `<div class="notice notice-warn" role="alert">${icon('alert', 18)}<span>${esc(S.chat.notice)}</span></div>` : '';
   if (scroll || nearBottom) box.scrollTop = box.scrollHeight;
 }
 
@@ -620,7 +833,7 @@ async function sendMessage(input) {
     S.chat.notice = e.code === 'MONEY_BLOCKED' ? `${e.message} Reformule sans montant ni moyen de paiement.` : e.message;
     updateChat({ scroll: true });
   } finally {
-    button.disabled = false;
+    button.disabled = !input.value.trim();
     input.focus();
   }
 }
@@ -670,7 +883,7 @@ async function report(targetId, matchId) {
   try {
     await api('/reports', { method: 'POST', body: { targetId, reason: id, matchId } });
     tg.haptic('success');
-    toast('Signalement envoyé. Ce profil ne peut plus te contacter.');
+    toast('Signalement envoyé. Ce profil ne peut plus te contacter.', 'ok');
     S.profiles = S.profiles.filter((p) => p.id !== targetId);
     go(matchId ? 'matches' : 'discover');
   } catch (e) {
@@ -681,28 +894,48 @@ async function report(targetId, matchId) {
 // ============================================================
 // Délégation des événements
 // ============================================================
+document.getElementById('tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-screen]');
+  if (!b || b.getAttribute('aria-selected') === 'true') return;
+  tg.haptic('select');
+  go(b.dataset.screen);
+});
+
+// Met à jour l'état "sélectionné" d'un groupe de boutons sans reconstruire l'écran
+const pressOnly = (el, selector) => el.parentElement.querySelectorAll(selector).forEach((b) => b.setAttribute('aria-pressed', String(b === el)));
+
 app.addEventListener('click', async (e) => {
   const el = e.target.closest('[data-action]');
   if (!el || el.tagName === 'FORM') return;
   const { action } = el.dataset;
   switch (action) {
     case 'dev-back': window.__devBack?.(); break;
-    case 'tab': tg.haptic('select'); go(el.dataset.screen); break;
     case 'go': go(el.dataset.screen); break;
     case 'set':
       tg.haptic('select');
       S.form[el.dataset.field] = el.dataset.value;
-      el.parentElement.querySelectorAll('[data-action="set"]').forEach((b) => b.setAttribute('aria-pressed', String(b === el)));
+      pressOnly(el, '[data-action="set"]');
+      document.getElementById('form-error').textContent = '';
       break;
     case 'reveal': S.revealed[el.dataset.id] = true; SCREENS.discover(); break;
     case 'report-profile': report(el.dataset.id); break;
     case 'report-chat': report(S.chat.other.id, S.chat.id); break;
     case 'open-chat': go('chat', { id: el.dataset.id }); break;
-    case 'venue': tg.haptic('select'); S.dateDraft.venueId = el.dataset.id; SCREENS.date(); break;
-    case 'slot': tg.haptic('select'); S.dateDraft.slot = el.dataset.value; SCREENS.date(); break;
+    case 'venue':
+    case 'slot':
+      tg.haptic('select');
+      if (action === 'venue') S.dateDraft.venueId = el.dataset.id; else S.dateDraft.slot = el.dataset.value;
+      pressOnly(el, `[data-action="${action}"]`);
+      document.getElementById('date-summary').innerHTML = dateSummary();
+      document.getElementById('form-error').textContent = '';
+      tg.closingConfirmation(true);
+      break;
     case 'checkin': checkin(el.dataset.id); break;
-    case 'toggle-guide': S.guideOpen = !S.guideOpen; SCREENS.safety(); break;
-    case 'edit-profile': S.form = null; go('profile'); break;
+    case 'toggle-guide':
+      S.guideOpen = !S.guideOpen;
+      el.setAttribute('aria-expanded', String(S.guideOpen));
+      el.nextElementSibling.classList.toggle('open', S.guideOpen);
+      break;
     case 'invite': {
       const url = S.me.botUsername ? `https://t.me/${S.me.botUsername}` : location.origin;
       tg.share(url, `Je t'invite sur ${APP} : des rencontres avec des profils vérifiés, sans arnaques.`);
@@ -738,6 +971,10 @@ app.addEventListener('input', (e) => {
     S.form[name] = value;
     const err = document.getElementById('form-error');
     if (err) err.textContent = '';
+  } else if (S.screen === 'chat' && name === 'message') {
+    // Le bouton Envoyer ne s'active qu'avec du texte ; le champ lui-même n'est jamais reconstruit
+    const send = e.target.nextElementSibling;
+    if (send) send.disabled = !value.trim();
   }
 });
 
@@ -754,7 +991,7 @@ app.addEventListener('change', async (e) => {
   } else if (t.name === 'dataSaver') {
     S.dataSaver = t.checked;
     await tg.cloudSet('data_saver', t.checked ? '1' : '0');
-    toast(t.checked ? 'Économie de data activée' : 'Économie de data désactivée');
+    toast(t.checked ? 'Économie de data activée' : 'Économie de data désactivée', 'ok');
   }
 });
 
@@ -768,8 +1005,7 @@ app.addEventListener('submit', (e) => {
 // Quand l'app passe en arrière-plan ou se ferme, on prévient le serveur pour que les notifications partent tout de suite
 function leavePresence() {
   if (!S.me) return;
-  const headers = tg.inTelegram ? { Authorization: `tma ${tg.initData()}` } : { 'x-dev-user': devUser() || '' };
-  fetch('/api/presence/leave', { method: 'POST', headers, keepalive: true }).catch(() => {});
+  fetch('/api/presence/leave', { method: 'POST', headers: authHeaders(), keepalive: true }).catch(() => {});
 }
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) leavePresence();
@@ -783,15 +1019,17 @@ window.addEventListener('pagehide', leavePresence);
 // ============================================================
 async function boot() {
   tg.init();
+  buildTabs();
   try {
     S.me = await api('/me');
   } catch (e) {
     tg.setButtons(null);
     return render(`
-      <div class="center stack">
+      <div class="empty">
+        <span class="glyph">${icon('lock', 34)}</span>
         <h2>Ouvre ${esc(APP)} depuis Telegram</h2>
-        <p class="muted">${esc(e.message)}</p>
-        <p class="small muted">Cherche le bot ${esc(APP)} dans Telegram, envoie /start, puis appuie sur « Ouvrir ${esc(APP)} ».</p>
+        <p>${esc(e.message)}</p>
+        <p class="small">Cherche le bot ${esc(APP)} dans Telegram, envoie /start, puis appuie sur « Ouvrir ${esc(APP)} ».</p>
       </div>`);
   }
   S.dataSaver = (await tg.cloudGet('data_saver')) === '1';

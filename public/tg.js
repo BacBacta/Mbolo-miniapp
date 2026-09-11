@@ -11,15 +11,29 @@ let mainHandler = null;
 let secondaryHandler = null;
 let backHandler = null;
 
+// Expose le schéma (clair ou sombre) au CSS : <html data-scheme="dark">, pour ajuster ombres et contrastes
+function applyScheme(scheme) {
+  document.documentElement.dataset.scheme = scheme === 'dark' ? 'dark' : 'light';
+}
+
 export function init() {
-  if (!inTelegram) return;
+  if (!inTelegram) {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    applyScheme(mq.matches ? 'dark' : 'light');
+    mq.addEventListener?.('change', (e) => applyScheme(e.matches ? 'dark' : 'light'));
+    return;
+  }
   W.ready();
   W.expand();
   if (supports('7.7')) W.disableVerticalSwipes(); // évite de fermer l'app en faisant défiler
+  // En-tête, fond et barre du bas sur la même couleur secondaire : la page et le cadre Telegram ne font qu'un
   if (supports('6.1')) {
     W.setHeaderColor('secondary_bg_color');
-    W.setBackgroundColor('bg_color');
+    W.setBackgroundColor('secondary_bg_color');
   }
+  if (supports('7.10')) W.setBottomBarColor('secondary_bg_color');
+  applyScheme(W.colorScheme);
+  W.onEvent('themeChanged', () => applyScheme(W.colorScheme));
 }
 
 export const initData = () => (inTelegram ? W.initData : '');

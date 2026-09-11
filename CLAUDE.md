@@ -46,7 +46,8 @@ public/
   index.html    Charge telegram-web-app.js puis app.js
   tg.js         Seul point d'accès au SDK Telegram, avec secours hors Telegram
   app.js        Écrans (objet SCREENS), navigation go(), appels api()
-  styles.css    Uniquement les variables --tg-theme-* avec valeurs de secours
+  ui.js         Icônes, toast, squelettes de chargement, geste de balayage des cartes
+  styles.css    Design : couleurs dérivées des variables --tg-theme-* (clair et sombre), composants, animations
 test/
   auth.test.js, antiscam.test.js, notifications.test.js
 ```
