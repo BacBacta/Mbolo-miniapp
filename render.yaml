@@ -1,0 +1,26 @@
+# Description du service pour Render (New, Blueprint). Voir README, « Tester dans Telegram sans tunnel ».
+# L'offre gratuite suffit pour une bêta fermée : le disque y est effacé à chaque redéploiement.
+services:
+  - type: web
+    name: mbolo
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: USE_WEBHOOK
+        value: "true"
+      # Tests uniquement : profils de démonstration, selfies validés sans modération
+      - key: SEED_DEMO
+        value: "true"
+      - key: AUTO_APPROVE
+        value: "true"
+      # Demandé à la création : jamais dans Git
+      - key: BOT_TOKEN
+        sync: false
+      # Généré par Render
+      - key: ADMIN_KEY
+        generateValue: true
