@@ -36,10 +36,14 @@ if [ -z "$URL" ]; then
 else
   CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL/health")
   case "$CODE" in
-    200)     echo "Code 200 : tout va bien" ;;
-    000)     echo "Code 000 : injoignable. Tunnel tombé, ou ton réseau bloque ce service. Essaie ./demarrer.sh ssh" ;;
-    50[0-9]) echo "Code $CODE : le tunnel répond, mais rien ne tourne derrière. Lance ./demarrer.sh" ;;
-    *)       echo "Code $CODE" ;;
+    200)  echo "Code 200 : tout va bien" ;;
+    000)  echo "Code 000 : injoignable. Le nom ne résout pas, ou ton réseau bloque ce service. Essaie ./demarrer.sh ssh" ;;
+    530)  echo "Code 530 : l'adresse répond, mais aucun tunnel n'est branché derrière."
+          echo "           Le processus du tunnel est tombé (erreur 1033 chez Cloudflare)."
+          echo "           C'est cette page d'erreur que voient tes utilisateurs à la place de la mini app."
+          echo "           Relance avec ./demarrer.sh ssh" ;;
+    5*)   echo "Code $CODE : le tunnel répond, mais rien ne tourne derrière. Lance ./demarrer.sh" ;;
+    *)    echo "Code $CODE" ;;
   esac
 fi
 

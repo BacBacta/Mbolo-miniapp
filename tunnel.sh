@@ -39,9 +39,14 @@ arreter_tunnels() {
 
 # Ce contrôle dit seulement si l'adresse répond, pas si la mini app est servie.
 # Tant que le serveur n'est pas démarré, l'edge du tunnel renvoie normalement une
-# erreur 5xx : c'est attendu, ce n'est pas un échec. Seul le code 000 est disqualifiant
-# (nom qui ne résout pas, réseau qui bloque le service). Plusieurs essais, car l'adresse
-# d'un tunnel qui vient d'être créé met parfois quelques secondes à se propager.
+# erreur 502 ou 503 : c'est attendu, ce n'est pas un échec.
+# Deux codes sont disqualifiants :
+#   000 : le nom ne résout pas, ou ton réseau bloque le service ;
+#   530 : l'edge répond, mais plus aucun tunnel n'est branché derrière, parce que le
+#         processus est tombé (c'est l'erreur 1033 côté Cloudflare). L'utilisateur
+#         verrait cette page d'erreur à la place de la mini app : adresse écartée.
+# Plusieurs essais, car l'adresse d'un tunnel qui vient d'être créé met parfois
+# quelques secondes à se propager.
 # Le vrai verdict, lui, est rendu par demarrer.sh une fois le serveur lancé.
 code_tunnel() {
   local code
@@ -105,6 +110,12 @@ for type in $ORDRE; do
   case "$(code_tunnel "$URL_TROUVEE")" in
     000)
       echo "$URL_TROUVEE ne répond pas depuis ce téléphone : ton réseau bloque ce service."
+      arreter_tunnels
+      continue
+      ;;
+    530)
+      echo "$URL_TROUVEE répond, mais aucun tunnel n'est branché derrière (code 530)."
+      echo "C'est la page d'erreur que verrait l'utilisateur à la place de la mini app."
       arreter_tunnels
       continue
       ;;
