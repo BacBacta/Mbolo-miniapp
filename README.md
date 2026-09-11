@@ -134,6 +134,40 @@ Pense aussi à renseigner ta **politique de confidentialité** dans BotFather (o
 
 ---
 
+## Tout lancer depuis le téléphone (Termux)
+
+Le dépôt contient trois scripts prévus pour Termux, qui remplacent les étapes 2 à 4 quand tu n'as pas d'ordinateur sous la main.
+
+```bash
+pkg install nodejs-lts git openssh cloudflared
+git clone https://github.com/BacBacta/Mbolo-miniapp.git
+cd Mbolo-miniapp
+npm install
+cp .env.example .env
+nano .env          # colle ton BOT_TOKEN
+./demarrer.sh
+```
+
+`./demarrer.sh` monte un tunnel, écrit son adresse dans `WEBAPP_URL`, puis lance le serveur au premier plan. Quelques secondes après, il confirme que la mini app est bien servie :
+
+```
+Tunnel actif, mini app déjà joignable : https://xxxx.trycloudflare.com
+Mbolo écoute sur le port 3000
+Bot @ton_bot démarré (interrogation longue)
+--- Mini app joignable sur https://xxxx.trycloudflare.com ---
+```
+
+| Commande | À quoi ça sert |
+|---|---|
+| `./demarrer.sh` | tunnel cloudflared, avec bascule automatique sur localhost.run s'il est injoignable |
+| `./demarrer.sh ssh` | force localhost.run, utile si ton réseau bloque `trycloudflare.com` |
+| `./tunnel.sh` | monte seulement le tunnel et met `WEBAPP_URL` à jour |
+| `./diagnostic.sh` | dit ce qui cloche : jeton, webhook, serveur, adresse publique, doublons de processus |
+
+> **Le bot n'a pas besoin du tunnel pour répondre.** L'interrogation longue sort vers Telegram : `npm start` seul suffit à ce que `/start` réponde. Le tunnel ne sert qu'à afficher la mini app. C'est pourquoi `./demarrer.sh` démarre le serveur même quand aucun tunnel ne fonctionne.
+
+L'adresse d'un tunnel change à chaque lancement, et les scripts l'écrivent dans `.env` à ta place. Ferme avec Ctrl-C : le tunnel est coupé en même temps que le serveur.
+
 ## Changer le nom de l'application
 
 1. Dans `.env`, modifie la ligne `APP_NAME=Mbolo` (ex. `APP_NAME=Imani`).
@@ -159,6 +193,7 @@ Puis ouvre `http://localhost:3000/?dev_user=1001`. Les boutons natifs sont rempl
 
 | Cause | Solution |
 |---|---|
+| Le serveur ne tourne pas | Sans lui le bot ne répond à rien. Lance `./diagnostic.sh` : l'étape 6 le dit |
 | Tu n'as jamais envoyé `/start` au bot | Envoie `/start`, le bot ne peut écrire qu'aux personnes qui l'ont démarré |
 | Conversation avec le bot en sourdine | Dans Telegram, ouvre la conversation avec le bot → son nom → active les notifications |
 | Tu es encore dans la discussion | Normal : pas de notification pour un message que tu lis déjà. Ferme l'app |
