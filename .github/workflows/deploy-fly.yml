@@ -1,0 +1,83 @@
+# Déploiement sur Fly, déclenché à la main depuis l'onglet Actions de GitHub.
+# Pensé pour être lancé depuis un navigateur de téléphone : aucune ligne de commande.
+#
+# À faire une seule fois avant le premier lancement :
+#   1. créer un compte sur https://fly.io, puis un jeton dans Account, Tokens ;
+#   2. sur GitHub, Settings, Secrets and variables, Actions, ajouter :
+#      FLY_API_TOKEN (obligatoire), BOT_TOKEN (obligatoire), ADMIN_KEY (recommandé).
+name: Déployer sur Fly
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: "Nom de l'app Fly, unique dans le monde entier"
+        required: true
+        default: mbolo-beta
+      region:
+        description: "Région (cdg Paris, jnb Johannesburg, mad Madrid)"
+        required: true
+        default: cdg
+
+concurrency: deploy-fly
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Inscrire le nom et la région dans fly.toml
+        run: |
+          sed -i 's/^app = .*/app = "${{ inputs.app_name }}"/' fly.toml
+          sed -i 's/^primary_region = .*/primary_region = "${{ inputs.region }}"/' fly.toml
+          head -3 fly.toml
+
+      - name: Créer l'app si elle n'existe pas
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          APP='${{ inputs.app_name }}'
+          # Créer une app existante échoue : ce n'est pas une erreur pour nous
+          flyctl apps create "$APP" --org personal || echo "App $APP déjà présente, on continue."
+
+      - name: Créer le volume de données si besoin
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          APP='${{ inputs.app_name }}'
+          # Fly accepte plusieurs volumes du même nom : on vérifie avant de créer,
+          # sinon chaque lancement en ajouterait un de plus.
+          if flyctl volumes list -a "$APP" | grep -qw mbolo_data; then
+            echo "Volume mbolo_data déjà présent."
+          else
+            flyctl volumes create mbolo_data -a "$APP" --region '${{ inputs.region }}' --size 1 --yes
+          fi
+
+      - name: Enregistrer les secrets
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
+          ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
+        run: |
+          APP='${{ inputs.app_name }}'
+          if [ -z "$BOT_TOKEN" ]; then
+            echo "Le secret BOT_TOKEN est absent : sans lui le bot ne démarre pas." >&2
+            exit 1
+          fi
+          # --stage : les secrets sont posés maintenant, appliqués par le déploiement qui suit
+          flyctl secrets set --stage -a "$APP" \
+            BOT_TOKEN="$BOT_TOKEN" \
+            ADMIN_KEY="${ADMIN_KEY:-$(head -c 32 /dev/urandom | base64 | tr -d '/+=')}" \
+            ADMIN_CHAT_ID="${ADMIN_CHAT_ID:-}"
+
+      - name: Déployer
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --remote-only -a '${{ inputs.app_name }}'
+
+      - name: Adresse de l'app
+        run: echo "Mini app disponible sur https://${{ inputs.app_name }}.fly.dev"

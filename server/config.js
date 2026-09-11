@@ -5,6 +5,11 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const bool = (v, d = false) => (v === undefined || v === '' ? d : ['1', 'true', 'yes'].includes(String(v).toLowerCase()));
 
+// Adresse publique fournie par l'hébergeur, quand il y en a une : évite de la recopier à la main.
+// Render donne l'adresse complète ; Fly donne le nom de l'app, dont l'adresse se déduit.
+const urlHebergeur = () =>
+  process.env.RENDER_EXTERNAL_URL || (process.env.FLY_APP_NAME ? `https://${process.env.FLY_APP_NAME}.fly.dev` : '');
+
 export const config = {
   root,
   // Nom affiché partout (app, bot, notifications). Modifiable sans toucher au code.
@@ -15,8 +20,8 @@ export const config = {
   publicDir: path.join(root, 'public'),
   port: Number(process.env.PORT || 3000),
   botToken: process.env.BOT_TOKEN || '',
-  // Adresse HTTPS publique. Chez Render, RENDER_EXTERNAL_URL est fournie par l'hébergeur : inutile de la recopier.
-  webAppUrl: (process.env.WEBAPP_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, ''),
+  // Adresse HTTPS publique. WEBAPP_URL l'emporte ; sinon on prend celle de l'hébergeur.
+  webAppUrl: (process.env.WEBAPP_URL || urlHebergeur()).replace(/\/$/, ''),
   adminChatId: process.env.ADMIN_CHAT_ID || '',
   adminKey: process.env.ADMIN_KEY || '',
   autoApprove: bool(process.env.AUTO_APPROVE, false),

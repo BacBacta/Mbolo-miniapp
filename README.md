@@ -199,45 +199,56 @@ Ouvre ensuite `http://localhost:3000/?dev_user=1001` dans Chrome. Tout le parcou
 
 ---
 
-## Tester dans Telegram sans tunnel : hébergement gratuit
+## Tester dans Telegram sans tunnel : héberger le serveur
 
-Quand aucun tunnel ne passe sur ton réseau, fais tourner le serveur chez un hébergeur : Telegram y accède comme n'importe quel utilisateur, et l'adresse ne change plus. L'offre gratuite de [Render](https://render.com) suffit pour une bêta fermée de quelques testeurs. Il faut un compte, ouvert avec ton compte GitHub, sans carte bancaire.
+Quand aucun tunnel ne passe sur ton réseau, fais tourner le serveur chez un hébergeur : Telegram y accède comme n'importe quel utilisateur, et l'adresse ne change plus.
 
-Vérifie d'abord que ton réseau atteint les adresses Render. Une adresse inexistante doit répondre `404`, pas `000` :
+Vérifie d'abord que ton réseau atteint le domaine visé. Une adresse inexistante doit répondre autre chose que `000` :
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://mbolo-inexistant.onrender.com/
+curl -s -o /dev/null -w "%{http_code}\n" https://mbolo-inexistant.fly.dev/
 ```
 
-Si tu obtiens `000` ici aussi, c'est le résolveur DNS de ton téléphone qui bloque, et aucun hébergeur n'y changera rien : règle le **DNS privé** d'Android sur `dns.google` (Paramètres → Connexions → Plus de paramètres de connexion).
+Si tu obtiens `000`, c'est le résolveur DNS du téléphone qui bloque, et changer d'hébergeur n'y fera rien : règle le **DNS privé** d'Android sur `dns.google` (Paramètres → Connexions → Plus de paramètres de connexion).
 
-### Mise en place
+### Fly.io
 
-1. Sur https://dashboard.render.com : **New** → **Web Service** → connecte le dépôt `BacBacta/Mbolo-miniapp`.
-2. Remplis : **Branch** la branche à tester, **Runtime** Node, **Build command** `npm ci`, **Start command** `npm start`, **Instance type** Free.
-3. Dans **Environment variables**, ajoute :
+`Dockerfile` et `fly.toml` sont à la racine. La machine s'arrête quand personne ne s'en sert et redémarre à la requête suivante, en une seconde ou deux. Un volume garde la base et les photos d'un déploiement à l'autre. Une carte bancaire est demandée à l'inscription, même sans dépense.
 
-   | Clé | Valeur |
-   |---|---|
-   | `BOT_TOKEN` | ton jeton BotFather |
-   | `ADMIN_KEY` | une longue chaîne aléatoire |
-   | `USE_WEBHOOK` | `true` |
-   | `NODE_ENV` | `production` |
-   | `SEED_DEMO` | `true` : profils de démonstration |
-   | `AUTO_APPROVE` | `true` : selfies validés sans modération, tests uniquement |
+**Depuis un navigateur, sans ligne de commande** — utile depuis un téléphone, où `flyctl` ne s'installe pas :
 
-   Pas besoin de `WEBAPP_URL` : le serveur utilise `RENDER_EXTERNAL_URL`, que Render fournit tout seul.
-4. **Deploy**. Au bout de deux à trois minutes, le journal affiche `Mbolo écoute sur le port 10000` puis `Bot en mode webhook`.
+1. Crée un compte sur https://fly.io, puis un jeton dans **Account** → **Tokens**.
+2. Sur GitHub : **Settings** → **Secrets and variables** → **Actions** → **New repository secret**. Ajoute `FLY_API_TOKEN` et `BOT_TOKEN`. Facultatif : `ADMIN_KEY` (généré sinon) et `ADMIN_CHAT_ID`.
+3. Onglet **Actions** → **Déployer sur Fly** → **Run workflow**. Choisis un nom d'app libre (ils sont uniques dans le monde entier) et une région : `cdg` Paris, `jnb` Johannesburg, `mad` Madrid.
+4. Au bout de trois à cinq minutes, l'app répond sur `https://<ton-app>.fly.dev`.
 5. Dans Telegram : `/start` → **Ouvrir Mbolo**.
 
-Le fichier `render.yaml` à la racine décrit le même service : **New** → **Blueprint** le lit et pré-remplit tout, il ne reste que `BOT_TOKEN` à saisir. Render doit le trouver sur la branche choisie.
+Le workflow crée l'app et le volume s'ils manquent, pose les secrets, puis déploie. Relance-le à chaque fois que tu veux publier une nouvelle version.
 
-### À savoir
+**Depuis un ordinateur**, si tu préfères la ligne de commande :
 
-- **Le service s'endort après 15 minutes sans requête** et met 30 à 60 secondes à se réveiller. Le premier `/start` peut donc tarder : ouvre d'abord l'adresse du service dans Chrome pour le réveiller, puis Telegram.
-- **Le disque est effacé à chaque redéploiement** sur l'offre gratuite : profils et discussions de test disparaissent, les profils de démo sont recréés. Pour de vrais utilisateurs, il faut un disque persistant ou PostgreSQL : voir « Mettre en ligne ».
-- Chaque `git push` sur la branche choisie redéploie automatiquement.
-- Ne lance pas en même temps le serveur sur ton téléphone avec `USE_WEBHOOK=false` : il retirerait le webhook, et le serveur hébergé ne recevrait plus rien.
+```powershell
+iwr https://fly.io/install.ps1 -useb | iex
+fly auth login
+fly launch --no-deploy --name "mon-app" --region cdg
+fly volumes create mbolo_data --region cdg --size 1
+fly secrets set BOT_TOKEN=123456789:AAH... ADMIN_KEY=une-longue-cle
+fly deploy
+```
+
+Pas besoin de `WEBAPP_URL` : le serveur déduit l'adresse de `FLY_APP_NAME`, que Fly fournit.
+
+### Render
+
+Alternative sans carte bancaire, moins confortable : le service dort après 15 minutes et met 30 à 60 secondes à se réveiller, et l'offre gratuite n'a pas de disque persistant, donc les données de test disparaissent à chaque redéploiement.
+
+Sur https://dashboard.render.com : **New** → **Web Service** → dépôt `BacBacta/Mbolo-miniapp`, **Build command** `npm ci`, **Start command** `npm start`, **Instance type** Free. Variables : `BOT_TOKEN`, `ADMIN_KEY`, `USE_WEBHOOK=true`, `NODE_ENV=production`, `SEED_DEMO=true`, `AUTO_APPROVE=true`. Laisse `WEBAPP_URL` vide : le serveur prend `RENDER_EXTERNAL_URL`. Le fichier `render.yaml` décrit le même service pour un déploiement en **Blueprint**.
+
+### À savoir, quel que soit l'hébergeur
+
+- **Ne lance pas en même temps le serveur sur ton téléphone** avec `USE_WEBHOOK=false` : il retirerait le webhook, et le serveur hébergé ne recevrait plus rien de Telegram.
+- `SEED_DEMO` et `AUTO_APPROVE` à `true` servent aux tests : profils de démonstration, selfies validés sans modération. À passer à `false` avant d'ouvrir à de vraies personnes.
+- Les réponses des profils de démonstration et la présence vivent en mémoire : une machine qui s'arrête les perd. Sans conséquence pour un test.
 
 ## Changer le nom de l'application
 
@@ -343,6 +354,9 @@ mbolo-miniapp/
 │   ├── app.js        Écrans et logique de l'interface
 │   ├── ui.js         Icônes, toast, squelettes de chargement, geste de balayage
 │   └── styles.css    Styles basés sur le thème Telegram de chaque utilisateur
+├── Dockerfile        Image de l'application (Fly, ou tout hébergeur Docker)
+├── fly.toml          Service Fly : port, volume de données, contrôle /health
+├── render.yaml       Le même service décrit pour Render
 ├── test/             Tests automatiques
 └── data/             Base et photos (créé automatiquement, ignoré par Git)
 ```
