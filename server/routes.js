@@ -75,6 +75,7 @@ api.get('/me', (req, res) => {
     botUsername: runtime.botUsername,
     appName: config.appName,
     publicProfile: u.profile ? publicProfile(u) : null,
+    filters: filtersOf(u),
     notificationsAvailable: !!config.botToken,
     options: { intents: INTENTS, genders: GENDERS, cities: CITIES },
   });
@@ -151,6 +152,22 @@ api.delete('/me', (req, res) => {
   res.json({ deleted: true });
 });
 
+// ---------- Filtres : ce que je veux voir ----------
+// Seule la tranche d'âge se règle ; ville et intention viennent du profil
+const DEFAULT_FILTERS = { ageMin: 18, ageMax: 99 };
+const filtersOf = (u) => ({ ...DEFAULT_FILTERS, ...(u.filters || {}) });
+const inAgeRange = (me, other) => { const f = filtersOf(me); return other.profile.age >= f.ageMin && other.profile.age <= f.ageMax; };
+
+api.put('/me/filters', (req, res) => {
+  const ageMin = Number(req.body?.ageMin), ageMax = Number(req.body?.ageMax);
+  const ok = (n) => Number.isInteger(n) && n >= 18 && n <= 99;
+  if (!ok(ageMin) || !ok(ageMax)) return fail(res, 400, 'FILTERS_INVALID', 'Indique des âges entre 18 et 99 ans.');
+  if (ageMin > ageMax) return fail(res, 400, 'FILTERS_INVALID', "L'âge minimum doit être inférieur ou égal au maximum.");
+  const filters = { ageMin, ageMax };
+  store.updateUser(req.user.id, { filters });
+  res.json({ filters });
+});
+
 // ---------- Photos (servies uniquement aux membres vérifiés) ----------
 api.get('/photos/:userId', requireApproved, (req, res) => {
   const target = store.getUser(req.params.userId);
@@ -176,7 +193,7 @@ api.get('/discover', requireApproved, (req, res) => {
   const remaining = Math.max(0, config.dailyProfiles - store.swipesToday(me.id));
   if (!remaining) return res.json({ profiles: [], remaining: 0 });
   const profiles = store.allUsers()
-    .filter((u) => u.id !== me.id && isApproved(u) && !store.hasSwiped(me.id, u.id) && !store.isBlocked(me.id, u.id) && compatible(me, u))
+    .filter((u) => u.id !== me.id && isApproved(u) && !store.hasSwiped(me.id, u.id) && !store.isBlocked(me.id, u.id) && compatible(me, u) && inAgeRange(me, u))
     // Avant le match, on ne dit que « cette semaine » ou rien : la tranche fine est réservée aux matchs
     .map((u) => { const p = publicProfile(u); return { ...p, activity: p.activity ? 'week' : null, likedYou: store.likedBy(u.id, me.id) }; })
     // Ceux qui t'ont liké, puis ton quartier
@@ -192,7 +209,7 @@ const listRank = (p) => (p.status === 'match' ? 0 : p.status ? 1 : p.likedYou ? 
 api.get('/profiles', requireApproved, (req, res) => {
   const me = req.user;
   const profiles = store.allUsers()
-    .filter((u) => u.id !== me.id && isApproved(u) && !store.isBlocked(me.id, u.id) && compatible(me, u))
+    .filter((u) => u.id !== me.id && isApproved(u) && !store.isBlocked(me.id, u.id) && compatible(me, u) && inAgeRange(me, u))
     .map((u) => {
       const p = publicProfile(u);
       const swipe = store.swipeOf(me.id, u.id);
@@ -212,6 +229,20 @@ api.get('/profiles', requireApproved, (req, res) => {
     .sort((a, b) => listRank(b) - listRank(a) || sameArea(me, b) - sameArea(me, a) || (ACTIVITY_RANK[b.activity] || 0) - (ACTIVITY_RANK[a.activity] || 0) || b.since - a.since)
     .slice(0, 50)
     .map(({ since, ...p }) => p);
+  res.json({ profiles });
+});
+
+// Ceux qui ont aimé mon profil et attendent ma réponse. Un like est un signal qui m'est adressé :
+// il ignore ma tranche d'âge, sinon « tu as plu à quelqu'un » mènerait parfois à un écran vide.
+const likersOf = (me) => store.allUsers()
+  .filter((u) => u.id !== me.id && isApproved(u) && !store.isBlocked(me.id, u.id) && compatible(me, u) && store.likedBy(u.id, me.id) && !store.hasSwiped(me.id, u.id))
+  .sort((a, b) => store.swipeOf(b.id, me.id).at - store.swipeOf(a.id, me.id).at);
+
+api.get('/likes', requireApproved, (req, res) => {
+  const profiles = likersOf(req.user).slice(0, 20).map((u) => {
+    const p = publicProfile(u);
+    return { ...p, activity: p.activity ? 'week' : null, likedYou: true, status: null, matchId: null };
+  });
   res.json({ profiles });
 });
 
@@ -280,7 +311,7 @@ api.get('/summary', requireApproved, (req, res) => {
     unread += store.unreadCount(m.id, req.user.id);
     if (!store.hasOpened(m.id, req.user.id)) newMatches += 1;
   }
-  res.json({ unread, newMatches });
+  res.json({ unread, newMatches, likes: likersOf(req.user).length });
 });
 
 api.get('/matches/:id', requireApproved, (req, res) => {

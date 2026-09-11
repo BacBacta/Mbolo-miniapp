@@ -12,6 +12,7 @@ const S = {
   discoverMode: 'cards',
   people: [],
   person: null,
+  likes: [],
   avatarObserver: null,
   revealed: {},
   photoUrls: {},
@@ -98,7 +99,7 @@ function compressImage(file, max = 720, quality = 0.8) {
 // ============================================================
 // Navigation
 // ============================================================
-const PARENT = { profile: () => (S.me?.verification === 'approved' ? 'me' : 'welcome'), verify: () => 'profile', match: () => 'discover', person: () => 'discover', chat: () => 'matches', date: () => 'chat' };
+const PARENT = { profile: () => (S.me?.verification === 'approved' ? 'me' : 'welcome'), verify: () => 'profile', match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat' };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
 const TABS = [['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']];
 
@@ -160,7 +161,7 @@ function showTabs(screen) {
 }
 
 function updateTabBadges() {
-  const n = S.summary.unread + S.summary.newMatches;
+  const n = S.summary.unread + S.summary.newMatches + (S.summary.likes || 0);
   const badge = document.querySelector('#tabs [data-screen="matches"] .badge');
   if (!badge) return;
   badge.textContent = n > 9 ? '9+' : String(n);
@@ -171,7 +172,7 @@ function updateTabBadges() {
 async function refreshSummary() {
   try {
     const s = await api('/summary');
-    const changed = s.unread !== S.summary.unread || s.newMatches !== S.summary.newMatches;
+    const changed = s.unread !== S.summary.unread || s.newMatches !== S.summary.newMatches || s.likes !== S.summary.likes;
     S.summary = s;
     if (changed) {
       updateTabBadges();
@@ -270,9 +271,11 @@ const listRow = ({ iconName, tile = '', title, sub = '', action = '', extra = ''
 // Barre de Découvrir : ville, choix Cartes / Liste, et le quota du jour en mode cartes
 function discoverBar() {
   const list = S.discoverMode === 'list';
+  const f = S.me.filters || {};
+  const range = f.ageMin > 18 || f.ageMax < 99 ? ` · ${f.ageMin}–${f.ageMax}` : '';
   return `
     <div class="dbar">
-      <span class="pill">${icon('pin', 15)} ${esc(S.me.profile.city)}</span>
+      <button type="button" class="pill" data-action="filters" aria-label="Filtres">${icon('pin', 15)} ${esc(S.me.profile.city)}${range} ${icon('sliders', 14)}</button>
       <div class="seg seg-mini" aria-label="Affichage">
         <button type="button" data-action="mode" data-mode="cards" aria-pressed="${!list}">${icon('card', 15)} Cartes</button>
         <button type="button" data-action="mode" data-mode="list" aria-pressed="${list}">${icon('rows', 15)} Liste</button>
@@ -340,6 +343,25 @@ function lazyAvatars() {
   app.querySelectorAll('.list-row .avatar[data-avatar]').forEach((el) => S.avatarObserver.observe(el));
 }
 
+// Tranche d'âge : enregistrée côté serveur, le paquet et la liste repartent de zéro
+async function saveFilters(values) {
+  const form = document.getElementById('filters-form');
+  const v = values || { ageMin: Number(form?.ageMin.value), ageMax: Number(form?.ageMax.value) };
+  const ok = (n) => Number.isInteger(n) && n >= 18 && n <= 99;
+  if (!ok(v.ageMin) || !ok(v.ageMax)) return showError(new Error('Indique des âges entre 18 et 99 ans.'));
+  if (v.ageMin > v.ageMax) return showError(new Error("L'âge minimum doit être inférieur ou égal au maximum."));
+  try {
+    const r = await api('/me/filters', { method: 'PUT', body: v });
+    S.me.filters = r.filters;
+    S.profiles = [];
+    S.people = [];
+    tg.haptic('success');
+    go('discover');
+  } catch (e) {
+    showError(e);
+  }
+}
+
 // « J'aime » ou « Passer » depuis le détail d'un profil ouvert par la liste
 async function swipePerson(action) {
   const p = S.person;
@@ -349,6 +371,7 @@ async function swipePerson(action) {
   try {
     const r = await api('/swipes', { method: 'POST', body: { targetId: p.id, action } });
     S.people = []; // la liste se rechargera avec les nouveaux statuts
+    S.likes = [];
     S.profiles = S.profiles.filter((x) => x.id !== p.id); // et la carte quitte le paquet
     if (r.match) {
       S.lastMatch = r.match;
@@ -541,8 +564,24 @@ const SCREENS = {
     tg.setButtons({ main: { text: "J'aime", onClick: () => swipe('like') }, secondary: { text: 'Passer', onClick: () => swipe('pass') } });
   },
 
+  filters() {
+    const f = S.me.filters || { ageMin: 18, ageMax: 99 };
+    render(`
+      <div class="step-head"><h1>Qui veux-tu voir ?</h1><p class="lead">Ta ville et ton intention viennent de ton profil. Ici, seulement la tranche d'âge.</p></div>
+      <form id="filters-form" class="stack">
+        <div class="row">
+          <label class="field"><span class="label">De</span><input name="ageMin" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMin)}"></label>
+          <label class="field"><span class="label">À</span><input name="ageMax" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMax)}"></label>
+        </div>
+        <p class="error" id="form-error"></p>
+      </form>
+      <p class="fine">${icon('info', 14)}<span>Les personnes qui ont aimé ton profil restent visibles dans Messages, quel que soit leur âge.</span></p>`);
+    document.getElementById('filters-form').addEventListener('submit', (e) => { e.preventDefault(); saveFilters(); });
+    tg.setButtons({ main: { text: 'Enregistrer', onClick: () => saveFilters() }, secondary: { text: 'Tout voir', onClick: () => saveFilters({ ageMin: 18, ageMax: 99 }) } });
+  },
+
   person({ id }) {
-    const p = S.people.find((x) => x.id === id);
+    const p = S.people.find((x) => x.id === id) || S.likes.find((x) => x.id === id);
     if (!p) return go('discover');
     S.person = p;
     const note = p.status === 'liked' ? `${icon('heart', 14)}<span>Tu as déjà aimé ce profil. Le bot te prévient en cas de match.</span>`
@@ -577,14 +616,21 @@ const SCREENS = {
       tg.setButtons(null);
     }
     try {
-      S.matches = (await api('/matches')).matches;
+      // Les likes reçus s'affichent ici : c'est là qu'on répond à quelqu'un
+      const [m, l] = await Promise.all([api('/matches'), api('/likes').catch(() => ({ profiles: [] }))]);
+      S.matches = m.matches;
+      S.likes = l.profiles;
     } catch (e) {
       return renderError(e, () => go('matches'));
     }
     if (S.screen !== 'matches') return;
+    const likesStrip = S.likes.length ? `
+      <div class="group"><span class="eyebrow">Ont aimé ton profil</span>
+        <div class="new-strip">${S.likes.map((p) => `<button type="button" class="new-item like-item" data-action="person" data-id="${esc(p.id)}">${avatar(p, 'md')}<span>${esc(p.name)}</span></button>`).join('')}</div>
+      </div>` : '';
     if (!S.matches.length) {
-      render(`
-        <div class="empty">
+      render(`${likesStrip}
+        <div class="empty${likesStrip ? ' top' : ''}">
           <span class="glyph">${icon('message', 34)}</span>
           <h2>Tes matchs apparaîtront ici</h2>
           <p>Quand vous vous plaisez tous les deux, la discussion s'ouvre. Le bot te prévient, même app fermée.</p>
@@ -592,7 +638,7 @@ const SCREENS = {
       return tg.setButtons({ main: { text: 'Découvrir des profils', onClick: () => go('discover') } });
     }
     const fresh = S.matches.filter((m) => m.isNew);
-    render(`
+    render(`${likesStrip}
       ${fresh.length ? `
       <div class="group"><span class="eyebrow">Nouveaux matchs</span>
         <div class="new-strip">${fresh.map((m) => `<button type="button" class="new-item" data-action="open-chat" data-id="${m.id}">${avatar(m.other, 'md')}<span>${esc(m.other.name)}</span></button>`).join('')}</div>
@@ -610,6 +656,7 @@ const SCREENS = {
         </div>
       </div>`);
     S.matches.slice(0, 8).forEach((m) => loadAvatar(m.other));
+    S.likes.slice(0, 6).forEach((p) => loadAvatar(p));
     tg.setButtons(null);
   },
 
@@ -1042,6 +1089,7 @@ app.addEventListener('click', async (e) => {
     case 'report-chat': report(S.chat.other.id, S.chat.id); break;
     case 'open-chat': go('chat', { id: el.dataset.id }); break;
     case 'person': go('person', { id: el.dataset.id }); break;
+    case 'filters': go('filters'); break;
     case 'mode':
       tg.haptic('select');
       S.discoverMode = el.dataset.mode;

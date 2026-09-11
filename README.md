@@ -17,8 +17,8 @@ Ce dépôt contient tout ce qu'il faut pour la tester sur ton propre téléphone
 | Connexion sans mot de passe | Identité Telegram, signature vérifiée côté serveur (`server/auth.js`) |
 | Profil 18+ | Âge contrôlé, ni numéro ni lien accepté dans le profil |
 | Vérification par selfie | Geste aléatoire, selfie envoyé à ta discussion de modération avec les boutons Valider / Refuser, puis **supprimé** |
-| Découverte | Profils vérifiés de la même ville et de la même intention, 20 par jour, ceux de ton quartier d'abord (sans jamais demander ta position). Badge « Nouveau » la première semaine. Une vue **Liste** montre tous les profils compatibles, balayés ou non, avec leur statut (aimé, passé, match) et des vignettes chargées à l'apparition, jamais en économie de data ; la parcourir ne consomme rien, seul un « J'aime » compte, et un « Passer » peut y être rattrapé |
-| Match et discussion | Discussion plein écran, heure des messages, compteur de non lus, pseudos Telegram jamais montrés |
+| Découverte | Profils vérifiés de la même ville et de la même intention, dans la tranche d'âge que tu choisis, 20 par jour, ceux de ton quartier d'abord (sans jamais demander ta position). Badge « Nouveau » la première semaine. Une vue **Liste** montre tous les profils compatibles, balayés ou non, avec leur statut (aimé, passé, match) et des vignettes chargées à l'apparition, jamais en économie de data ; la parcourir ne consomme rien, seul un « J'aime » compte, et un « Passer » peut y être rattrapé |
+| Match et discussion | En tête de Messages, ceux qui ont aimé ton profil et attendent ta réponse (visibles quel que soit leur âge). Discussion plein écran, heure des messages, compteur de non lus, pseudos Telegram jamais montrés |
 | Activité | « En ligne récemment », « aujourd'hui » ou « cette semaine », jamais l'heure exacte ni de temps réel. La tranche fine est réservée aux matchs ; en découverte, « cette semaine » au plus |
 | Notifications | Le bot prévient d'un match, d'un message ou d'un like (« tu as plu à quelqu'un », une fois par jour), mais pas si la personne lit déjà la discussion |
 | Onglet Profil | Aperçu de son profil tel que les autres le voient, modification, test des notifications, paramètres |
@@ -338,7 +338,7 @@ Avec `USE_WEBHOOK=true`, Telegram envoie les messages du bot directement à ton 
 
 Ce prototype sert à une **bêta fermée**. Avant un lancement public :
 
-- [ ] **Autorisation de l'Autorité de protection des données** (loi n° 2024/017, applicable depuis le 23 juin 2026) : tu traites des photos, des données de vie intime, des données biométriques, et un horodatage de dernière activité par personne (montré aux autres par tranche seulement, effacé avec le compte).
+- [ ] **Autorisation de l'Autorité de protection des données** (loi n° 2024/017, applicable depuis le 23 juin 2026) : tu traites des photos, des données de vie intime, des données biométriques, un horodatage de dernière activité par personne (montré aux autres par tranche seulement), et la tranche d'âge recherchée — le tout effacé avec le compte.
 - [ ] Conditions d'utilisation et politique de confidentialité publiées, et renseignées dans BotFather.
 - [ ] `SEED_DEMO=false` et `AUTO_APPROVE=false`.
 - [ ] Une équipe de modération disponible chaque jour (selfies et signalements).
