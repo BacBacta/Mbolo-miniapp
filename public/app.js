@@ -211,7 +211,7 @@ function profileCard(p, { own = false, cls = '' } = {}) {
         <span class="scrim"></span>
         ${p.hasPhoto && hidePhoto ? `<button type="button" class="btn btn-glass reveal" data-action="reveal" data-id="${esc(p.id)}">${icon('image', 18)} Afficher la photo</button>` : ''}
         <div class="corners">
-          ${p.verified ? `<span class="pill-glass">${icon('shield', 14)} Vérifié</span>` : ''}
+          ${p.verified ? `<span class="pill-glass pill-verified">${icon('shield', 14)} Vérifié</span>` : ''}
           ${p.likedYou ? `<span class="pill-glass pill-like">${icon('heart', 14, { fill: true })} T'a liké</span>` : ''}
           ${p.demo ? '<span class="pill-glass">démo</span>' : ''}
           ${own ? '' : activityChip(p, 'pill-glass')}
