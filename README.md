@@ -225,18 +225,29 @@ Si tu obtiens `000`, c'est le résolveur DNS du téléphone qui bloque, et chang
 
 Le workflow crée l'app et le volume s'ils manquent, pose les secrets, puis déploie. Relance-le à chaque fois que tu veux publier une nouvelle version.
 
-**Depuis un ordinateur**, si tu préfères la ligne de commande :
+**En ligne de commande**, avec `deployer-fly.sh`. Le script crée l'app et le volume s'ils manquent, pose les secrets, déploie, puis vérifie que `/health` répond. Relançable sans risque : il ne recrée pas ce qui existe, et s'arrête avant toute modification si le jeton est invalide.
+
+```bash
+curl -fsSL https://fly.io/install.sh | sh          # une seule fois
+export FLY_API_TOKEN=...                          # https://fly.io, Account, Tokens
+export BOT_TOKEN=...                              # jeton BotFather
+./deployer-fly.sh mon-app cdg
+```
+
+Sous Windows, la même chose dans PowerShell :
 
 ```powershell
 iwr https://fly.io/install.ps1 -useb | iex
-fly auth login
-fly launch --no-deploy --name "mon-app" --region cdg
-fly volumes create mbolo_data --region cdg --size 1
-fly secrets set BOT_TOKEN=123456789:AAH... ADMIN_KEY=une-longue-cle
-fly deploy
+$env:FLY_API_TOKEN = "..."
+$env:BOT_TOKEN = "..."
+bash ./deployer-fly.sh mon-app cdg
 ```
 
+C'est ce même script qu'exécute le workflow GitHub : une seule logique, donc pas de dérive entre les deux chemins.
+
 Pas besoin de `WEBAPP_URL` : le serveur déduit l'adresse de `FLY_APP_NAME`, que Fly fournit.
+
+> Crée de préférence un **jeton limité à l'application** (Fly propose des jetons de déploiement à portée réduite) plutôt qu'un jeton de compte : en cas de fuite, il ne donne accès qu'à cette app, et se révoque sans toucher au reste.
 
 ### Render
 
@@ -355,6 +366,7 @@ mbolo-miniapp/
 │   ├── ui.js         Icônes, toast, squelettes de chargement, geste de balayage
 │   └── styles.css    Styles basés sur le thème Telegram de chaque utilisateur
 ├── Dockerfile        Image de l'application (Fly, ou tout hébergeur Docker)
+├── deployer-fly.sh   Déploiement sur Fly : app, volume, secrets, contrôle /health
 ├── fly.toml          Service Fly : port, volume de données, contrôle /health
 ├── render.yaml       Le même service décrit pour Render
 ├── test/             Tests automatiques

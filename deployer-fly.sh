@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Déploie l'application sur Fly. Relançable sans risque : crée ce qui manque, laisse le reste.
+#
+# Usage : FLY_API_TOKEN=... ./deployer-fly.sh <nom-app> [région]
+#   nom-app : unique dans le monde entier (ex. mbolo-beta)
+#   région  : cdg Paris (défaut), jnb Johannesburg, mad Madrid
+#
+# Secrets lus dans l'environnement : BOT_TOKEN (obligatoire), ADMIN_KEY et
+# ADMIN_CHAT_ID (facultatifs). Aucun n'est écrit sur le disque ni affiché.
+set -euo pipefail
+
+APP="${1:-}"
+REGION="${2:-cdg}"
+VOLUME=mbolo_data
+
+if [ -z "$APP" ]; then
+  echo "Usage : FLY_API_TOKEN=... ./deployer-fly.sh <nom-app> [région]" >&2
+  exit 1
+fi
+if [ -z "${FLY_API_TOKEN:-}" ]; then
+  echo "FLY_API_TOKEN absent. Crée un jeton sur https://fly.io, Account puis Tokens." >&2
+  exit 1
+fi
+if [ -z "${BOT_TOKEN:-}" ]; then
+  echo "BOT_TOKEN absent : sans lui le bot ne démarre pas." >&2
+  exit 1
+fi
+command -v flyctl >/dev/null 2>&1 || { echo "flyctl introuvable : curl -fsSL https://fly.io/install.sh | sh" >&2; exit 1; }
+
+echo "== Compte =="
+flyctl auth whoami
+
+echo "== Nom et région dans fly.toml =="
+sed -i.bak "s/^app = .*/app = \"$APP\"/; s/^primary_region = .*/primary_region = \"$REGION\"/" fly.toml
+rm -f fly.toml.bak
+head -3 fly.toml
+
+echo "== Application =="
+# Créer une app qui existe déjà échoue : ce n'est pas une erreur pour nous
+flyctl apps create "$APP" --org personal || echo "App $APP déjà présente, on continue."
+
+echo "== Volume de données =="
+# Fly accepte plusieurs volumes du même nom : sans ce contrôle, chaque lancement en ajouterait un
+if flyctl volumes list -a "$APP" 2>/dev/null | grep -qw "$VOLUME"; then
+  echo "Volume $VOLUME déjà présent."
+else
+  flyctl volumes create "$VOLUME" -a "$APP" --region "$REGION" --size 1 --yes
+fi
+
+echo "== Secrets =="
+# --stage : posés maintenant, appliqués par le déploiement qui suit, sans redémarrage inutile
+flyctl secrets set --stage -a "$APP" \
+  BOT_TOKEN="$BOT_TOKEN" \
+  ADMIN_KEY="${ADMIN_KEY:-$(head -c 32 /dev/urandom | base64 | tr -d '/+=')}" \
+  ADMIN_CHAT_ID="${ADMIN_CHAT_ID:-}"
+
+echo "== Déploiement =="
+# --remote-only : l'image est construite chez Fly, aucun Docker local nécessaire
+flyctl deploy --remote-only -a "$APP"
+
+echo "== Contrôle =="
+URL="https://$APP.fly.dev"
+for _ in $(seq 1 20); do
+  if curl -fsS --max-time 10 "$URL/health" | grep -q '"ok":true'; then
+    echo "Mini app joignable sur $URL"
+    exit 0
+  fi
+  sleep 3
+done
+echo "Déployé, mais $URL/health n'a pas répondu. Journal : flyctl logs -a $APP" >&2
+exit 1
