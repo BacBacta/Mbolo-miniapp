@@ -69,12 +69,13 @@ async function api(path, { method = 'GET', body } = {}) {
   return data;
 }
 
-async function photoUrl(userId) {
-  if (S.photoUrls[userId]) return S.photoUrls[userId];
-  const res = await fetch(`/api/photos/${encodeURIComponent(userId)}`, { headers: authHeaders() }).catch(() => null);
+async function photoUrl(userId, n = 1) {
+  const key = `${userId}/${n}`;
+  if (S.photoUrls[key]) return S.photoUrls[key];
+  const res = await fetch(`/api/photos/${encodeURIComponent(userId)}/${n}`, { headers: authHeaders() }).catch(() => null);
   if (!res?.ok) return null;
-  S.photoUrls[userId] = URL.createObjectURL(await res.blob());
-  return S.photoUrls[userId];
+  S.photoUrls[key] = URL.createObjectURL(await res.blob());
+  return S.photoUrls[key];
 }
 
 // Réduit les photos avant envoi : moins de data consommée, envoi plus fiable sur réseau lent
@@ -188,7 +189,7 @@ const avatar = (p, size = 'sm') => `<span class="avatar ${size}" data-avatar="${
 
 function loadAvatar(p, { own = false } = {}) {
   if (!p?.hasPhoto || (!own && S.dataSaver)) return;
-  photoUrl(p.id).then((url) => {
+  photoUrl(p.id, p.photos?.[0] || 1).then((url) => {
     if (!url) return;
     document.querySelectorAll(`[data-avatar="${CSS.escape(p.id)}"]`).forEach((el) => {
       if (!el.querySelector('img')) el.append(Object.assign(document.createElement('img'), { src: url, alt: '' }));
@@ -209,7 +210,8 @@ function profileCard(p, { own = false, cls = '' } = {}) {
   const trustItem = (on, label) => `<span class="${on ? 'on' : ''}">${icon(on ? 'check' : 'clock', 12)}${label}</span>`;
   return `
     <article class="card ${cls}">
-      <div class="card-photo" data-photo="${esc(p.id)}">
+      <div class="card-photo" data-photo="${esc(p.id)}"${p.photos?.length > 1 && !(!own && hidePhoto) ? ' data-action="photo-nav" data-index="0"' : ''}>
+        ${p.photos?.length > 1 && !(!own && hidePhoto) ? `<div class="dots">${p.photos.map((_, i) => `<span class="${i ? '' : 'on'}"></span>`).join('')}</div>` : ''}
         <span class="initial">${esc(p.name?.[0] || '?')}</span>
         <span class="scrim"></span>
         ${p.hasPhoto && hidePhoto ? `<button type="button" class="btn btn-glass reveal" data-action="reveal" data-id="${esc(p.id)}">${icon('image', 18)} Afficher la photo</button>` : ''}
@@ -252,7 +254,7 @@ function profileCard(p, { own = false, cls = '' } = {}) {
 
 function loadCardPhoto(p, { own = false } = {}) {
   if (!p.hasPhoto || (!own && S.dataSaver && !S.revealed[p.id])) return;
-  photoUrl(p.id).then((url) => {
+  photoUrl(p.id, p.photos?.[0] || 1).then((url) => {
     const box = document.querySelector(`[data-photo="${CSS.escape(p.id)}"]`);
     if (!url || !box || box.querySelector('img')) return;
     const img = Object.assign(document.createElement('img'), { src: url, alt: `Photo de ${p.name}` });
@@ -276,12 +278,31 @@ const listRow = ({ iconName, tile = '', title, sub = '', action = '', extra = ''
     ${trailing === 'chev' && action ? `<span class="chev">${icon('chevron-right', 18)}</span>` : trailing === 'chev' ? '' : trailing}
   </${action ? 'button' : 'div'}>`;
 
+// Changer de photo sur une carte : moitié droite, la suivante ; moitié gauche, la précédente
+function photoNav(box, e) {
+  const id = box.dataset.photo;
+  const p = [...S.profiles, ...S.people, ...S.likes, S.person, S.lastMatch?.other, S.me?.publicProfile].find((x) => x?.id === id);
+  if (!(p?.photos?.length > 1)) return;
+  const i = Number(box.dataset.index || 0);
+  const rect = box.getBoundingClientRect();
+  const next = e.clientX - rect.left > rect.width / 2 ? (i + 1) % p.photos.length : (i - 1 + p.photos.length) % p.photos.length;
+  box.dataset.index = String(next);
+  box.querySelectorAll('.dots span').forEach((d, k) => d.classList.toggle('on', k === next));
+  tg.haptic('select');
+  photoUrl(p.id, p.photos[next]).then((url) => {
+    const img = box.querySelector('img');
+    if (!url || !img) return;
+    img.classList.remove('loaded');
+    img.src = url;
+  });
+}
+
 // Complétion du profil : l'obligatoire vaut la moitié, le reste se gagne. La photo pèse le plus,
 // c'est ce qui manque le plus aux cartes. Calculé ici : rien de nouveau n'est stocké.
 function completion() {
   const p = S.me.profile || {};
   const items = [
-    { icon: 'camera', title: 'Ajouter une photo', sub: 'Les cartes avec photo sont bien plus regardées', pts: 25, done: !!p.hasPhoto, step: 2 },
+    { icon: 'camera', title: 'Ajouter une photo', sub: 'Les cartes avec photo sont bien plus regardées', pts: 25, done: (S.me.photos || []).length > 0, step: 2 },
     { icon: 'pin', title: 'Indiquer ton quartier', sub: 'Les profils de ton quartier passent devant', pts: 15, done: !!p.area, step: 1 },
     { icon: 'globe', title: 'Préciser tes langues', sub: 'Français, anglais, ewondo…', pts: 10, done: !!p.languages, step: 2 },
   ];
@@ -446,7 +467,8 @@ const SCREENS = {
       promptQ: p.promptQ || 'Mon plat du dimanche',
       promptA: p.promptA || '',
       languages: p.languages || '',
-      photo: null,
+      // Par emplacement : 'keep' (photo existante), une image encodée (nouvelle), ou null (vide ou à retirer)
+      photos: Object.fromEntries([1, 2, 3].map((n) => [n, (S.me.photos || []).some((x) => x.n === n) ? 'keep' : null])),
     });
     const step = S.formStep;
     const o = S.me.options;
@@ -477,13 +499,21 @@ const SCREENS = {
       <label class="field"><span class="label">Ville</span>${select('city', o.cities, f.city)}</label>
       <label class="field"><span class="label">Quartier <span class="opt">facultatif</span></span><input name="area" maxlength="40" value="${esc(f.area)}" placeholder="Bastos"></label>`,
       `
-      <div class="avatar-picker">
-        <label class="avatar-big" aria-label="Choisir une photo de profil">
-          ${f.photo ? `<img src="${f.photo}" alt="Aperçu de ta photo">` : icon('user', 44)}
-          <span class="cam">${icon('camera', 18)}</span>
-          <input type="file" name="photo" accept="image/*" hidden>
-        </label>
-        <span class="small muted">${f.photo ? 'Appuie pour changer de photo' : 'Photo facultative, compressée sur ton téléphone'}</span>
+      <div class="field"><span class="label">Tes photos <span class="opt">jusqu'à 3, facultatif</span></span>
+        <div class="photo-slots">${[1, 2, 3].map((n) => {
+          const v = f.photos[n];
+          const existing = (S.me.photos || []).find((x) => x.n === n);
+          const src = v && v !== 'keep' ? v : v === 'keep' ? S.photoUrls[`${S.me.id}/${n}`] : null;
+          return `
+          <label class="photo-slot ${v ? 'has' : ''}" aria-label="Photo ${n}">
+            ${src ? `<img src="${src}" alt="">` : v === 'keep' ? '' : icon('plus', 22)}
+            <span class="num">${n}</span>
+            ${v ? `<button type="button" class="rm" data-action="photo-remove" data-n="${n}" aria-label="Retirer la photo ${n}">${icon('x', 14)}</button>` : ''}
+            ${v === 'keep' && existing?.status === 'pending' ? '<span class="chip state">En attente</span>' : v && v !== 'keep' ? '<span class="chip state">Nouvelle</span>' : ''}
+            <input type="file" name="photo-${n}" accept="image/*" hidden>
+          </label>`;
+        }).join('')}</div>
+        <span class="small muted">Chaque photo est vérifiée avant d'être montrée aux autres. Compressée sur ton téléphone.</span>
       </div>
       <label class="field"><span class="label">Une question sur toi</span>${select('promptQ', ['Mon plat du dimanche', 'Mon coin préféré', 'Mon week-end idéal', 'Je supporte', 'Ma chanson du moment'], f.promptQ)}</label>
       <label class="field"><span class="label">Ta réponse</span><input name="promptA" maxlength="120" value="${esc(f.promptA)}" placeholder="Le ndolé plantain de ma tante"></label>
@@ -491,6 +521,10 @@ const SCREENS = {
       <p class="fine">${icon('ban', 14)}<span>Ni numéro, ni pseudo, ni lien dans ton profil : ils seraient refusés.</span></p>`,
     ];
     render(`${head}${bodies[step]}<p id="form-error" class="error" role="alert"></p>`);
+    if (step === 2) [1, 2, 3].filter((n) => f.photos[n] === 'keep' && !S.photoUrls[`${S.me.id}/${n}`]).forEach((n) => photoUrl(S.me.id, n).then((url) => {
+      const slot = app.querySelector(`input[name="photo-${n}"]`)?.closest('.photo-slot');
+      if (url && slot && !slot.querySelector('img')) slot.prepend(Object.assign(document.createElement('img'), { src: url, alt: '' }));
+    }));
     // Retour : l'étape précédente, puis l'écran parent
     tg.setBack(step > 0 ? () => { S.formStep = step - 1; SCREENS.profile(); } : () => go(PARENT.profile()));
     tg.setButtons({ main: step < 2 ? { text: 'Continuer', onClick: nextStep } : { text: 'Enregistrer', onClick: saveProfile } });
@@ -844,7 +878,15 @@ async function saveProfile() {
   const f = S.form;
   tg.setButtons({ main: { text: 'Enregistrement', progress: true } });
   try {
-    await api('/me/profile', { method: 'PUT', body: { ...f, age: Number(f.age) } });
+    const { photos, ...fields } = f;
+    await api('/me/profile', { method: 'PUT', body: { ...fields, age: Number(f.age) } });
+    // Emplacements : une nouvelle image part en modération, un emplacement vidé est supprimé
+    for (const n of [1, 2, 3]) {
+      const v = photos[n];
+      const existed = (S.me.photos || []).some((x) => x.n === n);
+      if (v && v !== 'keep') await api(`/me/photos/${n}`, { method: 'PUT', body: { photo: v } });
+      else if (!v && existed) await api(`/me/photos/${n}`, { method: 'DELETE' });
+    }
     S.form = null;
     S.formStep = 0;
     S.me = await api('/me');
@@ -1121,6 +1163,8 @@ app.addEventListener('click', async (e) => {
     case 'person': go('person', { id: el.dataset.id }); break;
     case 'filters': go('filters'); break;
     case 'edit-step': S.form = null; S.formStep = Number(el.dataset.step); go('profile'); break;
+    case 'photo-nav': photoNav(el, e); break;
+    case 'photo-remove': e.preventDefault(); S.form.photos[el.dataset.n] = null; SCREENS.profile(); break;
     case 'mode':
       tg.haptic('select');
       S.discoverMode = el.dataset.mode;
@@ -1186,8 +1230,8 @@ app.addEventListener('input', (e) => {
 
 app.addEventListener('change', async (e) => {
   const t = e.target;
-  if (t.name === 'photo' && t.files?.[0]) {
-    try { S.form.photo = await compressImage(t.files[0]); SCREENS.profile(); } catch (err) { showError(err); }
+  if (/^photo-[123]$/.test(t.name) && t.files?.[0]) {
+    try { S.form.photos[t.name.slice(-1)] = await compressImage(t.files[0]); SCREENS.profile(); } catch (err) { showError(err); }
   } else if (t.name === 'selfie' && t.files?.[0]) {
     try { S.selfie = await compressImage(t.files[0], 900, 0.85); SCREENS.verify(); } catch (err) { showError(err); }
   } else if (t.name === 'city' && S.form) {

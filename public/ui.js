@@ -87,7 +87,7 @@ export function attachSwipe(card, { onLike, onPass, threshold = 0.32 } = {}) {
   if (!card) return () => {};
   const stampLike = card.querySelector('.stamp.like');
   const stampPass = card.querySelector('.stamp.pass');
-  let startX = 0, startY = 0, dx = 0, dy = 0, active = false, startT = 0;
+  let startX = 0, startY = 0, dx = 0, dy = 0, active = false, startT = 0, captured = false;
 
   const setTransform = () => {
     const rot = dx / 18;
@@ -100,14 +100,16 @@ export function attachSwipe(card, { onLike, onPass, threshold = 0.32 } = {}) {
   const down = (e) => {
     if (e.button !== undefined && e.button !== 0) return;
     if (e.target.closest('button, a, input, label')) return;
-    active = true; startX = e.clientX; startY = e.clientY; dx = dy = 0; startT = Date.now();
+    active = true; captured = false; startX = e.clientX; startY = e.clientY; dx = dy = 0; startT = Date.now();
     card.classList.remove('settle');
     card.classList.add('dragging');
-    card.setPointerCapture?.(e.pointerId);
   };
   const move = (e) => {
     if (!active) return;
     dx = e.clientX - startX; dy = e.clientY - startY;
+    // Le pointeur n'est capturé qu'une fois le geste engagé : un simple toucher reste un clic,
+    // reçu par ce qu'on a touché (changer de photo, par exemple)
+    if (!captured && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) { captured = true; card.setPointerCapture?.(e.pointerId); }
     setTransform();
   };
   const up = () => {

@@ -84,10 +84,46 @@ export const store = {
       }
     }
     db.blocks = db.blocks.filter((b) => b.from !== id && b.to !== id);
-    for (const f of ['profile', 'selfie']) {
+    for (const f of ['profile', 'selfie', 'photo-1', 'photo-2', 'photo-3']) {
       const p = path.join(config.uploadsDir, `${id}-${f}.jpg`);
       if (fs.existsSync(p)) fs.unlinkSync(p);
     }
+    save();
+  },
+
+  // ---------- Photos ----------
+  // Jusqu'à trois photos par personne, fichiers <id>-photo-<n>.jpg. Chacune passe par la
+  // modération avant d'être montrée aux autres. Les anciens profils n'avaient qu'une photo,
+  // <id>-profile.jpg : elle devient l'emplacement 1, déjà validée, à la première lecture.
+  photosOf(user) {
+    if (!user.photos) {
+      user.photos = [];
+      if (user.profile?.hasPhoto) {
+        const old = path.join(config.uploadsDir, `${user.id}-profile.jpg`);
+        if (fs.existsSync(old)) fs.renameSync(old, path.join(config.uploadsDir, `${user.id}-photo-1.jpg`));
+        user.photos.push({ n: 1, status: 'approved' });
+      }
+      save();
+    }
+    return user.photos;
+  },
+
+  // hasPhoto reste synchronisé : « au moins une photo validée », ce que voient les autres
+  setPhoto(userId, n, status) {
+    const u = db.users[String(userId)];
+    if (!u) return;
+    u.photos = [...store.photosOf(u).filter((p) => p.n !== n), { n, status }].sort((a, b) => a.n - b.n);
+    if (u.profile) u.profile.hasPhoto = u.photos.some((p) => p.status === 'approved');
+    save();
+  },
+
+  removePhoto(userId, n) {
+    const u = db.users[String(userId)];
+    if (!u) return;
+    u.photos = store.photosOf(u).filter((p) => p.n !== n);
+    const f = path.join(config.uploadsDir, `${u.id}-photo-${n}.jpg`);
+    if (fs.existsSync(f)) fs.unlinkSync(f);
+    if (u.profile) u.profile.hasPhoto = u.photos.some((p) => p.status === 'approved');
     save();
   },
 

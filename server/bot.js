@@ -57,6 +57,31 @@ export async function sendSelfieToModeration(userId) {
 }
 
 // Décision de modération : le selfie est supprimé dans tous les cas, comme promis à l'utilisateur.
+// Chaque photo de profil passe par la même modération que le selfie, avec ses propres boutons
+export async function sendPhotoToModeration(userId, n) {
+  const user = store.getUser(userId);
+  const file = path.join(config.uploadsDir, `${userId}-photo-${n}.jpg`);
+  if (!bot || !config.adminChatId || !fs.existsSync(file)) return false;
+  const keyboard = new InlineKeyboard().text('Valider', `photo:approve:${userId}:${n}`).text('Refuser', `photo:reject:${userId}:${n}`);
+  await bot.api.sendPhoto(config.adminChatId, new InputFile(file), {
+    caption: `Photo ${n} de ${user.profile?.name || user.firstName}, ${user.profile?.age || '?'} ans\nID : ${userId}`,
+    reply_markup: keyboard,
+  });
+  return true;
+}
+// Refusée, la photo est supprimée : on ne garde pas ce qu'on ne montrera pas. La personne sait pourquoi.
+export async function decidePhoto(userId, n, approved) {
+  const user = store.getUser(userId);
+  if (!user || !store.photosOf(user).some((p) => p.n === n)) return; // retirée entre-temps
+  if (approved) {
+    store.setPhoto(userId, n, 'approved');
+    await notify(userId, `Ta photo ${n} est validée : les autres la voient maintenant.`, { label: 'Voir mon profil', params: { screen: 'me' } });
+  } else {
+    store.removePhoto(userId, n);
+    await notify(userId, `Ta photo ${n} a été refusée : visage peu visible, contenu inadapté, ou ce n'est pas toi. Elle est supprimée, tu peux en mettre une autre.`, { label: 'Changer de photo', params: { screen: 'me' } });
+  }
+}
+
 export async function decideVerification(userId, approved) {
   const user = store.getUser(userId);
   if (!user) return;
@@ -97,6 +122,14 @@ export function setupBot() {
     await decideVerification(userId, action === 'approve');
     await ctx.editMessageCaption({ caption: `${action === 'approve' ? 'Validé' : 'Refusé'} par ${ctx.from.first_name} (ID ${userId})` });
     await ctx.answerCallbackQuery({ text: action === 'approve' ? 'Profil validé' : 'Profil refusé' });
+  });
+
+  bot.callbackQuery(/^photo:(approve|reject):(\d+):([123])$/, async (ctx) => {
+    if (String(ctx.chat?.id) !== String(config.adminChatId)) return ctx.answerCallbackQuery({ text: 'Action réservée à la modération.' });
+    const [, action, userId, n] = ctx.match;
+    await decidePhoto(userId, Number(n), action === 'approve');
+    await ctx.editMessageCaption({ caption: `Photo ${n} ${action === 'approve' ? 'validée' : 'refusée'} par ${ctx.from.first_name} (ID ${userId})` });
+    await ctx.answerCallbackQuery({ text: action === 'approve' ? 'Photo validée' : 'Photo refusée' });
   });
 
   bot.catch((err) => console.error('Erreur du bot :', err.error?.message || err.message));
