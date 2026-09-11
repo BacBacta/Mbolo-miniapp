@@ -231,7 +231,15 @@ function profileCard(p, { own = false, cls = '' } = {}) {
       </div>
       <div class="card-body">
         <div class="prompt"><span class="q">${esc(p.promptQ)}</span><span class="a">${esc(p.promptA)}</span></div>
-        ${p.languages ? `<p class="lang">${icon('globe', 14)} Parle ${esc(p.languages)}</p>` : ''}
+        <div class="facts-sec">
+          <span class="eyebrow">Ses infos</span>
+          <dl class="facts">
+            <div><dt>Ici pour</dt><dd>${esc(p.intentLabel)}</dd></div>
+            <div><dt>Quartier</dt><dd>${esc(p.area || p.city)}</dd></div>
+            ${p.languages ? `<div><dt>Parle</dt><dd>${esc(p.languages)}</dd></div>` : ''}
+            <div><dt>Membre</dt><dd>${p.isNew ? 'Nouveau ici' : t.seniority ? 'Depuis plus de 3 mois' : 'Depuis moins de 3 mois'}</dd></div>
+          </dl>
+        </div>
         <div class="trust" aria-label="Niveau de confiance ${score} sur 3">
           <div class="trust-head"><span class="eyebrow">Confiance</span><span class="score">${score}/3</span></div>
           <div class="trust-bars"><span class="${t.selfie ? 'on' : ''}"></span><span class="${t.guarantor ? 'on' : ''}"></span><span class="${t.seniority ? 'on' : ''}"></span></div>
@@ -267,6 +275,18 @@ const listRow = ({ iconName, tile = '', title, sub = '', action = '', extra = ''
     <div class="body"><div class="title">${title}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>
     ${trailing === 'chev' && action ? `<span class="chev">${icon('chevron-right', 18)}</span>` : trailing === 'chev' ? '' : trailing}
   </${action ? 'button' : 'div'}>`;
+
+// Complétion du profil : l'obligatoire vaut la moitié, le reste se gagne. La photo pèse le plus,
+// c'est ce qui manque le plus aux cartes. Calculé ici : rien de nouveau n'est stocké.
+function completion() {
+  const p = S.me.profile || {};
+  const items = [
+    { icon: 'camera', title: 'Ajouter une photo', sub: 'Les cartes avec photo sont bien plus regardées', pts: 25, done: !!p.hasPhoto, step: 2 },
+    { icon: 'pin', title: 'Indiquer ton quartier', sub: 'Les profils de ton quartier passent devant', pts: 15, done: !!p.area, step: 1 },
+    { icon: 'globe', title: 'Préciser tes langues', sub: 'Français, anglais, ewondo…', pts: 10, done: !!p.languages, step: 2 },
+  ];
+  return { pct: 50 + items.filter((i) => i.done).reduce((a, i) => a + i.pts, 0), missing: items.filter((i) => !i.done) };
+}
 
 // Barre de Découvrir : ville, choix Cartes / Liste, et le quota du jour en mode cartes
 function discoverBar() {
@@ -747,6 +767,16 @@ const SCREENS = {
           <div class="c"><span class="chip ${status[1]}">${S.me.verification === 'approved' ? icon('shield', 13) : ''}${status[0]}</span>${pp ? `<span>${icon('pin', 13)} ${esc(pp.city)}</span>` : ''}</div>
         </div>
       </div>
+      ${pp && completion().pct < 100 ? `
+      <div class="group"><span class="eyebrow">Ton profil</span>
+        <div class="completion">
+          <div class="completion-head">
+            <span class="ring ring-lg" style="--p: ${completion().pct}%"></span>
+            <div class="body"><div class="title">Complété à ${completion().pct} %</div><div class="sub">${completion().missing.length > 1 ? 'Il te manque peu de chose' : 'Plus qu\'une étape'}</div></div>
+          </div>
+          <div class="list">${completion().missing.map((i) => listRow({ iconName: i.icon, title: i.title, sub: i.sub, action: 'edit-step', extra: ` data-step="${i.step}"`, trailing: `<span class="chip chip-accent">+${i.pts} %</span>` })).join('')}</div>
+        </div>
+      </div>` : ''}
       ${pp ? `
       <div class="group"><span class="eyebrow">Ce que les autres voient</span>
         ${profileCard(pp, { own: true })}
@@ -1090,6 +1120,7 @@ app.addEventListener('click', async (e) => {
     case 'open-chat': go('chat', { id: el.dataset.id }); break;
     case 'person': go('person', { id: el.dataset.id }); break;
     case 'filters': go('filters'); break;
+    case 'edit-step': S.form = null; S.formStep = Number(el.dataset.step); go('profile'); break;
     case 'mode':
       tg.haptic('select');
       S.discoverMode = el.dataset.mode;
