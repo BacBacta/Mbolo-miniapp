@@ -37,7 +37,12 @@ else
   CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL/health")
   case "$CODE" in
     200)  echo "Code 200 : tout va bien" ;;
-    000)  echo "Code 000 : injoignable. Le nom ne résout pas, ou ton réseau bloque ce service. Essaie ./demarrer.sh ssh" ;;
+    000)  ERR=$(curl -sS -o /dev/null --max-time 10 "$URL/health" 2>&1 | head -1)
+          case "$ERR" in
+            *esolve*) echo "Code 000 : ton DNS ne résout pas ce nom." ;;
+            *)        echo "Code 000 : injoignable. curl dit : $ERR" ;;
+          esac
+          echo "           Essaie ./demarrer.sh ssh, ou ./demarrer-pinggy.sh" ;;
     530)  echo "Code 530 : l'adresse répond, mais aucun tunnel n'est branché derrière."
           echo "           Le processus du tunnel est tombé (erreur 1033 chez Cloudflare)."
           echo "           C'est cette page d'erreur que voient tes utilisateurs à la place de la mini app."
@@ -65,7 +70,10 @@ esac
 echo "== 9. Domaines des tunnels =="
 # api.telegram.org sert de témoin : s'il répond et que les autres non, le problème
 # vient de ces domaines précis, pas de ta connexion.
-for H in api.telegram.org trycloudflare.com localhost.run pinggy.io; do
+# Attention : les tunnels ne vivent pas sur le site des services, mais sur des
+# sous-domaines de ces domaines-ci (*.lhr.life pour localhost.run, *.free.pinggy.net
+# pour pinggy). C'est donc eux qu'il faut interroger.
+for H in api.telegram.org trycloudflare.com lhr.life pinggy.net; do
   CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 "https://$H/")
   if [ "$CODE" != "000" ]; then
     printf "%-20s joignable (code %s)\n" "$H" "$CODE"
@@ -78,5 +86,6 @@ for H in api.telegram.org trycloudflare.com localhost.run pinggy.io; do
     *)        printf "%-20s injoignable : %s\n" "$H" "$ERR" ;;
   esac
 done
-echo "Si api.telegram.org passe et que les autres non : change de DNS"
-echo "(Android : Paramètres, Connexions, Plus de paramètres de connexion, DNS privé, dns.google)."
+echo "Ces domaines passent mais l'adresse de l'étape 7 non ? Alors ton DNS refuse les"
+echo "sous-domaines créés à la volée. Essaie un autre DNS : Android, Paramètres,"
+echo "Connexions, Plus de paramètres de connexion, DNS privé, dns.google."
