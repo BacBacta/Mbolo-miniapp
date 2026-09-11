@@ -115,6 +115,7 @@ h3 { font-size: 16px; line-height: 1.3; font-weight: 600; }
 .error:empty { display: none; }
 .stack { display: grid; gap: 10px; }
 .row { display: flex; align-items: center; gap: 10px; }
+.row > .field { flex: 1; }
 .spacer { flex: 1; }
 .group { display: grid; gap: 8px; }
 .group .eyebrow { padding: 0 6px; }
@@ -405,6 +406,8 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .new-strip::-webkit-scrollbar { display: none; }
 .new-item { display: grid; justify-items: center; gap: 6px; width: 70px; flex-shrink: 0; background: none; border: 0; color: var(--text); font-size: 12px; font-weight: 500; padding: 3px 0; }
 .new-item .avatar { box-shadow: 0 0 0 2.5px var(--bg2), 0 0 0 5px var(--button); }
+/* Ceux qui ont aimé ton profil : anneau doré, la couleur de ce qu'on t'accorde */
+.like-item .avatar { box-shadow: 0 0 0 2.5px var(--bg2), 0 0 0 5px var(--gold); }
 .new-item span { max-width: 70px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ------------------------------------------------------------ Discussion */
