@@ -92,12 +92,31 @@ export const config = {
 // Informations connues seulement au démarrage (nom d'utilisateur du bot)
 export const runtime = { botUsername: '' };
 
-export const venues = [
+// Lieux d'exemple, pour la démonstration seulement : aucun de ces établissements n'a signé
+// quoi que ce soit. Ils servent à essayer le parcours de rendez-vous de bout en bout, jamais à
+// envoyer quelqu'un quelque part.
+export const VENUES_DEMO = [
   { id: 'palmier', name: 'Le Palmier', area: 'Bastos', city: 'Yaoundé', country: 'CM', perk: `-10 % avec ${config.appName}`, code: 'rdv:lieu:palmier' },
   { id: 'etudiants', name: 'Café des étudiants', area: 'Ngoa-Ekellé', city: 'Yaoundé', country: 'CM', perk: 'Boisson offerte dès 2 consommations', code: 'rdv:lieu:etudiants' },
   { id: 'lac', name: 'Terrasse du lac', area: 'Centre-ville', city: 'Yaoundé', country: 'CM', perk: `-10 % avec ${config.appName}`, code: 'rdv:lieu:lac' },
   { id: 'wouri', name: 'Le Wouri Lounge', area: 'Bonapriso', city: 'Douala', country: 'CM', perk: `-10 % avec ${config.appName}`, code: 'rdv:lieu:wouri' },
 ];
+
+// Les lieux partenaires, et pourquoi la liste est vide.
+//
+// Un lieu n'entre ici qu'après un accord signé avec l'établissement. L'app annonce son nom, son
+// quartier et son avantage (« -10 % avec Mbolo ») à quelqu'un qui va s'y rendre : si le café n'a
+// rien signé, c'est un mensonge fait à un membre, et un problème avec le café. Une app dont la
+// promesse centrale est « des personnes réelles, pas d'arnaque » ne peut pas ouvrir là-dessus.
+//
+// Liste vide, le rendez-vous avec confirmation d'arrivée n'est simplement pas proposé, et l'app
+// le dit : « pas encore de lieu partenaire dans ta ville », en invitant à convenir d'un lieu
+// public dans la discussion. Tout le mécanisme reste en place — routes, check-in, QR, notification
+// d'arrivée — et une seule ligne ajoutée ici le rallume, le jour où un partenariat existe.
+//
+// Les quatre lieux d'exemple vivent désormais dans server/seed.js, avec les profils de
+// démonstration, et n'apparaissent qu'avec SEED_DEMO.
+export const venues = [...(config.seedDemo ? VENUES_DEMO : [])];
 
 export const INTENTS = { amitie: 'Amitié', serieux: 'Relation sérieuse', duo: 'Sortie en duo' };
 export const GENDERS = { femme: 'Femme', homme: 'Homme' };

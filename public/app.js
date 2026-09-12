@@ -608,7 +608,7 @@ const SCREENS = {
       <div class="props">
         ${prop('shield', t('Profils vérifiés par selfie'), t("Chaque membre a prouvé qu'il est une vraie personne"), 'tile-ok')}
         ${prop('ban', t("Demandes d'argent bloquées"), t('Automatiquement, dans chaque discussion'), 'tile-danger')}
-        ${prop('coffee', t('Premier rendez-vous dans un lieu partenaire'), t('Arrivée confirmée par QR code'))}
+        ${prop('coffee', t('Premier rendez-vous dans un lieu public'), t('Choisi ensemble, jamais chez quelqu\'un'))}
         ${prop('wifi', t('Léger en data'), t('Photos chargées seulement si tu le demandes'), 'tile-neutral')}
       </div>
       <p class="fine">${icon('lock', 14)}<span>${t('Connecté avec Telegram, sans mot de passe. Ton pseudo et ton numéro restent cachés aux autres.')}</span></p>

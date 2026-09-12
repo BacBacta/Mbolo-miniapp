@@ -20,7 +20,12 @@ const express = (await import('express')).default;
 const { store } = await import('../server/store.js');
 const { bot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
-const { venues } = await import('../server/config.js');
+const { venues, VENUES_DEMO } = await import('../server/config.js');
+// La liste est vide par défaut : aucun lieu n'entre en production sans partenariat signé. Un
+// test qui éprouve le rendez-vous doit donc dire de quels lieux il a besoin, au lieu de compter
+// sur ceux que la configuration portait — c'est cette dépendance tacite qui laissait croire que
+// quatre cafés de Yaoundé avaient accepté quelque chose.
+venues.push(...VENUES_DEMO);
 
 // Les notifications sont interceptées : chaque changement doit en déclencher une, et une seule
 const envoyes = [];

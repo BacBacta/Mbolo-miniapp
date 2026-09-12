@@ -17,7 +17,10 @@ const express = (await import('express')).default;
 const { store } = await import('../server/store.js');
 const { bot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
-const { venues } = await import('../server/config.js');
+const { venues, VENUES_DEMO } = await import('../server/config.js');
+// La liste des lieux est vide par défaut : aucun n'entre en production sans partenariat signé.
+// Un test qui éprouve le rendez-vous dit donc de quels lieux il a besoin.
+venues.push(...VENUES_DEMO);
 
 bot.api.sendMessage = async () => ({});
 bot.api.sendPhoto = async () => ({});

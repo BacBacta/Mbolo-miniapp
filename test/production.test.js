@@ -137,3 +137,34 @@ test('deployer-fly.sh s\'arrête tout de suite sans groupe de modération', () =
 test('deployer-fly.sh est syntaxiquement valide', () => {
   execFileSync('bash', ['-n', 'deployer-fly.sh']);
 });
+
+// ---------- Les lieux partenaires ----------
+//
+// L'app annonce le nom d'un lieu, son quartier et son avantage (« -10 % avec Mbolo ») à quelqu'un
+// qui va s'y rendre. Si l'établissement n'a rien signé, c'est un mensonge fait à un membre et un
+// problème avec le café. La liste part donc vide, et un lieu n'y entre qu'avec un accord réel.
+//
+// Ce test existe parce que la tentation inverse est forte : remettre quatre lieux « pour que la
+// fonction se voie » est exactement ce qui avait été fait, et personne ne l'avait relu depuis.
+
+test("aucun lieu partenaire n'est proposé tant qu'aucun partenariat n'existe", async () => {
+  const { venues } = await import('../server/config.js');
+  assert.deepEqual(venues, [], "la liste part vide : un lieu n'y entre qu'avec un accord signé");
+});
+
+test('les lieux d\'exemple ne sortent qu\'avec SEED_DEMO', () => {
+  const source = fs.readFileSync('server/config.js', 'utf8');
+  assert.match(source, /export const venues = \[\.\.\.\(config\.seedDemo \? VENUES_DEMO : \[\]\)\]/,
+    'les lieux d\'exemple doivent rester derrière SEED_DEMO');
+  // Et ils ne doivent pas se faire passer pour autre chose que des exemples.
+  assert.match(source, /aucun de ces établissements n'a signé/, "le code doit dire ce qu'ils sont");
+});
+
+test("l'écran d'accueil ne promet pas le QR code à qui n'aura pas de lieu partenaire", () => {
+  const app = fs.readFileSync('public/app.js', 'utf8');
+  const accueil = app.slice(app.indexOf("t('Des rencontres vérifiées"), app.indexOf("t('Léger en data')"));
+  assert.ok(!/lieu partenaire/.test(accueil),
+    "l'accueil s'affiche avant l'inscription, partout : il ne peut pas promettre un lieu partenaire qui n'existe nulle part");
+  assert.ok(!/QR code/.test(accueil), "ni la confirmation d'arrivée qui va avec");
+  assert.match(accueil, /lieu public/, 'ce que l\'app tient vraiment dès le premier jour');
+});
