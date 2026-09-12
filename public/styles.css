@@ -67,7 +67,18 @@
   --line-strong: color-mix(in srgb, var(--text) 18%, transparent);
   --tint: color-mix(in srgb, var(--button) 10%, var(--bg));
   --tint-strong: color-mix(in srgb, var(--button) 20%, var(--bg));
+  /* Verre. Le flou d'arrière-plan coûte cher sur un Android d'entrée de gamme, et certains
+     navigateurs ne le rendent pas du tout — sans repli, la pastille devient du texte blanc sur
+     une photo claire. Les quatre surfaces de verre passent donc par des jetons, redéfinis
+     ensemble plus bas quand le flou est absent ou qu'on demande moins de transparence. */
+  --glass-blur: blur(16px);
   --glass: color-mix(in srgb, var(--bg2) 84%, transparent);
+  /* Tout ce qui se pose sur une photo partage un seul fond, pour que les valeurs ne dérivent pas
+     chacune de son côté sous le seuil. L'opacité vient de la mesure, pas de l'œil : une photo peut
+     être presque blanche, et le flou ne change presque rien à sa luminance moyenne. Aux anciennes
+     valeurs, le bouton rond tombait à 2,89:1 (seuil 3:1 pour un élément non textuel, WCAG 1.4.11)
+     et l'étiquette « démo » à 2,15:1 (seuil 4,5:1 pour du texte). À .62, le pire cas est à 5,1:1. */
+  --glass-photo: rgb(var(--ink-rgb) / .62);
   --photo: radial-gradient(120% 90% at 30% 20%, var(--photo-a) 0%, var(--photo-b) 45%, var(--photo-c) 100%);
 
   --r-sm: 12px;
@@ -78,6 +89,27 @@
   --spring: cubic-bezier(.3, 1.4, .5, 1);
   --safe-bottom: var(--tg-safe-area-inset-bottom, 0px);
   --topbar-h: 0px;
+}
+
+/* Repli sans flou. Deux cas, un seul jeu de valeurs : le navigateur ne sait pas flouter (la
+   condition teste aussi le préfixe -webkit-, sinon un vieux Safari, qui ne connaît que celui-là,
+   déclencherait le repli à tort), ou la personne a demandé moins de transparence dans son système.
+   Les fonds deviennent alors franchement opaques : c'est moins joli, toujours lisible.
+   Un téléphone qui sait flouter mais le rend lentement garde le flou — ça, seul un vrai appareil
+   d'entrée de gamme le dira. */
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  :root {
+    --glass-blur: none;
+    --glass: var(--bg2);
+    --glass-photo: rgb(var(--ink-rgb) / .84);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-blur: none;
+    --glass: var(--bg2);
+    --glass-photo: rgb(var(--ink-rgb) / .84);
+  }
 }
 
 /* ------------------------------------------------------------ Base */
@@ -140,7 +172,7 @@ svg { display: inline-block; vertical-align: -.15em; }
   position: sticky; top: 0; z-index: 5;
   padding: 10px 16px 8px;
   background: var(--glass);
-  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
 }
 .tabs {
   position: relative; max-width: 528px; margin: 0 auto;
@@ -188,7 +220,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .btn-tint { background: var(--btn-secondary); color: var(--text); box-shadow: none; }
 .btn-ghost { background: transparent; color: var(--accent); box-shadow: none; }
 .btn-danger { background: color-mix(in srgb, var(--danger) 10%, var(--bg)); color: var(--danger); box-shadow: none; }
-.btn-glass { background: rgb(255 255 255 / .2); color: #fff; border: 1px solid rgb(255 255 255 / .35); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: none; }
+.btn-glass { background: var(--glass-photo); color: #fff; border: 1px solid rgb(255 255 255 / .3); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: none; }
 .btn-sm { height: 42px; padding: 0 14px; font-size: 14px; border-radius: 12px; }
 .btn-block { width: 100%; }
 
@@ -201,7 +233,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* Tranche d'activité : seule « récemment » est mise en couleur, les autres restent discrètes */
 .act-recent { color: var(--ok-ink); }
 .chip.act-recent { border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
-.pill-glass { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 5px 10px; border-radius: 999px; color: var(--on-photo); background: rgb(var(--ink-rgb) / .55); border: 1px solid rgb(247 245 251 / .14); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); white-space: nowrap; letter-spacing: .01em; }
+.pill-glass { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 5px 10px; border-radius: 999px; color: var(--on-photo); background: var(--glass-photo); border: 1px solid rgb(247 245 251 / .14); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); white-space: nowrap; letter-spacing: .01em; }
 .pill-verified { color: var(--gold); font-weight: 600; }
 .pill-like { background: color-mix(in srgb, var(--like) 78%, transparent); border-color: transparent; }
 
@@ -305,8 +337,10 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .card-photo .corners { position: absolute; top: 14px; left: 14px; right: 14px; display: flex; gap: 6px; align-items: center; z-index: 2; }
 .card-photo .corners .spacer { flex: 1; }
 /* Un seul bouton discret en haut à droite : se protéger. Le libellé « Signaler ce profil » en bas de carte prenait une ligne entière */
-.card-photo .more { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgb(247 245 251 / .16); background: rgb(var(--ink-rgb) / .45); color: var(--on-photo); display: grid; place-items: center; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
-.tag-demo { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: rgb(247 245 251 / .7); padding: 4px 8px; border-radius: 999px; background: rgb(var(--ink-rgb) / .35); }
+.card-photo .more { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgb(247 245 251 / .16); background: var(--glass-photo); color: var(--on-photo); display: grid; place-items: center; -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+/* Même fond que les autres pastilles : à .35 avec un texte à 70 %, l'étiquette tombait à 2,15:1
+   sur une photo claire. Elle reste discrète par sa taille et sa graisse, plus par sa transparence. */
+.tag-demo { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--on-photo); padding: 4px 8px; border-radius: 999px; background: var(--glass-photo); }
 /* Plusieurs photos : repères en haut, on change de photo en touchant la moitié droite ou gauche */
 .card-photo .dots { position: absolute; top: 7px; left: 12px; right: 12px; display: flex; gap: 4px; z-index: 2; pointer-events: none; }
 .card-photo .dots span { flex: 1; height: 3px; border-radius: 2px; background: rgb(247 245 251 / .35); transition: background .2s; }
@@ -542,7 +576,7 @@ body.chat-mode main > * { animation: none; }
 .danger-zone { padding: 4px 0 0; }
 
 /* ------------------------------------------------------------ Barre de secours et toast */
-.fallback-bar { position: sticky; bottom: 0; z-index: 5; display: flex; gap: 8px; padding: 10px 16px calc(12px + var(--safe-bottom)); max-width: 560px; margin: 0 auto; background: var(--glass); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border-top: 1px solid var(--line); }
+.fallback-bar { position: sticky; bottom: 0; z-index: 5; display: flex; gap: 8px; padding: 10px 16px calc(12px + var(--safe-bottom)); max-width: 560px; margin: 0 auto; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border-top: 1px solid var(--line); }
 .fallback-bar button { flex: 1; height: 50px; border: 0; border-radius: 16px; font-size: 15px; font-weight: 600; }
 .fallback-bar .main { background: var(--button); color: var(--button-text); }
 .fallback-bar .secondary { background: var(--btn-secondary); color: var(--text); }
