@@ -186,6 +186,25 @@ export const store = {
     return photos;
   },
 
+  // ---------- Bannissement ----------
+  // Le compte reste, mais il est clos : les conditions promettent qu'un compte banni pour arnaque
+  // ne peut pas être recréé, ce qui suppose de garder de quoi le reconnaître. Ses matchs sont
+  // défaits pour que personne ne reste en discussion avec lui.
+  async banUser(id, { motif = '', par = '' } = {}) {
+    const banned = { at: Date.now(), motif: String(motif).slice(0, 200), par: String(par) };
+    const u = versUser(await fusionner('users', id, { banned }));
+    if (!u) return null;
+    for (const m of await store.matchesOf(id)) await store.removeMatch(m.id);
+    return u;
+  },
+
+  // `- 'banned'` retire la clé du jsonb : un compte débanni ne garde pas une trace vide.
+  async unbanUser(id) {
+    return versUser(await un("update users set data = data - 'banned' where id = $1 returning *", [String(id)]));
+  },
+
+  bannis: async () => (await q("select * from users where data ? 'banned'")).map(versUser),
+
   allUsers: async () => (await q('select * from users')).map(versUser),
 
   // Lectures en vrac. La découverte a besoin, pour chaque candidat, de savoir s'il est bloqué,

@@ -157,6 +157,31 @@ export const store = {
     return u.photos;
   },
 
+  // ---------- Bannissement ----------
+  // Le compte reste, mais il est clos : les conditions promettent qu'un compte banni pour arnaque
+  // ne peut pas être recréé, ce qui suppose de garder de quoi le reconnaître. Ses matchs sont
+  // défaits pour que personne ne reste en discussion avec lui.
+  async banUser(id, { motif = '', par = '' } = {}) {
+    const u = db.users[String(id)];
+    if (!u) return null;
+    u.banned = { at: Date.now(), motif: String(motif).slice(0, 200), par: String(par) };
+    for (const m of Object.values(db.matches)) {
+      if (m.users.includes(String(id))) await store.removeMatch(m.id);
+    }
+    save();
+    return u;
+  },
+
+  async unbanUser(id) {
+    const u = db.users[String(id)];
+    if (!u) return null;
+    delete u.banned;
+    save();
+    return u;
+  },
+
+  bannis: async () => Object.values(db.users).filter((u) => u.banned),
+
   allUsers: async () => Object.values(db.users),
 
   // Lectures en vrac. La découverte a besoin, pour chaque candidat, de savoir s'il est bloqué,

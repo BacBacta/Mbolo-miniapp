@@ -8,7 +8,7 @@ import { store } from './store.js';
 import { requireAuth } from './auth.js';
 import { checkMessage } from './antiscam.js';
 import { limiter, consommer } from './limites.js';
-import { notify, notifyAdmin, sendSelfieToModeration, sendPhotoToModeration, decideVerification, onApproved } from './bot.js';
+import { notify, notifyAdmin, boutonBannir, sendSelfieToModeration, sendPhotoToModeration, decideVerification, onApproved } from './bot.js';
 import { DEMO_REPLIES } from './seed.js';
 
 export const api = express.Router();
@@ -85,7 +85,9 @@ function saveJpeg(dataUrl, file) {
   return true;
 }
 
-const isApproved = (u) => u.verification === 'approved' && u.profile;
+// Un compte banni n'est plus « vérifié » au sens de la découverte : il disparaît des cartes, des
+// listes et des « ont aimé ton profil » d'un coup, parce que tout passe par là.
+const isApproved = (u) => u.verification === 'approved' && u.profile && !u.banned;
 const requireApproved = (req, res, next) => (isApproved(req.user) ? next() : fail(res, 403, 'NOT_VERIFIED', 'Vérifie ton profil pour accéder à cette fonction.'));
 
 // ---------- Moi ----------
@@ -589,7 +591,7 @@ api.post('/matches/:id/messages', requireApproved, limiter('message'), async (re
     // quelles formulations circulent vraiment, et qu'on remplacera mon corpus écrit à la main.
     // Trois alertes par heure et par compte au plus, pour ne pas noyer le groupe.
     if (check.code === 'MONEY_BLOCKED' && consommer(req.user.id, 'alerteModeration') === null) {
-      notifyAdmin(`Message bloqué (${check.categorie}) de ${req.user.profile.name} (ID ${req.user.id}) : « ${text.slice(0, 120)} »`);
+      notifyAdmin(`Message bloqué (${check.categorie}) de ${req.user.profile.name} (ID ${req.user.id}) : « ${text.slice(0, 120)} »`, boutonBannir(req.user.id));
     }
     return fail(res, 422, check.code, check.message, { categorie: check.categorie, unlockAfter: config.contactUnlockAfter });
   }
@@ -759,6 +761,6 @@ api.post('/reports', requireApproved, limiter('signalement'), async (req, res) =
   if (!target || target.id === req.user.id) return fail(res, 400, 'REPORT_INVALID', 'Signalement impossible.');
   await store.addReport({ from: req.user.id, targetId: target.id, reason: String(reason || 'autre').slice(0, 60), matchId: matchId || null });
   await store.block(req.user.id, target.id);
-  notifyAdmin(`Signalement : ${target.profile?.name || target.id} (ID ${target.id}), motif « ${reason || 'autre'} ».`);
+  notifyAdmin(`Signalement : ${target.profile?.name || target.id} (ID ${target.id}), motif « ${reason || 'autre'} ».`, boutonBannir(target.id));
   res.json({ reported: true });
 });
