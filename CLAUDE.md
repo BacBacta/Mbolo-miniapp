@@ -163,7 +163,7 @@ L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 5. ~~**Défaire un match**~~ : fait, `DELETE /api/matches/:id`, sans notification, avec blocage sans accusation et six motifs de signalement.
 6. **Version web et paiement par mobile money** : voir la section 10, cahier des charges complet.
 7. ~~**Tests de bout en bout**~~ : fait. `e2e/` contient treize tests Playwright (Chromium, taille d'un téléphone) qui refont le parcours complet en mode développement ; `npm run e2e` en local, travail « Parcours navigateur » en CI, traces et captures conservées en cas d'échec.
-8. ~~**Pages publiques**~~ : fait. `/confidentialite` et `/conditions` sont servies depuis `server/legal/` sans compte, hors de Telegram et sans JavaScript, avec le nom de l'app injecté ; l'onglet Profil y renvoie par `tg.openLink()`. Reste à faire, côté propriétaire : les renseigner dans BotFather et les faire relire par un juriste.
+8. ~~**Pages publiques**~~ : fait. `/confidentialite` et `/conditions` sont servies depuis `server/legal/` sans compte, hors de Telegram et sans JavaScript, avec le nom de l'app injecté ; l'onglet Profil y renvoie par `tg.openLink()`.
 9. ~~**Déploiement**~~ : fait. `Dockerfile` (image sans root, volume sur `/data`, scripts d'exploitation embarqués), `/health`, et **`DEPLOIEMENT.md`** : guide pas à pas, contrôles après déploiement, passage à PostgreSQL, tableau des pannes. `test/deploiement.test.js` démarre le serveur avec le seul contenu de l'image et vérifie que le guide ne cite pas des messages qui n'existent plus.
 10. ~~**Traiter les vulnérabilités `npm audit`**~~ : fait, `qs` est forcé en 6.16.0 par un `overrides` dans `package.json`, sans changement majeur d'`express`. `npm audit` ne signale plus rien.
 
@@ -184,6 +184,10 @@ L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 1. **Espace lieux partenaires** : statistiques de rendez-vous confirmés, facturation mensuelle par rendez-vous.
 2. **Fonctions sponsorisées** : nom d'une marque associé à une fonction gratuite (ex. vérification), sans transmettre de donnée personnelle.
 3. **Carte bancaire pour la diaspora** sur la version web, si une structure juridique éligible existe.
+
+## 8 bis. Ce qui attend le propriétaire
+
+Quatre points ne peuvent pas être réglés depuis le code, et **ne doivent donc pas être reproposés comme du travail à faire ici** : renseigner les pages publiques dans BotFather, les faire relire par un juriste, déclarer le traitement à l'Autorité de protection des données, et essayer l'app sur un Android d'entrée de gamme (le repli du flou existe, mais aucune règle CSS ne distingue « sait flouter » de « floute lentement »). La liste tenue à jour, avec le détail de chacun, est dans le README, section « Avant d'ouvrir à de vraies personnes ».
 
 ## 9. Définition de « terminé »
 
