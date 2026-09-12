@@ -10,6 +10,25 @@ import { seedDemo } from './seed.js';
 import { assetVersion, versionImports } from './assets.js';
 import { precompresser, compresserJson } from './compression.js';
 
+// La vérification par selfie est la première promesse de l'app : « tous les profils sont vérifiés ».
+// Deux réglages peuvent la vider de son sens en production. AUTO_APPROVE valide sans que personne
+// regarde — il ne s'applique plus ici, config.js l'éteint. L'absence d'ADMIN_CHAT_ID, elle, ne
+// s'arrange pas toute seule : les selfies ne partent nulle part, aucun modérateur ne peut trancher,
+// et tout le monde reste en attente pour toujours. Mieux vaut ne pas démarrer que mentir aux
+// membres ou les laisser bloqués sans le dire.
+if (config.isProd && !config.adminChatId) {
+  console.error([
+    `ADMIN_CHAT_ID manquant alors que NODE_ENV vaut production. ${config.appName} ne démarre pas.`,
+    '',
+    "Sans lui, aucun selfie ne part en modération : personne ne peut être vérifié, et personne",
+    "ne peut accéder aux rencontres. L'app promet que tous les profils sont vérifiés.",
+    '',
+    'À faire : crée un groupe Telegram, ajoute-y ton bot, envoie /id dans le groupe, puis mets',
+    "la valeur obtenue dans ADMIN_CHAT_ID (secret de l'hébergeur ou du dépôt).",
+  ].join('\n'));
+  process.exit(1);
+}
+
 const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '3mb' }));

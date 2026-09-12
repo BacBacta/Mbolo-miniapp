@@ -60,8 +60,8 @@ public/
   styles.css    Identité « Aura » : surfaces d'encre ou d'os selon data-scheme, aura réservée au match, au badge et au like ; Fraunces pour l'identité, Manrope pour l'interface
 test/
   activity, antiscam, assets, auth, compression, filters, geographie, langues,
-  limites, notifications, photos, profiles, rendezvous, securite, stockage,
-  webhook (113 tests, tous rejoués sur PostgreSQL par npm run test:pg)
+  limites, notifications, photos, production, profiles, rendezvous, securite,
+  stockage, webhook (120 tests, tous rejoués sur PostgreSQL par npm run test:pg)
 scripts/
   import-json.js Reprise d'un db.json existant vers PostgreSQL
   test-pg.js     La suite complète sur PostgreSQL, un schéma par fichier de test
@@ -75,7 +75,7 @@ audit/
 |---|---|
 | Authentification | `Authorization: tma <initData>` validé côté serveur (HMAC, expiration 24 h, champ `signature` toléré). Mode développement `x-dev-user` si `ALLOW_DEV_AUTH=true` et hors production |
 | Profil | Prénom, âge 18+, genre, intention (amitié, relation sérieuse, sortie en duo), pays, ville libre, quartier, question, langues, jusqu'à trois photos facultatives, chacune modérée, compressées côté client |
-| Vérification | Geste aléatoire, selfie envoyé au groupe de modération avec boutons Valider/Refuser, selfie supprimé après décision, `AUTO_APPROVE` pour les tests |
+| Vérification | Geste aléatoire, selfie envoyé au groupe de modération avec boutons Valider/Refuser, selfie supprimé après décision. `AUTO_APPROVE` valide sans humain, **pour les tests seulement** : il est éteint dès que `NODE_ENV=production`, et le serveur y refuse de démarrer sans `ADMIN_CHAT_ID` plutôt que de laisser tout le monde en attente |
 | Langues | Français et anglais. Choix explicite dans le profil, sinon la langue du Telegram, sinon le français. Interface traduite chez la personne (`public/i18n.js` + `public/i18n/<code>.js`, chargés à la demande), messages du bot traduits côté serveur (`server/i18n.js`) dans la langue de **qui reçoit**. `PUT /api/me/lang` |
 | Localisation | Pays deviné au premier lancement depuis le fuseau du téléphone (`paysDuFuseau` dans `server/geo.js`, table dérivée de zone.tab). Le navigateur passe `?tz=` à `GET /api/me`, le serveur répond `options.suggestedCountry`. **Le fuseau n'est ni stocké ni journalisé, aucun GPS n'est demandé.** Il donne le pays, jamais la ville. Bouton « Ma position : {pays} » dans les filtres. Le choix de la personne l'emporte toujours |
 | Découverte | Même zone de recherche et même intention, 20 profils par jour, ceux qui t'ont liké en premier, économie de data (photos à la demande) |
@@ -95,6 +95,8 @@ audit/
 4. **Toute nouvelle donnée personnelle** doit être minimale, justifiée, supprimée par `DELETE /api/me`, et signalée dans le README (loi camerounaise n° 2024/017 sur les données personnelles).
 5. **Aucun secret dans le code ni dans Git.** `.env` reste ignoré.
 6. **Les mineurs sont exclus** : aucune fonction ne doit contourner le contrôle d'âge.
+
+> **Un réglage de confort ne survit pas au déploiement.** `AUTO_APPROVE` et `ALLOW_DEV_AUTH` s'éteignent seuls quand `NODE_ENV=production` (`server/config.js`), et le serveur refuse de démarrer en production sans `ADMIN_CHAT_ID`. Tout nouveau réglage qui affaiblit une promesse de sécurité pour faciliter les tests suit la même règle, et un test le fige (`test/production.test.js`). Les numéros de cette section sont cités ailleurs dans le dépôt : cette consigne reste hors numérotation pour ne pas les décaler.
 
 ### Règles Telegram et paiements
 7. **Aucune vente de bien ou service numérique à l'utilisateur dans la mini app** (premium, boosts, likes) autrement qu'en Telegram Stars : c'est la règle de Telegram. Ne propose pas non plus de lien externe pour les payer. Le premium en mobile money n'existe que sur la version web, selon la section 10.
@@ -137,7 +139,7 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 - La localisation s'arrête au **pays** : le fuseau ne distingue pas Yaoundé de Douala, et l'app ne demande pas le GPS. La ville reste écrite par la personne, avec des suggestions pour 33 pays seulement.
 - Traduction : le français et l'anglais seulement. Les noms de pays viennent d'`Intl.DisplayNames` (donc traduits automatiquement), mais les villes, les quartiers et les textes saisis par les membres restent tels quels.
 - Aucune analytique produit : aucun entonnoir, aucune cohorte, aucune courbe de rétention n'est calculable. Voir `audit/05-mesure-produit.md`.
-- `fly.toml` et `render.yaml` livrent `AUTO_APPROVE=true` et `SEED_DEMO=true` en production, et aucun ne définit `ADMIN_CHAT_ID` : la vérification par selfie est débranchée sur l'app déployée. Voir `audit/04-risques.md`.
+- `SEED_DEMO=true` reste possible en production : c'est un choix assumé pour une machine de démonstration, pas un garde-fou. De vraies personnes y écriraient à des profils fictifs. `AUTO_APPROVE`, lui, n'a plus d'effet en production, et le serveur refuse de démarrer sans `ADMIN_CHAT_ID` (`test/production.test.js`).
 - Le **verre** (flou d'arrière-plan) a un repli opaque quand le navigateur ne sait pas flouter ou quand la personne demande moins de transparence (`--glass-blur` et ses trois jetons de fond, dans `styles.css`). Un téléphone qui sait flouter mais le rend lentement garde le flou : aucune règle CSS ne distingue ce cas, seul un vrai Android d'entrée de gamme le dira.
 - Les tests de bout en bout dans un navigateur ont été faits manuellement avec Playwright, ils ne sont pas dans le dépôt.
 

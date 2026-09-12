@@ -1,0 +1,139 @@
+// Ce qui doit être vrai quand l'app tourne pour de vraies personnes.
+//
+// La promesse « tous les profils sont vérifiés » tient à deux réglages. AUTO_APPROVE valide les
+// selfies sans que personne les regarde : pratique pour développer, mensonger en ligne.
+// ADMIN_CHAT_ID désigne le groupe qui reçoit les selfies : sans lui, ils ne partent nulle part.
+// Les deux ont déjà été livrés en production par fly.toml et render.yaml — d'où ce fichier.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync, spawnSync } from 'node:child_process';
+
+// config.js lit process.env au chargement : on le recharge avec une adresse différente pour
+// obtenir une lecture neuve plutôt que celle gardée en cache par Node.
+let n = 0;
+const configAvec = async (env) => {
+  const avant = {};
+  for (const [k, v] of Object.entries(env)) {
+    avant[k] = process.env[k];
+    if (v === undefined) delete process.env[k]; else process.env[k] = v;
+  }
+  try {
+    n += 1;
+    return (await import(`../server/config.js?relecture=${n}`)).config;
+  } finally {
+    for (const [k, v] of Object.entries(avant)) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+  }
+};
+
+test('AUTO_APPROVE ne s\'applique jamais en production', async () => {
+  const dev = await configAvec({ AUTO_APPROVE: 'true', NODE_ENV: undefined });
+  assert.equal(dev.autoApprove, true, 'hors production, la validation automatique reste possible');
+
+  const prod = await configAvec({ AUTO_APPROVE: 'true', NODE_ENV: 'production' });
+  assert.equal(prod.autoApprove, false, 'en production, elle est éteinte quoi que dise la variable');
+  assert.equal(prod.isProd, true);
+});
+
+// Même garde que pour AUTO_APPROVE : un mode de développement ne doit pas survivre au déploiement.
+test('ALLOW_DEV_AUTH ne s\'applique jamais en production', async () => {
+  const dev = await configAvec({ ALLOW_DEV_AUTH: 'true', NODE_ENV: undefined });
+  assert.equal(dev.allowDevAuth, true);
+  const prod = await configAvec({ ALLOW_DEV_AUTH: 'true', NODE_ENV: 'production' });
+  assert.equal(prod.allowDevAuth, false);
+});
+
+// Le serveur est lancé pour de vrai : un test qui lirait seulement le code ne dirait pas si le
+// démarrage s'arrête vraiment, ni avec quel message.
+function demarrer(env, timeout = 15000) {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rencontres-prod-'));
+  const r = spawnSync(process.execPath, ['server/index.js'], {
+    encoding: 'utf8',
+    timeout,
+    env: {
+      ...process.env,
+      DATA_DIR: dataDir,
+      BOT_TOKEN: '123456:TEST_TOKEN',
+      WEBAPP_URL: 'https://exemple.test',
+      SEED_DEMO: 'false',
+      USE_WEBHOOK: 'false',
+      PORT: '0',
+      DATABASE_URL: '',
+      ...env,
+    },
+  });
+  return { code: r.status, sortie: `${r.stdout}${r.stderr}` };
+}
+
+test('en production sans groupe de modération, le serveur refuse de démarrer', () => {
+  const r = demarrer({ NODE_ENV: 'production', ADMIN_CHAT_ID: '' });
+  assert.equal(r.code, 1, 'le démarrage s\'arrête');
+  assert.match(r.sortie, /ADMIN_CHAT_ID manquant/);
+  // Le message dit quoi faire, pas seulement ce qui manque (règle 11 de CLAUDE.md)
+  assert.match(r.sortie, /crée un groupe Telegram/i);
+  assert.match(r.sortie, /\/id/);
+  assert.ok(!/écoute sur le port/.test(r.sortie), 'aucune requête n\'est servie');
+});
+
+test('hors production, l\'absence de groupe de modération n\'empêche pas de développer', () => {
+  const r = demarrer({ NODE_ENV: 'development', ADMIN_CHAT_ID: '' }, 6000);
+  assert.match(r.sortie, /écoute sur le port/, 'le serveur démarre et sert');
+  assert.ok(!/ADMIN_CHAT_ID manquant/.test(r.sortie), 'et sans reproche');
+});
+
+// Les fichiers livrés à l'hébergeur sont la dernière ligne de défense : c'est par eux que la
+// validation automatique s'est retrouvée en production. Les deux formats sont lus pour de bon,
+// sans regarder les commentaires : une regex lâche laisserait repasser exactement ce cas,
+// puisque render.yaml écrit le réglage et sa valeur sur deux lignes.
+const reglagesFly = (texte) => Object.fromEntries([...texte.matchAll(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*"([^"]*)"/gm)].map((m) => [m[1], m[2]]));
+function reglagesRender(texte) {
+  const out = {};
+  let cle = null;
+  for (const brute of texte.split('\n')) {
+    const ligne = brute.replace(/#.*$/, '').trim();
+    const k = ligne.match(/^-?\s*key:\s*(\S+)/);
+    if (k) { cle = k[1]; out[cle] = ''; continue; }
+    const v = ligne.match(/^value:\s*"?([^"]*)"?/);
+    if (v && cle) { out[cle] = v[1].trim(); cle = null; }
+  }
+  return out;
+}
+
+test('les fichiers de déploiement n\'activent ni validation automatique ni profils de démo', () => {
+  const fichiers = {
+    'fly.toml': reglagesFly(fs.readFileSync('fly.toml', 'utf8')),
+    'render.yaml': reglagesRender(fs.readFileSync('render.yaml', 'utf8')),
+  };
+  // Le lecteur est vérifié sur ce qu'il doit trouver : sans cela, un lecteur qui ne lit rien
+  // ferait passer le test quoi que contiennent les fichiers.
+  assert.equal(fichiers['fly.toml'].NODE_ENV, 'production', 'le lecteur de fly.toml lit bien');
+  assert.equal(fichiers['render.yaml'].NODE_ENV, 'production', 'le lecteur de render.yaml lit bien');
+
+  for (const [nom, reglages] of Object.entries(fichiers)) {
+    assert.ok(!('AUTO_APPROVE' in reglages), `${nom} ne doit pas régler AUTO_APPROVE`);
+    assert.notEqual(reglages.SEED_DEMO, 'true', `${nom} ne doit pas charger les profils de démonstration`);
+  }
+  // render.yaml décrit un service complet : le groupe de modération doit y être demandé.
+  assert.ok('ADMIN_CHAT_ID' in fichiers['render.yaml'], 'render.yaml doit demander ADMIN_CHAT_ID');
+});
+
+// Le script s'arrête avant de construire une image que le serveur refuserait de lancer.
+test('deployer-fly.sh s\'arrête tout de suite sans groupe de modération', () => {
+  const r = spawnSync('bash', ['deployer-fly.sh', 'app-test', 'ams'], {
+    encoding: 'utf8',
+    env: { ...process.env, FLY_API_TOKEN: 'jeton-test', BOT_TOKEN: '123:TEST', ADMIN_CHAT_ID: '' },
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /ADMIN_CHAT_ID absent/);
+  assert.match(r.stderr, /\/id/);
+  assert.ok(!/Compte/.test(r.stdout), 'rien n\'est tenté chez Fly');
+});
+
+// Sanité : le script reste lisible par bash, puisqu'un test le lance.
+test('deployer-fly.sh est syntaxiquement valide', () => {
+  execFileSync('bash', ['-n', 'deployer-fly.sh']);
+});

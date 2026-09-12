@@ -5,8 +5,8 @@
 #   nom-app : unique dans le monde entier (ex. mbolo-beta)
 #   région  : cdg Paris (défaut), jnb Johannesburg, mad Madrid
 #
-# Secrets lus dans l'environnement : BOT_TOKEN (obligatoire), ADMIN_KEY et
-# ADMIN_CHAT_ID (facultatifs). Aucun n'est écrit sur le disque ni affiché.
+# Secrets lus dans l'environnement : BOT_TOKEN et ADMIN_CHAT_ID (obligatoires),
+# ADMIN_KEY (généré s'il manque). Aucun n'est écrit sur le disque ni affiché.
 set -euo pipefail
 
 APP="${1:-}"
@@ -23,6 +23,15 @@ if [ -z "${FLY_API_TOKEN:-}" ]; then
 fi
 if [ -z "${BOT_TOKEN:-}" ]; then
   echo "BOT_TOKEN absent : sans lui le bot ne démarre pas." >&2
+  exit 1
+fi
+# Le déploiement tourne en NODE_ENV=production : la validation automatique des selfies y est
+# éteinte, et sans groupe de modération personne ne peut être vérifié. Le serveur refuserait de
+# démarrer ; autant le dire ici, avant de construire une image pour rien.
+if [ -z "${ADMIN_CHAT_ID:-}" ]; then
+  echo "ADMIN_CHAT_ID absent : les selfies n'iraient nulle part et personne ne pourrait être vérifié." >&2
+  echo "Crée un groupe Telegram, ajoute-y ton bot, envoie /id dans le groupe, puis mets la valeur" >&2
+  echo "obtenue dans ADMIN_CHAT_ID (secret du dépôt GitHub, ou variable d'environnement)." >&2
   exit 1
 fi
 command -v flyctl >/dev/null 2>&1 || { echo "flyctl introuvable : curl -fsSL https://fly.io/install.sh | sh" >&2; exit 1; }
@@ -71,7 +80,7 @@ echo "== Secrets =="
 flyctl secrets set --stage -a "$APP" \
   BOT_TOKEN="$BOT_TOKEN" \
   ADMIN_KEY="${ADMIN_KEY:-$(head -c 32 /dev/urandom | base64 | tr -d '/+=')}" \
-  ADMIN_CHAT_ID="${ADMIN_CHAT_ID:-}"
+  ADMIN_CHAT_ID="$ADMIN_CHAT_ID"
 
 echo "== Déploiement =="
 # --remote-only : l'image est construite chez Fly, aucun Docker local nécessaire

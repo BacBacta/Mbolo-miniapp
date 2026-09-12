@@ -149,7 +149,7 @@ Lieux disponibles : `palmier`, `etudiants`, `lac` (Yaoundé) et `wouri` (Douala)
 
 1. Crée un groupe Telegram privé « Modération Mbolo » et ajoute ton bot.
 2. Envoie `/id` dans le groupe : le bot répond l'identifiant (ex. `-1001234567890`).
-3. Dans `.env` : `ADMIN_CHAT_ID=-1001234567890` et `AUTO_APPROVE=false`.
+3. Dans `.env` : `ADMIN_CHAT_ID=-1001234567890` et `AUTO_APPROVE=false`. En production, ces deux réglages sont imposés : `AUTO_APPROVE` y est sans effet, et `ADMIN_CHAT_ID` y est obligatoire.
 4. Redémarre. Chaque nouveau selfie arrive dans le groupe avec le geste demandé et deux boutons : **Valider** ou **Refuser**. Le selfie est supprimé du serveur dès la décision. Chaque **photo de profil** arrive de la même façon : validée, elle devient visible ; refusée, elle est supprimée et la personne est prévenue par le bot.
 
 ## Étape 7 (facultative) : faire de Mbolo l'app principale du bot
@@ -248,7 +248,7 @@ Si tu obtiens `000`, c'est le résolveur DNS du téléphone qui bloque, et chang
 **Depuis un navigateur, sans ligne de commande** — utile depuis un téléphone, où `flyctl` ne s'installe pas :
 
 1. Crée un compte sur https://fly.io, puis un jeton dans **Account** → **Tokens**.
-2. Sur GitHub : **Settings** → **Secrets and variables** → **Actions** → **New repository secret**. Ajoute `FLY_API_TOKEN` et `BOT_TOKEN`. Facultatif : `ADMIN_KEY` (généré sinon) et `ADMIN_CHAT_ID`.
+2. Sur GitHub : **Settings** → **Secrets and variables** → **Actions** → **New repository secret**. Ajoute `FLY_API_TOKEN`, `BOT_TOKEN` et `ADMIN_CHAT_ID` — ce dernier est l'identifiant du groupe Telegram qui recevra les selfies à valider : crée le groupe, ajoute-y ton bot, envoie `/id` dedans. Sans lui, le déploiement s'arrête avant de construire quoi que ce soit. Facultatif : `ADMIN_KEY` (généré sinon).
 3. Onglet **Actions** → **Déployer sur Fly** → **Run workflow**. Pour une **première installation**, saisis un nom d'app libre (ils sont uniques dans le monde entier) et une région : `ams` Amsterdam, `cdg` Paris, `jnb` Johannesburg, `mad` Madrid — puis reporte ces deux valeurs dans les `default` du workflow, pour n'avoir plus jamais à les retaper.
 4. Au bout de trois à cinq minutes, l'app répond sur `https://<ton-app>.fly.dev`.
 5. Dans Telegram : `/start` → **Ouvrir Mbolo**.
@@ -285,13 +285,13 @@ Pas besoin de `WEBAPP_URL` : le serveur déduit l'adresse de `FLY_APP_NAME`, que
 
 Alternative sans carte bancaire, moins confortable : le service dort après 15 minutes et met 30 à 60 secondes à se réveiller, et l'offre gratuite n'a pas de disque persistant, donc les données de test disparaissent à chaque redéploiement.
 
-Sur https://dashboard.render.com : **New** → **Web Service** → dépôt `BacBacta/Mbolo-miniapp`, **Build command** `npm ci`, **Start command** `npm start`, **Instance type** Free. Variables : `BOT_TOKEN`, `ADMIN_KEY`, `USE_WEBHOOK=true`, `NODE_ENV=production`, `SEED_DEMO=true`, `AUTO_APPROVE=true`. Laisse `WEBAPP_URL` vide : le serveur prend `RENDER_EXTERNAL_URL`. Le fichier `render.yaml` décrit le même service pour un déploiement en **Blueprint**.
+Sur https://dashboard.render.com : **New** → **Web Service** → dépôt `BacBacta/Mbolo-miniapp`, **Build command** `npm ci`, **Start command** `npm start`, **Instance type** Free. Variables : `BOT_TOKEN`, `ADMIN_CHAT_ID`, `ADMIN_KEY`, `USE_WEBHOOK=true`, `NODE_ENV=production`. Laisse `WEBAPP_URL` vide : le serveur prend `RENDER_EXTERNAL_URL`. Le fichier `render.yaml` décrit le même service pour un déploiement en **Blueprint**.
 
 ### À savoir, quel que soit l'hébergeur
 
 - **Un webhook refusé n'est pas définitif.** Si Telegram refuse l'adresse au démarrage (nom pas encore résolu, réseau coupé), le serveur réessaie en arrière-plan à intervalles croissants — 5 s, 15 s, 30 s, 1 min, 2 min, 5 min — sans retarder le démarrage. La route du webhook est montée dès le départ, donc les messages arrivent dès que Telegram accepte l'adresse.
 - **Ne lance pas en même temps le serveur sur ton téléphone** avec `USE_WEBHOOK=false` : il retirerait le webhook, et le serveur hébergé ne recevrait plus rien de Telegram.
-- `SEED_DEMO` et `AUTO_APPROVE` à `true` servent aux tests : profils de démonstration, selfies validés sans modération. À passer à `false` avant d'ouvrir à de vraies personnes.
+- **La modération des selfies n'est pas facultative en ligne.** `AUTO_APPROVE` valide sans qu'un humain regarde : il est ignoré dès que `NODE_ENV=production`, sinon l'app marquerait « vérifié » des gens que personne n'a vus. Et comme un selfie doit bien aller quelque part, le serveur **refuse de démarrer en production sans `ADMIN_CHAT_ID`** plutôt que de laisser tout le monde en attente sans le dire. `SEED_DEMO` reste à `false` sauf sur une machine de démonstration : de vraies personnes écriraient à des profils fictifs.
 - **Tout part compressé.** Les fichiers du navigateur sont compressés une fois au démarrage avec `zlib` (aucune dépendance ajoutée), les réponses de l'API à la volée au-delà de 1 Ko. Mesuré : le premier chargement passe de 125 494 à 36 068 octets, `styles.css` de 39 651 à 8 878, une réponse de découverte de 2 392 à 535.
 - **Le premier écran ne dépend plus d'un serveur tiers.** Le SDK Telegram est chargé avec `defer` : sans cela, l'analyse de la page s'arrêtait sur ce script et l'écran « Chargement… » lui-même n'existait pas tant que `telegram.org` n'avait pas répondu. Mesuré : rien dans la page après une seconde et demie avant, l'écran de chargement peint après.
 - **Aucun appel ne peut durer indéfiniment.** Douze secondes au plus par appel d'API, deux secondes et demie pour une lecture du stockage Telegram, et l'écran d'échec du démarrage propose « Réessayer » au lieu d'être figé.
@@ -426,7 +426,7 @@ Ce prototype sert à une **bêta fermée**. Avant un lancement public :
 
 - [ ] **Autorisation de l'Autorité de protection des données** (loi n° 2024/017, applicable depuis le 23 juin 2026) : tu traites des photos (jusqu'à trois par personne, chacune validée par la modération avant d'être montrée), des données de vie intime, des données biométriques, un horodatage de dernière activité par personne (montré aux autres par tranche seulement), la tranche d'âge recherchée, le pays et la ville déclarés, la zone où la personne cherche, et sa langue de lecture — le tout effacé avec le compte. Le fuseau horaire du téléphone transite pour deviner le pays au premier lancement, mais il n'est ni stocké ni journalisé : aucune coordonnée GPS n'est demandée ni conservée.
 - [ ] Conditions d'utilisation et politique de confidentialité publiées, et renseignées dans BotFather.
-- [ ] `SEED_DEMO=false` et `AUTO_APPROVE=false`.
+- [ ] `SEED_DEMO=false`. (`AUTO_APPROVE` n'a plus d'effet en production, et sans `ADMIN_CHAT_ID` le serveur ne démarre pas : ces deux-là sont désormais tenus par le code, pas par la vigilance.)
 - [ ] Une équipe de modération disponible chaque jour (selfies et signalements).
 - [ ] `DATABASE_URL` renseignée (PostgreSQL à la place du fichier JSON) et sauvegardes automatiques en place.
 - [ ] Limitation du nombre de requêtes (anti-spam) et journalisation des signalements.
