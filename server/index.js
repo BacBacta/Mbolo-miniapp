@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import QRCode from 'qrcode';
 import { config, venues } from './config.js';
@@ -69,6 +70,18 @@ const envoyerIndex = precompresser(indexHtml.replaceAll('__APP_NAME__', escapeHt
 const renderIndex = (req, res) => envoyerIndex(req, res);
 app.get('/', renderIndex);
 app.get('/app.js', precompresser(appJs, 'js', IMMUTABLE));
+
+// Pages publiques : lisibles sans compte, hors de Telegram, et sans JavaScript. Elles vivent
+// dans server/legal/ et non dans public/ parce qu'elles portent __APP_NAME__ : servies en
+// fichiers statiques, elles montreraient le gabarit au lieu du nom. Même traitement que
+// l'accueil — nom injecté, empreinte des fichiers, compression une fois au démarrage.
+const PAGES_PUBLIQUES = { '/confidentialite': 'confidentialite.html', '/conditions': 'conditions.html' };
+for (const [route, fichier] of Object.entries(PAGES_PUBLIQUES)) {
+  const source = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'legal', fichier), 'utf8')
+    .replaceAll('__ASSET_V__', assetV)
+    .replaceAll('__APP_NAME__', escapeHtml(config.appName));
+  app.get(route, precompresser(source, 'html', NO_CACHE));
+}
 
 // Les autres fichiers du navigateur sont compressés une fois au démarrage. Sans cela, styles.css
 // partait en 39 651 octets bruts à chaque premier chargement, sur un forfait data compté.
