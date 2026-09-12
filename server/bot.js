@@ -116,7 +116,9 @@ export async function decidePhoto(userId, n, approved) {
 export async function decideVerification(userId, approved) {
   const user = await store.getUser(userId);
   if (!user) return;
-  await store.updateUser(userId, { verification: approved ? 'approved' : 'rejected', pendingGesture: null });
+  // Le délai de modération n'existait nulle part : verificationSentAt donne le départ, celui-ci
+  // l'arrivée. C'est le chiffre qui manque le plus à l'équipe (audit/05-mesure-produit.md).
+  await store.updateUser(userId, { verification: approved ? 'approved' : 'rejected', pendingGesture: null, verifDecidedAt: Date.now() });
   const file = path.join(config.uploadsDir, `${userId}-selfie.jpg`);
   if (fs.existsSync(file)) fs.unlinkSync(file);
   if (approved) {

@@ -45,6 +45,15 @@ const versMatch = (r) => (r ? { id: r.id, key: r.pair_key, users: [r.user_a, r.u
 const versMessage = (r) => ({ id: r.id, from: r.from_id, text: r.text, at: Number(r.at) });
 const versSwipe = (r) => (r ? { from: r.from_id, to: r.to_id, action: r.action, at: Number(r.at) } : null);
 const versDate = (r) => (r ? { ...r.data, id: r.id, matchId: r.match_id } : null);
+// La forme d'un événement doit être identique des deux côtés : le stockage JSON omet u et p quand
+// ils sont vides, PostgreSQL les garde à null. Un test compare les deux surfaces, mais pas leur
+// contenu — sans cette normalisation, le même code lirait deux formes différentes.
+const versEvent = (r) => {
+  const e = { id: r.id, k: r.k, at: Number(r.at) };
+  if (r.u !== null && r.u !== undefined) e.u = r.u;
+  if (r.p) e.p = r.p;
+  return e;
+};
 
 // Le patch est fusionné dans le jsonb côté base : deux instances qui modifient deux champs
 // différents du même compte ne s'écrasent plus l'une l'autre, ce qu'un lire-modifier-écrire
@@ -118,6 +127,10 @@ export const store = {
       }
       await client.query('delete from swipes where from_id = $1 or to_id = $1', [id]);
       await client.query('delete from blocks where from_id = $1 or to_id = $1', [id]);
+      // Sans cette ligne, les événements de mesure survivraient à l'effacement d'un compte, et la
+      // promesse « tout part » deviendrait fausse. Les lignes sans identifiant (account_deleted)
+      // ne sont pas concernées : elles ne désignent personne.
+      await client.query('delete from events where u = $1', [id]);
       await client.query('delete from users where id = $1', [id]);
       await client.query('commit');
     } catch (e) {
@@ -308,6 +321,31 @@ export const store = {
     const msg = { id: newId(), from: String(from), text, at: Date.now() };
     await q('insert into messages (id, match_id, from_id, text, at) values ($1, $2, $3, $4, $5)', [msg.id, matchId, msg.from, text, msg.at]);
     return msg;
+  },
+
+  // ---------- Mesure ----------
+  // Voir audit/05-mesure-produit.md : aucun texte, aucun identifiant nouveau, et rien du tout
+  // quand EVENTS_RETENTION_DAYS vaut 0.
+  async addEvent(k, u, p) {
+    if (!config.eventsRetentionDays) return null;
+    const e = { id: newId(), u: u === null || u === undefined ? null : String(u), k: String(k), at: Date.now(), p: p && Object.keys(p).length ? p : null };
+    await q('insert into events (id, u, k, at, p) values ($1, $2, $3, $4, $5::jsonb)', [e.id, e.u, e.k, e.at, e.p && JSON.stringify(e.p)]);
+    return versEvent(e);
+  },
+
+  async events({ depuis = 0, k = null } = {}) {
+    const lignes = k
+      ? await q('select * from events where at >= $1 and k = $2 order by at asc', [depuis, k])
+      : await q('select * from events where at >= $1 order by at asc', [depuis]);
+    return lignes.map(versEvent);
+  },
+
+  // Ce qui a dépassé la durée de conservation s'en va, y compris les lignes sans identifiant.
+  async purgerEvenements(jours = config.eventsRetentionDays) {
+    if (!jours) return 0;
+    const limite = Date.now() - jours * 24 * 3600 * 1000;
+    const { rowCount } = await pool.query('delete from events where at < $1', [limite]);
+    return rowCount;
   },
 
   // ---------- Signalements et blocages ----------

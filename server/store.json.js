@@ -10,7 +10,7 @@ import crypto from 'node:crypto';
 import { config } from './config.js';
 
 const file = path.join(config.dataDir, 'db.json');
-const empty = () => ({ users: {}, swipes: [], matches: {}, messages: {}, reports: [], blocks: [], dates: {} });
+const empty = () => ({ users: {}, swipes: [], matches: {}, messages: {}, reports: [], blocks: [], dates: {}, events: [] });
 
 fs.mkdirSync(config.uploadsDir, { recursive: true });
 
@@ -88,6 +88,10 @@ export const store = {
       }
     }
     db.blocks = db.blocks.filter((b) => b.from !== id && b.to !== id);
+    // Sans cette ligne, les événements de mesure survivraient à l'effacement d'un compte, et la
+    // promesse « tout part » deviendrait fausse. Les lignes sans identifiant (account_deleted)
+    // ne sont pas concernées : elles ne désignent personne.
+    db.events = db.events.filter((e) => e.u !== id);
     for (const f of ['profile', 'selfie', 'photo-1', 'photo-2', 'photo-3']) {
       const p = path.join(config.uploadsDir, `${id}-${f}.jpg`);
       if (fs.existsSync(p)) fs.unlinkSync(p);
@@ -285,6 +289,31 @@ export const store = {
     (db.messages[matchId] ||= []).push(msg);
     save();
     return msg;
+  },
+
+  // ---------- Mesure ----------
+  // Voir audit/05-mesure-produit.md : aucun texte, aucun identifiant nouveau, et rien du tout
+  // quand EVENTS_RETENTION_DAYS vaut 0.
+  async addEvent(k, u, p) {
+    if (!config.eventsRetentionDays) return null;
+    const e = { id: newId(), k: String(k), at: Date.now() };
+    if (u !== null && u !== undefined) e.u = String(u);
+    if (p && Object.keys(p).length) e.p = p;
+    db.events.push(e);
+    save();
+    return e;
+  },
+
+  events: async ({ depuis = 0, k = null } = {}) => db.events.filter((e) => e.at >= depuis && (!k || e.k === k)),
+
+  // Ce qui a dépassé la durée de conservation s'en va, y compris les lignes sans identifiant.
+  async purgerEvenements(jours = config.eventsRetentionDays) {
+    if (!jours) return 0;
+    const limite = Date.now() - jours * 24 * 3600 * 1000;
+    const avant = db.events.length;
+    db.events = db.events.filter((e) => e.at >= limite);
+    if (db.events.length !== avant) save();
+    return avant - db.events.length;
   },
 
   // ---------- Signalements et blocages ----------
