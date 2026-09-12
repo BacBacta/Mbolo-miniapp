@@ -35,7 +35,8 @@ Des rencontres entre personnes réelles et vérifiées, dans des lieux publics, 
 ```
 server/
   index.js      Serveur Express, en-têtes de sécurité, QR codes des lieux (/qr/:id.png?key=)
-  config.js     Variables d'environnement, lieux partenaires, listes (intentions, genres, villes)
+  config.js     Variables d'environnement, lieux partenaires, listes (intentions, genres)
+  geo.js        Pays (liste ISO), noms localisés, clé de comparaison des villes, suggestions
   auth.js       Validation HMAC de Telegram.WebApp.initData, middleware requireAuth
   routes.js     API REST sous /api
   bot.js        Commandes du bot, modération des selfies, notify(), notifyAdmin()
@@ -62,9 +63,9 @@ audit/
 | Domaine | État |
 |---|---|
 | Authentification | `Authorization: tma <initData>` validé côté serveur (HMAC, expiration 24 h, champ `signature` toléré). Mode développement `x-dev-user` si `ALLOW_DEV_AUTH=true` et hors production |
-| Profil | Prénom, âge 18+, genre, intention (amitié, relation sérieuse, sortie en duo), ville, quartier, question, langues, jusqu'à trois photos facultatives, chacune modérée, compressées côté client |
+| Profil | Prénom, âge 18+, genre, intention (amitié, relation sérieuse, sortie en duo), pays, ville libre, quartier, question, langues, jusqu'à trois photos facultatives, chacune modérée, compressées côté client |
 | Vérification | Geste aléatoire, selfie envoyé au groupe de modération avec boutons Valider/Refuser, selfie supprimé après décision, `AUTO_APPROVE` pour les tests |
-| Découverte | Même ville et même intention, 20 profils par jour, ceux qui t'ont liké en premier, économie de data (photos à la demande) |
+| Découverte | Même zone de recherche et même intention, 20 profils par jour, ceux qui t'ont liké en premier, économie de data (photos à la demande) |
 | Match et discussion | Discussion plein écran, polling toutes les 4 s, non lus, présence (pas de notification si la personne lit) |
 | Notifications bot | Match, message (limité à une par discussion toutes les 2 min), « tu as plu à quelqu'un » (une par jour), test depuis l'onglet Profil, bouton qui rouvre le bon écran (`?screen=chat&match=`) |
 | Anti-arnaque | Argent bloqué (texte normalisé contre les contournements), contacts bloqués avant 10 messages, profil sans contact ni argent |
@@ -116,7 +117,7 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 - Une proposition de rendez-vous ne peut être ni acceptée ni refusée : elle reste « proposée ».
 - Discussion par polling toutes les 4 secondes.
 - Pas d'interface de modération en dehors du groupe Telegram.
-- Lieux partenaires codés en dur dans `config.js`, codes QR fixes.
+- Lieux partenaires codés en dur dans `config.js`, codes QR fixes, et seulement au Cameroun : ailleurs, le rendez-vous avec confirmation d'arrivée n'est pas disponible.
 - Compteurs de limitation de débit en mémoire : remis à zéro au redémarrage, non partagés entre instances.
 - Aucune analytique produit : aucun entonnoir, aucune cohorte, aucune courbe de rétention n'est calculable. Voir `audit/05-mesure-produit.md`.
 - `fly.toml` et `render.yaml` livrent `AUTO_APPROVE=true` et `SEED_DEMO=true` en production, et aucun ne définit `ADMIN_CHAT_ID` : la vérification par selfie est débranchée sur l'app déployée. Voir `audit/04-risques.md`.
