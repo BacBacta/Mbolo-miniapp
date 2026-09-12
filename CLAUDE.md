@@ -38,6 +38,8 @@ server/
   config.js     Variables d'environnement, lieux partenaires, listes (intentions, genres)
   geo.js        Pays (liste ISO), noms localisés, clé de comparaison des villes, suggestions, fuseau → pays
   auth.js       Validation HMAC de Telegram.WebApp.initData, middleware requireAuth
+  session.js    Cookie web signé (WEB_SESSION_SECRET), sans dépendance ni table
+  moderation.js Espace de modération : lien à usage unique par le bot, droit = admin du groupe
   routes.js     API REST sous /api
   bot.js        Commandes du bot, modération des selfies, notify(), notifyAdmin()
   antiscam.js   checkMessage() : blocage argent (contextuel), liens, numéros, pseudos
@@ -61,9 +63,10 @@ public/
   styles.css    Identité « Aura » : surfaces d'encre ou d'os selon data-scheme, aura réservée au match, au badge et au like ; Fraunces pour l'identité, Manrope pour l'interface
 test/
   activity, antiscam, assets, auth, compression,
-  deploiement, filters, geographie, langues, limites, moderation, notifications,
-  pages-publiques, photos, production, profiles, rendezvous, securite, stockage,
-  verre, webhook (150 tests, tous rejoués sur PostgreSQL par npm run test:pg)
+  bannissement, deploiement, filters, geographie, langues, limites, moderation,
+  moderation-session, notifications, pages-publiques, photos, production, profiles,
+  rendezvous, securite, stockage, verre, webhook
+  (179 tests, tous rejoués sur PostgreSQL par npm run test:pg)
 e2e/
   aides.js       Gestes partagés : ouvrir, créer un profil, se faire vérifier
   inscription, discussion, pages-publiques, verre (16 tests Playwright, npm run e2e)
@@ -90,6 +93,7 @@ audit/
 | Anti-arnaque | Argent bloqué (texte normalisé contre les contournements : points, lettres détachées, « O » pour zéro), contacts bloqués avant 10 messages, profil et créneau de rendez-vous sans contact ni argent. **International** : 34 familles de moyens de paiement, 56 devises, vocabulaire français et anglais, numéros de n'importe quel indicatif (E.164 ou neuf chiffres). Deux paliers de moyens : inconditionnels, et ambigus (`om`, `visa`, `wave`, `wise`) qui ne bloquent pas seuls mais tiennent le rôle d'objet d'argent |
 | Rendez-vous | Proposition dans un lieu partenaire, puis **accepter, refuser ou annuler** : statuts `proposed`, `accepted`, `declined`, `cancelled`, notification du bot à chaque changement. L'invité accepte ou refuse ; celui qui propose annule sa proposition ; une fois accepté, chacun peut se décommander. **Le check-in par `showScanQrPopup` n'est possible que sur un rendez-vous accepté.** Un seul rendez-vous vivant par discussion. `PUT /api/dates/:id` |
 | Sécurité | Signaler et bloquer, guide anti-chantage, suppression complète du compte. **Fermer un compte** depuis le groupe de modération (bouton sous chaque signalement et chaque message bloqué) : accès refusé avec la marche à suivre, disparition de la découverte, matchs défaits, réouverture possible du même endroit. La marque (`banned`) garde qui, quand et pourquoi — les conditions promettent qu'un compte fermé pour arnaque ne se recrée pas |
+| Espace de modération | `/moderation` dans le groupe : lien à usage unique (10 min) envoyé **en privé**, session web de 12 h par cookie signé. Le droit d'entrer est **d'être administrateur du groupe**, demandé à Telegram à chaque requête (cache 60 s) : perdre ses droits ferme la session en cours. File de vérification, signalements et comptes fermés — **jamais de selfie**. Sans `WEB_SESSION_SECRET`, `/moderation` et `/api/mod` répondent 503, le reste de l'app tourne |
 | Pages publiques | `/confidentialite` et `/conditions`, lisibles sans compte, hors de Telegram et sans JavaScript. Servies depuis `server/legal/`, nom de l'app injecté, compressées au démarrage. L'onglet Profil y renvoie par `tg.openLink()`. Un test vérifie que le délai de suppression du selfie qu'elles annoncent est celui que le serveur applique |
 | Éléments natifs | MainButton, SecondaryButton, BackButton, SettingsButton, popups, haptique, scanner QR, confirmation de fermeture, CloudStorage, requestWriteAccess, addToHomeScreen |
 
@@ -138,7 +142,7 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 - Les notifications partent sans retenir la réponse HTTP. Un test qui les compte doit donc les attendre (voir `test/rendezvous.test.js`), pas les lire aussitôt après l'appel.
 - Présence et réponses de démo en mémoire : perdues au redémarrage.
 - Discussion par polling toutes les 4 secondes.
-- Pas d'interface de modération en dehors du groupe Telegram. Si le groupe devient injoignable, plus personne ne peut être vérifié : le serveur le signale au démarrage et les personnes concernées sont invitées à réessayer, mais rien ne prévient l'exploitant en cours de route.
+- L'espace de modération web **lit** (file de vérification, signalements, comptes fermés) ; toutes les **décisions** se prennent dans le groupe Telegram. Si le groupe devient injoignable, plus personne ne peut être vérifié — et plus personne ne peut ouvrir de session web non plus, puisque la liste des administrateurs vient de là. Le serveur le signale au démarrage et les personnes concernées sont invitées à réessayer, mais rien ne prévient l'exploitant en cours de route.
 - Lieux partenaires codés en dur dans `config.js`, codes QR fixes, et seulement au Cameroun : ailleurs, le rendez-vous avec confirmation d'arrivée n'est pas disponible.
 - Compteurs de limitation de débit en mémoire : remis à zéro au redémarrage, non partagés entre instances.
 - `server/antiscam.js` couvre maintenant tous les pays, avec trois limites connues : les pays à **mobiles à 8 chiffres** (Togo, Gabon) ne sont attrapés que sous la forme `+indicatif` ; un numéro **écrit en toutes lettres** (« six sept sept… ») n'est vu que s'il est annoncé (« mon numéro ») ; et le vocabulaire ne couvre que le **français et l'anglais** — une demande écrite dans une autre langue échappe aux règles de formulation, mais pas à celles des numéros ni des moyens de paiement, qui ne dépendent pas de la langue.
@@ -177,7 +181,7 @@ L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 7. **Mode sortie en duo complet** ou retrait de l'option de l'inscription tant qu'il n'est pas terminé.
 8. ~~**Plusieurs photos**~~ : fait. Trois emplacements (`PHOTO_SLOTS`), chacun modéré comme le selfie, avec ses propres boutons Valider/Refuser (`test/photos.test.js`).
 9. ~~**Anglais**~~ : fait, fichiers de traduction chargés à la demande, langue de Telegram par défaut, choix dans le profil, bot traduit dans la langue de qui reçoit. `antiscam.js` est également ouvert à tous les pays. Reste à faire : le **pidgin** (`public/i18n/pcm.js` + `server/i18n.js`).
-10. **Tableau de bord de modération** web protégé : selfies en attente, signalements, bannissements, lieux partenaires et rotation des codes QR, paiements et remboursements.
+10. **Tableau de bord de modération** web protégé : **la porte est posée** (`server/moderation.js` : lien à usage unique, session par cookie signé, droit = administrateur du groupe revérifié à chaque requête) et l'espace montre déjà la file de vérification, les signalements et les comptes fermés. Reste l'écran lui-même — fil de la discussion signalée, lieux partenaires et rotation des codes QR, paiements et remboursements.
 11. **Temps réel** (WebSocket ou SSE) avec retour automatique au polling si la connexion est instable.
 
 ### Dette technique : ce qu'aucun point ci-dessus ne couvre

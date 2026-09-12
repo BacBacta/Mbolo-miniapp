@@ -26,6 +26,14 @@ export const config = {
   webAppUrl: (process.env.WEBAPP_URL || urlHebergeur()).replace(/\/$/, ''),
   adminChatId: process.env.ADMIN_CHAT_ID || '',
   adminKey: process.env.ADMIN_KEY || '',
+  // Signe les sessions web : pour l'instant celles de la modération, plus tard celles des
+  // paiements (section 10.3 du cahier des charges). Un seul secret pour les deux, sans quoi le
+  // chantier suivant en traînerait un second à fusionner. Absent, /api/mod refuse en le disant.
+  webSessionSecret: process.env.WEB_SESSION_SECRET || '',
+  // Durée d'une session de modération. Courte : elle donne accès aux signalements, donc à des
+  // discussions entre membres. Le lien qui l'ouvre, lui, vaut dix minutes et ne sert qu'une fois.
+  modSessionSec: Number(process.env.MOD_SESSION_SEC) || 12 * 3600,
+  modLienSec: Number(process.env.MOD_LIEN_SEC) || 600,
   // Vrai quand l'app tourne pour de vraies personnes. Deux réglages de confort s'éteignent seuls
   // ici : ils sont utiles pour développer et dangereux en ligne.
   isProd: process.env.NODE_ENV === 'production',

@@ -293,6 +293,9 @@ export const store = {
     save();
   },
 
+  // Du plus ancien au plus récent : la modération lit une file, pas un journal à l'envers.
+  reports: async () => db.reports.slice(),
+
   // Défaire un match : la discussion, ses messages et ses rendez-vous disparaissent des deux
   // côtés. Les balayages restent, pour que les deux personnes ne se revoient pas en découverte.
   async removeMatch(matchId) {

@@ -7,6 +7,7 @@ import { config, venues } from './config.js';
 import { store, modeStockage, pret } from './store.js';
 import { api } from './routes.js';
 import { setupBot, startBot } from './bot.js';
+import { modApi, commandesModeration, creerPageModeration } from './moderation.js';
 import { seedDemo } from './seed.js';
 import { assetVersion, versionImports } from './assets.js';
 import { precompresser, compresserJson } from './compression.js';
@@ -45,6 +46,9 @@ app.use((req, res, next) => {
 });
 
 app.get('/health', (req, res) => res.json({ ok: true }));
+// Avant /api : la modération a sa propre porte (cookie signé, administrateur du groupe vérifié
+// auprès de Telegram) et ne passe donc pas par requireAuth, qui n'accepte que des initData.
+app.use('/api/mod', compresserJson, modApi);
 app.use('/api', compresserJson, api);
 app.use('/api', (req, res) => res.status(404).json({ code: 'NOT_FOUND', message: 'Route inconnue.' }));
 
@@ -69,6 +73,8 @@ const escapeHtml = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt
 const envoyerIndex = precompresser(indexHtml.replaceAll('__APP_NAME__', escapeHtml(config.appName)), 'html', NO_CACHE);
 const renderIndex = (req, res) => envoyerIndex(req, res);
 app.get('/', renderIndex);
+// Avant le catch-all : sans cette route, /moderation servirait la mini app.
+app.get('/moderation', creerPageModeration(assetV));
 app.get('/app.js', precompresser(appJs, 'js', IMMUTABLE));
 
 // Pages publiques : lisibles sans compte, hors de Telegram, et sans JavaScript. Elles vivent
@@ -110,6 +116,7 @@ app.use((err, req, res, next) => {
 
 if (config.seedDemo) seedDemo().catch((e) => console.error('Profils de démonstration non chargés :', e.message));
 setupBot();
+commandesModeration();
 
 // Un selfie qu'aucun modérateur n'a tranché ne doit pas rester sur le disque indéfiniment.
 // Balayage au démarrage puis toutes les six heures.

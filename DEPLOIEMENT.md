@@ -36,6 +36,7 @@ Sur GitHub : **Settings** → **Secrets and variables** → **Actions** → **Ne
 | `BOT_TOKEN` | oui | Donné par BotFather |
 | `ADMIN_CHAT_ID` | oui | L'identifiant de ton groupe de modération |
 | `ADMIN_KEY` | non | Protège les QR codes des lieux. Généré au hasard si absent |
+| `WEB_SESSION_SECRET` | non | Signe les sessions de l'espace de modération. Tiré au hasard **au premier déploiement seulement** : le reposer à chaque fois déconnecterait la modération à chaque mise en ligne. Renseigne-le si tu veux le maîtriser, ou pour déployer plusieurs machines qui partagent les mêmes sessions |
 
 ### 2. Le déploiement
 
@@ -179,6 +180,7 @@ Garde le `db.json` de côté quelques jours avant de l'effacer.
 | Symptôme | Cause probable | Quoi faire |
 |---|---|---|
 | Le déploiement s'arrête sur `ADMIN_CHAT_ID absent` | Le secret n'est pas posé | Ajoute-le dans les secrets du dépôt |
+| `/moderation` répond « n'est pas configuré » | `WEB_SESSION_SECRET` manque sur la machine | Pose-le (`flyctl secrets set WEB_SESSION_SECRET=...`) ou relance le déploiement, qui en tire un |
 | `Groupe de modération injoignable` dans le journal | Bot absent du groupe, ou identifiant mal recopié | Rajoute le bot, refais `/id` dans le groupe |
 | `Error: app not found` | Le nom d'app passé au workflow n'existe pas | Vérifie les deux champs de **Run workflow** |
 | `setWebhook failed: Failed to resolve host` | Adresse publique toute neuve | Rien : le serveur réessaie tout seul pendant une dizaine de minutes |
