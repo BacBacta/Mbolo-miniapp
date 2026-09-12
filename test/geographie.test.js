@@ -17,6 +17,10 @@ const { store } = await import('../server/store.js');
 const { bot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 const { cleVille, estPays, nomPays, listePays, villesConnues, paysDuFuseau } = await import('../server/geo.js');
+// La liste des lieux est vide par défaut : aucun n'entre en production sans partenariat signé.
+// Ces tests éprouvent le filtrage par pays et par ville, il leur faut donc des lieux à filtrer.
+const { venues, VENUES_DEMO } = await import('../server/config.js');
+venues.push(...VENUES_DEMO);
 
 bot.api.sendMessage = async () => ({});
 
