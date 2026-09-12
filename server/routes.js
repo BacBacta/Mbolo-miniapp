@@ -9,6 +9,7 @@ import { requireAuth } from './auth.js';
 import { checkMessage } from './antiscam.js';
 import { limiter, consommer } from './limites.js';
 import { notify, notifyAdmin, boutonBannir, sendSelfieToModeration, sendPhotoToModeration, decideVerification, onApproved } from './bot.js';
+import { mesurer, mesurerRalenti, semaineIso, HEURE, CINQ_MINUTES } from './mesure.js';
 import { DEMO_REPLIES } from './seed.js';
 
 export const api = express.Router();
@@ -93,6 +94,14 @@ const requireApproved = (req, res, next) => (isApproved(req.user) ? next() : fai
 // ---------- Moi ----------
 api.get('/me', async (req, res) => {
   const u = req.user;
+  // Le seul événement de fréquence du plan : sans lui, lastActiveAt (écrasé à chaque passage)
+  // dit qui est parti, jamais quand. Une fois par heure suffit à dater un départ.
+  mesurerRalenti('app_opened', u, HEURE);
+  // L'étape maximale atteinte dans le formulaire voyage dans un appel qui existait déjà : le
+  // navigateur la garde dans CloudStorage et la joint à la prochaine ouverture. Un POST par
+  // étape coûterait deux requêtes par inscription sur un forfait compté ; celui-ci coûte zéro.
+  const etape = Number(req.query.form_step);
+  if (Number.isInteger(etape) && etape >= 1 && etape <= 3) mesurer('form_step', u.id, { step: etape });
   res.json({
     id: u.id,
     firstName: u.firstName,
@@ -162,6 +171,7 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
   // supplémentaire. Ils vivent dans l'objet utilisateur, donc DELETE /api/me les emporte.
   // Posé une seule fois : c'est la première fois qu'un profil est enregistré qui compte.
   await store.updateUser(req.user.id, { profile, profileSavedAt: req.user.profileSavedAt || Date.now() });
+  mesurer('profile_saved', req.user.id);
   res.json({ profile });
 });
 
@@ -170,6 +180,8 @@ api.post('/me/verification/start', limiter('verification'), async (req, res) => 
   // Un compte déjà vérifié ne repasse pas par là : sinon une simple modification de profil
   // suffisait à perdre son badge, et un compte validé pouvait se rétrograder tout seul.
   if (req.user.verification === 'approved') return fail(res, 409, 'ALREADY_VERIFIED', 'Ton profil est déjà vérifié.');
+  // Combien de personnes reviennent après un refus, au lieu d'abandonner.
+  if (req.user.verification === 'rejected') mesurer('verif_retried', req.user.id);
   const gesture = GESTURES[Math.floor(Math.random() * GESTURES.length)];
   await store.updateUser(req.user.id, { pendingGesture: gesture, pendingGestureAt: Date.now() });
   res.json({ gesture });
@@ -204,6 +216,10 @@ api.post('/me/verification', limiter('verification'), async (req, res) => {
   } else if (!sent) {
     console.warn(`Selfie de ${u.id} en attente : configure BOT_TOKEN et ADMIN_CHAT_ID pour le recevoir en modération.`);
   }
+  // Posé ici et pas plus haut : quand l'envoi en modération échoue, la route défait tout et
+  // rend la main. Un selfie défait n'est pas un selfie envoyé, et compterait un départ de délai
+  // de modération qui n'a jamais commencé.
+  mesurer('selfie_sent', u.id);
   res.json({ verification: 'pending' });
 });
 
@@ -229,6 +245,9 @@ api.post('/me/test-notification', async (req, res) => {
 });
 
 api.delete('/me', async (req, res) => {
+  // Avant la suppression : après, createdAt n'existe plus. Aucun identifiant, c'est ce qui lui
+  // permet de survivre à l'effacement sans permettre de remonter à la personne.
+  await mesurer('account_deleted', null, { c: semaineIso(req.user.createdAt), d: Math.floor((Date.now() - req.user.createdAt) / 86400000) });
   await store.deleteUser(req.user.id);
   res.json({ deleted: true });
 });
@@ -395,7 +414,10 @@ api.get('/discover', requireApproved, async (req, res) => {
   const me = req.user;
   const remaining = Math.max(0, config.dailyProfiles - await store.swipesToday(me.id));
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
-  if (!remaining) return res.json({ profiles: [], remaining: 0, vivier: vivier(me, rel, tous) });
+  if (!remaining) {
+    mesurer('deck_empty', me.id, { why: 'quota' });
+    return res.json({ profiles: [], remaining: 0, vivier: vivier(me, rel, tous) });
+  }
   // Le tri passe avant la mise en forme : publicProfile n'est appelé que sur les dix cartes
   // envoyées, au lieu de l'être sur tout le vivier pour en jeter la plus grande part.
   const retenus = tous
@@ -408,6 +430,12 @@ api.get('/discover', requireApproved, async (req, res) => {
     // Avant le match, on ne dit que « cette semaine » ou rien : la tranche fine est réservée aux matchs
     return { ...p, activity: p.activity ? 'week' : null, likedYou: rel.maLike.has(u.id) };
   }));
+  // Le symptôme numéro un d'un lancement à vivier vide : combien de personnes vérifiées n'ont
+  // jamais vu une seule carte. Sans cette ligne, personne ne le saura jamais.
+  if (!profiles.length) mesurer('deck_empty', me.id, { why: 'vide' });
+  // Une ligne par paquet, pas une par carte : n suffit et coûte dix fois moins. Ralenti à cinq
+  // minutes, parce que l'écran se recharge à chaque retour et que ça n'apprend rien de plus.
+  else mesurerRalenti('deck_served', me, CINQ_MINUTES, { n: profiles.length, r: remaining });
   res.json({ profiles, remaining, vivier: vivier(me, rel, tous) });
 });
 
@@ -467,7 +495,10 @@ api.post('/swipes', requireApproved, limiter('swipe'), async (req, res) => {
   const { targetId, action } = req.body || {};
   const target = await store.getUser(targetId);
   if (!target || !['like', 'pass'].includes(action) || target.id === me.id) return fail(res, 400, 'SWIPE_INVALID', 'Action impossible.');
-  if (await store.swipesToday(me.id) >= config.dailyProfiles) return fail(res, 429, 'DAILY_LIMIT', "Tu as vu tous tes profils du jour. Reviens demain.");
+  if (await store.swipesToday(me.id) >= config.dailyProfiles) {
+    mesurer('quota_hit', me.id, { action });
+    return fail(res, 429, 'DAILY_LIMIT', "Tu as vu tous tes profils du jour. Reviens demain.");
+  }
   const previous = await store.swipeOf(me.id, target.id);
   if (!previous) await store.addSwipe(me.id, target.id, action);
   // Rattrapage depuis la liste : un « Passer » peut devenir un « J'aime ». L'inverse, non : un like
@@ -599,6 +630,12 @@ api.post('/matches/:id/messages', requireApproved, limiter('message'), async (re
     if (check.code === 'MONEY_BLOCKED' && consommer(req.user.id, 'alerteModeration') === null) {
       notifyAdmin(`Message bloqué (${check.categorie}) de ${req.user.profile.name} (ID ${req.user.id}) : « ${text.slice(0, 120)} »`, boutonBannir(req.user.id));
     }
+    // Le code, et rien d'autre. Pas le texte du message, évidemment — mais pas non plus
+    // check.categorie, qui est le libellé montré à la personne (« moyen de paiement », « numéro
+    // de téléphone ») : c'est de la prose, et c'est la règle déclenchée, que le plan interdit
+    // tous les deux. Le code est un mot-clé fermé : MONEY_BLOCKED ou CONTACT_TOO_EARLY.
+    // C'est le seul chemin honnête vers un taux de faux positifs mesuré sur de vrais messages.
+    mesurer('antiscam_block', req.user.id, { c: check.code });
     return fail(res, 422, check.code, check.message, { categorie: check.categorie, unlockAfter: config.contactUnlockAfter });
   }
 

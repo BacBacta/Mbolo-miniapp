@@ -316,7 +316,26 @@ function zoneLabel(zone) {
 // permission, ni GPS, ni requête en plus : le navigateur le connaît déjà. Le serveur le traduit
 // en pays pour préremplir le menu, sans jamais le stocker.
 const fuseau = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { return ''; } };
-const ME = () => `/me?tz=${encodeURIComponent(fuseau())}`;
+// L'étape maximale atteinte dans le formulaire, retenue sur l'appareil et jointe à la prochaine
+// ouverture. C'est la seule façon de savoir où les gens abandonnent : un POST par étape coûterait
+// deux requêtes par inscription sur un forfait compté, celui-ci n'en coûte aucune.
+//
+// localStorage plutôt que CloudStorage, contrairement au plan : CloudStorage est asynchrone et
+// attendre sa réponse retarderait le premier écran de deux secondes et demie dans le pire cas,
+// sur l'appareil même qu'on vise. L'étape se lit ici de façon synchrone. Ce qu'on y perd — la
+// valeur ne suit pas d'un appareil à l'autre — n'a pas de sens pour un abandon de formulaire,
+// qui a lieu sur un seul appareil.
+const ETAPE = 'form_step';
+const local = (() => { try { return window.localStorage; } catch { return null; } })();
+function noterEtape(n) {
+  try { if (Number(local?.getItem(ETAPE) || 0) < n) local.setItem(ETAPE, String(n)); } catch { /* stockage refusé : on ne mesure pas, l'app marche */ }
+}
+const etapeEnAttente = () => { try { return Number(local?.getItem(ETAPE)) || 0; } catch { return 0; } };
+const oublierEtape = () => { try { local?.removeItem(ETAPE); } catch { /* sans importance */ } };
+const ME = () => {
+  const e = etapeEnAttente();
+  return `/me?tz=${encodeURIComponent(fuseau())}${e ? `&form_step=${e}` : ''}`;
+};
 // Pays deviné : celui du profil, sinon celui du fuseau, sinon celui de la configuration.
 const paysDevine = () => S.me?.profile?.country || S.me?.options?.suggestedCountry || S.me?.options?.defaultCountry || 'CM';
 const zoneDe = () => S.me?.filters?.zone || { country: paysDevine(), city: S.me?.profile?.city || null };
@@ -616,6 +635,7 @@ const SCREENS = {
       photos: Object.fromEntries([1, 2, 3].map((n) => [n, (S.me.photos || []).some((x) => x.n === n) ? 'keep' : null])),
     });
     const step = S.formStep;
+  noterEtape(step + 1);
     const o = S.me.options;
     const titles = [p.name ? t('Modifie ton profil') : t('Fais-toi connaître'), t('Ce que tu cherches'), t('Ta touche personnelle')];
     const head = `
@@ -1645,6 +1665,8 @@ async function boot() {
   buildTabs();
   try {
     S.me = await api(ME());
+    // Reçue : on l'oublie, sinon la même étape repartirait à chaque ouverture.
+    oublierEtape();
   } catch (e) {
     // 401 : la personne n'est pas passée par Telegram, il faut lui dire par où entrer.
     // Réseau ou serveur : c'est passager, il faut un bouton Réessayer, pas un écran figé.

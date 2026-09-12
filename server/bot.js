@@ -4,6 +4,7 @@ import { Bot, InlineKeyboard, InputFile } from 'grammy';
 import { config, runtime } from './config.js';
 import { t, langueDe } from './i18n.js';
 import { store } from './store.js';
+import { mesurer } from './mesure.js';
 
 export const bot = config.botToken ? new Bot(config.botToken) : null;
 
@@ -118,7 +119,16 @@ export async function decideVerification(userId, approved) {
   if (!user) return;
   // Le délai de modération n'existait nulle part : verificationSentAt donne le départ, celui-ci
   // l'arrivée. C'est le chiffre qui manque le plus à l'équipe (audit/05-mesure-produit.md).
-  await store.updateUser(userId, { verification: approved ? 'approved' : 'rejected', pendingGesture: null, verifDecidedAt: Date.now() });
+  const decideA = Date.now();
+  await store.updateUser(userId, { verification: approved ? 'approved' : 'rejected', pendingGesture: null, verifDecidedAt: decideA });
+  // auto est obligatoire : pendant une période où AUTO_APPROVE valait true, la décision tombe
+  // trois secondes après l'envoi. Sans ce champ, la médiane du délai de modération vaudrait
+  // trois secondes et l'équipe croirait son goulot d'étranglement résolu.
+  mesurer('verif_decided', userId, {
+    ok: approved,
+    auto: config.autoApprove,
+    ...(user.verificationSentAt ? { ms: decideA - user.verificationSentAt } : {}),
+  });
   const file = path.join(config.uploadsDir, `${userId}-selfie.jpg`);
   if (fs.existsSync(file)) fs.unlinkSync(file);
   if (approved) {

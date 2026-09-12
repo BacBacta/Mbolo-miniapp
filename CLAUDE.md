@@ -40,6 +40,7 @@ server/
   auth.js       Validation HMAC de Telegram.WebApp.initData, middleware requireAuth
   session.js    Cookie web signé (WEB_SESSION_SECRET), sans dépendance ni table
   moderation.js Espace de modération : lien à usage unique, droit = admin du groupe, écran sans JS
+  mesure.js     Pose les événements : garde-fou anti-texte, ralentis, semaine ISO des cohortes
   routes.js     API REST sous /api
   bot.js        Commandes du bot, modération des selfies, notify(), notifyAdmin()
   antiscam.js   checkMessage() : blocage argent (contextuel), liens, numéros, pseudos
@@ -70,7 +71,7 @@ test/
   (179 tests, tous rejoués sur PostgreSQL par npm run test:pg)
 e2e/
   aides.js       Gestes partagés : ouvrir, créer un profil, se faire vérifier
-  inscription, discussion, pages-publiques, verre (16 tests Playwright, npm run e2e)
+  inscription, discussion, mesure, pages-publiques, verre (18 tests Playwright, npm run e2e)
 scripts/
   import-json.js Reprise d'un db.json existant vers PostgreSQL
   test-pg.js     La suite complète sur PostgreSQL, un schéma par fichier de test
@@ -95,7 +96,7 @@ audit/
 | Rendez-vous | Proposition dans un lieu partenaire, puis **accepter, refuser ou annuler** : statuts `proposed`, `accepted`, `declined`, `cancelled`, notification du bot à chaque changement. L'invité accepte ou refuse ; celui qui propose annule sa proposition ; une fois accepté, chacun peut se décommander. **Le check-in par `showScanQrPopup` n'est possible que sur un rendez-vous accepté.** Un seul rendez-vous vivant par discussion. `PUT /api/dates/:id` |
 | Sécurité | Signaler et bloquer, guide anti-chantage, suppression complète du compte. **Fermer un compte** depuis le groupe de modération (bouton sous chaque signalement et chaque message bloqué) : accès refusé avec la marche à suivre, disparition de la découverte, matchs défaits, réouverture possible du même endroit. La marque (`banned`) garde qui, quand et pourquoi — les conditions promettent qu'un compte fermé pour arnaque ne se recrée pas |
 | Espace de modération | `/moderation` dans le groupe : lien à usage unique (10 min) envoyé **en privé**, session web de 12 h par cookie signé. Le droit d'entrer est **d'être administrateur du groupe**, demandé à Telegram à chaque requête (cache 60 s) : perdre ses droits ferme la session en cours. Quatre vues sans JavaScript ni image : accueil, file de vérification, signalements, comptes fermés — **jamais de selfie**. Un signalement ouvre **le fil de la discussion signalée, et elle seule** ; **chaque lecture laisse une trace** sur le signalement (`lectures`), et un fil défait n'est plus lisible. Sans `WEB_SESSION_SECRET`, `/moderation` et `/api/mod` répondent 503, le reste de l'app tourne |
-| Mesure produit | Six horodatages d'entonnoir dans l'objet utilisateur (`profileSavedAt`, `verificationSentAt`, `verifDecidedAt`, `firstLikeAt`, `firstMatchAt`, `firstMessageAt`), posés dans des écritures existantes, et une table `events` (`id`, `u`, `k`, `at`, `p`). **Aucun texte, aucun identifiant nouveau, aucun outil tiers.** `DELETE /api/me` purge les événements de la personne ; seul `account_deleted` survit, **sans identifiant**, pour que le nombre de départs reste calculable. `EVENTS_RETENTION_DAYS` (180 par défaut, `0` n'écrit rien, valeur illisible = défaut + avertissement). Marqueur `devUser` sur les comptes `x-dev-user`. Plan complet : `audit/05-mesure-produit.md` |
+| Mesure produit | Six horodatages d'entonnoir dans l'objet utilisateur et **onze événements** dans `events` (`server/mesure.js` : `app_opened` ralenti à l'heure, `form_step`, `profile_saved`, `selfie_sent`, `verif_decided` avec `ok`/`auto`/`ms`, `verif_retried`, `deck_served` ralenti à 5 min, `deck_empty`, `quota_hit`, `antiscam_block` — **le code, jamais le libellé ni le texte** —, `account_deleted` sans identifiant). `chargeValide()` refuse toute charge utile qui n'est pas faite de nombres et de mots-clés fermés : la barrière est dans le code, pas dans la discipline de l'appelant. `form_step` passe par `localStorage` et l'ouverture suivante : **zéro requête ajoutée**. `DELETE /api/me` purge, `EVENTS_RETENTION_DAYS` (180, `0` n'écrit rien). Plan : `audit/05-mesure-produit.md` |
 | Pages publiques | `/confidentialite` et `/conditions`, lisibles sans compte, hors de Telegram et sans JavaScript. Servies depuis `server/legal/`, nom de l'app injecté, compressées au démarrage. L'onglet Profil y renvoie par `tg.openLink()`. Un test vérifie que le délai de suppression du selfie qu'elles annoncent est celui que le serveur applique |
 | Éléments natifs | MainButton, SecondaryButton, BackButton, SettingsButton, popups, haptique, scanner QR, confirmation de fermeture, CloudStorage, requestWriteAccess, addToHomeScreen |
 
@@ -193,7 +194,7 @@ conséquences d'un chantier précédent. Aucun n'a de point de feuille de route 
 précisément pour cela qu'ils s'oublient.
 
 1. **Les compteurs de limitation de débit sont en mémoire** (`server/limites.js`). Sans conséquence tant qu'une seule machine tourne — mais P0-2 a justement levé la contrainte d'instance unique. À deux machines, le plafond de 20 profils par jour en devient 40, et chaque limite anti-spam est divisée d'autant. **C'est une incohérence introduite par le passage à PostgreSQL**, pas un manque d'origine. À porter en base, ou dans un Redis, avant d'augmenter le nombre d'instances.
-2. **Analytique produit : les fondations sont posées** (`audit/05-mesure-produit.md`). Les six horodatages d'entonnoir, la table `events` et sa purge existent. **Restent les événements eux-mêmes** (lot M3 : `app_opened`, `deck_empty`, `antiscam_block`…) et **la lecture** (lot M4 : entonnoir, métriques d'entrée, contre-métriques). Tant que M3 n'est pas posé, rien ne s'écrit dans `events` : chaque jour de bêta sans lui est un jour de données perdues pour toujours.
+2. **Analytique produit : les fondations sont posées** (`audit/05-mesure-produit.md`). Les six horodatages d'entonnoir, la table `events` et sa purge existent. **Les onze événements sont posés** (lot M3). **Reste la lecture** (lot M4 : entonnoir, métriques d'entrée, contre-métriques) — les chiffres s'accumulent, personne ne les lit encore.
 3. **`allUsers()` charge toute la table** à chaque découverte, y compris sur PostgreSQL : la découverte filtre en mémoire. Tenable pour quelques centaines de comptes. Au-delà, c'est le filtre qu'il faut descendre en SQL — pas le stockage qu'il faut changer.
 4. **Les lieux partenaires sont codés en dur** dans `config.js`, au Cameroun seulement, avec des codes QR fixes. Or l'app est ouverte à tous les pays : le rendez-vous avec confirmation d'arrivée n'existe donc nulle part ailleurs. Les lieux et la rotation des codes sont prévus dans P1-10, le reste ne l'est pas.
 5. **Le corpus de non-régression d'`antiscam.js` est écrit à la main** : il fige des cas imaginés, pas des messages réellement signalés. À remplacer par les signalements de la bêta dès qu'il y en aura.
