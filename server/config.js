@@ -36,6 +36,9 @@ export const config = {
   dailyProfiles: 20,
   // Limitation de débit par compte. Désactivable pour les tests de charge, jamais en production.
   rateLimit: bool(process.env.RATE_LIMIT, true),
+  // Au-delà de ce délai sans décision de modération, le selfie est supprimé et la personne
+  // doit recommencer. Sept jours par défaut.
+  verificationTtlMs: Number(process.env.VERIFICATION_TTL_DAYS || 7) * 86400 * 1000,
   // Délai de réponse des profils de démo : laisse le temps de fermer l'app pour recevoir la notification
   demoReplyDelayMs: Number(process.env.DEMO_REPLY_DELAY_MS || 15000),
   demoLikeDelayMs: Number(process.env.DEMO_LIKE_DELAY_MS || 60000),

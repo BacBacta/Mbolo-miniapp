@@ -137,3 +137,27 @@ test('un compte vérifié ne peut pas se rétrograder', async () => {
   assert.equal(r.body.code, 'ALREADY_VERIFIED');
   assert.equal(store.getUser('8211').verification, 'approved', 'le badge est conservé');
 });
+
+test('un selfie que personne n\'a tranché est purgé, et le compte peut recommencer', async () => {
+  await call('8401', '/me');
+  await call('8401', '/me/profile', 'PUT', { name: 'Rosine', age: 27, gender: 'femme', intent: 'amitie', city: 'Yaoundé', promptA: 'Le poisson braisé' });
+  await call('8401', '/me/verification/start', 'POST');
+  const jpeg = 'data:image/jpeg;base64,' + Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString('base64');
+  await call('8401', '/me/verification', 'POST', { selfie: jpeg });
+  assert.equal(store.getUser('8401').verification, 'pending');
+
+  const fichier = path.join(process.env.DATA_DIR, 'uploads', '8401-selfie.jpg');
+  assert.ok(fs.existsSync(fichier), 'le selfie est bien sur le disque');
+
+  // Rien ne se passe tant que le délai n'est pas dépassé
+  assert.equal(store.purgerVerificationsOubliees(7 * 86400 * 1000), 0);
+  assert.ok(fs.existsSync(fichier), 'le selfie est conservé pendant le délai');
+
+  // Une fois le délai dépassé, il disparaît et le compte repart de zéro
+  store.updateUser('8401', { verificationSentAt: Date.now() - 8 * 86400 * 1000 });
+  assert.equal(store.purgerVerificationsOubliees(7 * 86400 * 1000), 1);
+  assert.equal(fs.existsSync(fichier), false, 'le selfie est supprimé');
+  const u = store.getUser('8401');
+  assert.equal(u.verification, 'none', 'la personne peut recommencer');
+  assert.equal(u.pendingGesture, null);
+});
