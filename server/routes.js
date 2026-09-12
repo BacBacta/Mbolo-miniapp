@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { config, runtime, venues, INTENTS, GENDERS } from './config.js';
-import { estPays, cleVille, villeAffichee, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
+import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
 import { LANGUES, t as tr } from './i18n.js';
 import { store } from './store.js';
 import { requireAuth } from './auth.js';
@@ -91,7 +91,13 @@ api.get('/me', (req, res) => {
     // Les noms de pays ne transitent pas : le navigateur les affiche dans la langue de la
     // personne à partir du code ISO. On n'envoie donc que les codes, et des suggestions de villes.
     lang: u.lang || null,
-    options: { intents: INTENTS, genders: GENDERS, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES, defaultCountry: config.defaultCountry },
+    options: {
+      intents: INTENTS, genders: GENDERS, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
+      defaultCountry: config.defaultCountry,
+      // Pays déduit du fuseau envoyé par le navigateur (?tz=). Il n'est ni stocké ni journalisé :
+      // il sert à préremplir le menu, puis il est oublié. null si le fuseau est inconnu.
+      suggestedCountry: paysDuFuseau(req.query.tz),
+    },
   });
 });
 

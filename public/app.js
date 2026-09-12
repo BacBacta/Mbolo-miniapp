@@ -302,7 +302,14 @@ function zoneLabel(zone) {
   if (!zone) return '';
   return zone.city || nomPays(zone.country);
 }
-const zoneDe = () => S.me?.filters?.zone || { country: S.me?.profile?.country || S.me?.options?.defaultCountry || 'CM', city: S.me?.profile?.city || null };
+// Fuseau du téléphone. C'est le seul indice de localisation que l'app lit, et il ne coûte ni
+// permission, ni GPS, ni requête en plus : le navigateur le connaît déjà. Le serveur le traduit
+// en pays pour préremplir le menu, sans jamais le stocker.
+const fuseau = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { return ''; } };
+const ME = () => `/me?tz=${encodeURIComponent(fuseau())}`;
+// Pays deviné : celui du profil, sinon celui du fuseau, sinon celui de la configuration.
+const paysDevine = () => S.me?.profile?.country || S.me?.options?.suggestedCountry || S.me?.options?.defaultCountry || 'CM';
+const zoneDe = () => S.me?.filters?.zone || { country: paysDevine(), city: S.me?.profile?.city || null };
 const activityChip = (p, cls = 'chip') => (ACTIVITY_LABELS()[p.activity] ? `<span class="${cls} act-${p.activity}">${ACTIVITY_LABELS()[p.activity]}</span>` : '');
 
 // Carte de profil, partagée entre la découverte et l'aperçu de son propre profil.
@@ -579,7 +586,7 @@ const SCREENS = {
       age: p.age || '',
       gender: p.gender || null,
       intent: p.intent || null,
-      country: p.country || S.me.options.defaultCountry,
+      country: p.country || paysDevine(),
       city: p.city || '',
       area: p.area || '',
       promptQ: p.promptQ || 'plat',
@@ -739,10 +746,11 @@ const SCREENS = {
         bouton = { text: t('Voir mes messages'), onClick: () => go('matches') };
       } else if (!v.total) {
         titre = t("Personne d'autre dans cette zone pour l'instant");
+        // La zone entre parenthèses : « à {zone} » donnait « à États-Unis ». Un article correct
+        // demanderait le genre de 243 pays ; la parenthèse marche pour une ville comme pour un pays.
         // Ne rien promettre que le code ne tient pas : aucune alerte d'arrivée n'existe aujourd'hui.
-        texte = t('Personne ne cherche « {intention} » à {zone} pour le moment. Élargis ta zone, reviens dans quelques jours, ou parle de {app} autour de toi.', { intention: esc(intention), zone: esc(ville), app: esc(APP) });
+        texte = t('Personne ne cherche « {intention} » dans ta zone ({zone}) pour le moment. Change de zone, reviens dans quelques jours, ou parle de {app} autour de toi.', { intention: esc(intention), zone: esc(ville), app: esc(APP) });
         bouton = { text: t('Changer de zone'), onClick: () => go('filters') };
-        bouton = { text: t('Voir mon profil'), onClick: () => go('me') };
       } else if (v.horsTranche) {
         titre = t("Tu as vu tous les profils de ta tranche d'âge");
         texte = tn("{n} profil de ta zone est en dehors de la tranche que tu as choisie. Tu peux l'élargir.", "{n} profils de ta zone sont en dehors de la tranche que tu as choisie. Tu peux l'élargir.", v.horsTranche);
@@ -752,7 +760,10 @@ const SCREENS = {
         texte = t('Reviens un peu plus tard : de nouveaux profils vérifiés arrivent chaque jour.');
         bouton = { text: t('Voir mes messages'), onClick: () => go('matches') };
       }
+      // La barre reste : c'est le seul chemin vers la zone et vers la vue Liste. Sans elle,
+      // l'écran qui dit « change de zone » était le seul d'où on ne pouvait pas le faire.
       render(`
+        ${dbar()}
         <div class="empty">
           <span class="glyph">${icon('sparkles', 34)}</span>
           <h2>${titre}</h2>
@@ -773,6 +784,9 @@ const SCREENS = {
     const f = S.me.filters || { ageMin: 18, ageMax: 99 };
     const z = S.zoneDraft || (S.zoneDraft = { ...zoneDe() });
     const toutLePays = z.city === null;
+    // Pays du fuseau : proposé seulement s'il diffère de la zone en cours, sinon le bouton
+    // ne ferait rien. Il ne s'applique jamais tout seul — c'est la personne qui décide.
+    const ici = S.me.options.suggestedCountry;
     render(`
       <div class="step-head"><h1>${t('Qui veux-tu voir ?')}</h1><p class="lead">${t("La zone où tu veux rencontrer, et la tranche d'âge. Ton intention vient de ton profil.")}</p></div>
       <form id="filters-form" class="stack">
@@ -780,6 +794,8 @@ const SCREENS = {
         <label class="field"><span class="label">${t('Pays')}</span>
           <span class="select-wrap"><select name="zoneCountry">${paysTries().map((c) => `<option value="${esc(c.code)}" ${c.code === z.country ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>${icon('chevron-down', 18)}</span>
         </label>
+        ${ici && ici !== z.country ? `
+        <button type="button" class="btn btn-ghost btn-sm" data-action="zone-ici">${icon('pin', 15)} ${t('Ma position : {pays}', { pays: esc(nomPays(ici)) })}</button>` : ''}
         <div class="seg seg-zone" aria-label="${t('Étendue')}">
           <button type="button" data-action="zone-mode" data-mode="ville" aria-pressed="${!toutLePays}">${t('Une ville')}</button>
           <button type="button" data-action="zone-mode" data-mode="pays" aria-pressed="${toutLePays}">${t('Tout le pays')}</button>
@@ -1126,7 +1142,7 @@ async function saveProfile() {
     }
     S.form = null;
     S.formStep = 0;
-    S.me = await api('/me');
+    S.me = await api(ME());
     S.photoUrls = {};
     tg.haptic('success');
     if (S.me.verification === 'approved') {
@@ -1159,7 +1175,7 @@ async function sendSelfie() {
 
 async function refreshStatus() {
   try {
-    const me = await api('/me');
+    const me = await api(ME());
     S.me = me;
     if (me.verification === 'approved') {
       tg.haptic('success');
@@ -1443,6 +1459,14 @@ app.addEventListener('click', async (e) => {
       S.zoneDraft = { ...(S.zoneDraft || zoneDe()), city: el.dataset.mode === 'pays' ? null : (S.zoneDraft?.city || S.me.profile.city || '') };
       SCREENS.filters();
       break;
+    // Le fuseau donne le pays, jamais la ville : on ouvre donc sur tout le pays, et la personne
+    // resserre sur une ville si elle veut. Garder l'ancienne ville serait pire : elle
+    // appartient au pays qu'on vient de quitter.
+    case 'zone-ici':
+      tg.haptic('select');
+      S.zoneDraft = { country: S.me.options.suggestedCountry, city: null };
+      SCREENS.filters();
+      break;
     case 'photo-remove': e.preventDefault(); S.form.photos[el.dataset.n] = null; SCREENS.profile(); break;
     case 'mode':
       tg.haptic('select');
@@ -1486,7 +1510,7 @@ app.addEventListener('click', async (e) => {
         await api('/me', { method: 'DELETE' });
         await tg.alert(t('Ton compte et tes données ont été supprimés.'));
         tg.close();
-        S.me = await api('/me');
+        S.me = await api(ME());
         go('welcome');
       } catch (err) { showError(err); }
       break;
@@ -1560,7 +1584,7 @@ async function boot() {
   await chargerLangue(langueVoulue());
   buildTabs();
   try {
-    S.me = await api('/me');
+    S.me = await api(ME());
   } catch (e) {
     // 401 : la personne n'est pas passée par Telegram, il faut lui dire par où entrer.
     // Réseau ou serveur : c'est passager, il faut un bouton Réessayer, pas un écran figé.

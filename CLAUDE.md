@@ -36,7 +36,7 @@ Des rencontres entre personnes réelles et vérifiées, dans des lieux publics, 
 server/
   index.js      Serveur Express, en-têtes de sécurité, QR codes des lieux (/qr/:id.png?key=)
   config.js     Variables d'environnement, lieux partenaires, listes (intentions, genres)
-  geo.js        Pays (liste ISO), noms localisés, clé de comparaison des villes, suggestions
+  geo.js        Pays (liste ISO), noms localisés, clé de comparaison des villes, suggestions, fuseau → pays
   auth.js       Validation HMAC de Telegram.WebApp.initData, middleware requireAuth
   routes.js     API REST sous /api
   bot.js        Commandes du bot, modération des selfies, notify(), notifyAdmin()
@@ -69,6 +69,7 @@ audit/
 | Profil | Prénom, âge 18+, genre, intention (amitié, relation sérieuse, sortie en duo), pays, ville libre, quartier, question, langues, jusqu'à trois photos facultatives, chacune modérée, compressées côté client |
 | Vérification | Geste aléatoire, selfie envoyé au groupe de modération avec boutons Valider/Refuser, selfie supprimé après décision, `AUTO_APPROVE` pour les tests |
 | Langues | Français et anglais. Choix explicite dans le profil, sinon la langue du Telegram, sinon le français. Interface traduite chez la personne (`public/i18n.js` + `public/i18n/<code>.js`, chargés à la demande), messages du bot traduits côté serveur (`server/i18n.js`) dans la langue de **qui reçoit**. `PUT /api/me/lang` |
+| Localisation | Pays deviné au premier lancement depuis le fuseau du téléphone (`paysDuFuseau` dans `server/geo.js`, table dérivée de zone.tab). Le navigateur passe `?tz=` à `GET /api/me`, le serveur répond `options.suggestedCountry`. **Le fuseau n'est ni stocké ni journalisé, aucun GPS n'est demandé.** Il donne le pays, jamais la ville. Bouton « Ma position : {pays} » dans les filtres. Le choix de la personne l'emporte toujours |
 | Découverte | Même zone de recherche et même intention, 20 profils par jour, ceux qui t'ont liké en premier, économie de data (photos à la demande) |
 | Match et discussion | Discussion plein écran, polling toutes les 4 s, non lus, présence (pas de notification si la personne lit) |
 | Notifications bot | Match, message (limité à une par discussion toutes les 2 min), « tu as plu à quelqu'un » (une par jour), test depuis l'onglet Profil, bouton qui rouvre le bon écran (`?screen=chat&match=`) |
@@ -124,6 +125,7 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 - Lieux partenaires codés en dur dans `config.js`, codes QR fixes, et seulement au Cameroun : ailleurs, le rendez-vous avec confirmation d'arrivée n'est pas disponible.
 - Compteurs de limitation de débit en mémoire : remis à zéro au redémarrage, non partagés entre instances.
 - `server/antiscam.js` reste calibré sur le Cameroun : préfixe `+237`, numéros à 9 chiffres commençant par 6, MTN MoMo et Orange Money, montants en F CFA. Hors de la zone, un numéro étranger ou un autre moyen de paiement peut passer. À élargir avant d'ouvrir un autre pays pour de vrai.
+- La localisation s'arrête au **pays** : le fuseau ne distingue pas Yaoundé de Douala, et l'app ne demande pas le GPS. La ville reste écrite par la personne, avec des suggestions pour 33 pays seulement.
 - Traduction : le français et l'anglais seulement. Les noms de pays viennent d'`Intl.DisplayNames` (donc traduits automatiquement), mais les villes, les quartiers et les textes saisis par les membres restent tels quels.
 - Aucune analytique produit : aucun entonnoir, aucune cohorte, aucune courbe de rétention n'est calculable. Voir `audit/05-mesure-produit.md`.
 - `fly.toml` et `render.yaml` livrent `AUTO_APPROVE=true` et `SEED_DEMO=true` en production, et aucun ne définit `ADMIN_CHAT_ID` : la vérification par selfie est débranchée sur l'app déployée. Voir `audit/04-risques.md`.
