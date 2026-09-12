@@ -238,6 +238,14 @@ export function share(url, text) {
   else window.open(link, '_blank');
 }
 
+// Ouvre une page du site hors de la mini app : les pages publiques (confidentialité, conditions)
+// doivent rester lisibles sans compte, et sortir de l'app évite d'y bâtir un second navigateur.
+export function openLink(url) {
+  const absolue = new URL(url, window.location.origin).href;
+  if (inTelegram) W.openLink(absolue);
+  else window.open(absolue, '_blank', 'noopener');
+}
+
 export const canAddToHome = () => supports('8.0') && typeof W.addToHomeScreen === 'function';
 export const addToHome = () => canAddToHome() && W.addToHomeScreen();
 

@@ -301,6 +301,16 @@ Sur https://dashboard.render.com : **New** → **Web Service** → dépôt `BacB
 - **Après un déploiement, pas besoin de vider le cache de Telegram.** Le serveur calcule une empreinte du contenu de `app.js`, `tg.js`, `ui.js` et `styles.css`, et la pose sur leurs adresses (`/app.js?v=...`). Une nouvelle version change l'adresse, donc le navigateur la télécharge ; tant que rien ne change, l'adresse reste la même et le cache est conservé, y compris quand la machine s'arrête et repart. Seul `index.html` n'est jamais mis en cache, puisque c'est lui qui porte les nouvelles adresses.
 - Les réponses des profils de démonstration et la présence vivent en mémoire : une machine qui s'arrête les perd. Sans conséquence pour un test.
 
+## Pages publiques
+
+`/confidentialite` et `/conditions` sont servies sans compte, hors de Telegram et sans JavaScript : ce sont elles qu'on renseigne dans BotFather et qu'on met en pied de page d'un site. L'application y renvoie depuis l'onglet Profil.
+
+Elles vivent dans `server/legal/`, pas dans `public/`, parce qu'elles portent le nom de l'app (`__APP_NAME__`) : servies en fichiers statiques, elles montreraient le gabarit. Le serveur y injecte le nom et l'empreinte des fichiers, puis les compresse une fois au démarrage, comme la page d'accueil — environ 3 Ko sur le réseau.
+
+Pour les modifier, édite les deux fichiers HTML et change la date en haut de page. `test/pages-publiques.test.js` vérifie qu'elles répondent, qu'elles ne laissent pas fuiter le gabarit, qu'elles se renvoient l'une à l'autre, et que **le délai de suppression du selfie qu'elles annoncent est bien celui que le serveur applique** : une page qui promet autre chose que le code fait échouer la suite.
+
+---
+
 ## Changer le nom de l'application
 
 1. Dans `.env`, modifie la ligne `APP_NAME=Mbolo` (ex. `APP_NAME=Imani`).
@@ -426,7 +436,7 @@ Avec `USE_WEBHOOK=true`, Telegram envoie les messages du bot directement à ton 
 Ce prototype sert à une **bêta fermée**. Avant un lancement public :
 
 - [ ] **Autorisation de l'Autorité de protection des données** (loi n° 2024/017, applicable depuis le 23 juin 2026) : tu traites des photos (jusqu'à trois par personne, chacune validée par la modération avant d'être montrée), des données de vie intime, des données biométriques, un horodatage de dernière activité par personne (montré aux autres par tranche seulement), la tranche d'âge recherchée, le pays et la ville déclarés, la zone où la personne cherche, et sa langue de lecture — le tout effacé avec le compte. Le fuseau horaire du téléphone transite pour deviner le pays au premier lancement, mais il n'est ni stocké ni journalisé : aucune coordonnée GPS n'est demandée ni conservée.
-- [ ] Conditions d'utilisation et politique de confidentialité publiées, et renseignées dans BotFather.
+- [ ] Conditions d'utilisation et politique de confidentialité **renseignées dans BotFather** (`/mybots` → ton bot → *Bot Settings*). Les pages existent : `/confidentialite` et `/conditions`. Relis-les avec un juriste avant de les annoncer — elles décrivent fidèlement le traitement, mais ne remplacent ni la déclaration à l'Autorité de protection des données, ni un avis juridique.
 - [ ] `SEED_DEMO=false`. (`AUTO_APPROVE` n'a plus d'effet en production, et sans `ADMIN_CHAT_ID` le serveur ne démarre pas : ces deux-là sont désormais tenus par le code, pas par la vigilance.)
 - [ ] Une équipe de modération disponible chaque jour (selfies et signalements).
 - [ ] `DATABASE_URL` renseignée (PostgreSQL à la place du fichier JSON) et sauvegardes automatiques en place.

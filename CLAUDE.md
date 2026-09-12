@@ -50,6 +50,7 @@ server/
   db/migrate.js Lanceur de migrations (verrou consultatif, une transaction par fichier)
   db/migrations/ Migrations SQL, appliquées une fois chacune, jamais modifiées après coup
   seed.js       Profils de démonstration (SEED_DEMO=true)
+  legal/        Pages publiques (confidentialité, conditions) : hors de public/, car le nom de l'app y est injecté
 public/
   index.html    Charge telegram-web-app.js puis app.js
   tg.js         Seul point d'accès au SDK Telegram, avec secours hors Telegram
@@ -60,8 +61,8 @@ public/
   styles.css    Identité « Aura » : surfaces d'encre ou d'os selon data-scheme, aura réservée au match, au badge et au like ; Fraunces pour l'identité, Manrope pour l'interface
 test/
   activity, antiscam, assets, auth, compression, filters, geographie, langues,
-  limites, moderation, notifications, photos, production, profiles, rendezvous,
-  securite, stockage, webhook (128 tests, tous rejoués sur PostgreSQL par npm run test:pg)
+  limites, moderation, notifications, pages-publiques, photos, production, profiles,
+  rendezvous, securite, stockage, webhook (134 tests, tous rejoués sur PostgreSQL par npm run test:pg)
 scripts/
   import-json.js Reprise d'un db.json existant vers PostgreSQL
   test-pg.js     La suite complète sur PostgreSQL, un schéma par fichier de test
@@ -84,6 +85,7 @@ audit/
 | Anti-arnaque | Argent bloqué (texte normalisé contre les contournements : points, lettres détachées, « O » pour zéro), contacts bloqués avant 10 messages, profil et créneau de rendez-vous sans contact ni argent. **International** : 34 familles de moyens de paiement, 56 devises, vocabulaire français et anglais, numéros de n'importe quel indicatif (E.164 ou neuf chiffres). Deux paliers de moyens : inconditionnels, et ambigus (`om`, `visa`, `wave`, `wise`) qui ne bloquent pas seuls mais tiennent le rôle d'objet d'argent |
 | Rendez-vous | Proposition dans un lieu partenaire, puis **accepter, refuser ou annuler** : statuts `proposed`, `accepted`, `declined`, `cancelled`, notification du bot à chaque changement. L'invité accepte ou refuse ; celui qui propose annule sa proposition ; une fois accepté, chacun peut se décommander. **Le check-in par `showScanQrPopup` n'est possible que sur un rendez-vous accepté.** Un seul rendez-vous vivant par discussion. `PUT /api/dates/:id` |
 | Sécurité | Signaler et bloquer, guide anti-chantage, suppression complète du compte |
+| Pages publiques | `/confidentialite` et `/conditions`, lisibles sans compte, hors de Telegram et sans JavaScript. Servies depuis `server/legal/`, nom de l'app injecté, compressées au démarrage. L'onglet Profil y renvoie par `tg.openLink()`. Un test vérifie que le délai de suppression du selfie qu'elles annoncent est celui que le serveur applique |
 | Éléments natifs | MainButton, SecondaryButton, BackButton, SettingsButton, popups, haptique, scanner QR, confirmation de fermeture, CloudStorage, requestWriteAccess, addToHomeScreen |
 
 ## 5. Règles à respecter absolument
@@ -155,7 +157,7 @@ L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 5. ~~**Défaire un match**~~ : fait, `DELETE /api/matches/:id`, sans notification, avec blocage sans accusation et six motifs de signalement.
 6. **Version web et paiement par mobile money** : voir la section 10, cahier des charges complet.
 7. **Tests de bout en bout** Playwright dans le dépôt (mode développement), lancés en CI.
-8. **Pages publiques** `/confidentialite` et `/conditions`, liées depuis l'accueil, le site et le README.
+8. ~~**Pages publiques**~~ : fait. `/confidentialite` et `/conditions` sont servies depuis `server/legal/` sans compte, hors de Telegram et sans JavaScript, avec le nom de l'app injecté ; l'onglet Profil y renvoie par `tg.openLink()`. Reste à faire, côté propriétaire : les renseigner dans BotFather et les faire relire par un juriste.
 9. **Déploiement** : Dockerfile, volume persistant, contrôle `/health`, guide pas à pas pour un hébergeur.
 10. ~~**Traiter les vulnérabilités `npm audit`**~~ : fait, `qs` est forcé en 6.16.0 par un `overrides` dans `package.json`, sans changement majeur d'`express`. `npm audit` ne signale plus rien.
 

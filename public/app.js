@@ -1099,6 +1099,10 @@ const SCREENS = {
           ${tg.canAddToHome() ? listRow({ iconName: 'home', title: t("Ajouter à l'écran d'accueil"), action: 'home' }) : ''}
         </div>
       </div>
+      <div class="list">
+        ${listRow({ iconName: 'shield', title: t('Confidentialité'), sub: t('Ce qu\'on sait de toi, et comment tout effacer'), action: 'page', extra: ' data-page="/confidentialite"' })}
+        ${listRow({ iconName: 'info', title: t("Conditions d'utilisation"), sub: t('Les règles, en une page'), action: 'page', extra: ' data-page="/conditions"' })}
+      </div>
       <div class="danger-zone"><button type="button" class="btn btn-danger btn-block" data-action="delete">${icon('trash', 18)} ${t('Supprimer mon compte et mes données')}</button></div>
     `);
     if (pp) { loadCardPhoto(pp, { own: true }); loadAvatar(pp, { own: true }); }
@@ -1545,6 +1549,9 @@ app.addEventListener('click', async (e) => {
       break;
     }
     case 'home': tg.addToHome(); break;
+    // Les pages publiques sortent de la mini app : elles se lisent sans compte, et on ne
+    // reconstruit pas un navigateur à l'intérieur de l'app pour deux documents.
+    case 'page': tg.openLink(el.dataset.page); break;
     case 'test-notif': {
       try {
         const r = await api('/me/test-notification', { method: 'POST' });
