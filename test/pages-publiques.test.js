@@ -97,17 +97,31 @@ test('la politique de confidentialité dit ce que le code fait vraiment', async 
   dit(/GPS/, "la position GPS n'est pas demandée");
   dit(/2024\/017/, 'la loi camerounaise applicable');
   dit(/18 ans/, "l'exclusion des mineurs");
-  // Le délai annoncé doit être celui appliqué, sinon la page promet une chose et le serveur en
-  // fait une autre. On ne se contente pas d'en trouver une mention juste : la page en porte
-  // plusieurs, et il suffirait d'en oublier une pour qu'elle mente sans que rien ne le dise.
-  // Donc toutes les durées en jours citées doivent valoir le délai configuré.
-  const jours = Math.round(config.verificationTtlMs / 86400e3);
+  // Les délais annoncés doivent être ceux appliqués, sinon la page promet une chose et le
+  // serveur en fait une autre. On ne se contente pas d'en trouver un juste : la page en porte
+  // plusieurs, il suffirait d'en oublier un pour qu'elle mente sans que rien ne le dise. Chaque
+  // durée citée doit donc valoir l'un des délais que le serveur applique vraiment — et chacun
+  // de ces délais doit être cité au moins une fois, sinon la page tait ce qu'elle doit dire.
   const EN_LETTRES = ['zéro', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'];
-  const attendues = new Set([String(jours), EN_LETTRES[jours]].filter(Boolean));
-  const citees = [...html.matchAll(/([\wÀ-ÿ]+)\s+jours/g)].map((m) => m[1]);
-  assert.ok(citees.length > 0, 'la page doit annoncer le délai de suppression du selfie');
+  const formes = (n) => [String(n), EN_LETTRES[n]].filter(Boolean);
+  // « le nombre de jours qu'il a duré » n'annonce aucune durée : le mot qui précède « jours »
+  // n'est pas toujours un nombre. On ne laisse passer que ça — tout ce qui ressemble à un
+  // nombre, en chiffres ou en lettres, doit correspondre à un délai réellement appliqué.
+  const NOMBRES = new Set([...EN_LETTRES, 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize',
+    'vingt', 'vingts', 'trente', 'quarante', 'cinquante', 'soixante', 'cent', 'cents', 'mille']);
+  const estUnNombre = (mot) => /^\d+$/.test(mot) || NOMBRES.has(mot.toLowerCase());
+  const delais = {
+    'suppression du selfie': Math.round(config.verificationTtlMs / 86400e3),
+    'conservation des événements de mesure': config.eventsRetentionDays,
+  };
+  const attendues = new Set(Object.values(delais).flatMap(formes));
+  const citees = [...html.matchAll(/([\wÀ-ÿ]+)\s+jours/g)].map((m) => m[1]).filter(estUnNombre);
+  assert.ok(citees.length > 0, 'la page doit annoncer les délais appliqués');
   for (const c of citees) {
-    assert.ok(attendues.has(c), `la page annonce « ${c} jours » alors que le serveur purge après ${jours} jours`);
+    assert.ok(attendues.has(c), `la page annonce « ${c} jours », qui ne correspond à aucun délai appliqué : ${JSON.stringify(delais)}`);
+  }
+  for (const [quoi, n] of Object.entries(delais)) {
+    assert.ok(formes(n).some((f) => citees.includes(f)), `la page ne dit nulle part le délai de ${quoi} (${n} jours)`);
   }
 });
 

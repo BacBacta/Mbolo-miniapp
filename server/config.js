@@ -5,6 +5,17 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const bool = (v, d = false) => (v === undefined || v === '' ? d : ['1', 'true', 'yes'].includes(String(v).toLowerCase()));
 
+// Un nombre de jours, avec un piège à éviter : une faute de frappe qui retomberait sur zéro
+// éteindrait la mesure sans que personne ne s'en aperçoive, et on ne le découvrirait qu'en
+// cherchant des chiffres qui n'existent pas. Une valeur illisible garde donc le défaut, et le dit.
+const jours = (v, d) => {
+  if (v === undefined || v === '') return d;
+  const n = Number(v);
+  if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+  console.warn(`EVENTS_RETENTION_DAYS vaut « ${v} », qui n'est pas un nombre de jours. On garde ${d}. Mets 0 pour ne rien enregistrer.`);
+  return d;
+};
+
 // Adresse publique fournie par l'hébergeur, quand il y en a une : évite de la recopier à la main.
 // Render donne l'adresse complète ; Fly donne le nom de l'app, dont l'adresse se déduit.
 const urlHebergeur = () =>
@@ -37,6 +48,9 @@ export const config = {
   // Fuseau dans lequel l'espace de modération affiche les dates. Le serveur tourne en UTC :
   // sans ça, « 22 h 40 » se lirait « 21 h 40 » pour l'équipe, et on daterait mal un signalement.
   modTimezone: process.env.MOD_TIMEZONE || 'Africa/Douala',
+  // Combien de jours on garde les événements de mesure. 0 : on n'en écrit aucun — c'est ce qui
+  // rend la mesure refusable sans toucher au code. Voir audit/05-mesure-produit.md.
+  eventsRetentionDays: jours(process.env.EVENTS_RETENTION_DAYS, 180),
   // Vrai quand l'app tourne pour de vraies personnes. Deux réglages de confort s'éteignent seuls
   // ici : ils sont utiles pour développer et dangereux en ligne.
   isProd: process.env.NODE_ENV === 'production',

@@ -69,6 +69,10 @@ export async function requireAuth(req, res, next) {
   if (config.allowDevAuth && req.get('x-dev-user')) {
     const id = req.get('x-dev-user');
     req.user = await store.upsertTelegramUser({ id, first_name: 'Testeur', language_code: 'fr' });
+    // Rien ne distinguait un compte de test d'un vrai : après coup, ils sont indiscernables en
+    // base, et l'équipe teste sur le même serveur que la bêta. Sans ce marqueur, aucun chiffre
+    // n'est défendable. Il n'a aucun usage produit, et part avec le compte comme le reste.
+    if (!req.user.devUser) req.user = await store.updateUser(id, { devUser: true });
     return refuserSiBanni(req, res) ? undefined : next();
   }
   return res.status(401).json({ code: 'UNAUTHORIZED', message: `Ouvre ${config.appName} depuis Telegram.` });

@@ -123,6 +123,10 @@ commandesModeration();
 const purger = async () => {
   const n = await store.purgerVerificationsOubliees(config.verificationTtlMs);
   if (n) console.warn(`${n} vérification(s) jamais tranchée(s) purgée(s) : selfies supprimés, comptes remis en attente de vérification.`);
+  // Même balayage pour les événements de mesure : une durée de conservation qu'on annonce sans
+  // l'appliquer ne vaut rien. À 0, purgerEvenements ne fait rien — et rien n'a été écrit non plus.
+  const e = await store.purgerEvenements();
+  if (e) console.log(`${e} événement(s) de mesure purgé(s) : au-delà de ${config.eventsRetentionDays} jours.`);
 };
 await purger();
 setInterval(purger, 6 * 3600 * 1000).unref();

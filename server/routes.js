@@ -158,7 +158,10 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
     languages: String(b.languages || '').trim().slice(0, 60),
     hasPhoto,
   };
-  await store.updateUser(req.user.id, { profile });
+  // Les horodatages d'entonnoir voyagent dans des appels qui existaient déjà : aucune écriture
+  // supplémentaire. Ils vivent dans l'objet utilisateur, donc DELETE /api/me les emporte.
+  // Posé une seule fois : c'est la première fois qu'un profil est enregistré qui compte.
+  await store.updateUser(req.user.id, { profile, profileSavedAt: req.user.profileSavedAt || Date.now() });
   res.json({ profile });
 });
 
@@ -472,10 +475,13 @@ api.post('/swipes', requireApproved, limiter('swipe'), async (req, res) => {
   else if (previous.action === 'pass' && action === 'like') await store.updateSwipe(me.id, target.id, 'like');
 
   if (action === 'like') {
+    if (!me.firstLikeAt) await store.updateUser(me.id, { firstLikeAt: Date.now() });
     // Les profils de démonstration « likent » en retour pour pouvoir tester seul
     if (target.demo && target.demoLikeBack !== false && !await store.hasSwiped(target.id, me.id)) await store.addSwipe(target.id, me.id, 'like');
     if (await store.likedBy(target.id, me.id)) {
       const match = await store.createMatch(me.id, target.id);
+      // Des deux côtés : un match se fait à deux, et c'est le délai de chacun qu'on mesure.
+      for (const u of [me, target]) if (!u.firstMatchAt) await store.updateUser(u.id, { firstMatchAt: Date.now() });
       notify(target.id, 'Nouveau match : {nom} et toi, vous vous plaisez.', { nom: me.profile.name }, { label: 'Écrire', params: { screen: 'chat', match: match.id } });
       return res.json({ match: { id: match.id, other: await publicProfile(target) } });
     }
@@ -597,6 +603,8 @@ api.post('/matches/:id/messages', requireApproved, limiter('message'), async (re
   }
 
   const msg = await store.addMessage(r.m.id, req.user.id, text);
+  // Le silence après le match est le risque principal du produit : ce champ le mesure directement.
+  if (!req.user.firstMessageAt) await store.updateUser(req.user.id, { firstMessageAt: Date.now() });
   if (!store.isViewing(r.other.id, r.m.id)) {
     notify(r.other.id, "{nom} t'a écrit : « {extrait} »", { nom: req.user.profile.name, extrait: `${text.slice(0, 60)}${text.length > 60 ? '…' : ''}` }, { label: 'Répondre', params: { screen: 'chat', match: r.m.id } }, `msg:${r.m.id}`);
   }
