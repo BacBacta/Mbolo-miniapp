@@ -215,7 +215,9 @@ function profileCard(p, { own = false, cls = '' } = {}) {
   const hidePhoto = !own && S.dataSaver && !S.revealed[p.id];
   const t = p.trust || {};
   const score = [t.selfie, t.guarantor, t.seniority].filter(Boolean).length;
-  const trustItem = (on, label) => `<span class="${on ? 'on' : ''}">${icon(on ? 'check' : 'clock', 12)}${label}</span>`;
+  // Ce qui est acquis, en clair, sur une ligne : « Selfie vérifié, un garant »
+  const acquis = [t.selfie && 'selfie vérifié', t.guarantor && 'un garant', t.seniority && 'membre depuis 3 mois'].filter(Boolean);
+  if (acquis.length) acquis[0] = acquis[0].charAt(0).toUpperCase() + acquis[0].slice(1);
   return `
     <article class="card ${cls}">
       <div class="card-photo" data-photo="${esc(p.id)}"${p.photos?.length > 1 && !(!own && hidePhoto) ? ' data-action="photo-nav" data-index="0"' : ''}>
@@ -224,38 +226,30 @@ function profileCard(p, { own = false, cls = '' } = {}) {
         <span class="scrim"></span>
         ${p.hasPhoto && hidePhoto ? `<button type="button" class="btn btn-glass reveal" data-action="reveal" data-id="${esc(p.id)}">${icon('image', 18)} Afficher la photo</button>` : ''}
         <div class="corners">
-          ${p.verified ? `<span class="pill-glass pill-verified">${icon('shield', 14)} Vérifié</span>` : ''}
-          ${p.isNew && !own ? `<span class="pill-glass">${icon('sparkles', 13)} Nouveau</span>` : ''}
-          ${p.likedYou ? `<span class="pill-glass pill-like">${icon('heart', 14, { fill: true })} T'a liké</span>` : ''}
-          ${p.demo ? '<span class="pill-glass">démo</span>' : ''}
-          ${own ? '' : activityChip(p, 'pill-glass')}
+          ${p.likedYou && !own ? `<span class="pill-glass pill-like">${icon('heart', 13, { fill: true })} T'a liké</span>` : p.isNew && !own ? `<span class="pill-glass">${icon('sparkles', 13)} Nouveau</span>` : ''}
+          ${p.demo ? '<span class="tag-demo">démo</span>' : ''}
+          <span class="spacer"></span>
+          ${own ? '' : `<button type="button" class="more" data-action="report-profile" data-id="${esc(p.id)}" aria-label="Se protéger de ce profil">${icon('flag', 15)}</button>`}
         </div>
         <div class="overlay">
-          <div class="name">${esc(p.name)}<span class="age">${esc(p.age)}</span></div>
-          <div class="meta">
-            <span class="pill-glass">${icon('pin', 13)} ${esc(p.area ? `${p.area}, ${p.city}` : p.city)}</span>
-            <span class="pill-glass">${icon(INTENT_ICONS[p.intent] || 'users', 13)} ${esc(p.intentLabel)}</span>
+          <div class="name">${esc(p.name)}<span class="age">${esc(p.age)}</span>${p.verified ? `<span class="shield" title="Selfie vérifié">${icon('shield', 18)}</span>` : ''}</div>
+          <div class="line">
+            ${icon('pin', 13)}<span>${esc(p.area ? `${p.area} · ${p.city}` : p.city)}</span>
+            ${!own && ACTIVITY_LABELS[p.activity] ? `<span class="dot"></span><span class="act">${p.activity === 'week' ? 'Cette semaine' : p.activity === 'today' ? "Aujourd'hui" : 'Récemment'}</span>` : ''}
           </div>
         </div>
         ${cls === 'top' ? `<span class="stamp like" aria-hidden="true">J'aime</span><span class="stamp pass" aria-hidden="true">Passer</span>` : ''}
       </div>
       <div class="card-body">
         <div class="prompt"><span class="q">${esc(p.promptQ)}</span><span class="a">${esc(p.promptA)}</span></div>
-        <div class="facts-sec">
-          <span class="eyebrow">Ses infos</span>
-          <dl class="facts">
-            <div><dt>Ici pour</dt><dd>${esc(p.intentLabel)}</dd></div>
-            <div><dt>Quartier</dt><dd>${esc(p.area || p.city)}</dd></div>
-            ${p.languages ? `<div><dt>Parle</dt><dd>${esc(p.languages)}</dd></div>` : ''}
-            <div><dt>Membre</dt><dd>${p.isNew ? 'Nouveau ici' : t.seniority ? 'Depuis plus de 3 mois' : 'Depuis moins de 3 mois'}</dd></div>
-          </dl>
+        <div class="facts-line">
+          <span>${esc(p.intentLabel)}</span>
+          ${p.languages ? `<span class="sep"></span><span>Parle ${esc(p.languages.charAt(0).toLowerCase() + p.languages.slice(1))}</span>` : ''}
         </div>
-        <div class="trust" aria-label="Niveau de confiance ${score} sur 3">
-          <div class="trust-head"><span class="eyebrow">Confiance</span><span class="score">${score}/3</span></div>
-          <div class="trust-bars"><span class="${t.selfie ? 'on' : ''}"></span><span class="${t.guarantor ? 'on' : ''}"></span><span class="${t.seniority ? 'on' : ''}"></span></div>
-          <div class="trust-labels">${trustItem(t.selfie, 'Selfie vérifié')}${trustItem(t.guarantor, 'Un garant')}${trustItem(t.seniority, 'Membre depuis 3 mois')}</div>
+        <div class="trust-row" aria-label="Niveau de confiance ${score} sur 3">
+          <span class="trust-pips"><span class="${t.selfie ? 'on' : ''}"></span><span class="${t.guarantor ? 'on' : ''}"></span><span class="${t.seniority ? 'on' : ''}"></span></span>
+          <span class="trust-text"><strong>Confiance ${score} sur 3</strong>${acquis.length ? ` · ${acquis.join(', ')}` : ' · Aucune vérification pour l\'instant'}</span>
         </div>
-        ${own ? '' : `<button type="button" class="btn btn-ghost btn-sm report" data-action="report-profile" data-id="${esc(p.id)}">${icon('flag', 14)} Signaler ce profil</button>`}
       </div>
     </article>`;
 }
@@ -736,7 +730,7 @@ const SCREENS = {
           <button type="button" class="list-row ${m.unread ? 'unread' : ''}" data-action="open-chat" data-id="${m.id}">
             ${avatar(m.other, 'sm')}
             <div class="body">
-              <div class="title">${esc(m.other.name)}${m.other.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${m.isNew ? '<span class="chip chip-accent">Nouveau</span>' : ''}${activityChip(m.other)}${m.aQuiDeParler === 'moi' && !m.unread ? '<span class="tour">à toi</span>' : ''}</div>
+              <div class="title">${esc(m.other.name)}${m.other.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${m.aQuiDeParler === 'moi' && !m.unread ? '<span class="tour">À toi</span>' : ''}</div>
               <div class="preview">${m.lastMessage ? `${m.lastMessage.from === S.me.id ? 'Toi : ' : ''}${esc(m.lastMessage.text)}` : 'Nouveau match, écris le premier message'}</div>
             </div>
             ${m.unread ? `<span class="count-badge">${m.unread}</span>` : `<span class="chev">${icon('chevron-right', 18)}</span>`}
@@ -800,30 +794,30 @@ const SCREENS = {
   protection({ id, matchId }) {
     S.protection = { id, matchId };
     const motif = (cle, texte, sous) => `
-      <button type="button" class="acc" data-action="signaler" data-motif="${cle}">
-        <span class="body"><span class="t">${texte}</span><span class="s">${sous}</span></span>
-        ${icon('chevron-right', 18)}
+      <button type="button" class="list-row" data-action="signaler" data-motif="${cle}">
+        <div class="body"><div class="title">${texte}</div><div class="sub">${sous}</div></div>
+        <span class="chev">${icon('chevron-right', 18)}</span>
       </button>`;
     render(`
       <div class="step-head"><h1>Te protéger de cette personne</h1><p class="lead">Elle ne sera jamais prévenue, quel que soit ton choix.</p></div>
       ${matchId ? `
       <div class="group"><span class="eyebrow">Sans rien signaler</span>
         <div class="list">
-          <button type="button" class="acc" data-action="retirer-match">
-            <span class="body"><span class="t">Retirer ce match</span><span class="s">La discussion disparaît des deux côtés. Vous ne vous reverrez pas dans les profils</span></span>
-            ${icon('chevron-right', 18)}
+          <button type="button" class="list-row" data-action="retirer-match">
+            <div class="body"><div class="title">Retirer ce match</div><div class="sub">La discussion disparaît des deux côtés. Vous ne vous reverrez pas dans les profils</div></div>
+            <span class="chev">${icon('chevron-right', 18)}</span>
           </button>
-          <button type="button" class="acc" data-action="bloquer">
-            <span class="body"><span class="t">Bloquer</span><span class="s">Plus aucun message, aucun rendez-vous, aucune notification de sa part</span></span>
-            ${icon('chevron-right', 18)}
+          <button type="button" class="list-row" data-action="bloquer">
+            <div class="body"><div class="title">Bloquer</div><div class="sub">Plus aucun message, aucun rendez-vous, aucune notification de sa part</div></div>
+            <span class="chev">${icon('chevron-right', 18)}</span>
           </button>
         </div>
       </div>` : `
       <div class="group"><span class="eyebrow">Sans rien signaler</span>
         <div class="list">
-          <button type="button" class="acc" data-action="bloquer">
-            <span class="body"><span class="t">Bloquer</span><span class="s">Ce profil ne peut plus te contacter ni apparaître</span></span>
-            ${icon('chevron-right', 18)}
+          <button type="button" class="list-row" data-action="bloquer">
+            <div class="body"><div class="title">Bloquer</div><div class="sub">Ce profil ne peut plus te contacter ni apparaître</div></div>
+            <span class="chev">${icon('chevron-right', 18)}</span>
           </button>
         </div>
       </div>`}
@@ -1067,7 +1061,7 @@ function chatBody(c) {
 
   let msgs = '';
   if (!c.messages.length) {
-    msgs = `<p class="system">Commence par une question sur son profil.</p>`;
+    msgs = `<p class="system">Commence par une question sur son profil. Ton pseudo et ton numéro Telegram restent masqués.</p>`;
   } else {
     let prev = null;
     msgs = c.messages.map((m) => {
@@ -1100,7 +1094,7 @@ function renderChat() {
           ${avatar(c.other, 'sm')}
           <div class="body">
             <div class="name">${esc(c.other.name)}, ${esc(c.other.age)}${c.other.verified ? `<span class="ok">${icon('shield', 15)}</span>` : ''}</div>
-            <div class="sub">${ACTIVITY_LABELS[c.other.activity] ? `${activityChip(c.other, 'act')}<span aria-hidden="true">·</span>` : ''}${icon('lock', 12)} Pseudos et numéros masqués</div>
+            <div class="sub">${ACTIVITY_LABELS[c.other.activity] ? activityChip(c.other, 'act') : `${icon('lock', 12)} Pseudos et numéros masqués`}</div>
           </div>
         </button>
         <button type="button" class="icon-btn" data-action="report-chat" aria-label="Signaler">${icon('flag', 18)}</button>

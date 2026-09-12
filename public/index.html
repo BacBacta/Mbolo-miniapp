@@ -8,11 +8,12 @@
   <meta name="app-name" content="__APP_NAME__">
   <!-- SDK officiel : fournit window.Telegram.WebApp et les variables CSS du thème de l'utilisateur -->
   <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
-  <!-- Police d'identité (prénoms, titres) : environ 50 Ko la première fois, puis en cache. Chargée sans
-       bloquer (media=print puis all) : l'app démarre et s'affiche avec la police de secours, la vraie
-       arrive quand elle arrive. Un réseau où Google Fonts traîne ne retarde donc jamais l'écran -->
+  <!-- Deux polices : Instrument Serif pour l'identité (prénoms, titres, réponses), Manrope pour tout
+       le reste. Environ 60 Ko la première fois, puis en cache. Chargées sans bloquer (media=print
+       puis all) : l'app démarre avec les polices de secours, les vraies arrivent quand elles arrivent.
+       Un réseau où Google Fonts traîne ne retarde donc jamais l'écran -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400..800&display=swap" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="/styles.css?v=__ASSET_V__">
 </head>
 <body>
