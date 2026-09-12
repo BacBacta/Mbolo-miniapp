@@ -979,6 +979,7 @@ function chatBody(c) {
         <div class="body"><div class="v">${esc(d.venue?.name)}</div><div class="w">${esc(d.venue?.area)} · ${esc(d.slot)}</div></div>
         <span class="chip ${d.arrivedMe ? 'chip-ok' : 'chip-accent'}">${d.arrivedMe ? 'Arrivée confirmée' : 'Proposé'}</span>
       </div>
+      ${d.arrivedOther ? `<p class="fine">${icon('check', 14)}<span>L'autre personne est arrivée.</span></p>` : ''}
       ${d.arrivedMe ? '' : `<button type="button" class="btn btn-primary btn-sm" data-action="checkin" data-id="${d.id}">${icon('qr', 16)} Je suis arrivé(e) : scanner le code</button>`}
     </div>`).join('');
 

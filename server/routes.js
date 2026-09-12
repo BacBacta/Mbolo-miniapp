@@ -15,6 +15,8 @@ api.use((req, res, next) => { store.touchActivity(req.user.id); next(); });
 
 const fail = (res, status, code, message) => res.status(status).json({ code, message });
 const GESTURES = ['Lève deux doigts et souris', 'Touche ton oreille gauche', 'Fais un pouce levé', 'Pose ta main sur ta joue'];
+// Durée de validité d'un geste de vérification
+const GESTURE_TTL_MS = 10 * 60 * 1000;
 
 // Tranche d'activité montrée aux autres. Volontairement floue : jamais l'heure exacte, jamais de
 // temps réel. Un « en ligne maintenant » précis servirait à faire pression sur qui ne répond pas.
@@ -95,7 +97,7 @@ api.put('/me/profile', async (req, res) => {
   if (!CITIES.includes(b.city)) return fail(res, 400, 'CITY_REQUIRED', 'Choisis ta ville.');
   const promptA = String(b.promptA || '').trim().slice(0, 120);
   if (promptA.length < 3) return fail(res, 400, 'PROMPT_REQUIRED', 'Réponds à la question pour que les autres te découvrent.');
-  const profileText = [name, b.area, promptA, b.languages].filter(Boolean).join(' ');
+  const profileText = [name, b.area, b.promptQ, promptA, b.languages].filter(Boolean).join(' ');
   if (!checkMessage(profileText, 0, 1).ok) return fail(res, 400, 'PROFILE_CONTACT', "Ton profil ne doit contenir ni numéro, ni lien, ni pseudo, ni demande d'argent.");
 
   // Ancien champ « photo » : il alimente l'emplacement 1, avec la même modération
@@ -115,8 +117,11 @@ api.put('/me/profile', async (req, res) => {
 
 api.post('/me/verification/start', (req, res) => {
   if (!req.user.profile) return fail(res, 400, 'PROFILE_REQUIRED', "Crée ton profil avant la vérification.");
+  // Un compte déjà vérifié ne repasse pas par là : sinon une simple modification de profil
+  // suffisait à perdre son badge, et un compte validé pouvait se rétrograder tout seul.
+  if (req.user.verification === 'approved') return fail(res, 409, 'ALREADY_VERIFIED', 'Ton profil est déjà vérifié.');
   const gesture = GESTURES[Math.floor(Math.random() * GESTURES.length)];
-  store.updateUser(req.user.id, { pendingGesture: gesture });
+  store.updateUser(req.user.id, { pendingGesture: gesture, pendingGestureAt: Date.now() });
   res.json({ gesture });
 });
 
@@ -124,8 +129,14 @@ api.post('/me/verification', async (req, res) => {
   const u = req.user;
   if (!u.profile) return fail(res, 400, 'PROFILE_REQUIRED', "Crée ton profil avant la vérification.");
   if (!u.pendingGesture) return fail(res, 400, 'GESTURE_REQUIRED', 'Demande un geste avant de prendre le selfie.');
+  // Le geste est à usage unique et périme : sans cela, on pouvait tirer des gestes jusqu'à
+  // tomber sur celui d'une photo déjà prise, ou réutiliser un selfie ancien.
+  if (Date.now() - (u.pendingGestureAt || 0) > GESTURE_TTL_MS) {
+    store.updateUser(u.id, { pendingGesture: null, pendingGestureAt: null });
+    return fail(res, 400, 'GESTURE_EXPIRED', 'Ce geste a expiré. Demandes-en un nouveau et reprends le selfie.');
+  }
   if (!saveJpeg(req.body?.selfie, path.join(config.uploadsDir, `${u.id}-selfie.jpg`))) return fail(res, 400, 'SELFIE_INVALID', 'Selfie illisible ou trop lourd. Réessaie.');
-  store.updateUser(u.id, { verification: 'pending' });
+  store.updateUser(u.id, { verification: 'pending', pendingGestureAt: null, verificationSentAt: Date.now() });
 
   const sent = await sendSelfieToModeration(u.id).catch((e) => { console.warn('Envoi en modération impossible :', e.message); return false; });
   if (config.autoApprove) {
@@ -308,7 +319,9 @@ api.post('/swipes', requireApproved, async (req, res) => {
       return res.json({ match: { id: match.id, other: publicProfile(target) } });
     }
     // Like non réciproque : on prévient la personne sans révéler qui (au plus une fois par jour)
-    notify(target.id, `Tu as plu à quelqu'un à ${target.profile.city}. Ouvre ${config.appName} pour découvrir de qui il s'agit.`, { label: 'Découvrir', params: { screen: 'discover' } }, 'likes', 24 * 3600 * 1000);
+    // Écran Messages, pas Découvrir : qui t'a liké apparaît dans /likes, qui ignore le filtre d'âge,
+    // alors que /discover l'applique. La notification envoyait donc parfois vers un écran vide.
+    notify(target.id, `Tu as plu à quelqu'un à ${target.profile.city}. Ouvre ${config.appName} pour découvrir de qui il s'agit.`, { label: 'Découvrir', params: { screen: 'matches' } }, 'likes', 24 * 3600 * 1000);
   }
   res.json({ match: null });
 });
@@ -362,7 +375,14 @@ api.get('/matches/:id', requireApproved, (req, res) => {
   store.markRead(r.m.id, req.user.id);
   const after = Number(req.query.after || 0);
   const messages = store.messagesOf(r.m.id).filter((x) => x.at > after).map((x) => ({ ...x, mine: x.from === req.user.id }));
-  const dates = store.datesOfMatch(r.m.id).map((d) => ({ ...d, venue: venues.find((v) => v.id === d.venueId), arrivedMe: !!d.arrivals[req.user.id] }));
+  // L'heure d'arrivée de l'autre personne n'est jamais renvoyée : savoir qu'elle est sur place
+  // depuis douze minutes est une information de filature, pas une information de rendez-vous.
+  const dates = store.datesOfMatch(r.m.id).map(({ arrivals, ...d }) => ({
+    ...d,
+    venue: venues.find((v) => v.id === d.venueId),
+    arrivedMe: !!arrivals[req.user.id],
+    arrivedOther: Object.keys(arrivals).some((id) => id !== req.user.id),
+  }));
   res.json({ id: r.m.id, other: publicProfile(r.other), messages, dates, unlockAfter: config.contactUnlockAfter });
 });
 
@@ -371,7 +391,14 @@ api.post('/matches/:id/messages', requireApproved, async (req, res) => {
   if (!r) return;
   const text = String(req.body?.text || '').trim().slice(0, 1000);
   if (!text) return fail(res, 400, 'EMPTY', "Écris un message avant d'envoyer.");
-  const check = checkMessage(text, store.messagesOf(r.m.id).length, config.contactUnlockAfter);
+  // Le seuil compte l'échange, pas le total : en comptant tous les messages, il suffisait d'en
+  // envoyer dix tout seul pour s'autoriser à donner son numéro.
+  const messages = store.messagesOf(r.m.id);
+  const echange = Math.min(
+    messages.filter((x) => x.from === req.user.id).length,
+    messages.filter((x) => x.from === r.other.id).length,
+  );
+  const check = checkMessage(text, echange, config.contactUnlockAfter);
   if (!check.ok) return fail(res, 422, check.code, check.message);
 
   const msg = store.addMessage(r.m.id, req.user.id, text);
@@ -420,6 +447,10 @@ api.post('/matches/:id/dates', requireApproved, (req, res) => {
   const venue = venues.find((v) => v.id === req.body?.venueId);
   const slot = String(req.body?.slot || '').slice(0, 40);
   if (!venue || !slot) return fail(res, 400, 'DATE_INVALID', 'Choisis un lieu et un horaire.');
+  // Le créneau est un champ libre affiché à l'autre personne : il passe par le même filtre
+  // que les messages, sinon il suffisait d'y écrire un numéro pour contourner le blocage.
+  const controleSlot = checkMessage(slot, 0, config.contactUnlockAfter);
+  if (!controleSlot.ok) return fail(res, 422, controleSlot.code, controleSlot.message);
   const d = store.addDate({ matchId: r.m.id, proposedBy: req.user.id, venueId: venue.id, slot, status: 'proposed' });
   notify(r.other.id, `${req.user.profile.name} te propose un rendez-vous : ${venue.name} (${venue.area}), ${slot}.`, { label: 'Voir la proposition', params: { screen: 'chat', match: r.m.id } });
   res.json({ date: { ...d, venue: { ...venue, code: undefined } } });
@@ -429,11 +460,14 @@ api.post('/dates/:id/checkin', requireApproved, (req, res) => {
   const d = store.getDate(req.params.id);
   const m = d && store.getMatch(d.matchId);
   if (!d || !m || !m.users.includes(req.user.id)) return fail(res, 404, 'DATE_NOT_FOUND', 'Rendez-vous introuvable.');
+  // Un blocage ferme la discussion : il doit aussi fermer le rendez-vous. Sans ce contrôle,
+  // quelqu'un de bloqué déclenchait encore une notification d'arrivée chez la personne protégée.
+  const autreId = m.users.find((x) => x !== req.user.id);
+  if (store.isBlocked(req.user.id, autreId)) return fail(res, 403, 'BLOCKED', 'Ce rendez-vous est annulé.');
   const venue = venues.find((v) => v.id === d.venueId);
   if (String(req.body?.code || '').trim() !== venue.code) return fail(res, 400, 'WRONG_VENUE', `Ce code ne correspond pas à ${venue.name}. Scanne le code posé sur ta table.`);
   store.updateDate(d.id, { arrivals: { ...d.arrivals, [req.user.id]: Date.now() } });
-  const otherId = m.users.find((x) => x !== req.user.id);
-  notify(otherId, `${req.user.profile.name} est bien arrivé(e) à ${venue.name}.`, { label: 'Ouvrir la discussion', params: { screen: 'chat', match: m.id } });
+  notify(autreId, `${req.user.profile.name} est bien arrivé(e) à ${venue.name}.`, { label: 'Ouvrir la discussion', params: { screen: 'chat', match: m.id } });
   res.json({ arrived: true, venue: { name: venue.name, perk: venue.perk } });
 });
 
