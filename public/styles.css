@@ -40,7 +40,12 @@
   --bg2: color-mix(in srgb, var(--tg-theme-secondary-bg-color, var(--fb-bg2)) 95%, var(--brand));
   --section: var(--tg-theme-section-bg-color, var(--bg));
   --text: color-mix(in srgb, var(--tg-theme-text-color, var(--fb-text)) 70%, var(--text-warm));
-  --hint: color-mix(in srgb, var(--tg-theme-hint-color, var(--fb-hint)) 85%, var(--brand));
+  /* Le gris d'indication ne vient plus du thème Telegram : mesuré, il tombait à 4,17 pour un
+     seuil WCAG 2.2 AA de 4,5 sur les intitulés de 11 px, et la plupart des thèmes clairs de
+     Telegram sont encore plus clairs. Il est donc dérivé du texte et du fond, ce qui garantit
+     l'écart quel que soit le thème de la personne, tout en restant une couleur du thème. */
+  --hint: color-mix(in srgb, var(--text) 68%, var(--bg));
+  --hint-doux: color-mix(in srgb, var(--text) 52%, var(--bg));
   --subtitle: var(--tg-theme-subtitle-text-color, var(--hint));
   --section-title: var(--hint);
   --link: var(--brand);
@@ -53,6 +58,7 @@
 
   /* Couleurs sémantiques, identiques dans les deux thèmes */
   --ok: var(--gold);
+  --ok-ink: color-mix(in srgb, var(--gold) 45%, var(--text));
   --warn: #c07f1c;
   --like: var(--brand);
 
@@ -91,7 +97,7 @@ body {
   overscroll-behavior: none;
   text-rendering: optimizeLegibility;
 }
-body.has-tabs { --topbar-h: 66px; }
+body.has-tabs { --topbar-h: 76px; }
 main {
   position: relative; z-index: 0;
   padding: 12px 16px calc(28px + var(--safe-bottom));
@@ -144,13 +150,13 @@ svg { display: inline-block; vertical-align: -.15em; }
 .tabs {
   position: relative; max-width: 528px; margin: 0 auto;
   display: grid; grid-template-columns: repeat(4, 1fr);
-  height: 46px; padding: 4px;
+  height: 56px; padding: 5px;
   background: var(--bg); border-radius: 999px;
   box-shadow: var(--shadow-1); border: 1px solid var(--line);
 }
 .tabs-ind {
-  position: absolute; top: 4px; bottom: 4px; left: 4px;
-  width: calc((100% - 8px) / 4);
+  position: absolute; top: 5px; bottom: 5px; left: 5px;
+  width: calc((100% - 10px) / 4);
   background: var(--button); border-radius: 999px;
   transition: transform .38s var(--spring);
 }
@@ -165,7 +171,9 @@ svg { display: inline-block; vertical-align: -.15em; }
 .tabs .badge {
   min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
   display: inline-grid; place-items: center;
-  background: var(--danger); color: #fff; font-size: 11px; font-weight: 700;
+  /* Le rouge du thème est trop clair en sombre et trop vif en clair pour porter du texte de
+     11 px : on le fonce d'un cran et on garde le blanc, lisible dans les deux thèmes. */
+  background: color-mix(in srgb, var(--danger) 72%, #000); color: #fff; font-size: 11px; font-weight: 700;
 }
 .tabs button[aria-selected="true"] .badge { background: var(--button-text); color: var(--button); }
 .devback { align-self: flex-start; border: 0; background: none; color: var(--accent); font-weight: 600; font-size: 15px; padding: 4px 0; }
@@ -186,17 +194,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .btn-ghost { background: transparent; color: var(--accent); box-shadow: none; }
 .btn-danger { background: color-mix(in srgb, var(--danger) 10%, var(--bg)); color: var(--danger); box-shadow: none; }
 .btn-glass { background: rgb(255 255 255 / .2); color: #fff; border: 1px solid rgb(255 255 255 / .35); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: none; }
-.btn-sm { height: 38px; padding: 0 14px; font-size: 14px; border-radius: 12px; }
+.btn-sm { height: 42px; padding: 0 14px; font-size: 14px; border-radius: 12px; }
 .btn-block { width: 100%; }
 
 /* ------------------------------------------------------------ Puces, tuiles, avatars */
 .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 999px; background: transparent; border: 1px solid var(--line-strong); color: var(--text); white-space: nowrap; }
-.chip-ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+.chip-ok { color: var(--ok-ink); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
 .chip-accent { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .chip-like { background: var(--like); color: var(--brand-ink); border-color: transparent; font-weight: 600; }
 .chip-warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
 /* Tranche d'activité : seule « récemment » est mise en couleur, les autres restent discrètes */
-.act-recent { color: var(--ok); }
+.act-recent { color: var(--ok-ink); }
 .chip.act-recent { border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
 .pill-glass { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; padding: 5px 11px; border-radius: 999px; color: #f3ede4; background: rgb(20 18 16 / .55); border: 1px solid rgb(243 237 228 / .16); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); white-space: nowrap; }
 .pill-verified { color: var(--gold); font-weight: 600; }
@@ -205,7 +213,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tile { width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; flex-shrink: 0; background: var(--tint); color: var(--accent); }
 .tile-lg { width: 64px; height: 64px; border-radius: 22px; }
 .tile-danger { background: color-mix(in srgb, var(--danger) 12%, var(--bg)); color: var(--danger); }
-.tile-ok { background: color-mix(in srgb, var(--ok) 14%, var(--bg)); color: var(--ok); }
+.tile-ok { background: color-mix(in srgb, var(--ok) 14%, var(--bg)); color: var(--ok-ink); }
 .tile-warn { background: color-mix(in srgb, var(--warn) 14%, var(--bg)); color: var(--warn); }
 .tile-like { background: color-mix(in srgb, var(--like) 14%, var(--bg)); color: var(--like); }
 .tile-neutral { background: var(--bg2); color: var(--hint); }
@@ -254,11 +262,11 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .select-wrap svg { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--hint); pointer-events: none; }
 
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-1); }
-.seg button { height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--hint); font-weight: 600; font-size: 14px; transition: background .2s, color .2s; }
+.seg button { height: 44px; border: 0; border-radius: 10px; background: transparent; color: var(--hint); font-weight: 600; font-size: 14px; transition: background .2s, color .2s; }
 .seg button[aria-pressed="true"] { background: var(--button); color: var(--button-text); }
 /* Sélecteur Cartes / Liste de Découvrir : même composant, en plus compact */
 .seg-mini { padding: 3px; border-radius: 999px; box-shadow: none; background: transparent; border-color: var(--line-strong); }
-.seg-mini button { height: 26px; font-size: 12.5px; padding: 0 12px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; }
+.seg-mini button { height: 36px; font-size: 12.5px; padding: 0 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; }
 .seg-mini button[aria-pressed="true"] { background: var(--text); color: var(--bg); }
 
 .choice { display: flex; gap: 14px; align-items: center; width: 100%; text-align: left; padding: 13px 14px; border-radius: 18px; background: var(--bg); border: 1.5px solid var(--line); box-shadow: var(--shadow-1); color: inherit; }
@@ -326,7 +334,7 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 /* Jauge de confiance : l'élément signature de l'app */
 .trust { display: grid; gap: 7px; }
 .trust-head { display: flex; justify-content: space-between; align-items: baseline; }
-.trust-head .score { font-size: 13px; font-weight: 600; color: var(--ok); }
+.trust-head .score { font-size: 13px; font-weight: 600; color: var(--ok-ink); }
 .trust-bars { display: flex; gap: 5px; }
 .trust-bars span { flex: 1; height: 4px; border-radius: 999px; background: var(--line); }
 .trust-bars span.on { background: var(--ok); }
@@ -337,7 +345,7 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 
 /* Pile de cartes et geste de balayage */
 .dbar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--hint); flex-wrap: wrap; }
-.dbar .pill { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; background: transparent; border: 1px solid var(--line-strong); color: var(--text); font-weight: 500; }
+.dbar .pill { display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 12px; border-radius: 999px; background: transparent; border: 1px solid var(--line-strong); color: var(--text); font-weight: 500; }
 .dbar .quota { margin-left: auto; }
 .ring { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--button) var(--p, 0%), var(--line) 0); }
 .ring::after { content: ''; width: 11px; height: 11px; border-radius: 50%; background: var(--bg); }
@@ -374,7 +382,7 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .empty { text-align: center; display: grid; justify-items: center; gap: 10px; padding: 40px 12px 24px; margin: auto 0; }
 .empty .glyph { width: 80px; height: 80px; border-radius: 28px; display: grid; place-items: center; background: var(--tint); color: var(--accent); margin-bottom: 6px; }
 .empty .glyph-warn { background: color-mix(in srgb, var(--warn) 14%, var(--bg)); color: var(--warn); }
-.empty .glyph-ok { background: color-mix(in srgb, var(--ok) 14%, var(--bg)); color: var(--ok); }
+.empty .glyph-ok { background: color-mix(in srgb, var(--ok) 14%, var(--bg)); color: var(--ok-ink); }
 .empty p { color: var(--hint); max-width: 32ch; line-height: 1.5; }
 
 /* ------------------------------------------------------------ Accueil */
@@ -447,7 +455,7 @@ body.chat-mode main > * { animation: none; }
 .chat-head .name { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 6px; }
 .chat-head .sub { font-size: 12px; color: var(--hint); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .chat-head .sub .act { white-space: nowrap; }
-.chat-head .ok { color: var(--ok); display: inline-flex; }
+.chat-head .ok { color: var(--ok-ink); display: inline-flex; }
 .icon-btn { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--bg); color: var(--hint); display: grid; place-items: center; box-shadow: var(--shadow-1); flex-shrink: 0; }
 .messages { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; padding: 12px 2px 8px; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .messages .spacer { flex: 1; }
@@ -529,7 +537,7 @@ body.chat-mode main > * { animation: none; }
 }
 
 /* ------------------------------------------------------------ Utilitaires */
-.c-ok { color: var(--ok); display: inline-flex; }
+.c-ok { color: var(--ok-ink); display: inline-flex; }
 .chat-head .ok { color: var(--ok); display: inline-flex; }
 .empty.top { margin: 0; padding-top: 20px; }
 .list > .acc { border-top: 0; }

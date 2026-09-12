@@ -252,7 +252,9 @@ export const store = {
   updateDate(id, patch) {
     const d = db.dates[id];
     if (!d) return null;
-    Object.assign(d, patch);
+    // updatedAt permet à la discussion de savoir qu'un rendez-vous a bougé sans renvoyer
+    // les rendez-vous à chaque interrogation.
+    Object.assign(d, patch, { updatedAt: Date.now() });
     save();
     return d;
   },

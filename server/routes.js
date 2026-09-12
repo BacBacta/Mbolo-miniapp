@@ -374,6 +374,10 @@ api.get('/matches/:id', requireApproved, (req, res) => {
   store.touchPresence(req.user.id, r.m.id);
   store.markRead(r.m.id, req.user.id);
   const after = Number(req.query.after || 0);
+  // Premier chargement : tout. Interrogations suivantes : seulement les nouveaux messages.
+  // Renvoyer le profil complet de l'autre personne toutes les quatre secondes coûtait environ
+  // 700 Ko par heure de discussion ouverte, sans qu'aucun message n'arrive.
+  const premierAppel = !req.query.suivi;
   const messages = store.messagesOf(r.m.id).filter((x) => x.at > after).map((x) => ({ ...x, mine: x.from === req.user.id }));
   // L'heure d'arrivée de l'autre personne n'est jamais renvoyée : savoir qu'elle est sur place
   // depuis douze minutes est une information de filature, pas une information de rendez-vous.
@@ -383,7 +387,12 @@ api.get('/matches/:id', requireApproved, (req, res) => {
     arrivedMe: !!arrivals[req.user.id],
     arrivedOther: Object.keys(arrivals).some((id) => id !== req.user.id),
   }));
-  res.json({ id: r.m.id, other: publicProfile(r.other), messages, dates, unlockAfter: config.contactUnlockAfter });
+  const reponse = { id: r.m.id, messages };
+  if (premierAppel) Object.assign(reponse, { other: publicProfile(r.other), dates, unlockAfter: config.contactUnlockAfter });
+  // Un rendez-vous peut naître ou changer entre deux interrogations : on renvoie les rendez-vous
+  // aussi quand l'un d'eux a bougé depuis le dernier appel.
+  else if (dates.some((d) => (d.updatedAt || d.createdAt || 0) > after)) reponse.dates = dates;
+  res.json(reponse);
 });
 
 api.post('/matches/:id/messages', requireApproved, async (req, res) => {

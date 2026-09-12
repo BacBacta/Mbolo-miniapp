@@ -202,10 +202,15 @@ export function closingConfirmation(on) {
 }
 
 // ---------- Stockage Telegram (préférences) ----------
+// Telegram ne rappelle pas toujours : sans minuteur, un réglage manquant bloquait tout le
+// démarrage, puisque boot() attend ces deux lectures avant d'afficher le premier écran.
+const DELAI_STOCKAGE_MS = 2500;
+
 export function cloudGet(key) {
   return new Promise((resolve) => {
-    if (supports('6.9')) W.CloudStorage.getItem(key, (err, v) => resolve(err ? null : v));
-    else resolve(sessionStorage.getItem(key));
+    if (!supports('6.9')) return resolve(sessionStorage.getItem(key));
+    const minuteur = setTimeout(() => resolve(null), DELAI_STOCKAGE_MS);
+    W.CloudStorage.getItem(key, (err, v) => { clearTimeout(minuteur); resolve(err ? null : v); });
   });
 }
 
