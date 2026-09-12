@@ -10,14 +10,17 @@ name: Déployer sur Fly
 on:
   workflow_dispatch:
     inputs:
+      # Ces valeurs par défaut sont celles de l'app réellement déployée : le bouton « Run
+      # workflow » se lance sans rien saisir, ce qui est tout l'intérêt depuis un téléphone.
+      # Les changer ici veut dire déployer ailleurs — vérifie que l'app existe.
       app_name:
         description: "Nom de l'app Fly, unique dans le monde entier"
         required: true
-        default: mbolo-beta
+        default: mbolo-miniapp
       region:
-        description: "Région (cdg Paris, jnb Johannesburg, mad Madrid)"
+        description: "Région (ams Amsterdam, cdg Paris, jnb Johannesburg, mad Madrid)"
         required: true
-        default: cdg
+        default: ams
 
 concurrency: deploy-fly
 
