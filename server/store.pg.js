@@ -31,7 +31,7 @@ export const pool = new pg.Pool({
 
 // Les migrations s'appliquent à l'import, pas au démarrage du serveur : rien ne peut interroger
 // une table qui n'existe pas encore, ni dans index.js ni dans un test qui monte son propre Express.
-export const pret = await migrer(pool, console.log, config.databaseSchema);
+export const pret = await migrer(pool, (m) => console.error(m), config.databaseSchema);
 
 const q = async (texte, params) => (await pool.query(texte, params)).rows;
 const un = async (texte, params) => (await q(texte, params))[0] || null;
