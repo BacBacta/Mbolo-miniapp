@@ -175,10 +175,23 @@ L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 5. **Explication de la jauge de confiance** à l'inscription (écran unique, 3 lignes).
 6. **Système de garant** : un membre vérifié peut se porter garant de 3 personnes au plus ; il perd son badge si l'une est bannie pour arnaque.
 7. **Mode sortie en duo complet** ou retrait de l'option de l'inscription tant qu'il n'est pas terminé.
-8. **Plusieurs photos** (3 au plus) avec modération.
+8. ~~**Plusieurs photos**~~ : fait. Trois emplacements (`PHOTO_SLOTS`), chacun modéré comme le selfie, avec ses propres boutons Valider/Refuser (`test/photos.test.js`).
 9. ~~**Anglais**~~ : fait, fichiers de traduction chargés à la demande, langue de Telegram par défaut, choix dans le profil, bot traduit dans la langue de qui reçoit. `antiscam.js` est également ouvert à tous les pays. Reste à faire : le **pidgin** (`public/i18n/pcm.js` + `server/i18n.js`).
 10. **Tableau de bord de modération** web protégé : selfies en attente, signalements, bannissements, lieux partenaires et rotation des codes QR, paiements et remboursements.
 11. **Temps réel** (WebSocket ou SSE) avec retour automatique au polling si la connexion est instable.
+
+### Dette technique : ce qu'aucun point ci-dessus ne couvre
+
+Ces points ne sont pas des fonctionnalités manquantes mais des choix qui ont vieilli, ou des
+conséquences d'un chantier précédent. Aucun n'a de point de feuille de route attitré, et c'est
+précisément pour cela qu'ils s'oublient.
+
+1. **Les compteurs de limitation de débit sont en mémoire** (`server/limites.js`). Sans conséquence tant qu'une seule machine tourne — mais P0-2 a justement levé la contrainte d'instance unique. À deux machines, le plafond de 20 profils par jour en devient 40, et chaque limite anti-spam est divisée d'autant. **C'est une incohérence introduite par le passage à PostgreSQL**, pas un manque d'origine. À porter en base, ou dans un Redis, avant d'augmenter le nombre d'instances.
+2. **Aucune analytique produit** (`audit/05-mesure-produit.md`). Ni entonnoir d'inscription, ni cohorte, ni rétention. Ouvrir une bêta sans pouvoir mesurer si elle marche prive la bêta de sa raison d'être. À faire avant d'ouvrir, pas après.
+3. **`allUsers()` charge toute la table** à chaque découverte, y compris sur PostgreSQL : la découverte filtre en mémoire. Tenable pour quelques centaines de comptes. Au-delà, c'est le filtre qu'il faut descendre en SQL — pas le stockage qu'il faut changer.
+4. **Les lieux partenaires sont codés en dur** dans `config.js`, au Cameroun seulement, avec des codes QR fixes. Or l'app est ouverte à tous les pays : le rendez-vous avec confirmation d'arrivée n'existe donc nulle part ailleurs. Les lieux et la rotation des codes sont prévus dans P1-10, le reste ne l'est pas.
+5. **Le corpus de non-régression d'`antiscam.js` est écrit à la main** : il fige des cas imaginés, pas des messages réellement signalés. À remplacer par les signalements de la bêta dès qu'il y en aura.
+6. **Présence et réponses de démonstration en mémoire** : perdues au redémarrage, non partagées entre instances. Sans gravité, mais de la même famille que le point 1.
 
 ### P2 : monétisation B2B
 1. **Espace lieux partenaires** : statistiques de rendez-vous confirmés, facturation mensuelle par rendez-vous.
