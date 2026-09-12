@@ -60,8 +60,8 @@ public/
   styles.css    Identité « Aura » : surfaces d'encre ou d'os selon data-scheme, aura réservée au match, au badge et au like ; Fraunces pour l'identité, Manrope pour l'interface
 test/
   activity, antiscam, assets, auth, compression, filters, geographie, langues,
-  limites, notifications, photos, production, profiles, rendezvous, securite,
-  stockage, webhook (120 tests, tous rejoués sur PostgreSQL par npm run test:pg)
+  limites, moderation, notifications, photos, production, profiles, rendezvous,
+  securite, stockage, webhook (128 tests, tous rejoués sur PostgreSQL par npm run test:pg)
 scripts/
   import-json.js Reprise d'un db.json existant vers PostgreSQL
   test-pg.js     La suite complète sur PostgreSQL, un schéma par fichier de test
@@ -75,7 +75,7 @@ audit/
 |---|---|
 | Authentification | `Authorization: tma <initData>` validé côté serveur (HMAC, expiration 24 h, champ `signature` toléré). Mode développement `x-dev-user` si `ALLOW_DEV_AUTH=true` et hors production |
 | Profil | Prénom, âge 18+, genre, intention (amitié, relation sérieuse, sortie en duo), pays, ville libre, quartier, question, langues, jusqu'à trois photos facultatives, chacune modérée, compressées côté client |
-| Vérification | Geste aléatoire, selfie envoyé au groupe de modération avec boutons Valider/Refuser, selfie supprimé après décision. `AUTO_APPROVE` valide sans humain, **pour les tests seulement** : il est éteint dès que `NODE_ENV=production`, et le serveur y refuse de démarrer sans `ADMIN_CHAT_ID` plutôt que de laisser tout le monde en attente |
+| Vérification | Geste aléatoire, selfie envoyé au groupe de modération avec boutons Valider/Refuser, selfie supprimé après décision. `AUTO_APPROVE` valide sans humain, **pour les tests seulement** : il est éteint dès que `NODE_ENV=production`, et le serveur y refuse de démarrer sans `ADMIN_CHAT_ID`. Le groupe est interrogé au démarrage (`verifierGroupeModeration`) pour qu'un bot absent du groupe se voie au déploiement. Si un selfie ou une photo ne parvient pas à partir alors que la modération est configurée, l'envoi est **défait** et la personne est invitée à réessayer, au lieu d'attendre une décision que personne ne peut prendre |
 | Langues | Français et anglais. Choix explicite dans le profil, sinon la langue du Telegram, sinon le français. Interface traduite chez la personne (`public/i18n.js` + `public/i18n/<code>.js`, chargés à la demande), messages du bot traduits côté serveur (`server/i18n.js`) dans la langue de **qui reçoit**. `PUT /api/me/lang` |
 | Localisation | Pays deviné au premier lancement depuis le fuseau du téléphone (`paysDuFuseau` dans `server/geo.js`, table dérivée de zone.tab). Le navigateur passe `?tz=` à `GET /api/me`, le serveur répond `options.suggestedCountry`. **Le fuseau n'est ni stocké ni journalisé, aucun GPS n'est demandé.** Il donne le pays, jamais la ville. Bouton « Ma position : {pays} » dans les filtres. Le choix de la personne l'emporte toujours |
 | Découverte | Même zone de recherche et même intention, 20 profils par jour, ceux qui t'ont liké en premier, économie de data (photos à la demande) |
@@ -131,7 +131,7 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 - Les notifications partent sans retenir la réponse HTTP. Un test qui les compte doit donc les attendre (voir `test/rendezvous.test.js`), pas les lire aussitôt après l'appel.
 - Présence et réponses de démo en mémoire : perdues au redémarrage.
 - Discussion par polling toutes les 4 secondes.
-- Pas d'interface de modération en dehors du groupe Telegram.
+- Pas d'interface de modération en dehors du groupe Telegram. Si le groupe devient injoignable, plus personne ne peut être vérifié : le serveur le signale au démarrage et les personnes concernées sont invitées à réessayer, mais rien ne prévient l'exploitant en cours de route.
 - Lieux partenaires codés en dur dans `config.js`, codes QR fixes, et seulement au Cameroun : ailleurs, le rendez-vous avec confirmation d'arrivée n'est pas disponible.
 - Compteurs de limitation de débit en mémoire : remis à zéro au redémarrage, non partagés entre instances.
 - `server/antiscam.js` couvre maintenant tous les pays, avec trois limites connues : les pays à **mobiles à 8 chiffres** (Togo, Gabon) ne sont attrapés que sous la forme `+indicatif` ; un numéro **écrit en toutes lettres** (« six sept sept… ») n'est vu que s'il est annoncé (« mon numéro ») ; et le vocabulaire ne couvre que le **français et l'anglais** — une demande écrite dans une autre langue échappe aux règles de formulation, mais pas à celles des numéros ni des moyens de paiement, qui ne dépendent pas de la langue.

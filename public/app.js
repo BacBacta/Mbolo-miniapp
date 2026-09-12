@@ -114,6 +114,9 @@ const ERREURS = () => ({
   DATE_NOT_FOUND: t('Rendez-vous introuvable.'),
   REPORT_INVALID: t('Signalement impossible.'),
   NO_PHOTO: t('Pas de photo.'),
+  // La modération est configurée mais injoignable : rien n'a été perdu, il faut refaire le geste.
+  SELFIE_NOT_SENT: t("On n'a pas pu envoyer ton selfie en modération. Réessaie dans quelques minutes."),
+  PHOTO_NOT_SENT: t("On n'a pas pu envoyer ta photo en modération. Réessaie dans quelques minutes."),
 });
 // Deux messages dépendent d'une valeur renvoyée par le serveur : on les compose ici.
 function messageErreur(data) {
