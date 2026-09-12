@@ -19,6 +19,7 @@ const { store } = await import('../server/store.js');
 const { bot, decideVerification } = await import('../server/bot.js');
 const { seedDemo } = await import('../server/seed.js');
 const { api } = await import('../server/routes.js');
+const { DEMO_REPLIES } = await import('../server/seed.js');
 
 const sent = [];
 bot.api.sendMessage = async (chatId, text, opts) => { sent.push({ chatId: String(chatId), text, url: opts?.reply_markup?.inline_keyboard?.[0]?.[0]?.web_app?.url }); return {}; };
@@ -114,5 +115,8 @@ test('le profil de démo ne répond pas à chaque message envoyé rapidement', a
   for (let i = 0; i < 6; i++) await call('7001', `/matches/${m.body.match.id}/messages`, 'POST', { text: `Message ${i}` });
   await wait(800);
   const r = await call('7001', `/matches/${m.body.match.id}`);
-  assert.equal(r.body.messages.filter((x) => !x.mine).length, 2);
+  // Six messages envoyés, mais pas plus de réponses que le script de démonstration n'en prévoit
+  const reponses = r.body.messages.filter((x) => !x.mine).length;
+  assert.equal(reponses, DEMO_REPLIES.length);
+  assert.ok(reponses < 6, 'le profil de démo ne répond pas à chaque message');
 });

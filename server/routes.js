@@ -325,7 +325,7 @@ api.post('/swipes', requireApproved, limiter('swipe'), async (req, res) => {
 
   if (action === 'like') {
     // Les profils de démonstration « likent » en retour pour pouvoir tester seul
-    if (target.demo && !store.hasSwiped(target.id, me.id)) store.addSwipe(target.id, me.id, 'like');
+    if (target.demo && target.demoLikeBack !== false && !store.hasSwiped(target.id, me.id)) store.addSwipe(target.id, me.id, 'like');
     if (store.likedBy(target.id, me.id)) {
       const match = store.createMatch(me.id, target.id);
       notify(target.id, `Nouveau match : ${me.profile.name} et toi, vous vous plaisez.`, { label: 'Écrire', params: { screen: 'chat', match: match.id } });
@@ -471,7 +471,7 @@ onApproved((userId) => {
     const demo = store.allUsers().find((u) => u.demo && compatible(me, u) && !store.hasSwiped(u.id, me.id) && !store.hasSwiped(me.id, u.id));
     if (!demo) return;
     store.addSwipe(demo.id, me.id, 'like');
-    notify(me.id, `Tu as plu à quelqu'un à ${me.profile.city}. Ouvre ${config.appName} pour découvrir de qui il s'agit.`, { label: 'Découvrir', params: { screen: 'discover' } }, 'likes', 24 * 3600 * 1000);
+    notify(me.id, `Tu as plu à quelqu'un à ${me.profile.city}. Ouvre ${config.appName} pour découvrir de qui il s'agit.`, { label: 'Découvrir', params: { screen: 'matches' } }, 'likes', 24 * 3600 * 1000);
   }, config.demoLikeDelayMs);
 });
 

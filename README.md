@@ -85,7 +85,7 @@ npm start
 Tu dois voir :
 
 ```
-Profils de démonstration chargés : 6
+Profils de démonstration chargés : 20
 Mbolo écoute sur le port 3000
 Bot @mbolo_test_bot démarré (interrogation longue)
 ```
@@ -103,14 +103,36 @@ Sur ton téléphone :
    - Envoie un message à un profil de démo, puis **ferme immédiatement Mbolo** : environ 15 secondes plus tard, le bot te prévient de sa réponse, avec un bouton qui rouvre la bonne discussion.
    - Une minute après la validation de ton selfie, un profil de démo te « like » : le bot t'annonce que tu as plu à quelqu'un, et ce profil apparaît en premier dans Découvrir.
 
-**Quels profils de démo vas-tu voir ?**
+### Profils de démonstration : qui sert à quoi
 
-| Ton choix | Profils affichés |
-|---|---|
-| Relation sérieuse, femme | Junior |
-| Relation sérieuse, homme | Carine |
-| Amitié | Brice, Nadège |
-| Sortie en duo | Mireille, Stéphane |
+Vingt profils fictifs, marqués « démo » sur leur carte, sans aucun visage : leurs images sont des dégradés
+avec une initiale (`server/demo-photos/`). Ils couvrent chaque combinaison genre × intention à Yaoundé, pour
+que le paquet ne soit jamais vide quel que soit ton profil, plus trois à Douala. Ils sont recréés à chaque
+démarrage. Deux d'entre eux t'aiment automatiquement dès que ton profil est vérifié, pour remplir
+« Ont aimé ton profil » sans attendre.
+
+| Ton choix | Profils proposés | Ce que tu peux tester avec eux |
+|---|---|---|
+| Relation sérieuse, tu es un homme | Carine 24 (3 photos), Laure 21, Sandrine 29 (2 photos), Estelle 19 (sans photo) | changement de photo au toucher sur Carine, filtre d'âge (de 19 à 29), **Sandrine ne rend jamais les « J'aime »** : ton like reste en attente dans la liste |
+| Relation sérieuse, tu es une femme | Junior 28 (2 photos), Landry 23, Armand 30 (sans photo), Thierry 26, Kevin 22 | même chose, **Armand ne rend jamais les « J'aime »** |
+| Amitié | Brice 27, Nadège 22 (2 photos), Aïcha 26 (3 photos), Yannick 25 (sans photo), Serge 20 | tout le monde est proposé, quel que soit ton genre ; **Yannick ne rend jamais les « J'aime »** |
+| Sortie en duo | Mireille 25, Stéphane 26, Patricia 23 (2 photos) | le mode duo, tel qu'il existe aujourd'hui |
+| Ville Douala | Ulrich 27, Chantal 24 (2 photos), Franck 22 | changer de ville dans ton profil |
+| Ville Bafoussam, Buea ou Garoua | personne | l'écran « Personne d'autre à … pour l'instant » |
+
+Scénarios à dérouler :
+
+1. **Découverte et filtres** : balaie quelques cartes, passe en vue Liste, resserre la tranche d'âge à 19-22 dans les filtres, puis élargis-la depuis l'écran vide qui te le propose.
+2. **Like en attente** : aime Sandrine, Armand ou Yannick selon ton profil. Aucun match : dans la liste, le profil reste « aimé ». Aime n'importe quel autre profil de démo : match immédiat.
+3. **Likes reçus** : ouvre Messages, la bande « Ont aimé ton profil » montre deux personnes. Réponds à l'une d'elles.
+4. **Discussion** : un profil de démo répond cinq fois, environ 15 secondes après chaque message. La cinquième réponse te propose un rendez-vous : propose-en un dans un lieu partenaire.
+5. **Anti-arnaque** : écris « ça me coûte 300 F pour venir », ça passe ; écris « envoie juste 10k », c'est refusé en nommant la catégorie.
+6. **Limitation de débit** : envoie vingt messages d'affilée, le vingt-et-unième est refusé avec un délai.
+7. **Se protéger** : depuis la discussion, touche le drapeau : retire le match, ou bloque, ou signale avec l'un des six motifs. La personne disparaît de Messages.
+8. **Rendez-vous** : propose un créneau, puis confirme ton arrivée avec le QR code du lieu (étape 5 ci-dessous).
+9. **Notifications** : ferme l'app après avoir écrit, le bot te prévient de la réponse et rouvre la bonne discussion.
+
+Tout cela fonctionne sur l'app en ligne tant que `SEED_DEMO=true` y est actif. Désactive-le avant d'ouvrir à de vrais utilisateurs.
 
 ## Étape 5 : tester le QR code d'arrivée
 
