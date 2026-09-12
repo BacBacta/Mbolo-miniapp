@@ -43,6 +43,7 @@ server/
   antiscam.js   checkMessage() : blocage argent (contextuel), liens, numéros, pseudos
   limites.js    Limitation de débit par compte et par action, en mémoire
   compression.js Compression gzip des fichiers et des réponses d'API
+  i18n.js       Langue de chaque personne, dictionnaire des messages du bot
   store.js      Accès aux données, présence en mémoire, non lus
   seed.js       Profils de démonstration (SEED_DEMO=true)
 public/
@@ -50,10 +51,12 @@ public/
   tg.js         Seul point d'accès au SDK Telegram, avec secours hors Telegram
   app.js        Écrans (objet SCREENS), navigation go(), appels api()
   ui.js         Icônes, toast, squelettes de chargement, geste de balayage des cartes
+  i18n.js       Choix de la langue, chargement du dictionnaire à la demande, t() et tn()
+  i18n/en.js    Dictionnaire anglais ; la clé est la phrase française
   styles.css    Design : couleurs dérivées des variables --tg-theme-* (clair et sombre), Instrument Serif pour l'identité, Manrope pour l'interface, composants, animations
 test/
-  activity, antiscam, assets, auth, compression, filters, limites,
-  notifications, photos, profiles, securite, webhook (61 tests)
+  activity, antiscam, assets, auth, compression, filters, geographie, langues,
+  limites, notifications, photos, profiles, securite, webhook (87 tests)
 audit/
   Dossier d'audit du parcours : benchmark, mesures, constats, risques, plan
 ```
@@ -65,6 +68,7 @@ audit/
 | Authentification | `Authorization: tma <initData>` validé côté serveur (HMAC, expiration 24 h, champ `signature` toléré). Mode développement `x-dev-user` si `ALLOW_DEV_AUTH=true` et hors production |
 | Profil | Prénom, âge 18+, genre, intention (amitié, relation sérieuse, sortie en duo), pays, ville libre, quartier, question, langues, jusqu'à trois photos facultatives, chacune modérée, compressées côté client |
 | Vérification | Geste aléatoire, selfie envoyé au groupe de modération avec boutons Valider/Refuser, selfie supprimé après décision, `AUTO_APPROVE` pour les tests |
+| Langues | Français et anglais. Choix explicite dans le profil, sinon la langue du Telegram, sinon le français. Interface traduite chez la personne (`public/i18n.js` + `public/i18n/<code>.js`, chargés à la demande), messages du bot traduits côté serveur (`server/i18n.js`) dans la langue de **qui reçoit**. `PUT /api/me/lang` |
 | Découverte | Même zone de recherche et même intention, 20 profils par jour, ceux qui t'ont liké en premier, économie de data (photos à la demande) |
 | Match et discussion | Discussion plein écran, polling toutes les 4 s, non lus, présence (pas de notification si la personne lit) |
 | Notifications bot | Match, message (limité à une par discussion toutes les 2 min), « tu as plu à quelqu'un » (une par jour), test depuis l'onglet Profil, bouton qui rouvre le bon écran (`?screen=chat&match=`) |
@@ -89,7 +93,7 @@ audit/
 9. **Monétisation prévue** : pass premium à durée fixe (mobile money sur le web, Stars dans Telegram), services physiques payés par mobile money, et B2B (lieux partenaires payés par rendez-vous confirmé, fonctions sponsorisées). Pas de publicité tierce dans les écrans de rencontre.
 
 ### Interface
-10. **Tout le texte visible est en français**, tutoiement, phrases courtes, casse de phrase (pas de Majuscules À Chaque Mot), sans « s'il vous plaît », sans point d'exclamation dans les messages système.
+10. **Le français est la langue source**, tutoiement, phrases courtes, casse de phrase (pas de Majuscules À Chaque Mot), sans « s'il vous plaît », sans point d'exclamation dans les messages système. Le texte s'écrit en français **dans** l'appel de traduction : `t('Envoyer la proposition')` côté interface, `notify(id, 'Écrire', …)` côté bot. La clé de traduction **est la phrase française** : une phrase non traduite s'affiche en français, jamais sous forme d'identifiant. Toute phrase ajoutée à l'interface doit aussi être ajoutée à `public/i18n/en.js` — un test le vérifie.
 11. **Les erreurs disent ce qui se passe et quoi faire** : « Ce code ne correspond pas à Le Palmier. Scanne le code posé sur ta table. »
 12. **Le nom de l'app n'est jamais écrit en dur** : `config.appName` côté serveur, constante `APP` côté interface (injectée par le serveur depuis `APP_NAME`).
 13. **Toute action principale passe par `tg.setButtons()`**, toute navigation arrière par `tg.setBack()`. N'appelle jamais `window.Telegram.WebApp` en dehors de `public/tg.js`.
@@ -119,6 +123,8 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 - Pas d'interface de modération en dehors du groupe Telegram.
 - Lieux partenaires codés en dur dans `config.js`, codes QR fixes, et seulement au Cameroun : ailleurs, le rendez-vous avec confirmation d'arrivée n'est pas disponible.
 - Compteurs de limitation de débit en mémoire : remis à zéro au redémarrage, non partagés entre instances.
+- `server/antiscam.js` reste calibré sur le Cameroun : préfixe `+237`, numéros à 9 chiffres commençant par 6, MTN MoMo et Orange Money, montants en F CFA. Hors de la zone, un numéro étranger ou un autre moyen de paiement peut passer. À élargir avant d'ouvrir un autre pays pour de vrai.
+- Traduction : le français et l'anglais seulement. Les noms de pays viennent d'`Intl.DisplayNames` (donc traduits automatiquement), mais les villes, les quartiers et les textes saisis par les membres restent tels quels.
 - Aucune analytique produit : aucun entonnoir, aucune cohorte, aucune courbe de rétention n'est calculable. Voir `audit/05-mesure-produit.md`.
 - `fly.toml` et `render.yaml` livrent `AUTO_APPROVE=true` et `SEED_DEMO=true` en production, et aucun ne définit `ADMIN_CHAT_ID` : la vérification par selfie est débranchée sur l'app déployée. Voir `audit/04-risques.md`.
 - Les tests de bout en bout dans un navigateur ont été faits manuellement avec Playwright, ils ne sont pas dans le dépôt.
@@ -148,7 +154,7 @@ L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 6. **Système de garant** : un membre vérifié peut se porter garant de 3 personnes au plus ; il perd son badge si l'une est bannie pour arnaque.
 7. **Mode sortie en duo complet** ou retrait de l'option de l'inscription tant qu'il n'est pas terminé.
 8. **Plusieurs photos** (3 au plus) avec modération.
-9. **Anglais et pidgin** : fichiers de traduction, langue de Telegram par défaut, choix dans le profil.
+9. ~~**Anglais**~~ : fait, fichiers de traduction chargés à la demande, langue de Telegram par défaut, choix dans le profil, bot traduit dans la langue de qui reçoit. Reste à faire : le **pidgin** (`public/i18n/pcm.js` + `server/i18n.js`), et l'élargissement d'`antiscam.js` hors du Cameroun.
 10. **Tableau de bord de modération** web protégé : selfies en attente, signalements, bannissements, lieux partenaires et rotation des codes QR, paiements et remboursements.
 11. **Temps réel** (WebSocket ou SSE) avec retour automatique au polling si la connexion est instable.
 

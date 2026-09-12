@@ -1,5 +1,6 @@
 import * as tg from './tg.js';
 import { icon, toast, skeleton, attachSwipe, throwCard, dayLabel, timeLabel, isSameDay } from './ui.js';
+import { t, tn, langue, chargerLangue, LANGUES } from './i18n.js';
 
 // ============================================================
 // État et utilitaires
@@ -41,7 +42,18 @@ const app = document.getElementById('app');
 const APP = document.querySelector('meta[name="app-name"]')?.content || 'Mbolo';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const INTENT_ICONS = { amitie: 'users', serieux: 'heart', duo: 'duo' };
-const INTENT_SUBS = { amitie: 'Élargir ton cercle en ville', serieux: 'Construire quelque chose de durable', duo: 'Rencontrer à quatre, avec un ami' };
+const QUESTIONS = {
+  plat: 'Mon plat du dimanche',
+  coin: 'Mon coin préféré',
+  weekend: 'Mon week-end idéal',
+  supporte: 'Je supporte',
+  chanson: 'Ma chanson du moment',
+  rire: 'Ce qui me fait rire',
+};
+// Une clé connue se traduit ; un texte libre venu d'un ancien profil s'affiche tel qu'il a été écrit.
+const libelleQuestion = (q) => (QUESTIONS[q] ? t(QUESTIONS[q]) : q || '');
+
+const INTENT_SUBS = () => ({ amitie: t('Élargir ton cercle en ville'), serieux: t('Construire quelque chose de durable'), duo: t('Rencontrer à quatre, avec un ami') });
 
 // ============================================================
 // Appels à l'API
@@ -60,6 +72,52 @@ function authHeaders() {
 // sur « Chargement… » indéfiniment au lieu de proposer de réessayer.
 const DELAI_MAX_MS = 12000;
 
+// Les messages d'erreur du serveur arrivent en français. Leur code, lui, est stable : c'est donc
+// le code qui porte la traduction, et le texte du serveur ne sert que de dernier recours, pour une
+// erreur ajoutée côté serveur et pas encore connue ici.
+const ERREURS = () => ({
+  NETWORK: t('Pas de connexion. Vérifie ton réseau et réessaie.'),
+  UNAUTHORIZED: t('Ouvre {app} depuis Telegram.', { app: APP }),
+  SERVER_ERROR: t('Un problème est survenu. Réessaie dans un instant.'),
+  NOT_FOUND: t('Cette page n\'existe pas.'),
+  TOO_LARGE: t('Image trop lourde.'),
+  RATE_LIMIT: t('Tu vas trop vite. Reprends dans un instant.'),
+  NAME_REQUIRED: t('Indique ton prénom.'),
+  AGE_INVALID: t('{app} est réservé aux 18 ans et plus.', { app: APP }),
+  GENDER_REQUIRED: t('Indique si tu es une femme ou un homme.'),
+  INTENT_REQUIRED: t('Choisis ce que tu cherches.'),
+  CITY_REQUIRED: t('Indique ta ville.'),
+  PROMPT_REQUIRED: t('Réponds à la question pour que les autres te découvrent.'),
+  PROFILE_CONTACT: t("Ton profil ne doit contenir ni numéro, ni lien, ni pseudo, ni demande d'argent."),
+  PHOTO_INVALID: t('Photo trop lourde ou format non pris en charge.'),
+  PHOTO_SLOT: t('Trois photos au plus.'),
+  PROFILE_REQUIRED: t('Crée ton profil avant la vérification.'),
+  ALREADY_VERIFIED: t('Ton profil est déjà vérifié.'),
+  GESTURE_REQUIRED: t('Demande un geste avant de prendre le selfie.'),
+  GESTURE_EXPIRED: t('Ce geste a expiré. Demandes-en un nouveau et reprends le selfie.'),
+  SELFIE_INVALID: t('Selfie illisible ou trop lourd. Réessaie.'),
+  NOT_VERIFIED: t('Vérifie ton profil pour accéder à cette fonction.'),
+  FILTERS_INVALID: t('Indique des âges entre 18 et 99 ans.'),
+  ZONE_INVALID: t('Indique une ville, ou choisis tout le pays.'),
+  DAILY_LIMIT: t('Tu as vu tous tes profils du jour. Reviens demain.'),
+  SWIPE_INVALID: t('Action impossible.'),
+  MATCH_NOT_FOUND: t('Discussion introuvable.'),
+  BLOCKED: t('Cette discussion est fermée.'),
+  BLOCK_INVALID: t('Blocage impossible.'),
+  EMPTY: t("Écris un message avant d'envoyer."),
+  DATE_INVALID: t('Choisis un lieu et un horaire.'),
+  DATE_NOT_FOUND: t('Rendez-vous introuvable.'),
+  REPORT_INVALID: t('Signalement impossible.'),
+  NO_PHOTO: t('Pas de photo.'),
+});
+// Deux messages dépendent d'une valeur renvoyée par le serveur : on les compose ici.
+function messageErreur(data) {
+  if (data?.code === 'CONTACT_TOO_EARLY') return t('Les liens, numéros et pseudos sont débloqués après {n} messages échangés de chaque côté.', { n: data.unlockAfter ?? 10 });
+  if (data?.code === 'MONEY_BLOCKED') return t("Les demandes et offres d'argent sont bloquées sur {app}. Ce message ressemble à une {categorie}. Retire le montant ou le moyen de paiement, et renvoie-le.", { app: APP, categorie: t(data.categorie || '') });
+  if (data?.code === 'WRONG_VENUE') return t('Ce code ne correspond pas à {lieu}. Scanne le code posé sur ta table.', { lieu: data.venue || '' });
+  return ERREURS()[data?.code] || data?.message || t('Un problème est survenu.');
+}
+
 async function api(path, { method = 'GET', body } = {}) {
   const headers = { 'Content-Type': 'application/json', ...authHeaders() };
   const stop = new AbortController();
@@ -68,12 +126,12 @@ async function api(path, { method = 'GET', body } = {}) {
   try {
     res = await fetch(`/api${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: stop.signal });
   } catch {
-    throw Object.assign(new Error('Pas de connexion. Vérifie ton réseau et réessaie.'), { code: 'NETWORK' });
+    throw Object.assign(new Error(t('Pas de connexion. Vérifie ton réseau et réessaie.')), { code: 'NETWORK' });
   } finally {
     clearTimeout(minuteur);
   }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(data.message || 'Un problème est survenu.'), { code: data.code, status: res.status });
+  if (!res.ok) throw Object.assign(new Error(messageErreur(data)), { code: data.code, status: res.status });
   return data;
 }
 
@@ -100,7 +158,7 @@ function compressImage(file, max = 720, quality = 0.8) {
       URL.revokeObjectURL(url);
       resolve(c.toDataURL('image/jpeg', quality));
     };
-    img.onerror = () => reject(new Error('Impossible de lire cette image.'));
+    img.onerror = () => reject(new Error(t('Impossible de lire cette image.')));
     img.src = url;
   });
 }
@@ -108,7 +166,7 @@ function compressImage(file, max = 720, quality = 0.8) {
 // ============================================================
 // Navigation
 // ============================================================
-const PARENT = { profile: () => (S.me?.verification === 'approved' ? 'me' : 'welcome'), verify: () => 'profile', match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover') };
+const PARENT = { profile: () => (S.me?.verification === 'approved' ? 'me' : 'welcome'), verify: () => 'profile', match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => 'me' };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
 const TABS = [['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']];
 
@@ -136,7 +194,7 @@ function go(screen, params = {}) {
 }
 
 function render(html) {
-  const back = !tg.inTelegram && window.__devBack ? `<button class="devback" data-action="dev-back">‹ Retour</button>` : '';
+  const back = !tg.inTelegram && window.__devBack ? `<button class="devback" data-action="dev-back">‹ ${t('Retour')}</button>` : '';
   app.innerHTML = back + html;
 }
 
@@ -145,17 +203,18 @@ function renderError(e, retry) {
   render(`
     <div class="empty">
       <span class="glyph glyph-warn">${icon(e.code === 'NETWORK' ? 'wifi-off' : 'alert', 34)}</span>
-      <h2>${e.code === 'NETWORK' ? 'Pas de connexion' : 'Un problème est survenu'}</h2>
-      <p>${e.code === 'NETWORK' ? 'Vérifie ton réseau et réessaie.' : esc(e.message)}</p>
+      <h2>${e.code === 'NETWORK' ? t('Pas de connexion') : t('Un problème est survenu')}</h2>
+      <p>${e.code === 'NETWORK' ? t('Vérifie ton réseau et réessaie.') : esc(e.message)}</p>
     </div>`);
-  tg.setButtons(retry ? { main: { text: 'Réessayer', onClick: retry } } : null);
+  tg.setButtons(retry ? { main: { text: t('Réessayer'), onClick: retry } } : null);
 }
 
 // ---------- Barre d'onglets : construite une fois, hors de <main>, pour que l'indicateur glisse ----------
 function buildTabs() {
+  document.getElementById('tabs').setAttribute('aria-label', t('Sections'));
   document.getElementById('tabs').innerHTML =
     `<span class="tabs-ind" aria-hidden="true"></span>` +
-    TABS.map(([k, l]) => `<button type="button" role="tab" aria-selected="false" data-screen="${k}">${l}<span class="badge" hidden></span></button>`).join('');
+    TABS.map(([k, l]) => `<button type="button" role="tab" aria-selected="false" data-screen="${k}">${t(l)}<span class="badge" hidden></span></button>`).join('');
 }
 
 function showTabs(screen) {
@@ -206,16 +265,16 @@ function loadAvatar(p, { own = false } = {}) {
 }
 
 // Tranche d'activité calculée par le serveur, jamais l'heure exacte. Formulation sans accord : le genre n'est pas exposé
-const ACTIVITY_LABELS = { recent: 'En ligne récemment', today: "En ligne aujourd'hui", week: 'En ligne cette semaine' };
+const ACTIVITY_LABELS = () => ({ recent: t('En ligne récemment'), today: t("En ligne aujourd'hui"), week: t('En ligne cette semaine') });
 
 // Langue de l'interface. Telegram donne la langue du téléphone ; le choix explicite de la
 // personne, quand il existe, l'emporte.
-const LANGUES = ['fr', 'en'];
-function langue() {
-  const choisie = S.me?.lang;
-  if (LANGUES.includes(choisie)) return choisie;
+// La langue retenue : le choix explicite de la personne d'abord, sinon celle de son Telegram,
+// sinon le français. Appliquée une fois au démarrage, puis à chaque changement.
+function langueVoulue() {
+  if (LANGUES[S.me?.lang]) return S.me.lang;
   const tgLang = String(tg.telegramUser()?.language_code || '').slice(0, 2).toLowerCase();
-  return LANGUES.includes(tgLang) ? tgLang : 'fr';
+  return LANGUES[tgLang] ? tgLang : 'fr';
 }
 
 // ---------- Géographie ----------
@@ -244,16 +303,16 @@ function zoneLabel(zone) {
   return zone.city || nomPays(zone.country);
 }
 const zoneDe = () => S.me?.filters?.zone || { country: S.me?.profile?.country || S.me?.options?.defaultCountry || 'CM', city: S.me?.profile?.city || null };
-const activityChip = (p, cls = 'chip') => (ACTIVITY_LABELS[p.activity] ? `<span class="${cls} act-${p.activity}">${ACTIVITY_LABELS[p.activity]}</span>` : '');
+const activityChip = (p, cls = 'chip') => (ACTIVITY_LABELS()[p.activity] ? `<span class="${cls} act-${p.activity}">${ACTIVITY_LABELS()[p.activity]}</span>` : '');
 
 // Carte de profil, partagée entre la découverte et l'aperçu de son propre profil.
 // cls = 'top' (carte manipulable) ou 'next' (carte suivante, en retrait)
 function profileCard(p, { own = false, cls = '' } = {}) {
   const hidePhoto = !own && S.dataSaver && !S.revealed[p.id];
-  const t = p.trust || {};
-  const score = [t.selfie, t.guarantor, t.seniority].filter(Boolean).length;
+  const tr = p.trust || {};
+  const score = [tr.selfie, tr.guarantor, tr.seniority].filter(Boolean).length;
   // Ce qui est acquis, en clair, sur une ligne : « Selfie vérifié, un garant »
-  const acquis = [t.selfie && 'selfie vérifié', t.guarantor && 'un garant', t.seniority && 'membre depuis 3 mois'].filter(Boolean);
+  const acquis = [tr.selfie && t('selfie vérifié'), tr.guarantor && t('un garant'), tr.seniority && t('membre depuis 3 mois')].filter(Boolean);
   if (acquis.length) acquis[0] = acquis[0].charAt(0).toUpperCase() + acquis[0].slice(1);
   return `
     <article class="card ${cls}">
@@ -261,31 +320,31 @@ function profileCard(p, { own = false, cls = '' } = {}) {
         ${p.photos?.length > 1 && !(!own && hidePhoto) ? `<div class="dots">${p.photos.map((_, i) => `<span class="${i ? '' : 'on'}"></span>`).join('')}</div>` : ''}
         <span class="initial">${esc(p.name?.[0] || '?')}</span>
         <span class="scrim"></span>
-        ${p.hasPhoto && hidePhoto ? `<button type="button" class="btn btn-glass reveal" data-action="reveal" data-id="${esc(p.id)}">${icon('image', 18)} Afficher la photo</button>` : ''}
+        ${p.hasPhoto && hidePhoto ? `<button type="button" class="btn btn-glass reveal" data-action="reveal" data-id="${esc(p.id)}">${icon('image', 18)} ${t('Afficher la photo')}</button>` : ''}
         <div class="corners">
-          ${p.likedYou && !own ? `<span class="pill-glass pill-like">${icon('heart', 13, { fill: true })} T'a liké</span>` : p.isNew && !own ? `<span class="pill-glass">${icon('sparkles', 13)} Nouveau</span>` : ''}
-          ${p.demo ? '<span class="tag-demo">démo</span>' : ''}
+          ${p.likedYou && !own ? `<span class="pill-glass pill-like">${icon('heart', 13, { fill: true })} ${t("T'a liké")}</span>` : p.isNew && !own ? `<span class="pill-glass">${icon('sparkles', 13)} ${t('Nouveau')}</span>` : ''}
+          ${p.demo ? `<span class="tag-demo">${t('démo')}</span>` : ''}
           <span class="spacer"></span>
-          ${own ? '' : `<button type="button" class="more" data-action="report-profile" data-id="${esc(p.id)}" aria-label="Se protéger de ce profil">${icon('flag', 15)}</button>`}
+          ${own ? '' : `<button type="button" class="more" data-action="report-profile" data-id="${esc(p.id)}" aria-label="${t('Se protéger de ce profil')}">${icon('flag', 15)}</button>`}
         </div>
         <div class="overlay">
-          <div class="name">${esc(p.name)}<span class="age">${esc(p.age)}</span>${p.verified ? `<span class="shield" title="Selfie vérifié">${icon('shield', 18)}</span>` : ''}</div>
+          <div class="name">${esc(p.name)}<span class="age">${esc(p.age)}</span>${p.verified ? `<span class="shield" title="${t('Selfie vérifié')}">${icon('shield', 18)}</span>` : ''}</div>
           <div class="line">
             ${icon('pin', 13)}<span>${esc(p.area ? `${p.area} · ${p.city}` : p.city)}${p.country && p.country !== S.me?.profile?.country ? esc(` · ${nomPays(p.country)}`) : ''}</span>
-            ${!own && ACTIVITY_LABELS[p.activity] ? `<span class="dot"></span><span class="act">${p.activity === 'week' ? 'Cette semaine' : p.activity === 'today' ? "Aujourd'hui" : 'Récemment'}</span>` : ''}
+            ${!own && ACTIVITY_LABELS()[p.activity] ? `<span class="dot"></span><span class="act">${p.activity === 'week' ? t('Cette semaine') : p.activity === 'today' ? t("Aujourd'hui") : t('Récemment')}</span>` : ''}
           </div>
         </div>
-        ${cls === 'top' ? `<span class="stamp like" aria-hidden="true">J'aime</span><span class="stamp pass" aria-hidden="true">Passer</span>` : ''}
+        ${cls === 'top' ? `<span class="stamp like" aria-hidden="true">${t("J'aime")}</span><span class="stamp pass" aria-hidden="true">${t('Passer')}</span>` : ''}
       </div>
       <div class="card-body">
-        <div class="prompt"><span class="q">${esc(p.promptQ)}</span><span class="a">${esc(p.promptA)}</span></div>
+        <div class="prompt"><span class="q">${esc(libelleQuestion(p.promptQ))}</span><span class="a">${esc(p.promptA)}</span></div>
         <div class="facts-line">
-          <span>${esc(p.intentLabel)}</span>
-          ${p.languages ? `<span class="sep"></span><span>Parle ${esc(p.languages.charAt(0).toLowerCase() + p.languages.slice(1))}</span>` : ''}
+          <span>${esc(t(p.intentLabel))}</span>
+          ${p.languages ? `<span class="sep"></span><span>${t('Parle {langues}', { langues: esc(p.languages.charAt(0).toLowerCase() + p.languages.slice(1)) })}</span>` : ''}
         </div>
-        <div class="trust-row" aria-label="Niveau de confiance ${score} sur 3">
-          <span class="trust-pips"><span class="${t.selfie ? 'on' : ''}"></span><span class="${t.guarantor ? 'on' : ''}"></span><span class="${t.seniority ? 'on' : ''}"></span></span>
-          <span class="trust-text"><strong>Confiance ${score} sur 3</strong>${acquis.length ? ` · ${acquis.join(', ')}` : ' · Aucune vérification pour l\'instant'}</span>
+        <div class="trust-row" aria-label="${t('Confiance {n} sur 3', { n: score })}">
+          <span class="trust-pips"><span class="${tr.selfie ? 'on' : ''}"></span><span class="${tr.guarantor ? 'on' : ''}"></span><span class="${tr.seniority ? 'on' : ''}"></span></span>
+          <span class="trust-text"><strong>${t('Confiance {n} sur 3', { n: score })}</strong>${acquis.length ? ` · ${acquis.join(', ')}` : ` · ${t("Aucune vérification pour l'instant")}`}</span>
         </div>
       </div>
     </article>`;
@@ -296,7 +355,7 @@ function loadCardPhoto(p, { own = false } = {}) {
   photoUrl(p.id, p.photos?.[0] || 1).then((url) => {
     const box = document.querySelector(`[data-photo="${CSS.escape(p.id)}"]`);
     if (!url || !box || box.querySelector('img')) return;
-    const img = Object.assign(document.createElement('img'), { src: url, alt: `Photo de ${p.name}` });
+    const img = Object.assign(document.createElement('img'), { src: url, alt: t('Photo de {nom}', { nom: p.name }) });
     img.onload = () => img.classList.add('loaded');
     box.classList.add('has-photo');
     box.prepend(img);
@@ -341,9 +400,9 @@ function photoNav(box, e) {
 function completion() {
   const p = S.me.profile || {};
   const items = [
-    { icon: 'camera', title: 'Ajouter une photo', sub: 'Les cartes avec photo sont bien plus regardées', pts: 25, done: (S.me.photos || []).length > 0, step: 2 },
-    { icon: 'pin', title: 'Indiquer ton quartier', sub: 'Les profils de ton quartier passent devant', pts: 15, done: !!p.area, step: 1 },
-    { icon: 'globe', title: 'Préciser tes langues', sub: 'Français, anglais, ewondo…', pts: 10, done: !!p.languages, step: 2 },
+    { icon: 'camera', title: t('Ajouter une photo'), sub: t('Les cartes avec photo sont bien plus regardées'), pts: 25, done: (S.me.photos || []).length > 0, step: 2 },
+    { icon: 'pin', title: t('Indiquer ton quartier'), sub: t('Les profils de ton quartier passent devant'), pts: 15, done: !!p.area, step: 1 },
+    { icon: 'globe', title: t('Préciser tes langues'), sub: t('Français, anglais, ewondo…'), pts: 10, done: !!p.languages, step: 2 },
   ];
   return { pct: 50 + items.filter((i) => i.done).reduce((a, i) => a + i.pts, 0), missing: items.filter((i) => !i.done) };
 }
@@ -355,18 +414,18 @@ function discoverBar() {
   const range = f.ageMin > 18 || f.ageMax < 99 ? ` · ${f.ageMin}–${f.ageMax}` : '';
   return `
     <div class="dbar">
-      <button type="button" class="pill" data-action="filters" aria-label="Filtres">${icon('pin', 15)} ${esc(zoneLabel(zoneDe()))}${range} ${icon('sliders', 14)}</button>
-      <div class="seg seg-mini" aria-label="Affichage">
-        <button type="button" data-action="mode" data-mode="cards" aria-pressed="${!list}">${icon('card', 15)} Cartes</button>
-        <button type="button" data-action="mode" data-mode="list" aria-pressed="${list}">${icon('rows', 15)} Liste</button>
+      <button type="button" class="pill" data-action="filters" aria-label="${t('Filtres')}">${icon('pin', 15)} ${esc(zoneLabel(zoneDe()))}${range} ${icon('sliders', 14)}</button>
+      <div class="seg seg-mini" aria-label="${t('Affichage')}">
+        <button type="button" data-action="mode" data-mode="cards" aria-pressed="${!list}">${icon('card', 15)} ${t('Cartes')}</button>
+        <button type="button" data-action="mode" data-mode="list" aria-pressed="${list}">${icon('rows', 15)} ${t('Liste')}</button>
       </div>
-      ${list ? '' : `<span class="quota">${S.remaining} ${S.remaining > 1 ? 'restants' : 'restant'}</span>`}
+      ${list ? '' : `<span class="quota">${tn('{n} restant', '{n} restants', S.remaining)}</span>`}
     </div>`;
 }
 
 // Liste de tous les profils compatibles, balayés ou non. Initiales seules : les photos ne se
 // chargent qu'en ouvrant un profil (économie de data).
-const PERSON_STATUS = { liked: ['Aimé', 'chip-like'], passed: ['Passé', ''], match: ['Match', 'chip-ok'] };
+const PERSON_STATUS = () => ({ liked: [t('Aimé'), 'chip-like'], passed: [t('Passé'), ''], match: [t('Match'), 'chip-ok'] });
 async function renderPeople() {
   if (!S.people.length) {
     render(`${discoverBar()}<div class="group">${skeleton.rows(6)}</div>`);
@@ -382,22 +441,22 @@ async function renderPeople() {
     render(`${discoverBar()}
       <div class="empty">
         <span class="glyph">${icon('users', 34)}</span>
-        <h2>Personne pour l'instant</h2>
-        <p>Aucun profil vérifié dans ta zone avec ton intention. Élargis ta zone depuis les filtres, ou reviens un peu plus tard.</p>
+        <h2>${t("Personne pour l'instant")}</h2>
+        <p>${t('Aucun profil vérifié dans ta zone avec ton intention. Élargis ta zone depuis les filtres, ou reviens un peu plus tard.')}</p>
       </div>`);
     return tg.setButtons(null);
   }
   render(`${discoverBar()}
     <div class="group">
       <div class="list">${S.people.map((p) => {
-        const st = PERSON_STATUS[p.status];
-        const act = ACTIVITY_LABELS[p.activity];
+        const st = PERSON_STATUS()[p.status];
+        const act = ACTIVITY_LABELS()[p.activity];
         return `
         <button type="button" class="list-row" data-action="${p.status === 'match' ? 'open-chat' : 'person'}" data-id="${esc(p.status === 'match' ? p.matchId : p.id)}">
           ${avatar(p, 'sm')}
           <div class="body">
-            <div class="title">${esc(p.name)}, ${esc(p.age)}${p.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${p.likedYou && !p.status ? `<span class="chip chip-like">T'a liké</span>` : ''}${p.isNew && !p.status ? '<span class="chip chip-accent">Nouveau</span>' : ''}${st ? `<span class="chip ${st[1]}">${st[0]}</span>` : ''}</div>
-            <div class="sub">${esc(p.area ? `${p.area} · ` : '')}${esc(p.intentLabel)}${act ? ` · <span class="act act-${p.activity}">${act}</span>` : ''}</div>
+            <div class="title">${esc(p.name)}, ${esc(p.age)}${p.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${p.likedYou && !p.status ? `<span class="chip chip-like">${t("T'a liké")}</span>` : ''}${p.isNew && !p.status ? `<span class="chip chip-accent">${t('Nouveau')}</span>` : ''}${st ? `<span class="chip ${st[1]}">${st[0]}</span>` : ''}</div>
+            <div class="sub">${esc(p.area ? `${p.area} · ` : '')}${esc(t(p.intentLabel))}${act ? ` · <span class="act act-${p.activity}">${act}</span>` : ''}</div>
           </div>
           <span class="chev">${icon('chevron-right', 18)}</span>
         </button>`;
@@ -424,6 +483,17 @@ function lazyAvatars() {
 }
 
 // Tranche d'âge : enregistrée côté serveur, le paquet et la liste repartent de zéro
+// Changer de langue : on l'enregistre sur le compte, pour que le bot suive, puis on redessine.
+async function changerLangue(code) {
+  if (!LANGUES[code]) return;
+  await chargerLangue(code);
+  buildTabs();
+  S.me.lang = code;
+  go('me');
+  tg.haptic('select');
+  try { await api('/me/lang', { method: 'PUT', body: { lang: code } }); } catch { /* le choix vaut déjà pour cet écran */ }
+}
+
 async function saveFilters(values) {
   const form = document.getElementById('filters-form');
   const zone = S.zoneDraft
@@ -431,9 +501,9 @@ async function saveFilters(values) {
     : undefined;
   const v = values || { ageMin: Number(form?.ageMin.value), ageMax: Number(form?.ageMax.value), zone };
   const ok = (n) => Number.isInteger(n) && n >= 18 && n <= 99;
-  if (!ok(v.ageMin) || !ok(v.ageMax)) return showError(new Error('Indique des âges entre 18 et 99 ans.'));
-  if (v.ageMin > v.ageMax) return showError(new Error("L'âge minimum doit être inférieur ou égal au maximum."));
-  if (v.zone && v.zone.city !== null && String(v.zone.city).trim().length < 2) return showError(new Error('Indique une ville, ou choisis tout le pays.'));
+  if (!ok(v.ageMin) || !ok(v.ageMax)) return showError(new Error(t('Indique des âges entre 18 et 99 ans.')));
+  if (v.ageMin > v.ageMax) return showError(new Error(t("L'âge minimum doit être inférieur ou égal au maximum.")));
+  if (v.zone && v.zone.city !== null && String(v.zone.city).trim().length < 2) return showError(new Error(t('Indique une ville, ou choisis tout le pays.')));
   try {
     const r = await api('/me/filters', { method: 'PUT', body: v });
     S.me.filters = r.filters;
@@ -463,7 +533,7 @@ async function swipePerson(action) {
       S.lastMatch = r.match;
       go('match');
     } else {
-      toast(action === 'like' ? 'Aimé. Tu seras prévenu en cas de match.' : 'Passé.');
+      toast(action === 'like' ? t('Aimé. Tu seras prévenu en cas de match.') : t('Passé.'));
       // On revient d'où l'on vient : décider depuis Messages ou depuis la liste ne doit pas
       // éjecter vers le paquet de cartes.
       go(S.personFrom || 'discover');
@@ -485,20 +555,20 @@ const SCREENS = {
     render(`
       <section class="hero">
         <span class="orb orb-1"></span><span class="orb orb-2"></span>
-        <p class="eyebrow">${name ? `Salut ${esc(name)}` : 'Bienvenue'}</p>
-        <h1 class="display">Des rencontres vérifiées, face à face.</h1>
-        <p class="lead">Des personnes réelles, des lieux publics, aucune demande d'argent. ${esc(APP)} est fait pour se rencontrer pour de vrai.</p>
+        <p class="eyebrow">${name ? t('Salut {nom}', { nom: esc(name) }) : t('Bienvenue')}</p>
+        <h1 class="display">${t('Des rencontres vérifiées, face à face.')}</h1>
+        <p class="lead">${t("Des personnes réelles, des lieux publics, aucune demande d'argent. {app} est fait pour se rencontrer pour de vrai.", { app: esc(APP) })}</p>
       </section>
       <div class="props">
-        ${prop('shield', 'Profils vérifiés par selfie', 'Chaque membre a prouvé qu\'il est une vraie personne', 'tile-ok')}
-        ${prop('ban', 'Demandes d\'argent bloquées', 'Automatiquement, dans chaque discussion', 'tile-danger')}
-        ${prop('coffee', 'Premier rendez-vous dans un lieu partenaire', 'Arrivée confirmée par QR code')}
-        ${prop('wifi', 'Léger en data', 'Photos chargées seulement si tu le demandes', 'tile-neutral')}
+        ${prop('shield', t('Profils vérifiés par selfie'), t("Chaque membre a prouvé qu'il est une vraie personne"), 'tile-ok')}
+        ${prop('ban', t("Demandes d'argent bloquées"), t('Automatiquement, dans chaque discussion'), 'tile-danger')}
+        ${prop('coffee', t('Premier rendez-vous dans un lieu partenaire'), t('Arrivée confirmée par QR code'))}
+        ${prop('wifi', t('Léger en data'), t('Photos chargées seulement si tu le demandes'), 'tile-neutral')}
       </div>
-      <p class="fine">${icon('lock', 14)}<span>Connecté avec Telegram, sans mot de passe. Ton pseudo et ton numéro restent cachés aux autres.</span></p>
-      <p class="fine">${icon('info', 14)}<span>Réservé aux 18 ans et plus. En continuant, tu acceptes les règles de la communauté : respect, aucune demande d'argent, aucun contenu sexuel.</span></p>
+      <p class="fine">${icon('lock', 14)}<span>${t('Connecté avec Telegram, sans mot de passe. Ton pseudo et ton numéro restent cachés aux autres.')}</span></p>
+      <p class="fine">${icon('info', 14)}<span>${t("Réservé aux 18 ans et plus. En continuant, tu acceptes les règles de la communauté : respect, aucune demande d'argent, aucun contenu sexuel.")}</span></p>
     `);
-    tg.setButtons({ main: { text: 'Créer mon profil', onClick: () => go('profile') } });
+    tg.setButtons({ main: { text: t('Créer mon profil'), onClick: () => go('profile') } });
   },
 
   // Formulaire en trois étapes : identité, recherche, touche personnelle
@@ -512,7 +582,7 @@ const SCREENS = {
       country: p.country || S.me.options.defaultCountry,
       city: p.city || '',
       area: p.area || '',
-      promptQ: p.promptQ || 'Mon plat du dimanche',
+      promptQ: p.promptQ || 'plat',
       promptA: p.promptA || '',
       languages: p.languages || '',
       // Par emplacement : 'keep' (photo existante), une image encodée (nouvelle), ou null (vide ou à retirer)
@@ -520,60 +590,62 @@ const SCREENS = {
     });
     const step = S.formStep;
     const o = S.me.options;
-    const titles = [p.name ? 'Modifie ton profil' : 'Fais-toi connaître', 'Ce que tu cherches', 'Ta touche personnelle'];
+    const titles = [p.name ? t('Modifie ton profil') : t('Fais-toi connaître'), t('Ce que tu cherches'), t('Ta touche personnelle')];
     const head = `
       <div class="step-head">
         <div class="stepper" aria-hidden="true">${[0, 1, 2].map((i) => `<span class="${i <= step ? 'on' : ''}"></span>`).join('')}</div>
-        <p class="eyebrow">Étape ${step + 1} sur 3</p>
+        <p class="eyebrow">${t('Étape {n} sur 3', { n: step + 1 })}</p>
         <h1>${titles[step]}</h1>
       </div>`;
     const select = (name, options, current) => `
       <span class="select-wrap"><select name="${name}">${options.map((c) => `<option ${c === current ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>${icon('chevron-down', 18)}</span>`;
     const bodies = [
       `
-      <label class="field"><span class="label">Prénom</span><input name="name" maxlength="30" value="${esc(f.name)}" autocomplete="given-name" placeholder="Ton prénom"></label>
-      <label class="field"><span class="label">Âge</span><input name="age" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.age)}" placeholder="24"></label>
-      <div class="field"><span class="label">Tu es</span>
-        <div class="seg">${Object.entries(o.genders).map(([k, l]) => `<button type="button" aria-pressed="${f.gender === k}" data-action="set" data-field="gender" data-value="${k}">${l}</button>`).join('')}</div>
+      <label class="field"><span class="label">${t('Prénom')}</span><input name="name" maxlength="30" value="${esc(f.name)}" autocomplete="given-name" placeholder="${t('Ton prénom')}"></label>
+      <label class="field"><span class="label">${t('Âge')}</span><input name="age" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.age)}" placeholder="24"></label>
+      <div class="field"><span class="label">${t('Tu es')}</span>
+        <div class="seg">${Object.entries(o.genders).map(([k, l]) => `<button type="button" aria-pressed="${f.gender === k}" data-action="set" data-field="gender" data-value="${k}">${t(l)}</button>`).join('')}</div>
       </div>
-      <p class="fine">${icon('lock', 14)}<span>Ton prénom et ton âge sont visibles. Ton pseudo et ton numéro Telegram ne le sont jamais.</span></p>`,
+      <p class="fine">${icon('lock', 14)}<span>${t('Ton prénom et ton âge sont visibles. Ton pseudo et ton numéro Telegram ne le sont jamais.')}</span></p>`,
       `
       <div class="stack">${Object.entries(o.intents).map(([k, l]) => `
         <button type="button" class="choice" aria-pressed="${f.intent === k}" data-action="set" data-field="intent" data-value="${k}">
           <span class="tile">${icon(INTENT_ICONS[k], 22)}</span>
-          <div class="body"><div class="title">${l}</div><div class="sub">${INTENT_SUBS[k]}</div></div>
+          <div class="body"><div class="title">${t(l)}</div><div class="sub">${INTENT_SUBS()[k]}</div></div>
           <span class="check">${icon('check', 14)}</span>
         </button>`).join('')}</div>
-      <label class="field"><span class="label">Pays</span>
+      <label class="field"><span class="label">${t('Pays')}</span>
         <span class="select-wrap"><select name="country">${paysTries().map((c) => `<option value="${esc(c.code)}" ${c.code === f.country ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>${icon('chevron-down', 18)}</span>
       </label>
-      <label class="field"><span class="label">Ville</span>
-        <input name="city" maxlength="40" value="${esc(f.city)}" placeholder="${esc((S.me.options.knownCities[f.country] || [])[0] || 'Ta ville')}" list="villes-connues" autocomplete="off">
+      <label class="field"><span class="label">${t('Ville')}</span>
+        <input name="city" maxlength="40" value="${esc(f.city)}" placeholder="${esc((S.me.options.knownCities[f.country] || [])[0] || t('Ta ville'))}" list="villes-connues" autocomplete="off">
         <datalist id="villes-connues">${(S.me.options.knownCities[f.country] || []).map((v) => `<option value="${esc(v)}"></option>`).join('')}</datalist>
       </label>
-      <label class="field"><span class="label">Quartier <span class="opt">facultatif</span></span><input name="area" maxlength="40" value="${esc(f.area)}" placeholder="Ton quartier"></label>
-      <p class="fine">${icon('pin', 14)}<span>Tu verras d'abord les profils de ta ville. Tu pourras élargir à tout le pays, ou viser une autre ville, depuis les filtres.</span></p>`,
+      <label class="field"><span class="label">${t('Quartier')} <span class="opt">${t('facultatif')}</span></span><input name="area" maxlength="40" value="${esc(f.area)}" placeholder="${t('Ton quartier')}"></label>
+      <p class="fine">${icon('pin', 14)}<span>${t("Tu verras d'abord les profils de ta ville. Tu pourras élargir à tout le pays, ou viser une autre ville, depuis les filtres.")}</span></p>`,
       `
-      <div class="field"><span class="label">Tes photos <span class="opt">jusqu'à 3, facultatif</span></span>
+      <div class="field"><span class="label">${t('Tes photos')} <span class="opt">${t("jusqu'à 3, facultatif")}</span></span>
         <div class="photo-slots">${[1, 2, 3].map((n) => {
           const v = f.photos[n];
           const existing = (S.me.photos || []).find((x) => x.n === n);
           const src = v && v !== 'keep' ? v : v === 'keep' ? S.photoUrls[`${S.me.id}/${n}`] : null;
           return `
-          <label class="photo-slot ${v ? 'has' : ''}" aria-label="Photo ${n}">
+          <label class="photo-slot ${v ? 'has' : ''}" aria-label="${t('Photo {n}', { n })}">
             ${src ? `<img src="${src}" alt="">` : v === 'keep' ? '' : icon('plus', 22)}
             <span class="num">${n}</span>
-            ${v ? `<button type="button" class="rm" data-action="photo-remove" data-n="${n}" aria-label="Retirer la photo ${n}">${icon('x', 14)}</button>` : ''}
-            ${v === 'keep' && existing?.status === 'pending' ? '<span class="chip state">En attente</span>' : v && v !== 'keep' ? '<span class="chip state">Nouvelle</span>' : ''}
+            ${v ? `<button type="button" class="rm" data-action="photo-remove" data-n="${n}" aria-label="${t('Retirer la photo {n}', { n })}">${icon('x', 14)}</button>` : ''}
+            ${v === 'keep' && existing?.status === 'pending' ? `<span class="chip state">${t('En attente')}</span>` : v && v !== 'keep' ? `<span class="chip state">${t('Nouvelle')}</span>` : ''}
             <input type="file" name="photo-${n}" accept="image/*" hidden>
           </label>`;
         }).join('')}</div>
-        <span class="small muted">Chaque photo est vérifiée avant d'être montrée aux autres. Compressée sur ton téléphone.</span>
+        <span class="small muted">${t("Chaque photo est vérifiée avant d'être montrée aux autres. Compressée sur ton téléphone.")}</span>
       </div>
-      <label class="field"><span class="label">Une question sur toi</span>${select('promptQ', ['Mon plat du dimanche', 'Mon coin préféré', 'Mon week-end idéal', 'Je supporte', 'Ma chanson du moment'], f.promptQ)}</label>
-      <label class="field"><span class="label">Ta réponse</span><input name="promptA" maxlength="120" value="${esc(f.promptA)}" placeholder="Le ndolé plantain de ma tante"></label>
-      <label class="field"><span class="label">Langues parlées <span class="opt">facultatif</span></span><input name="languages" maxlength="60" value="${esc(f.languages)}" placeholder="Français, anglais, ewondo"></label>
-      <p class="fine">${icon('ban', 14)}<span>Ni numéro, ni pseudo, ni lien dans ton profil : ils seraient refusés.</span></p>`,
+      <label class="field"><span class="label">${t('Une question sur toi')}</span>
+        <span class="select-wrap"><select name="promptQ">${Object.entries(QUESTIONS).map(([k, l]) => `<option value="${k}" ${k === f.promptQ ? 'selected' : ''}>${esc(t(l))}</option>`).join('')}</select>${icon('chevron-down', 18)}</span>
+      </label>
+      <label class="field"><span class="label">${t('Ta réponse')}</span><input name="promptA" maxlength="120" value="${esc(f.promptA)}" placeholder="${t('Le ndolé plantain de ma tante')}"></label>
+      <label class="field"><span class="label">${t('Langues parlées')} <span class="opt">${t('facultatif')}</span></span><input name="languages" maxlength="60" value="${esc(f.languages)}" placeholder="${t('Français, anglais, ewondo')}"></label>
+      <p class="fine">${icon('ban', 14)}<span>${t('Ni numéro, ni pseudo, ni lien dans ton profil : ils seraient refusés.')}</span></p>`,
     ];
     render(`${head}${bodies[step]}<p id="form-error" class="error" role="alert"></p>`);
     if (step === 2) [1, 2, 3].filter((n) => f.photos[n] === 'keep' && !S.photoUrls[`${S.me.id}/${n}`]).forEach((n) => photoUrl(S.me.id, n).then((url) => {
@@ -582,11 +654,11 @@ const SCREENS = {
     }));
     // Retour : l'étape précédente, puis l'écran parent
     tg.setBack(step > 0 ? () => { S.formStep = step - 1; SCREENS.profile(); } : () => go(PARENT.profile()));
-    tg.setButtons({ main: step < 2 ? { text: 'Continuer', onClick: nextStep } : { text: 'Enregistrer', onClick: saveProfile } });
+    tg.setButtons({ main: step < 2 ? { text: t('Continuer'), onClick: nextStep } : { text: t('Enregistrer'), onClick: saveProfile } });
   },
 
   async verify() {
-    const head = `<div class="step-head"><p class="eyebrow">Vérification</p><h1>Vérifie que c'est bien toi</h1></div>`;
+    const head = `<div class="step-head"><p class="eyebrow">${t('Vérification')}</p><h1>${t("Vérifie que c'est bien toi")}</h1></div>`;
     if (!S.gesture) {
       render(`${head}${skeleton.block(220)}`);
       tg.setButtons(null);
@@ -598,43 +670,43 @@ const SCREENS = {
     }
     render(`
       ${head}
-      <p class="lead">Un selfie avec le geste demandé. Seule l'équipe de vérification le voit, puis il est supprimé.</p>
+      <p class="lead">${t("Un selfie avec le geste demandé. Seule l'équipe de vérification le voit, puis il est supprimé.")}</p>
       ${S.selfie ? `
         <div class="preview-wrap">
-          <img class="preview" src="${S.selfie}" alt="Aperçu du selfie">
+          <img class="preview" src="${S.selfie}" alt="${t('Aperçu du selfie')}">
           <label class="btn btn-glass btn-sm retake">${icon('refresh', 16)} Reprendre<input type="file" name="selfie" accept="image/*" capture="user" hidden></label>
         </div>` : `
         <label class="gesture-card pressable">
           <span class="tile tile-lg">${icon('hand', 30)}</span>
-          <span class="eyebrow">Geste demandé</span>
+          <span class="eyebrow">${t('Geste demandé')}</span>
           <span class="gesture">${esc(S.gesture)}</span>
-          <span class="btn btn-primary">${icon('camera', 18)} Ouvrir la caméra</span>
+          <span class="btn btn-primary">${icon('camera', 18)} ${t('Ouvrir la caméra')}</span>
           <input type="file" name="selfie" accept="image/*" capture="user" hidden>
         </label>`}
       <div class="list">
-        ${listRow({ iconName: 'lock', title: 'Jamais montré aux autres membres' })}
-        ${listRow({ iconName: 'trash', title: 'Supprimé dès la décision', tile: 'tile-neutral' })}
-        ${listRow({ iconName: 'clock', title: 'En général quelques minutes', tile: 'tile-neutral' })}
+        ${listRow({ iconName: 'lock', title: t('Jamais montré aux autres membres') })}
+        ${listRow({ iconName: 'trash', title: t('Supprimé dès la décision'), tile: 'tile-neutral' })}
+        ${listRow({ iconName: 'clock', title: t('En général quelques minutes'), tile: 'tile-neutral' })}
       </div>
       <p id="form-error" class="error" role="alert"></p>
     `);
-    tg.setButtons(S.selfie ? { main: { text: 'Envoyer pour vérification', onClick: sendSelfie } } : null);
+    tg.setButtons(S.selfie ? { main: { text: t('Envoyer pour vérification'), onClick: sendSelfie } } : null);
   },
 
   pending() {
     render(`
       <div class="empty top">
         <div class="pulse" aria-hidden="true"><span class="ring"></span><span class="ring"></span><span class="core">${icon('shield', 34)}</span></div>
-        <h1>Vérification en cours</h1>
-        <p>En général quelques minutes. Le bot t'écrit dans Telegram dès que c'est fait : tu peux fermer l'app.</p>
+        <h1>${t('Vérification en cours')}</h1>
+        <p>${t("En général quelques minutes. Le bot t'écrit dans Telegram dès que c'est fait : tu peux fermer l'app.")}</p>
       </div>
       <div class="list"><div class="timeline">
-        <div class="tl"><span class="dot done"></span><div><div class="t">Selfie envoyé</div><div class="s">Il sera supprimé dès la décision</div></div></div>
-        <div class="tl"><span class="dot now"></span><div><div class="t">Vérification par l'équipe</div><div class="s">Une vraie personne regarde le geste et le visage</div></div></div>
-        <div class="tl"><span class="dot"></span><div><div class="t">Profil visible</div><div class="s">Tu découvres les profils de ta ville</div></div></div>
+        <div class="tl"><span class="dot done"></span><div><div class="t">${t('Selfie envoyé')}</div><div class="s">${t('Il sera supprimé dès la décision')}</div></div></div>
+        <div class="tl"><span class="dot now"></span><div><div class="t">${t("Vérification par l'équipe")}</div><div class="s">${t('Une vraie personne regarde le geste et le visage')}</div></div></div>
+        <div class="tl"><span class="dot"></span><div><div class="t">${t('Profil visible')}</div><div class="s">${t('Tu découvres les profils de ta zone')}</div></div></div>
       </div></div>
     `);
-    tg.setButtons({ main: { text: 'Actualiser', onClick: refreshStatus }, secondary: { text: 'Fermer', onClick: tg.close } });
+    tg.setButtons({ main: { text: t('Actualiser'), onClick: refreshStatus }, secondary: { text: t('Fermer'), onClick: tg.close } });
     S.pendingTimer = setInterval(refreshStatus, 5000);
   },
 
@@ -659,26 +731,26 @@ const SCREENS = {
     if (!p) {
       const v = S.vivier || {};
       const ville = zoneLabel(zoneDe());
-      const intention = (S.me.options?.intents || {})[S.me.profile.intent] || '';
+      const intention = t((S.me.options?.intents || {})[S.me.profile.intent] || '');
       let titre, texte, bouton;
       if (!S.remaining) {
-        titre = 'Ta limite du jour est atteinte';
-        texte = `Tu peux aimer ${20} profils par jour. Le compteur repart à minuit. Passer un profil ne compte pas.`;
-        bouton = { text: 'Voir mes messages', onClick: () => go('matches') };
+        titre = t('Ta limite du jour est atteinte');
+        texte = t('Tu peux aimer {n} profils par jour. Le compteur repart à minuit. Passer un profil ne compte pas.', { n: 20 });
+        bouton = { text: t('Voir mes messages'), onClick: () => go('matches') };
       } else if (!v.total) {
-        titre = `Personne d'autre dans cette zone pour l'instant`;
+        titre = t("Personne d'autre dans cette zone pour l'instant");
         // Ne rien promettre que le code ne tient pas : aucune alerte d'arrivée n'existe aujourd'hui.
-        texte = `Personne ne cherche « ${esc(intention)} » à ${esc(ville)} pour le moment. Élargis ta zone, reviens dans quelques jours, ou parle de ${esc(APP)} autour de toi.`;
-        bouton = { text: 'Changer de zone', onClick: () => go('filters') };
-        bouton = { text: 'Voir mon profil', onClick: () => go('me') };
+        texte = t('Personne ne cherche « {intention} » à {zone} pour le moment. Élargis ta zone, reviens dans quelques jours, ou parle de {app} autour de toi.', { intention: esc(intention), zone: esc(ville), app: esc(APP) });
+        bouton = { text: t('Changer de zone'), onClick: () => go('filters') };
+        bouton = { text: t('Voir mon profil'), onClick: () => go('me') };
       } else if (v.horsTranche) {
-        titre = 'Tu as vu tous les profils de ta tranche d\'âge';
-        texte = `${v.horsTranche} profil${v.horsTranche > 1 ? 's' : ''} de ta zone ${v.horsTranche > 1 ? 'sont' : 'est'} en dehors de la tranche que tu as choisie. Tu peux l'élargir.`;
-        bouton = { text: 'Élargir ma tranche d\'âge', onClick: () => go('filters') };
+        titre = t("Tu as vu tous les profils de ta tranche d'âge");
+        texte = tn("{n} profil de ta zone est en dehors de la tranche que tu as choisie. Tu peux l'élargir.", "{n} profils de ta zone sont en dehors de la tranche que tu as choisie. Tu peux l'élargir.", v.horsTranche);
+        bouton = { text: t("Élargir ma tranche d'âge"), onClick: () => go('filters') };
       } else {
-        titre = 'Tu as vu tous les profils du moment';
-        texte = 'Reviens un peu plus tard : de nouveaux profils vérifiés arrivent chaque jour.';
-        bouton = { text: 'Voir mes messages', onClick: () => go('matches') };
+        titre = t('Tu as vu tous les profils du moment');
+        texte = t('Reviens un peu plus tard : de nouveaux profils vérifiés arrivent chaque jour.');
+        bouton = { text: t('Voir mes messages'), onClick: () => go('matches') };
       }
       render(`
         <div class="empty">
@@ -691,10 +763,10 @@ const SCREENS = {
     render(`
       ${dbar()}
       <div class="deck">${next ? profileCard(next, { cls: 'next' }) : ''}${profileCard(p, { cls: 'top' })}</div>
-      ${S.swiped ? '' : `<p class="fine">${icon('hand', 14)}<span>Glisse la carte vers la droite pour aimer, vers la gauche pour passer.</span></p>`}`);
+      ${S.swiped ? '' : `<p class="fine">${icon('hand', 14)}<span>${t('Glisse la carte vers la droite pour aimer, vers la gauche pour passer.')}</span></p>`}`);
     loadCardPhoto(p);
     S.detachSwipe = attachSwipe(app.querySelector('.deck .card.top'), { onLike: () => swipe('like'), onPass: () => swipe('pass') });
-    tg.setButtons({ main: { text: "J'aime", onClick: () => swipe('like') }, secondary: { text: 'Passer', onClick: () => swipe('pass') } });
+    tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipe('like') }, secondary: { text: t('Passer'), onClick: () => swipe('pass') } });
   },
 
   filters() {
@@ -702,45 +774,45 @@ const SCREENS = {
     const z = S.zoneDraft || (S.zoneDraft = { ...zoneDe() });
     const toutLePays = z.city === null;
     render(`
-      <div class="step-head"><h1>Qui veux-tu voir ?</h1><p class="lead">La zone où tu veux rencontrer, et la tranche d'âge. Ton intention vient de ton profil.</p></div>
+      <div class="step-head"><h1>${t('Qui veux-tu voir ?')}</h1><p class="lead">${t("La zone où tu veux rencontrer, et la tranche d'âge. Ton intention vient de ton profil.")}</p></div>
       <form id="filters-form" class="stack">
-        <span class="eyebrow">Zone de recherche</span>
-        <label class="field"><span class="label">Pays</span>
+        <span class="eyebrow">${t('Zone de recherche')}</span>
+        <label class="field"><span class="label">${t('Pays')}</span>
           <span class="select-wrap"><select name="zoneCountry">${paysTries().map((c) => `<option value="${esc(c.code)}" ${c.code === z.country ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>${icon('chevron-down', 18)}</span>
         </label>
-        <div class="seg seg-zone" aria-label="Étendue">
-          <button type="button" data-action="zone-mode" data-mode="ville" aria-pressed="${!toutLePays}">Une ville</button>
-          <button type="button" data-action="zone-mode" data-mode="pays" aria-pressed="${toutLePays}">Tout le pays</button>
+        <div class="seg seg-zone" aria-label="${t('Étendue')}">
+          <button type="button" data-action="zone-mode" data-mode="ville" aria-pressed="${!toutLePays}">${t('Une ville')}</button>
+          <button type="button" data-action="zone-mode" data-mode="pays" aria-pressed="${toutLePays}">${t('Tout le pays')}</button>
         </div>
         ${toutLePays ? '' : `
-        <label class="field"><span class="label">Ville</span>
-          <input name="zoneCity" maxlength="40" value="${esc(z.city || '')}" placeholder="${esc((S.me.options.knownCities[z.country] || [])[0] || 'Ta ville')}" list="villes-zone" autocomplete="off">
+        <label class="field"><span class="label">${t('Ville')}</span>
+          <input name="zoneCity" maxlength="40" value="${esc(z.city || '')}" placeholder="${esc((S.me.options.knownCities[z.country] || [])[0] || t('Ta ville'))}" list="villes-zone" autocomplete="off">
           <datalist id="villes-zone">${(S.me.options.knownCities[z.country] || []).map((v) => `<option value="${esc(v)}"></option>`).join('')}</datalist>
         </label>`}
-        <span class="eyebrow">Tranche d'âge</span>
+        <span class="eyebrow">${t("Tranche d'âge")}</span>
         <div class="row">
-          <label class="field"><span class="label">De</span><input name="ageMin" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMin)}"></label>
-          <label class="field"><span class="label">À</span><input name="ageMax" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMax)}"></label>
+          <label class="field"><span class="label">${t('De')}</span><input name="ageMin" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMin)}"></label>
+          <label class="field"><span class="label">${t('À')}</span><input name="ageMax" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMax)}"></label>
         </div>
         <p class="error" id="form-error"></p>
       </form>
-      <p class="fine">${icon('users', 14)}<span>Ta zone ne vaut que pour toi : elle décide de qui tu vois, pas de qui te voit.</span></p>
-      <p class="fine">${icon('info', 14)}<span>Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.</span></p>`);
+      <p class="fine">${icon('users', 14)}<span>${t('Ta zone ne vaut que pour toi : elle décide de qui tu vois, pas de qui te voit.')}</span></p>
+      <p class="fine">${icon('info', 14)}<span>${t('Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.')}</span></p>`);
     document.getElementById('filters-form').addEventListener('submit', (e) => { e.preventDefault(); saveFilters(); });
-    tg.setButtons({ main: { text: 'Enregistrer', onClick: () => saveFilters() }, secondary: { text: 'Tout voir', onClick: () => saveFilters({ ageMin: 18, ageMax: 99, zone: { ...zoneDe(), city: null } }) } });
+    tg.setButtons({ main: { text: t('Enregistrer'), onClick: () => saveFilters() }, secondary: { text: t('Tout voir'), onClick: () => saveFilters({ ageMin: 18, ageMax: 99, zone: { ...zoneDe(), city: null } }) } });
   },
 
   person({ id }) {
     const p = S.people.find((x) => x.id === id) || S.likes.find((x) => x.id === id);
     if (!p) return go('discover');
     S.person = p;
-    const note = p.status === 'liked' ? `${icon('heart', 14)}<span>Tu as déjà aimé ce profil. Le bot te prévient en cas de match.</span>`
-      : p.status === 'passed' ? `${icon('clock', 14)}<span>Tu avais passé ce profil. Tu peux revenir sur ta décision.</span>` : '';
+    const note = p.status === 'liked' ? `${icon('heart', 14)}<span>${t('Tu as déjà aimé ce profil. Le bot te prévient en cas de match.')}</span>`
+      : p.status === 'passed' ? `${icon('clock', 14)}<span>${t('Tu avais passé ce profil. Tu peux revenir sur ta décision.')}</span>` : '';
     render(`<div class="deck">${profileCard(p, { cls: 'top' })}</div>${note ? `<p class="fine">${note}</p>` : ''}`);
     loadCardPhoto(p);
     if (p.status === 'liked') tg.setButtons(null);
-    else if (p.status === 'passed') tg.setButtons({ main: { text: "J'aime", onClick: () => swipePerson('like') } });
-    else tg.setButtons({ main: { text: "J'aime", onClick: () => swipePerson('like') }, secondary: { text: 'Passer', onClick: () => swipePerson('pass') } });
+    else if (p.status === 'passed') tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipePerson('like') } });
+    else tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipePerson('like') }, secondary: { text: t('Passer'), onClick: () => swipePerson('pass') } });
   },
 
   match() {
@@ -749,20 +821,20 @@ const SCREENS = {
     render(`
       <div class="match-hero">
         <span class="orb orb-1"></span>
-        <p class="eyebrow">C'est un match</p>
+        <p class="eyebrow">${t("C'est un match")}</p>
         <div class="pair">${avatar(me, 'xl')}<span class="spark">${icon('heart', 20, { fill: true })}</span>${avatar(m.other, 'xl')}</div>
-        <h1 class="display">${esc(m.other.name)} et toi, vous vous plaisez</h1>
-        <p class="lead">Brise la glace avec une question sur son profil. Les liens et numéros se débloquent après quelques messages.</p>
+        <h1 class="display">${t('{nom} et toi, vous vous plaisez', { nom: esc(m.other.name) })}</h1>
+        <p class="lead">${t('Brise la glace avec une question sur son profil. Les liens et numéros se débloquent après quelques messages.')}</p>
       </div>`);
     loadAvatar(me, { own: true });
     loadAvatar(m.other);
     tg.haptic('success');
-    tg.setButtons({ main: { text: `Écrire à ${m.other.name}`, onClick: () => go('chat', { id: m.id }) }, secondary: { text: 'Plus tard', onClick: () => go('discover') } });
+    tg.setButtons({ main: { text: t('Écrire à {nom}', { nom: m.other.name }), onClick: () => go('chat', { id: m.id }) }, secondary: { text: t('Plus tard'), onClick: () => go('discover') } });
   },
 
   async matches({ silent = false } = {}) {
     if (!silent) {
-      render(`<div class="group"><span class="eyebrow">Discussions</span>${skeleton.rows(4)}</div>`);
+      render(`<div class="group"><span class="eyebrow">${t('Discussions')}</span>${skeleton.rows(4)}</div>`);
       tg.setButtons(null);
     }
     try {
@@ -775,31 +847,31 @@ const SCREENS = {
     }
     if (S.screen !== 'matches') return;
     const likesStrip = S.likes.length ? `
-      <div class="group"><span class="eyebrow">Ont aimé ton profil</span>
+      <div class="group"><span class="eyebrow">${t('Ont aimé ton profil')}</span>
         <div class="new-strip">${S.likes.map((p) => `<button type="button" class="new-item like-item" data-action="person" data-id="${esc(p.id)}">${avatar(p, 'md')}<span>${esc(p.name)}</span></button>`).join('')}</div>
       </div>` : '';
     if (!S.matches.length) {
       render(`${likesStrip}
         <div class="empty${likesStrip ? ' top' : ''}">
           <span class="glyph">${icon('message', 34)}</span>
-          <h2>Tes matchs apparaîtront ici</h2>
-          <p>Quand vous vous plaisez tous les deux, la discussion s'ouvre. Le bot te prévient, même app fermée.</p>
+          <h2>${t('Tes matchs apparaîtront ici')}</h2>
+          <p>${t("Quand vous vous plaisez tous les deux, la discussion s'ouvre. Le bot te prévient, même app fermée.")}</p>
         </div>`);
-      return tg.setButtons({ main: { text: 'Découvrir des profils', onClick: () => go('discover') } });
+      return tg.setButtons({ main: { text: t('Découvrir des profils'), onClick: () => go('discover') } });
     }
     const fresh = S.matches.filter((m) => m.isNew);
     render(`${likesStrip}
       ${fresh.length ? `
-      <div class="group"><span class="eyebrow">Nouveaux matchs</span>
+      <div class="group"><span class="eyebrow">${t('Nouveaux matchs')}</span>
         <div class="new-strip">${fresh.map((m) => `<button type="button" class="new-item" data-action="open-chat" data-id="${m.id}">${avatar(m.other, 'md')}<span>${esc(m.other.name)}</span></button>`).join('')}</div>
       </div>` : ''}
-      <div class="group"><span class="eyebrow">Discussions</span>
+      <div class="group"><span class="eyebrow">${t('Discussions')}</span>
         <div class="list">${S.matches.map((m) => `
           <button type="button" class="list-row ${m.unread ? 'unread' : ''}" data-action="open-chat" data-id="${m.id}">
             ${avatar(m.other, 'sm')}
             <div class="body">
-              <div class="title">${esc(m.other.name)}${m.other.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${m.aQuiDeParler === 'moi' && !m.unread ? '<span class="tour">À toi</span>' : ''}</div>
-              <div class="preview">${m.lastMessage ? `${m.lastMessage.from === S.me.id ? 'Toi : ' : ''}${esc(m.lastMessage.text)}` : 'Nouveau match, écris le premier message'}</div>
+              <div class="title">${esc(m.other.name)}${m.other.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${m.aQuiDeParler === 'moi' && !m.unread ? `<span class="tour">${t('À toi')}</span>` : ''}</div>
+              <div class="preview">${m.lastMessage ? `${m.lastMessage.from === S.me.id ? t('Toi : ') : ''}${esc(m.lastMessage.text)}` : t('Nouveau match, écris le premier message')}</div>
             </div>
             ${m.unread ? `<span class="count-badge">${m.unread}</span>` : `<span class="chev">${icon('chevron-right', 18)}</span>`}
           </button>`).join('')}
@@ -822,7 +894,7 @@ const SCREENS = {
     }
     if (S.screen !== 'chat') return;
     renderChat();
-    tg.setButtons({ main: { text: 'Proposer un rendez-vous', onClick: () => go('date') } });
+    tg.setButtons({ main: { text: t('Proposer un rendez-vous'), onClick: () => go('date') } });
     S.chatTimer = setInterval(pollChat, 4000);
   },
 
@@ -836,31 +908,31 @@ const SCREENS = {
       } catch (e) { return renderError(e, () => go('date')); }
     }
     const d = S.dateDraft;
-    const slots = ["Aujourd'hui, 17 h", 'Demain, 16 h', 'Samedi, 11 h', 'Dimanche, 15 h'];
+    const slots = [t("Aujourd'hui, 17 h"), t('Demain, 16 h'), t('Samedi, 11 h'), t('Dimanche, 15 h')];
     render(`
       <div class="step-head">
-        <p class="eyebrow">Avec ${esc(S.chat.other.name)}</p>
-        <h1>Proposer un rendez-vous sûr</h1>
-        <p class="lead">Uniquement dans des lieux publics partenaires, où ton arrivée est confirmée par un code.</p>
+        <p class="eyebrow">${t('Avec {nom}', { nom: esc(S.chat.other.name) })}</p>
+        <h1>${t('Proposer un rendez-vous sûr')}</h1>
+        <p class="lead">${t('Uniquement dans des lieux publics partenaires, où ton arrivée est confirmée par un code.')}</p>
       </div>
-      <div class="group"><span class="eyebrow">Où</span>
+      <div class="group"><span class="eyebrow">${t('Où')}</span>
         <div class="stack">${S.venues.length ? S.venues.map((v) => `
           <button type="button" class="choice" aria-pressed="${d.venueId === v.id}" data-action="venue" data-id="${v.id}">
             <span class="tile">${icon('coffee', 20)}</span>
             <div class="body"><div class="title">${esc(v.name)}</div><div class="sub">${esc(v.area)} · ${esc(v.city)} · ${esc(v.perk)}</div></div>
             <span class="check">${icon('check', 14)}</span>
           </button>`).join('') : `<div class="notice notice-warn">${icon('info', 18)}<span>${S.partenairesDansLePays
-            ? "Pas encore de lieu partenaire dans ta ville. Le rendez-vous avec confirmation d'arrivée n'est donc pas disponible ici."
-            : `Pas encore de lieu partenaire dans ton pays. Le rendez-vous avec confirmation d'arrivée n'est donc pas disponible.`} Vous pouvez convenir d'un lieu public dans la discussion, et prévenir chacun une personne de confiance.</span></div>`}</div>
+            ? t("Pas encore de lieu partenaire dans ta ville. Le rendez-vous avec confirmation d'arrivée n'est donc pas disponible ici.")
+            : t("Pas encore de lieu partenaire dans ton pays. Le rendez-vous avec confirmation d'arrivée n'est donc pas disponible.")} ${t("Vous pouvez convenir d'un lieu public dans la discussion, et prévenir chacun une personne de confiance.")}</span></div>`}</div>
       </div>
-      <div class="group"><span class="eyebrow">Quand</span>
+      <div class="group"><span class="eyebrow">${t('Quand')}</span>
         <div class="slots">${slots.map((s) => `<button type="button" class="slot" aria-pressed="${d.slot === s}" data-action="slot" data-value="${esc(s)}">${s}</button>`).join('')}</div>
       </div>
       <div id="date-summary">${dateSummary()}</div>
       <p id="form-error" class="error" role="alert"></p>
     `);
     tg.closingConfirmation(!!(d.venueId || d.slot));
-    tg.setButtons({ main: { text: 'Envoyer la proposition', onClick: sendDate } });
+    tg.setButtons({ main: { text: t('Envoyer la proposition'), onClick: sendDate } });
   },
 
   // Se protéger de quelqu'un : trois gestes de gravité croissante, et six motifs de signalement.
@@ -873,121 +945,136 @@ const SCREENS = {
         <span class="chev">${icon('chevron-right', 18)}</span>
       </button>`;
     render(`
-      <div class="step-head"><h1>Te protéger de cette personne</h1><p class="lead">Elle ne sera jamais prévenue, quel que soit ton choix.</p></div>
+      <div class="step-head"><h1>${t('Te protéger de cette personne')}</h1><p class="lead">${t('Elle ne sera jamais prévenue, quel que soit ton choix.')}</p></div>
       ${matchId ? `
-      <div class="group"><span class="eyebrow">Sans rien signaler</span>
+      <div class="group"><span class="eyebrow">${t('Sans rien signaler')}</span>
         <div class="list">
           <button type="button" class="list-row" data-action="retirer-match">
-            <div class="body"><div class="title">Retirer ce match</div><div class="sub">La discussion disparaît des deux côtés. Vous ne vous reverrez pas dans les profils</div></div>
+            <div class="body"><div class="title">${t('Retirer ce match')}</div><div class="sub">${t('La discussion disparaît des deux côtés. Vous ne vous reverrez pas dans les profils')}</div></div>
             <span class="chev">${icon('chevron-right', 18)}</span>
           </button>
           <button type="button" class="list-row" data-action="bloquer">
-            <div class="body"><div class="title">Bloquer</div><div class="sub">Plus aucun message, aucun rendez-vous, aucune notification de sa part</div></div>
+            <div class="body"><div class="title">${t('Bloquer')}</div><div class="sub">${t('Plus aucun message, aucun rendez-vous, aucune notification de sa part')}</div></div>
             <span class="chev">${icon('chevron-right', 18)}</span>
           </button>
         </div>
       </div>` : `
-      <div class="group"><span class="eyebrow">Sans rien signaler</span>
+      <div class="group"><span class="eyebrow">${t('Sans rien signaler')}</span>
         <div class="list">
           <button type="button" class="list-row" data-action="bloquer">
-            <div class="body"><div class="title">Bloquer</div><div class="sub">Ce profil ne peut plus te contacter ni apparaître</div></div>
+            <div class="body"><div class="title">${t('Bloquer')}</div><div class="sub">${t('Ce profil ne peut plus te contacter ni apparaître')}</div></div>
             <span class="chev">${icon('chevron-right', 18)}</span>
           </button>
         </div>
       </div>`}
-      <div class="group"><span class="eyebrow">Signaler à la modération</span>
+      <div class="group"><span class="eyebrow">${t('Signaler à la modération')}</span>
         <div class="list">
-          ${motif('argent', "Demande d'argent", 'Elle t\'a demandé ou proposé de l\'argent')}
-          ${motif('chantage', 'Chantage ou menace', 'Photos, vidéos, menaces de révéler quelque chose')}
-          ${motif('deplace', 'Comportement déplacé', 'Insultes, propos sexuels non voulus, insistance')}
-          ${motif('usurpation', "Ce n'est pas la bonne personne", 'Photos volées, identité empruntée')}
-          ${motif('mineur', 'Cette personne semble mineure', 'Le compte est bloqué et vérifié en priorité')}
-          ${motif('violence', 'Violence ou menace physique', 'Elle t\'a menacée, ou après un rendez-vous')}
+          ${motif('argent', t("Demande d'argent"), t("Elle t'a demandé ou proposé de l'argent"))}
+          ${motif('chantage', t('Chantage ou menace'), t('Photos, vidéos, menaces de révéler quelque chose'))}
+          ${motif('deplace', t('Comportement déplacé'), t('Insultes, propos sexuels non voulus, insistance'))}
+          ${motif('usurpation', t("Ce n'est pas la bonne personne"), t('Photos volées, identité empruntée'))}
+          ${motif('mineur', t('Cette personne semble mineure'), t('Le compte est bloqué et vérifié en priorité'))}
+          ${motif('violence', t('Violence ou menace physique'), t("Elle t'a menacée, ou après un rendez-vous"))}
         </div>
       </div>
-      <p class="fine">${icon('shield', 14)}<span>Signaler bloque aussi la personne. Un modérateur regarde chaque signalement.</span></p>`);
+      <p class="fine">${icon('shield', 14)}<span>${t('Signaler bloque aussi la personne. Un modérateur regarde chaque signalement.')}</span></p>`);
+    tg.setButtons(null);
+  },
+
+  // Choix de la langue. Par défaut celle de Telegram ; le choix explicite est gardé sur le
+  // serveur, pour que le bot écrive lui aussi dans la bonne langue.
+  langue() {
+    render(`
+      <div class="step-head"><h1>${t('Langue')}</h1><p class="lead">${t("L'app et les messages du bot suivent ce choix.")}</p></div>
+      <div class="list">${Object.entries(LANGUES).map(([code, nom]) => `
+        <button type="button" class="list-row" data-action="set-langue" data-langue="${code}">
+          <div class="body"><div class="title">${esc(nom)}</div></div>
+          ${code === langue() ? `<span class="c-ok">${icon('check', 18)}</span>` : `<span class="chev">${icon('chevron-right', 18)}</span>`}
+        </button>`).join('')}</div>
+      <p class="fine">${icon('info', 14)}<span>${t('Les profils restent écrits dans la langue de chacun : seule l\'interface change.')}</span></p>`);
     tg.setButtons(null);
   },
 
   safety() {
     render(`
-      <div class="step-head"><h1>Ta sécurité</h1><p class="lead">Ce que ${esc(APP)} garantit, et quoi faire si quelque chose cloche.</p></div>
+      <div class="step-head"><h1>${t('Ta sécurité')}</h1><p class="lead">${t('Ce que {app} garantit, et quoi faire si quelque chose cloche.', { app: esc(APP) })}</p></div>
       <div class="list">
         <button type="button" class="list-row" data-action="toggle-guide" aria-expanded="${S.guideOpen}">
           <span class="tile tile-danger">${icon('alert', 20)}</span>
-          <div class="body"><div class="title">Quelqu'un me fait du chantage</div><div class="sub">Que faire, étape par étape</div></div>
+          <div class="body"><div class="title">${t("Quelqu'un me fait du chantage")}</div><div class="sub">${t('Que faire, étape par étape')}</div></div>
           <span class="chev acc-chev">${icon('chevron-down', 18)}</span>
         </button>
         <div class="acc ${S.guideOpen ? 'open' : ''}"><div><ol class="steps">
-          <li>Ne paie rien, même sous la menace : payer n'arrête presque jamais le chantage.</li>
-          <li>Garde les preuves : captures d'écran, prénom et date.</li>
-          <li>Signale et bloque le profil depuis la discussion.</li>
-          <li>Parle à une personne de confiance ou à une association d'aide aux victimes.</li>
+          <li>${t("Ne paie rien, même sous la menace : payer n'arrête presque jamais le chantage.")}</li>
+          <li>${t("Garde les preuves : captures d'écran, prénom et date.")}</li>
+          <li>${t('Signale et bloque le profil depuis la discussion.')}</li>
+          <li>${t("Parle à une personne de confiance ou à une association d'aide aux victimes.")}</li>
         </ol></div></div>
       </div>
-      <div class="group"><span class="eyebrow">Nos engagements</span>
+      <div class="group"><span class="eyebrow">${t('Nos engagements')}</span>
         <div class="list">
-          ${listRow({ iconName: 'ban', tile: 'tile-ok', title: `${esc(APP)} ne te demandera jamais d'argent`, sub: 'Ni pour vérifier ton compte, ni pour débloquer un profil.' })}
-          ${listRow({ iconName: 'coffee', title: 'Premier rendez-vous dans un lieu public', sub: 'Préviens un proche et rentre par tes propres moyens.' })}
-          ${listRow({ iconName: 'lock', title: 'Pseudo et numéro jamais montrés', sub: 'Les contacts se débloquent seulement après quelques messages.' })}
+          ${listRow({ iconName: 'ban', tile: 'tile-ok', title: t("{app} ne te demandera jamais d'argent", { app: esc(APP) }), sub: t('Ni pour vérifier ton compte, ni pour débloquer un profil.') })}
+          ${listRow({ iconName: 'coffee', title: t('Premier rendez-vous dans un lieu public'), sub: t('Préviens un proche et rentre par tes propres moyens.') })}
+          ${listRow({ iconName: 'lock', title: t('Pseudo et numéro jamais montrés'), sub: t('Les contacts se débloquent seulement après quelques messages.') })}
         </div>
       </div>
       <div class="list">
-        ${listRow({ iconName: 'sliders', tile: 'tile-neutral', title: 'Paramètres et confidentialité', sub: 'Données, notifications, suppression du compte', action: 'go', extra: ' data-screen="me"' })}
+        ${listRow({ iconName: 'sliders', tile: 'tile-neutral', title: t('Paramètres et confidentialité'), sub: t('Données, notifications, suppression du compte'), action: 'go', extra: ' data-screen="me"' })}
       </div>`);
     tg.setButtons(null);
   },
 
   me() {
-    const status = { none: ['Non vérifié', 'chip-warn'], pending: ['Vérification en cours', 'chip-warn'], approved: ['Vérifié', 'chip-ok'], rejected: ['Vérification refusée', 'chip-warn'] }[S.me.verification];
+    const status = { none: [t('Non vérifié'), 'chip-warn'], pending: [t('Vérification en cours'), 'chip-warn'], approved: [t('Vérifié'), 'chip-ok'], rejected: [t('Vérification refusée'), 'chip-warn'] }[S.me.verification];
     const pp = S.me.publicProfile;
     render(`
       <div class="me-head">
         ${pp ? avatar(pp, 'lg') : `<span class="avatar lg">${icon('user', 30)}</span>`}
         <div class="body">
-          <div class="n">${pp ? `${esc(pp.name)}, ${esc(pp.age)}` : 'Ton profil'}</div>
+          <div class="n">${pp ? `${esc(pp.name)}, ${esc(pp.age)}` : t('Ton profil')}</div>
           <div class="c"><span class="chip ${status[1]}">${S.me.verification === 'approved' ? icon('shield', 13) : ''}${status[0]}</span>${pp ? `<span>${icon('pin', 13)} ${esc(pp.city)}</span>` : ''}</div>
         </div>
       </div>
       ${pp && completion().pct < 100 ? `
-      <div class="group"><span class="eyebrow">Ton profil</span>
+      <div class="group"><span class="eyebrow">${t('Ton profil')}</span>
         <div class="completion">
           <div class="completion-head">
             <span class="ring ring-lg" style="--p: ${completion().pct}%"></span>
-            <div class="body"><div class="title">Complété à ${completion().pct} %</div><div class="sub">${completion().missing.length > 1 ? 'Il te manque peu de chose' : 'Plus qu\'une étape'}</div></div>
+            <div class="body"><div class="title">${t('Complété à {pct} %', { pct: completion().pct })}</div><div class="sub">${completion().missing.length > 1 ? t('Il te manque peu de chose') : t("Plus qu'une étape")}</div></div>
           </div>
           <div class="list">${completion().missing.map((i) => listRow({ iconName: i.icon, title: i.title, sub: i.sub, action: 'edit-step', extra: ` data-step="${i.step}"`, trailing: `<span class="chip chip-accent">+${i.pts} %</span>` })).join('')}</div>
         </div>
       </div>` : ''}
       ${pp ? `
-      <div class="group"><span class="eyebrow">Ce que les autres voient</span>
+      <div class="group"><span class="eyebrow">${t('Ce que les autres voient')}</span>
         ${profileCard(pp, { own: true })}
-        <p class="fine">${icon('lock', 14)}<span>Ton pseudo et ton numéro Telegram ne sont jamais montrés.</span></p>
-      </div>` : `<div class="notice notice-info">${icon('info', 18)}<span>Tu n'as pas encore de profil.</span></div>`}
-      <div class="group"><span class="eyebrow">Paramètres</span>
+        <p class="fine">${icon('lock', 14)}<span>${t('Ton pseudo et ton numéro Telegram ne sont jamais montrés.')}</span></p>
+      </div>` : `<div class="notice notice-info">${icon('info', 18)}<span>${t("Tu n'as pas encore de profil.")}</span></div>`}
+      <div class="group"><span class="eyebrow">${t('Paramètres')}</span>
         <div class="list">
-          ${listRow({ iconName: 'bell', title: 'Tester les notifications', sub: "Le bot t'envoie un message dans Telegram", action: 'test-notif' })}
+          ${listRow({ iconName: 'globe', title: t('Langue'), sub: LANGUES[langue()], action: 'go', extra: ` data-screen="langue"` })}
+          ${listRow({ iconName: 'bell', title: t('Tester les notifications'), sub: t("Le bot t'envoie un message dans Telegram"), action: 'test-notif' })}
           <label class="list-row">
             <span class="tile">${icon('wifi', 20)}</span>
-            <div class="body"><div class="title">Économie de data</div><div class="sub">Photos chargées seulement si tu les demandes</div></div>
+            <div class="body"><div class="title">${t('Économie de data')}</div><div class="sub">${t('Photos chargées seulement si tu les demandes')}</div></div>
             <input type="checkbox" class="switch" name="dataSaver" ${S.dataSaver ? 'checked' : ''}>
           </label>
-          ${listRow({ iconName: 'heart', tile: 'tile-like', title: 'Inviter une amie ou un ami', sub: 'Plus il y a de profils vérifiés près de toi, mieux c\'est', action: 'invite', trailing: `<span class="chev">${icon('share', 18)}</span>` })}
-          ${tg.canAddToHome() ? listRow({ iconName: 'home', title: "Ajouter à l'écran d'accueil", action: 'home' }) : ''}
+          ${listRow({ iconName: 'heart', tile: 'tile-like', title: t('Inviter une amie ou un ami'), sub: t("Plus il y a de profils vérifiés près de toi, mieux c'est"), action: 'invite', trailing: `<span class="chev">${icon('share', 18)}</span>` })}
+          ${tg.canAddToHome() ? listRow({ iconName: 'home', title: t("Ajouter à l'écran d'accueil"), action: 'home' }) : ''}
         </div>
       </div>
-      <div class="danger-zone"><button type="button" class="btn btn-danger btn-block" data-action="delete">${icon('trash', 18)} Supprimer mon compte et mes données</button></div>
+      <div class="danger-zone"><button type="button" class="btn btn-danger btn-block" data-action="delete">${icon('trash', 18)} ${t('Supprimer mon compte et mes données')}</button></div>
     `);
     if (pp) { loadCardPhoto(pp, { own: true }); loadAvatar(pp, { own: true }); }
-    tg.setButtons({ main: { text: pp ? 'Modifier mon profil' : 'Créer mon profil', onClick: () => { S.form = null; S.formStep = 0; go('profile'); } } });
+    tg.setButtons({ main: { text: pp ? t('Modifier mon profil') : t('Créer mon profil'), onClick: () => { S.form = null; S.formStep = 0; go('profile'); } } });
   },
 };
 
 function dateSummary() {
   const d = S.dateDraft;
   const v = S.venues.find((x) => x.id === d.venueId);
-  if (v && d.slot) return `<div class="notice notice-ok">${icon('calendar', 18)}<span><strong>${esc(v.name)}</strong>, ${esc(d.slot)}. Préviens une personne de confiance du lieu et de l'heure.</span></div>`;
-  return `<p class="fine">${icon('info', 14)}<span>Conseil : préviens une personne de confiance du lieu et de l'heure.</span></p>`;
+  if (v && d.slot) return `<div class="notice notice-ok">${icon('calendar', 18)}<span><strong>${esc(v.name)}</strong>, ${esc(d.slot)}. ${t("Préviens une personne de confiance du lieu et de l'heure.")}</span></div>`;
+  return `<p class="fine">${icon('info', 14)}<span>${t("Conseil : préviens une personne de confiance du lieu et de l'heure.")}</span></p>`;
 }
 
 // ============================================================
@@ -998,14 +1085,14 @@ function stepError(step) {
   const f = S.form;
   const age = Number(f.age);
   if (step === 0) {
-    if (!f.name.trim()) return 'Indique ton prénom.';
-    if (!String(f.age).trim()) return 'Indique ton âge.';
-    if (!Number.isInteger(age) || age > 99) return 'Indique ton âge en chiffres, entre 18 et 99.';
-    if (age < 18) return `${APP} est réservé aux 18 ans et plus.`;
-    if (!f.gender) return 'Indique si tu es une femme ou un homme.';
+    if (!f.name.trim()) return t('Indique ton prénom.');
+    if (!String(f.age).trim()) return t('Indique ton âge.');
+    if (!Number.isInteger(age) || age > 99) return t('Indique ton âge en chiffres, entre 18 et 99.');
+    if (age < 18) return t('{app} est réservé aux 18 ans et plus.', { app: APP });
+    if (!f.gender) return t('Indique si tu es une femme ou un homme.');
   }
-  if (step === 1 && !f.intent) return 'Choisis ce que tu cherches.';
-  if (step === 2 && f.promptA.trim().length < 3) return 'Réponds à la question sur toi.';
+  if (step === 1 && !f.intent) return t('Choisis ce que tu cherches.');
+  if (step === 2 && f.promptA.trim().length < 3) return t('Réponds à la question sur toi.');
   return null;
 }
 
@@ -1026,7 +1113,7 @@ async function saveProfile() {
     }
   }
   const f = S.form;
-  tg.setButtons({ main: { text: 'Enregistrement', progress: true } });
+  tg.setButtons({ main: { text: t('Enregistrement'), progress: true } });
   try {
     const { photos, ...fields } = f;
     await api('/me/profile', { method: 'PUT', body: { ...fields, age: Number(f.age) } });
@@ -1043,19 +1130,19 @@ async function saveProfile() {
     S.photoUrls = {};
     tg.haptic('success');
     if (S.me.verification === 'approved') {
-      toast('Profil mis à jour', 'ok');
+      toast(t('Profil mis à jour'), 'ok');
       go('me');
     } else {
       go('verify');
     }
   } catch (e) {
     showError(e);
-    tg.setButtons({ main: { text: 'Enregistrer', onClick: saveProfile } });
+    tg.setButtons({ main: { text: t('Enregistrer'), onClick: saveProfile } });
   }
 }
 
 async function sendSelfie() {
-  tg.setButtons({ main: { text: 'Envoi du selfie', progress: true } });
+  tg.setButtons({ main: { text: t('Envoi du selfie'), progress: true } });
   try {
     await api('/me/verification', { method: 'POST', body: { selfie: S.selfie } });
     S.selfie = null;
@@ -1066,7 +1153,7 @@ async function sendSelfie() {
     go('pending');
   } catch (e) {
     showError(e);
-    tg.setButtons({ main: { text: 'Envoyer pour vérification', onClick: sendSelfie } });
+    tg.setButtons({ main: { text: t('Envoyer pour vérification'), onClick: sendSelfie } });
   }
 }
 
@@ -1078,7 +1165,7 @@ async function refreshStatus() {
       tg.haptic('success');
       go('discover');
     } else if (me.verification === 'rejected') {
-      toast('Vérification refusée : réessaie avec le visage bien visible.', 'warn');
+      toast(t('Vérification refusée : réessaie avec le visage bien visible.'), 'warn');
       go('verify');
     }
   } catch { /* on réessaiera au prochain passage */ }
@@ -1127,15 +1214,15 @@ function chatBody(c) {
       <div class="head">
         <span class="tile ${d.arrivedMe ? 'tile-ok' : ''}">${icon(d.arrivedMe ? 'check' : 'coffee', 20)}</span>
         <div class="body"><div class="v">${esc(d.venue?.name)}</div><div class="w">${esc(d.venue?.area)} · ${esc(d.slot)}</div></div>
-        <span class="chip ${d.arrivedMe ? 'chip-ok' : 'chip-accent'}">${d.arrivedMe ? 'Arrivée confirmée' : 'Proposé'}</span>
+        <span class="chip ${d.arrivedMe ? 'chip-ok' : 'chip-accent'}">${d.arrivedMe ? t('Arrivée confirmée') : t('Proposé')}</span>
       </div>
-      ${d.arrivedOther ? `<p class="fine">${icon('check', 14)}<span>L'autre personne est arrivée.</span></p>` : ''}
-      ${d.arrivedMe ? '' : `<button type="button" class="btn btn-primary btn-sm" data-action="checkin" data-id="${d.id}">${icon('qr', 16)} Je suis arrivé(e) : scanner le code</button>`}
+      ${d.arrivedOther ? `<p class="fine">${icon('check', 14)}<span>${t("L'autre personne est arrivée.")}</span></p>` : ''}
+      ${d.arrivedMe ? '' : `<button type="button" class="btn btn-primary btn-sm" data-action="checkin" data-id="${d.id}">${icon('qr', 16)} ${t('Je suis arrivé(e) : scanner le code')}</button>`}
     </div>`).join('');
 
   let msgs = '';
   if (!c.messages.length) {
-    msgs = `<p class="system">Commence par une question sur son profil. Ton pseudo et ton numéro Telegram restent masqués.</p>`;
+    msgs = `<p class="system">${t('Commence par une question sur son profil. Ton pseudo et ton numéro Telegram restent masqués.')}</p>`;
   } else {
     let prev = null;
     msgs = c.messages.map((m) => {
@@ -1151,7 +1238,7 @@ function chatBody(c) {
   const n = Math.min(c.messages.length, c.unlockAfter);
   const unlock = n >= c.unlockAfter ? '' : `
     <div class="unlock">
-      <div class="head"><span>Liens et numéros débloqués à ${c.unlockAfter} messages</span><strong>${n}/${c.unlockAfter}</strong></div>
+      <div class="head"><span>${t('Liens et numéros débloqués à {n} messages', { n: c.unlockAfter })}</span><strong>${n}/${c.unlockAfter}</strong></div>
       <div class="track"><div class="fill" style="width:${Math.round((100 * n) / c.unlockAfter)}%"></div></div>
     </div>`;
   return `${dateCards}<div class="spacer"></div>${unlock}${msgs}`;
@@ -1164,20 +1251,20 @@ function renderChat() {
   render(`
     <div class="chat">
       <div class="chat-head">
-        <button type="button" class="head-profil" data-action="person" data-id="${esc(c.other.id)}" aria-label="Voir le profil de ${esc(c.other.name)}">
+        <button type="button" class="head-profil" data-action="person" data-id="${esc(c.other.id)}" aria-label="${t('Voir le profil de {nom}', { nom: esc(c.other.name) })}">
           ${avatar(c.other, 'sm')}
           <div class="body">
             <div class="name">${esc(c.other.name)}, ${esc(c.other.age)}${c.other.verified ? `<span class="ok">${icon('shield', 15)}</span>` : ''}</div>
-            <div class="sub">${ACTIVITY_LABELS[c.other.activity] ? activityChip(c.other, 'act') : `${icon('lock', 12)} Pseudos et numéros masqués`}</div>
+            <div class="sub">${ACTIVITY_LABELS()[c.other.activity] ? activityChip(c.other, 'act') : `${icon('lock', 12)} ${t('Pseudos et numéros masqués')}`}</div>
           </div>
         </button>
-        <button type="button" class="icon-btn" data-action="report-chat" aria-label="Signaler">${icon('flag', 18)}</button>
+        <button type="button" class="icon-btn" data-action="report-chat" aria-label="${t('Se protéger')}">${icon('flag', 18)}</button>
       </div>
       <div class="messages" id="messages">${chatBody(c)}</div>
       <div id="chat-notice" class="chat-notice"></div>
       <form class="composer" data-action="send">
-        <input name="message" autocomplete="off" maxlength="1000" placeholder="Écris ton message" aria-label="Message" enterkeyhint="send">
-        <button type="submit" class="send" aria-label="Envoyer" disabled>${icon('send', 20)}</button>
+        <input name="message" autocomplete="off" maxlength="1000" placeholder="${t('Écris ton message')}" aria-label="${t('Message')}" enterkeyhint="send">
+        <button type="submit" class="send" aria-label="${t('Envoyer')}" disabled>${icon('send', 20)}</button>
       </form>
     </div>
   `);
@@ -1225,7 +1312,7 @@ async function sendMessage(input) {
     updateChat({ scroll: true });
   } catch (e) {
     tg.haptic(e.code === 'MONEY_BLOCKED' ? 'warning' : 'error');
-    S.chat.notice = e.code === 'MONEY_BLOCKED' ? `${e.message} Reformule sans montant ni moyen de paiement.` : e.message;
+    S.chat.notice = e.code === 'MONEY_BLOCKED' ? `${e.message} ${t('Reformule sans montant ni moyen de paiement.')}` : e.message;
     updateChat({ scroll: true });
   } finally {
     button.disabled = !input.value.trim();
@@ -1235,23 +1322,23 @@ async function sendMessage(input) {
 
 async function sendDate() {
   const d = S.dateDraft;
-  if (!d.venueId || !d.slot) return showError(new Error('Choisis un lieu et un horaire.'));
-  tg.setButtons({ main: { text: 'Envoi', progress: true } });
+  if (!d.venueId || !d.slot) return showError(new Error(t('Choisis un lieu et un horaire.')));
+  tg.setButtons({ main: { text: t('Envoi'), progress: true } });
   try {
     await api(`/matches/${S.chat.id}/dates`, { method: 'POST', body: d });
     S.dateDraft = { venueId: null, slot: null };
     tg.closingConfirmation(false);
     tg.haptic('success');
-    await tg.alert(`Proposition envoyée à ${S.chat.other.name}. Le jour J, scanne le code posé sur ta table pour confirmer ton arrivée.`);
+    await tg.alert(t('Proposition envoyée à {nom}. Le jour J, scanne le code posé sur ta table pour confirmer ton arrivée.', { nom: S.chat.other.name }));
     go('chat', { id: S.chat.id });
   } catch (e) {
     showError(e);
-    tg.setButtons({ main: { text: 'Envoyer la proposition', onClick: sendDate } });
+    tg.setButtons({ main: { text: t('Envoyer la proposition'), onClick: sendDate } });
   }
 }
 
 async function checkin(dateId) {
-  const code = await tg.scanQr('Scanne le code posé sur ta table');
+  const code = await tg.scanQr(t('Scanne le code posé sur ta table'));
   if (!code) return;
   try {
     const r = await api(`/dates/${dateId}/checkin`, { method: 'POST', body: { code } });
@@ -1281,7 +1368,7 @@ async function signaler(motif) {
   if (!id) return;
   try {
     await api('/reports', { method: 'POST', body: { targetId: id, reason: motif, matchId } });
-    apresProtection('Signalement envoyé. Ce profil ne peut plus te contacter.');
+    apresProtection(t('Signalement envoyé. Ce profil ne peut plus te contacter.'));
   } catch (e) { showError(e); }
 }
 
@@ -1290,7 +1377,7 @@ async function bloquer() {
   if (!id) return;
   try {
     await api('/blocks', { method: 'POST', body: { targetId: id } });
-    apresProtection('Bloqué. Cette personne ne peut plus te contacter.');
+    apresProtection(t('Bloqué. Cette personne ne peut plus te contacter.'));
   } catch (e) { showError(e); }
 }
 
@@ -1298,14 +1385,14 @@ async function retirerMatch() {
   const { matchId } = S.protection || {};
   if (!matchId) return;
   const reponse = await tg.popup({
-    title: 'Retirer ce match',
-    message: "La discussion disparaît des deux côtés, sans que la personne soit prévenue. C'est définitif.",
-    buttons: [{ id: 'ok', type: 'destructive', text: 'Retirer' }, { id: 'cancel', type: 'cancel' }],
+    title: t('Retirer ce match'),
+    message: t("La discussion disparaît des deux côtés, sans que la personne soit prévenue. C'est définitif."),
+    buttons: [{ id: 'ok', type: 'destructive', text: t('Retirer') }, { id: 'cancel', type: 'cancel' }],
   });
   if (reponse !== 'ok') return;
   try {
     await api(`/matches/${matchId}`, { method: 'DELETE' });
-    apresProtection('Match retiré.');
+    apresProtection(t('Match retiré.'));
   } catch (e) { showError(e); }
 }
 
@@ -1351,6 +1438,7 @@ app.addEventListener('click', async (e) => {
     case 'filters': go('filters'); break;
     case 'edit-step': S.form = null; S.formStep = Number(el.dataset.step); go('profile'); break;
     case 'photo-nav': photoNav(el, e); break;
+    case 'set-langue': await changerLangue(el.dataset.langue); break;
     case 'zone-mode':
       S.zoneDraft = { ...(S.zoneDraft || zoneDe()), city: el.dataset.mode === 'pays' ? null : (S.zoneDraft?.city || S.me.profile.city || '') };
       SCREENS.filters();
@@ -1379,7 +1467,7 @@ app.addEventListener('click', async (e) => {
       break;
     case 'invite': {
       const url = S.me.botUsername ? `https://t.me/${S.me.botUsername}` : location.origin;
-      tg.share(url, `Je t'invite sur ${APP} : des rencontres avec des profils vérifiés, sans arnaques.`);
+      tg.share(url, t("Je t'invite sur {app} : des rencontres avec des profils vérifiés, sans arnaques.", { app: APP }));
       break;
     }
     case 'home': tg.addToHome(); break;
@@ -1392,11 +1480,11 @@ app.addEventListener('click', async (e) => {
       break;
     }
     case 'delete': {
-      const ok = await tg.confirm('Supprimer définitivement ton compte, ton profil, tes matchs et tes messages ?');
+      const ok = await tg.confirm(t('Supprimer définitivement ton compte, ton profil, tes matchs et tes messages ?'));
       if (!ok) return;
       try {
         await api('/me', { method: 'DELETE' });
-        await tg.alert('Ton compte et tes données ont été supprimés.');
+        await tg.alert(t('Ton compte et tes données ont été supprimés.'));
         tg.close();
         S.me = await api('/me');
         go('welcome');
@@ -1440,7 +1528,7 @@ app.addEventListener('change', async (e) => {
   } else if (t.name === 'dataSaver') {
     S.dataSaver = t.checked;
     await tg.cloudSet('data_saver', t.checked ? '1' : '0');
-    toast(t.checked ? 'Économie de data activée' : 'Économie de data désactivée', 'ok');
+    toast(e.target.checked ? t('Économie de data activée') : t('Économie de data désactivée'), 'ok');
   }
 });
 
@@ -1468,6 +1556,8 @@ window.addEventListener('pagehide', leavePresence);
 // ============================================================
 async function boot() {
   tg.init();
+  // La langue de Telegram permet déjà de traduire l'écran d'erreur si /api/me échoue
+  await chargerLangue(langueVoulue());
   buildTabs();
   try {
     S.me = await api('/me');
@@ -1479,12 +1569,14 @@ async function boot() {
       return render(`
         <div class="empty">
           <span class="glyph">${icon('lock', 34)}</span>
-          <h2>Ouvre ${esc(APP)} depuis Telegram</h2>
-          <p class="small">Cherche le bot ${esc(APP)} dans Telegram, envoie /start, puis appuie sur « Ouvrir ${esc(APP)} ».</p>
+          <h2>${t('Ouvre {app} depuis Telegram', { app: esc(APP) })}</h2>
+          <p class="small">${t('Cherche le bot {app} dans Telegram, envoie /start, puis appuie sur « Ouvrir {app} ».', { app: esc(APP) })}</p>
         </div>`);
     }
     return renderError(e, boot);
   }
+  // Le compte porte peut-être un choix de langue explicite, qui l'emporte sur celle de Telegram
+  if (langueVoulue() !== langue()) { await chargerLangue(langueVoulue()); buildTabs(); }
   S.dataSaver = (await tg.cloudGet('data_saver')) === '1';
   S.discoverMode = (await tg.cloudGet('discover_mode')) === 'list' ? 'list' : 'cards';
   tg.onSettings(() => go('me'));
