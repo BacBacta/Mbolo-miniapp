@@ -26,9 +26,9 @@ Des rencontres entre personnes réelles et vérifiées, dans des lieux publics, 
 - **Bot :** grammY (interrogation longue en local, webhook en production).
 - **Interface :** HTML, CSS et JavaScript sans framework ni étape de build, SDK officiel `telegram-web-app.js`.
 - **Stockage :** PostgreSQL si `DATABASE_URL` est défini (`server/store.pg.js`, migrations SQL versionnées), sinon fichier JSON avec écriture atomique (`server/store.json.js`). `server/store.js` choisit ; les deux offrent la même interface, asynchrone.
-- **Tests :** `node --test test/*.test.js` (lancé par `npm test`). La même suite tourne sur PostgreSQL avec `npm run test:pg` (un schéma par fichier de test) ; les deux passent en CI.
+- **Tests :** `node --test test/*.test.js` (lancé par `npm test`). La même suite tourne sur PostgreSQL avec `npm run test:pg` (un schéma par fichier de test). Le parcours dans un navigateur est couvert par Playwright (`npm run e2e`, dossier `e2e/`). Les trois passent en CI.
 - **Nom de l'app :** variable `APP_NAME` (par défaut `Mbolo`), injectée dans `index.html` par le serveur.
-- **Dépendances :** `express`, `grammy`, `qrcode`, `dotenv`, `pg`. N'en ajoute pas sans justification.
+- **Dépendances :** `express`, `grammy`, `qrcode`, `dotenv`, `pg`. En développement seulement : `@playwright/test`, **épinglé** — sa version décide de la version de Chromium téléchargée. N'en ajoute pas sans justification.
 
 ## 3. Organisation du code
 
@@ -63,6 +63,9 @@ test/
   activity, antiscam, assets, auth, compression, filters, geographie, langues,
   limites, moderation, notifications, pages-publiques, photos, production, profiles,
   rendezvous, securite, stockage, webhook (134 tests, tous rejoués sur PostgreSQL par npm run test:pg)
+e2e/
+  aides.js       Gestes partagés : ouvrir, créer un profil, se faire vérifier
+  inscription, discussion, pages-publiques (13 tests Playwright, npm run e2e)
 scripts/
   import-json.js Reprise d'un db.json existant vers PostgreSQL
   test-pg.js     La suite complète sur PostgreSQL, un schéma par fichier de test
@@ -143,7 +146,8 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 - Aucune analytique produit : aucun entonnoir, aucune cohorte, aucune courbe de rétention n'est calculable. Voir `audit/05-mesure-produit.md`.
 - `SEED_DEMO=true` reste possible en production : c'est un choix assumé pour une machine de démonstration, pas un garde-fou. De vraies personnes y écriraient à des profils fictifs. `AUTO_APPROVE`, lui, n'a plus d'effet en production, et le serveur refuse de démarrer sans `ADMIN_CHAT_ID` (`test/production.test.js`).
 - Le **verre** (flou d'arrière-plan) a un repli opaque quand le navigateur ne sait pas flouter ou quand la personne demande moins de transparence (`--glass-blur` et ses trois jetons de fond, dans `styles.css`). Un téléphone qui sait flouter mais le rend lentement garde le flou : aucune règle CSS ne distingue ce cas, seul un vrai Android d'entrée de gamme le dira.
-- Les tests de bout en bout dans un navigateur ont été faits manuellement avec Playwright, ils ne sont pas dans le dépôt.
+- Les tests de bout en bout couvrent le parcours principal, pas chaque cas limite : ils sont lents (deux minutes et demie) et ne tournent que sur Chromium, à la taille d'un téléphone. Les règles fines restent la charge des tests unitaires.
+- Un test de bout en bout qui attend passivement ne prouve rien : le rafraîchissement de la discussion ne touche au DOM que lorsqu'un message arrive. Celui de la règle 16 fait donc arriver un vrai message pendant la frappe — sans cela il passait même avec l'écran refait à chaque cycle.
 
 ## 8. Feuille de route
 
@@ -156,7 +160,7 @@ L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 4. ~~**Accepter ou refuser un rendez-vous**~~ : fait, `PUT /api/dates/:id` avec les quatre statuts, notification à chaque changement, check-in réservé aux rendez-vous acceptés, un seul rendez-vous vivant par discussion, et l'identifiant Telegram de qui propose ne sort plus du serveur (`test/rendezvous.test.js`).
 5. ~~**Défaire un match**~~ : fait, `DELETE /api/matches/:id`, sans notification, avec blocage sans accusation et six motifs de signalement.
 6. **Version web et paiement par mobile money** : voir la section 10, cahier des charges complet.
-7. **Tests de bout en bout** Playwright dans le dépôt (mode développement), lancés en CI.
+7. ~~**Tests de bout en bout**~~ : fait. `e2e/` contient treize tests Playwright (Chromium, taille d'un téléphone) qui refont le parcours complet en mode développement ; `npm run e2e` en local, travail « Parcours navigateur » en CI, traces et captures conservées en cas d'échec.
 8. ~~**Pages publiques**~~ : fait. `/confidentialite` et `/conditions` sont servies depuis `server/legal/` sans compte, hors de Telegram et sans JavaScript, avec le nom de l'app injecté ; l'onglet Profil y renvoie par `tg.openLink()`. Reste à faire, côté propriétaire : les renseigner dans BotFather et les faire relire par un juriste.
 9. **Déploiement** : Dockerfile, volume persistant, contrôle `/health`, guide pas à pas pour un hébergeur.
 10. ~~**Traiter les vulnérabilités `npm audit`**~~ : fait, `qs` est forcé en 6.16.0 par un `overrides` dans `package.json`, sans changement majeur d'`express`. `npm audit` ne signale plus rien.

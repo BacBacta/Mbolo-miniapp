@@ -67,3 +67,40 @@ jobs:
         run: npm run test:pg
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/mbolo_test
+
+  # Le parcours dans un vrai navigateur : ce que `npm test` ne peut pas dire — qu'un écran
+  # s'affiche, qu'un bouton existe, que le clavier ne se ferme pas quand un message arrive.
+  # Lent, donc peu de cas : les chemins qui coûteraient cher à casser, pas chaque cas limite.
+  e2e:
+    name: Parcours navigateur
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      # Seul Chromium : la cible est un Android d'entrée de gamme, et chaque navigateur en plus
+      # coûte une minute d'installation à chaque exécution.
+      - name: Installer Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Lancer les tests de bout en bout
+        run: npm run e2e
+
+      # Les traces et captures ne sont produites qu'en cas d'échec : elles disent ce que la
+      # personne voyait au moment où ça a cassé, ce qu'un journal ne montre jamais.
+      - name: Conserver le rapport en cas d'échec
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-playwright
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
