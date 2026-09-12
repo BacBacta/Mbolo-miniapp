@@ -357,6 +357,43 @@ npm test
 
 Vérifie la validation de la signature Telegram (données modifiées, expirées, mauvais jeton), le filtre anti-arnaque et les notifications (avec un faux Telegram : match, message, présence, non lus, likes, réponses de démo).
 
+La même suite tourne aussi sur PostgreSQL, avec une base à part et un schéma par fichier de test :
+
+```powershell
+$env:DATABASE_URL="postgres://postgres:postgres@localhost:5432/mbolo_test"
+npm run test:pg
+```
+
+Les deux modes de stockage sont lancés à chaque pull request par GitHub Actions.
+
+---
+
+## Stockage : fichier JSON ou PostgreSQL
+
+L'application écrit dans l'un des deux, selon `DATABASE_URL` :
+
+| `DATABASE_URL` | Stockage | Pour quoi |
+|---|---|---|
+| vide | `DATA_DIR/db.json`, écriture atomique | développer, et une bêta sur une seule machine |
+| renseignée | PostgreSQL, migrations au démarrage | production : plusieurs instances, sauvegardes, transactions |
+
+Le reste du serveur ne sait pas lequel des deux il utilise : `server/store.js` choisit, `server/store.json.js` et `server/store.pg.js` offrent la même interface. Le message de démarrage dit lequel est actif.
+
+Les migrations vivent dans `server/db/migrations/`, en SQL, appliquées une seule fois chacune et dans l'ordre de leur nom, chacune dans sa transaction, notées dans la table `schema_migrations`. Deux instances qui démarrent ensemble ne s'entre-appliquent pas : un verrou consultatif PostgreSQL entoure le tout. Pour ajouter une migration, dépose un fichier `002-....sql` à côté du premier ; ne modifie jamais un fichier déjà appliqué.
+
+`DATABASE_SCHEMA` permet de loger plusieurs installations dans une même base (un schéma par environnement). Vide, c'est `public`.
+
+### Reprendre un `db.json` existant
+
+```powershell
+$env:DATABASE_URL="postgres://..."
+node "scripts/import-json.js" "data/db.json"
+```
+
+Le script applique d'abord les migrations, puis recopie comptes, balayages, matchs, messages, blocages, signalements et rendez-vous. Il refuse de partir si la base porte déjà des comptes — relance avec `--force` pour compléter un import interrompu : chaque ligne est écrite sans écraser ce qui existe, donc une reprise ne crée pas de doublon.
+
+Les photos et les selfies ne passent pas par la base : ce sont des fichiers de `DATA_DIR/uploads`, à copier tels quels vers le volume de la nouvelle machine.
+
 ---
 
 ## Mettre en ligne (bêta fermée)
@@ -379,7 +416,7 @@ ALLOW_DEV_AUTH=false
 
 Avec `USE_WEBHOOK=true`, Telegram envoie les messages du bot directement à ton serveur au lieu que le bot aille les chercher.
 
-**Important sur le stockage** : les données sont dans `data/db.json` et les photos dans `data/uploads/` (ou dans le dossier indiqué par `DATA_DIR`). Si ton hébergeur efface le disque à chaque redéploiement, tu perds tout. Monte un volume persistant sur `data/`, fais des sauvegardes, et passe à PostgreSQL avant de dépasser quelques centaines d'utilisateurs.
+**Important sur le stockage** : sans `DATABASE_URL`, les données sont dans `data/db.json` et les photos dans `data/uploads/` (ou dans le dossier indiqué par `DATA_DIR`). Si ton hébergeur efface le disque à chaque redéploiement, tu perds tout. Monte un volume persistant sur `data/`. Avec `DATABASE_URL`, les données vont dans PostgreSQL et seules les photos restent sur le disque : c'est le mode à retenir en production, et il est obligatoire avant tout paiement. Voir la section « Stockage : fichier JSON ou PostgreSQL ».
 
 ---
 
@@ -391,7 +428,7 @@ Ce prototype sert à une **bêta fermée**. Avant un lancement public :
 - [ ] Conditions d'utilisation et politique de confidentialité publiées, et renseignées dans BotFather.
 - [ ] `SEED_DEMO=false` et `AUTO_APPROVE=false`.
 - [ ] Une équipe de modération disponible chaque jour (selfies et signalements).
-- [ ] PostgreSQL à la place du fichier JSON, sauvegardes automatiques.
+- [ ] `DATABASE_URL` renseignée (PostgreSQL à la place du fichier JSON) et sauvegardes automatiques en place.
 - [ ] Limitation du nombre de requêtes (anti-spam) et journalisation des signalements.
 - [ ] Vérifier où sont hébergées les données (transferts hors du Cameroun encadrés par la loi).
 - [ ] Faire relire le fonctionnement par un juriste.
@@ -413,7 +450,10 @@ mbolo-miniapp/
 │   ├── routes.js     API : profil, vérification, découverte, matchs, messages, rendez-vous
 │   ├── bot.js        Bot : /start, modération, notifications avec bouton vers le bon écran
 │   ├── antiscam.js   Filtre des demandes d'argent et partages de contact
-│   ├── store.js      Stockage JSON (à remplacer par PostgreSQL)
+│   ├── store.js      Choix du stockage selon DATABASE_URL
+│   ├── store.json.js Stockage dans un fichier JSON (défaut, une seule instance)
+│   ├── store.pg.js   Stockage PostgreSQL (production), même interface
+│   ├── db/           Lanceur de migrations et migrations SQL
 │   ├── geo.js        Pays, villes connues, normalisation des villes, fuseau → pays
 │   ├── i18n.js       Langue de chaque personne, messages du bot traduits
 │   └── seed.js       Profils de démonstration
@@ -429,6 +469,7 @@ mbolo-miniapp/
 ├── deployer-fly.sh   Déploiement sur Fly : app, volume, secrets, contrôle /health
 ├── fly.toml          Service Fly : port, volume de données, contrôle /health
 ├── render.yaml       Le même service décrit pour Render
+├── scripts/          Import de db.json vers PostgreSQL, suite de tests sur PostgreSQL
 ├── test/             Tests automatiques
 └── data/             Base et photos (créé automatiquement, ignoré par Git)
 ```

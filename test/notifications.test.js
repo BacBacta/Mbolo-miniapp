@@ -36,12 +36,23 @@ const call = async (user, p, method = 'GET', body) => {
 };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const to = (id) => sent.filter((m) => m.chatId === id);
+// Les notifications partent sans retenir la réponse HTTP : prévenir Telegram ne doit pas faire
+// attendre celui qui a cliqué. Un test qui regarde la boîte juste après l'appel peut donc la
+// trouver vide ; on attend la notification qu'on cherche, avec un délai de garde.
+async function attendue(id, motif) {
+  for (let i = 0; i < 200; i += 1) {
+    const dernier = to(id).at(-1);
+    if (dernier && motif.test(dernier.text)) return dernier;
+    await wait(5);
+  }
+  return to(id).at(-1) || { text: '(aucune notification)', url: '' };
+}
 
 async function makeUser(id, name, gender) {
   await call(id, '/me');
   const r = await call(id, '/me/profile', 'PUT', { name, age: 25, gender, intent: 'amitie', city: 'Douala', promptA: 'Le poisson braisé' });
   assert.equal(r.status, 200);
-  store.updateUser(id, { verification: 'approved' });
+  await store.updateUser(id, { verification: 'approved' });
 }
 
 test.after(() => server.close());
@@ -51,18 +62,21 @@ test('like, match, messages et présence', async () => {
   await makeUser('5002', 'Paul', 'homme');
 
   await call('5001', '/swipes', 'POST', { targetId: '5002', action: 'like' });
-  assert.match(to('5002').at(-1).text, /Tu as plu à quelqu'un/);
+  assert.match((await attendue('5002', /Tu as plu à quelqu'un/)).text, /Tu as plu à quelqu'un/);
 
   const m = await call('5002', '/swipes', 'POST', { targetId: '5001', action: 'like' });
   assert.ok(m.body.match);
-  assert.match(to('5001').at(-1).text, /Nouveau match/);
-  assert.match(to('5001').at(-1).url, /screen=chat&match=/);
+  const annonce = await attendue('5001', /Nouveau match/);
+  assert.match(annonce.text, /Nouveau match/);
+  assert.match(annonce.url, /screen=chat&match=/);
   const matchId = m.body.match.id;
 
   // Paul lit la discussion : pas de notification
   await call('5002', `/matches/${matchId}`);
   const before = to('5002').length;
   await call('5001', `/matches/${matchId}/messages`, 'POST', { text: 'Salut Paul' });
+  // Ici on attend l'absence de notification : il faut laisser passer le temps qu'elle mettrait.
+  await wait(100);
   assert.equal(to('5002').length, before, 'pas de notification pendant la lecture');
 
   let sum = await call('5002', '/summary');
@@ -71,7 +85,7 @@ test('like, match, messages et présence', async () => {
   // Paul ferme l'app : notification immédiate
   await call('5002', '/presence/leave', 'POST');
   await call('5001', `/matches/${matchId}/messages`, 'POST', { text: 'Tu es là ?' });
-  assert.match(to('5002').at(-1).text, /Aline t'a écrit : « Tu es là \? »/);
+  assert.match((await attendue('5002', /Tu es là/)).text, /Aline t'a écrit : « Tu es là \? »/);
 
   sum = await call('5002', '/summary');
   assert.equal(sum.body.unread, 2);
@@ -84,7 +98,7 @@ test('like, match, messages et présence', async () => {
 test('profil de démo : like pendant l\'absence puis réponse notifiée', async () => {
   await call('6001', '/me');
   await call('6001', '/me/profile', 'PUT', { name: 'Awa', age: 24, gender: 'femme', intent: 'amitie', city: 'Yaoundé', promptA: 'Le marché le samedi' });
-  store.updateUser('6001', { verification: 'pending' });
+  await store.updateUser('6001', { verification: 'pending' });
   await decideVerification('6001', true);
   await wait(500);
   assert.ok(to('6001').some((x) => /Tu as plu à quelqu'un/.test(x.text)), 'alerte de like de démo');
@@ -109,7 +123,7 @@ test('bouton de test des notifications', async () => {
 test('le profil de démo ne répond pas à chaque message envoyé rapidement', async () => {
   await call('7001', '/me');
   await call('7001', '/me/profile', 'PUT', { name: 'Eve', age: 22, gender: 'femme', intent: 'duo', city: 'Yaoundé', promptA: 'Karaoké le vendredi' });
-  store.updateUser('7001', { verification: 'approved' });
+  await store.updateUser('7001', { verification: 'approved' });
   const d = await call('7001', '/discover');
   const m = await call('7001', '/swipes', 'POST', { targetId: d.body.profiles[0].id, action: 'like' });
   for (let i = 0; i < 6; i++) await call('7001', `/matches/${m.body.match.id}/messages`, 'POST', { text: `Message ${i}` });

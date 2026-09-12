@@ -12,9 +12,24 @@ import { notify, notifyAdmin, sendSelfieToModeration, sendPhotoToModeration, dec
 import { DEMO_REPLIES } from './seed.js';
 
 export const api = express.Router();
+
+// Express 4 n'attend pas les promesses que rendent les gestionnaires. Depuis que le stockage est
+// asynchrone, une requête qui échoue en base laisserait la promesse rejetée sans personne pour
+// l'attraper : la requête resterait suspendue jusqu'au délai du client, au lieu de renvoyer une
+// erreur. On enveloppe donc chaque gestionnaire une fois pour toutes, à l'enregistrement.
+// Les gestionnaires d'erreur d'Express prennent quatre arguments : ils ne sont pas enveloppés.
+for (const verbe of ['get', 'post', 'put', 'delete', 'patch', 'use', 'all']) {
+  const original = api[verbe].bind(api);
+  api[verbe] = (...args) => original(...args.map((a) => (
+    typeof a === 'function' && a.length < 4
+      ? (req, res, next) => Promise.resolve(a(req, res, next)).catch(next)
+      : a
+  )));
+}
+
 api.use(requireAuth);
 // Chaque appel authentifié vaut signe de vie : l'app interroge /summary toutes les 20 s tant qu'elle est ouverte
-api.use((req, res, next) => { store.touchActivity(req.user.id); next(); });
+api.use(async (req, res, next) => { await store.touchActivity(req.user.id); next(); });
 
 // L'interface traduit les erreurs par leur code ; certaines phrases ont besoin d'une valeur
 // (le nombre de messages, le nom du lieu). extra les transporte, sans jamais traduire côté serveur.
@@ -33,7 +48,7 @@ export function activityBucket(lastActiveAt, now = Date.now()) {
 }
 
 // Profil visible par les autres : aucune donnée Telegram (pseudo, numéro) n'est exposée
-function publicProfile(user) {
+async function publicProfile(user) {
   const p = user.profile || {};
   return {
     id: user.id,
@@ -48,8 +63,8 @@ function publicProfile(user) {
     promptA: p.promptA,
     languages: p.languages || '',
     // Seules les photos validées par la modération sont montrées aux autres
-    photos: store.photosOf(user).filter((x) => x.status === 'approved').map((x) => x.n),
-    hasPhoto: store.photosOf(user).some((x) => x.status === 'approved'),
+    photos: (await store.photosOf(user)).filter((x) => x.status === 'approved').map((x) => x.n),
+    hasPhoto: (await store.photosOf(user)).some((x) => x.status === 'approved'),
     verified: user.verification === 'approved',
     trust: p.trust || { selfie: user.verification === 'approved', guarantor: false, seniority: Date.now() - user.createdAt > 90 * 864e5 },
     demo: !!user.demo,
@@ -74,7 +89,7 @@ const isApproved = (u) => u.verification === 'approved' && u.profile;
 const requireApproved = (req, res, next) => (isApproved(req.user) ? next() : fail(res, 403, 'NOT_VERIFIED', 'Vérifie ton profil pour accéder à cette fonction.'));
 
 // ---------- Moi ----------
-api.get('/me', (req, res) => {
+api.get('/me', async (req, res) => {
   const u = req.user;
   res.json({
     id: u.id,
@@ -84,8 +99,8 @@ api.get('/me', (req, res) => {
     pendingGesture: u.pendingGesture || null,
     botUsername: runtime.botUsername,
     appName: config.appName,
-    publicProfile: u.profile ? publicProfile(u) : null,
-    photos: store.photosOf(u),
+    publicProfile: u.profile ? await publicProfile(u) : null,
+    photos: await store.photosOf(u),
     filters: filtersOf(u),
     notificationsAvailable: !!config.botToken,
     // Les noms de pays ne transitent pas : le navigateur les affiche dans la langue de la
@@ -121,8 +136,12 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
   if (!checkMessage(profileText, 0, 1).ok) return fail(res, 400, 'PROFILE_CONTACT', "Ton profil ne doit contenir ni numéro, ni lien, ni pseudo, ni demande d'argent.");
 
   // Ancien champ « photo » : il alimente l'emplacement 1, avec la même modération
-  if (b.photo && !(await acceptPhoto(req.user, 1, b.photo))) return fail(res, 400, 'PHOTO_INVALID', 'Photo trop lourde ou format non pris en charge.');
-  const hasPhoto = store.photosOf(req.user).some((x) => x.status === 'approved');
+  let photos = null;
+  if (b.photo) {
+    photos = await acceptPhoto(req.user, 1, b.photo);
+    if (!photos) return fail(res, 400, 'PHOTO_INVALID', 'Photo trop lourde ou format non pris en charge.');
+  }
+  const hasPhoto = (photos || await store.photosOf(req.user)).some((x) => x.status === 'approved');
   const profile = {
     name, age, gender: b.gender, intent: b.intent, country, city,
     // Clé de comparaison, jamais affichée : c'est elle qui réunit « Yaoundé » et « Yaounde »
@@ -133,17 +152,17 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
     languages: String(b.languages || '').trim().slice(0, 60),
     hasPhoto,
   };
-  store.updateUser(req.user.id, { profile });
+  await store.updateUser(req.user.id, { profile });
   res.json({ profile });
 });
 
-api.post('/me/verification/start', limiter('verification'), (req, res) => {
+api.post('/me/verification/start', limiter('verification'), async (req, res) => {
   if (!req.user.profile) return fail(res, 400, 'PROFILE_REQUIRED', "Crée ton profil avant la vérification.");
   // Un compte déjà vérifié ne repasse pas par là : sinon une simple modification de profil
   // suffisait à perdre son badge, et un compte validé pouvait se rétrograder tout seul.
   if (req.user.verification === 'approved') return fail(res, 409, 'ALREADY_VERIFIED', 'Ton profil est déjà vérifié.');
   const gesture = GESTURES[Math.floor(Math.random() * GESTURES.length)];
-  store.updateUser(req.user.id, { pendingGesture: gesture, pendingGestureAt: Date.now() });
+  await store.updateUser(req.user.id, { pendingGesture: gesture, pendingGestureAt: Date.now() });
   res.json({ gesture });
 });
 
@@ -154,11 +173,11 @@ api.post('/me/verification', limiter('verification'), async (req, res) => {
   // Le geste est à usage unique et périme : sans cela, on pouvait tirer des gestes jusqu'à
   // tomber sur celui d'une photo déjà prise, ou réutiliser un selfie ancien.
   if (Date.now() - (u.pendingGestureAt || 0) > GESTURE_TTL_MS) {
-    store.updateUser(u.id, { pendingGesture: null, pendingGestureAt: null });
+    await store.updateUser(u.id, { pendingGesture: null, pendingGestureAt: null });
     return fail(res, 400, 'GESTURE_EXPIRED', 'Ce geste a expiré. Demandes-en un nouveau et reprends le selfie.');
   }
   if (!saveJpeg(req.body?.selfie, path.join(config.uploadsDir, `${u.id}-selfie.jpg`))) return fail(res, 400, 'SELFIE_INVALID', 'Selfie illisible ou trop lourd. Réessaie.');
-  store.updateUser(u.id, { verification: 'pending', pendingGestureAt: null, verificationSentAt: Date.now() });
+  await store.updateUser(u.id, { verification: 'pending', pendingGestureAt: null, verificationSentAt: Date.now() });
 
   const sent = await sendSelfieToModeration(u.id).catch((e) => { console.warn('Envoi en modération impossible :', e.message); return false; });
   if (config.autoApprove) {
@@ -173,10 +192,10 @@ api.post('/me/verification', limiter('verification'), async (req, res) => {
 // Langue choisie explicitement. Gardée sur le compte pour que le bot écrive dans la même langue
 // que l'interface, même quand l'app est fermée. Deux lettres, rien de plus : ce n'est pas une
 // donnée personnelle nouvelle au sens du profil, c'est un réglage d'affichage.
-api.put('/me/lang', (req, res) => {
+api.put('/me/lang', async (req, res) => {
   const lang = String(req.body?.lang || '').slice(0, 5).toLowerCase();
   if (!LANGUES.includes(lang)) return fail(res, 400, 'LANG_INVALID', 'Langue non prise en charge.');
-  store.updateUser(req.user.id, { lang });
+  await store.updateUser(req.user.id, { lang });
   res.json({ lang });
 });
 
@@ -191,22 +210,25 @@ api.post('/me/test-notification', async (req, res) => {
   res.json({ sent: r.sent, message: r.sent ? `Message envoyé : ferme ${config.appName} et regarde ta conversation avec le bot.` : messages[r.reason] });
 });
 
-api.delete('/me', (req, res) => {
-  store.deleteUser(req.user.id);
+api.delete('/me', async (req, res) => {
+  await store.deleteUser(req.user.id);
   res.json({ deleted: true });
 });
 
 // ---------- Photos : jusqu'à trois, chacune modérée avant d'être montrée ----------
 const PHOTO_SLOTS = [1, 2, 3];
+// Renvoie la liste des photos après l'ajout, ou null si l'image est refusée. La liste vient du
+// stockage et non de req.user : cette copie de la personne date du début de la requête, et
+// l'enregistrement qu'on vient de faire ne s'y trouve pas.
 async function acceptPhoto(user, n, dataUrl) {
-  if (!saveJpeg(dataUrl, path.join(config.uploadsDir, `${user.id}-photo-${n}.jpg`))) return false;
+  if (!saveJpeg(dataUrl, path.join(config.uploadsDir, `${user.id}-photo-${n}.jpg`))) return null;
   // Tests uniquement : validation automatique. En production : AUTO_APPROVE=false et ADMIN_CHAT_ID configuré.
-  store.setPhoto(user.id, n, config.autoApprove ? 'approved' : 'pending');
+  const photos = await store.setPhoto(user.id, n, config.autoApprove ? 'approved' : 'pending');
   if (!config.autoApprove) {
     const sent = await sendPhotoToModeration(user.id, n).catch((e) => { console.warn('Envoi en modération impossible :', e.message); return false; });
     if (!sent) console.warn(`Photo ${n} de ${user.id} en attente : configure BOT_TOKEN et ADMIN_CHAT_ID pour la recevoir en modération.`);
   }
-  return true;
+  return photos;
 }
 const slotOf = (req) => (PHOTO_SLOTS.includes(Number(req.params.n)) ? Number(req.params.n) : null);
 
@@ -214,15 +236,15 @@ api.put('/me/photos/:n', limiter('photo'), async (req, res) => {
   const n = slotOf(req);
   if (!n) return fail(res, 400, 'PHOTO_SLOT', 'Trois photos au plus.');
   if (!req.user.profile) return fail(res, 400, 'PROFILE_REQUIRED', 'Crée ton profil avant d\'ajouter des photos.');
-  if (!(await acceptPhoto(req.user, n, req.body?.photo))) return fail(res, 400, 'PHOTO_INVALID', 'Photo trop lourde ou format non pris en charge.');
-  res.json({ photos: store.photosOf(req.user) });
+  const photos = await acceptPhoto(req.user, n, req.body?.photo);
+  if (!photos) return fail(res, 400, 'PHOTO_INVALID', 'Photo trop lourde ou format non pris en charge.');
+  res.json({ photos });
 });
 
-api.delete('/me/photos/:n', (req, res) => {
+api.delete('/me/photos/:n', async (req, res) => {
   const n = slotOf(req);
   if (!n) return fail(res, 400, 'PHOTO_SLOT', 'Trois photos au plus.');
-  store.removePhoto(req.user.id, n);
-  res.json({ photos: store.photosOf(req.user) });
+  res.json({ photos: await store.removePhoto(req.user.id, n) });
 });
 
 // ---------- Filtres : ce que je veux voir ----------
@@ -247,7 +269,7 @@ function dansLaZone(me, other) {
   return (b.cityKey || cleVille(b.city)) === cleVille(zone.city);
 }
 
-api.put('/me/filters', (req, res) => {
+api.put('/me/filters', async (req, res) => {
   const ageMin = Number(req.body?.ageMin), ageMax = Number(req.body?.ageMax);
   const ok = (n) => Number.isInteger(n) && n >= 18 && n <= 99;
   if (!ok(ageMin) || !ok(ageMax)) return fail(res, 400, 'FILTERS_INVALID', 'Indique des âges entre 18 et 99 ans.');
@@ -265,27 +287,27 @@ api.put('/me/filters', (req, res) => {
   }
 
   const filters = { ageMin, ageMax, zone };
-  store.updateUser(req.user.id, { filters });
+  await store.updateUser(req.user.id, { filters });
   res.json({ filters });
 });
 
 // ---------- Photos (servies uniquement aux membres vérifiés) ----------
 // Une photo n'est servie aux autres qu'une fois validée ; on voit les siennes quel que soit leur état
-function servePhoto(req, res, n) {
-  const target = store.getUser(req.params.userId);
-  if (!target || store.isBlocked(req.user.id, target.id)) return fail(res, 404, 'NO_PHOTO', 'Pas de photo.');
+async function servePhoto(req, res, n) {
+  const target = await store.getUser(req.params.userId);
+  if (!target || await store.isBlocked(req.user.id, target.id)) return fail(res, 404, 'NO_PHOTO', 'Pas de photo.');
   const own = target.id === req.user.id;
-  const photo = store.photosOf(target).find((x) => x.n === n && (own || x.status === 'approved'));
+  const photo = (await store.photosOf(target)).find((x) => x.n === n && (own || x.status === 'approved'));
   const file = path.join(config.uploadsDir, `${target.id}-photo-${n}.jpg`);
   if (!photo || !fs.existsSync(file)) return fail(res, 404, 'NO_PHOTO', 'Pas de photo.');
   res.set('Cache-Control', 'private, max-age=3600').sendFile(file);
 }
-api.get('/photos/:userId/:n', requireApproved, (req, res) => servePhoto(req, res, Number(req.params.n)));
+api.get('/photos/:userId/:n', requireApproved, async (req, res) => await servePhoto(req, res, Number(req.params.n)));
 // Sans numéro : la première photo validée (adresse historique)
-api.get('/photos/:userId', requireApproved, (req, res) => {
-  const target = store.getUser(req.params.userId);
-  const first = target && store.photosOf(target).find((x) => x.status === 'approved');
-  servePhoto(req, res, first ? first.n : 1);
+api.get('/photos/:userId', requireApproved, async (req, res) => {
+  const target = await store.getUser(req.params.userId);
+  const first = target && (await store.photosOf(target)).find((x) => x.status === 'approved');
+  await servePhoto(req, res, first ? first.n : 1);
 });
 
 // ---------- Découverte ----------
@@ -301,97 +323,136 @@ function compatible(me, other) {
 }
 
 // Même quartier que moi ? Le quartier déclaré tient lieu de proximité, sans jamais demander la position
-const sameArea = (me, p) => Number(!!me.profile.area && p.area === me.profile.area);
+// Le tri se fait désormais sur la personne brute, pas sur son profil public : on lit donc u.profile.
+const sameArea = (me, u) => Number(!!me.profile.area && u.profile.area === me.profile.area);
 
 // Un écran vide ne dit rien s'il ne dit pas pourquoi. Trois situations très différentes se
 // ressemblaient : personne d'autre n'est vérifié dans ta ville, tu as déjà tout vu, ou ton quota
 // du jour est épuisé. On renvoie donc de quoi les distinguer et proposer le bon geste.
-function vivier(me) {
-  const compatibles = store.allUsers().filter((u) => u.id !== me.id && isApproved(u) && !store.isBlocked(me.id, u.id) && compatible(me, u) && dansLaZone(me, u));
+// Les relations d'une personne, chargées une fois par requête. La découverte doit savoir, pour
+// chaque candidat, s'il est bloqué, si je l'ai déjà balayé et s'il m'a liké : poser ces questions
+// une par une faisait un aller-retour vers la base par profil. On les charge en trois requêtes,
+// et tous les filtres redeviennent locaux et synchrones.
+async function relations(me) {
+  const [bloques, envoyes, recus, matchs] = await Promise.all([
+    store.blocksOf(me.id), store.swipesFrom(me.id), store.swipesTo(me.id), store.matchesOf(me.id),
+  ]);
   return {
-    total: compatibles.length,
-    horsTranche: compatibles.filter((u) => !inAgeRange(me, u)).length,
-    vus: compatibles.filter((u) => inAgeRange(me, u) && store.hasSwiped(me.id, u.id)).length,
+    bloque: new Set(bloques),
+    monSwipe: new Map(envoyes.map((s) => [s.to, s])),
+    maLike: new Map(recus.filter((x) => x.action === 'like').map((x) => [x.from, x])),
+    match: new Map(matchs.map((m) => [m.users.find((x) => x !== me.id), m])),
   };
 }
 
-api.get('/discover', requireApproved, (req, res) => {
+// Joignable : vérifié, pas moi, pas bloqué, même intention. Ce socle vaut pour tout le monde.
+const joignable = (me, rel, u) => u.id !== me.id && isApproved(u) && !rel.bloque.has(u.id) && compatible(me, u);
+// Candidat : joignable et dans la zone que je cherche. La zone filtre ce que JE vais voir ;
+// un like reçu, lui, m'est adressé et la traverse (voir likersOf).
+const candidat = (me, rel, u) => joignable(me, rel, u) && dansLaZone(me, u);
+
+// Un écran vide ne dit rien s'il ne dit pas pourquoi. Trois situations très différentes se
+// ressemblaient : personne d'autre n'est vérifié dans ta ville, tu as déjà tout vu, ou ton quota
+// du jour est épuisé. On renvoie donc de quoi les distinguer et proposer le bon geste.
+function vivier(me, rel, tous) {
+  const compatibles = tous.filter((u) => candidat(me, rel, u));
+  return {
+    total: compatibles.length,
+    horsTranche: compatibles.filter((u) => !inAgeRange(me, u)).length,
+    vus: compatibles.filter((u) => inAgeRange(me, u) && rel.monSwipe.has(u.id)).length,
+  };
+}
+
+api.get('/discover', requireApproved, async (req, res) => {
   const me = req.user;
-  const remaining = Math.max(0, config.dailyProfiles - store.swipesToday(me.id));
-  if (!remaining) return res.json({ profiles: [], remaining: 0, vivier: vivier(me) });
-  const profiles = store.allUsers()
-    .filter((u) => u.id !== me.id && isApproved(u) && !store.hasSwiped(me.id, u.id) && !store.isBlocked(me.id, u.id) && compatible(me, u) && dansLaZone(me, u) && inAgeRange(me, u))
-    // Avant le match, on ne dit que « cette semaine » ou rien : la tranche fine est réservée aux matchs
-    .map((u) => { const p = publicProfile(u); return { ...p, activity: p.activity ? 'week' : null, likedYou: store.likedBy(u.id, me.id) }; })
+  const remaining = Math.max(0, config.dailyProfiles - await store.swipesToday(me.id));
+  const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
+  if (!remaining) return res.json({ profiles: [], remaining: 0, vivier: vivier(me, rel, tous) });
+  // Le tri passe avant la mise en forme : publicProfile n'est appelé que sur les dix cartes
+  // envoyées, au lieu de l'être sur tout le vivier pour en jeter la plus grande part.
+  const retenus = tous
+    .filter((u) => candidat(me, rel, u) && !rel.monSwipe.has(u.id) && inAgeRange(me, u))
     // Ceux qui t'ont liké, puis ton quartier
-    .sort((a, b) => Number(b.likedYou) - Number(a.likedYou) || sameArea(me, b) - sameArea(me, a))
+    .sort((a, b) => Number(rel.maLike.has(b.id)) - Number(rel.maLike.has(a.id)) || sameArea(me, b) - sameArea(me, a))
     .slice(0, Math.min(10, remaining));
-  res.json({ profiles, remaining, vivier: vivier(me) });
+  const profiles = await Promise.all(retenus.map(async (u) => {
+    const p = await publicProfile(u);
+    // Avant le match, on ne dit que « cette semaine » ou rien : la tranche fine est réservée aux matchs
+    return { ...p, activity: p.activity ? 'week' : null, likedYou: rel.maLike.has(u.id) };
+  }));
+  res.json({ profiles, remaining, vivier: vivier(me, rel, tous) });
 });
 
 // Liste des profils compatibles, balayés ou non : la vue d'ensemble que les cartes n'offrent pas.
 // Parcourir ne consomme rien ; seul un « J'aime » compte dans le quota du jour (route /swipes).
 const ACTIVITY_RANK = { recent: 3, today: 2, week: 1 };
 const listRank = (p) => (p.status === 'match' ? 0 : p.status ? 1 : p.likedYou ? 3 : 2);
-api.get('/profiles', requireApproved, (req, res) => {
+api.get('/profiles', requireApproved, async (req, res) => {
   const me = req.user;
-  const profiles = store.allUsers()
-    .filter((u) => u.id !== me.id && isApproved(u) && !store.isBlocked(me.id, u.id) && compatible(me, u) && dansLaZone(me, u) && inAgeRange(me, u))
-    .map((u) => {
-      const p = publicProfile(u);
-      const swipe = store.swipeOf(me.id, u.id);
-      const match = store.matchBetween(me.id, u.id);
-      return {
-        ...p,
-        // Même règle qu'en découverte : la tranche fine d'activité est réservée aux matchs
-        activity: match ? p.activity : (p.activity ? 'week' : null),
-        likedYou: store.likedBy(u.id, me.id),
-        status: match ? 'match' : swipe ? (swipe.action === 'like' ? 'liked' : 'passed') : null,
-        matchId: match?.id || null,
-        since: u.createdAt,
-      };
-    })
+  const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
+  // Le rang et l'activité se calculent sur la personne brute et ses relations : le tri n'a pas
+  // besoin de publicProfile, qui n'est donc appelé que sur les cinquante lignes renvoyées.
+  const rang = (u) => {
+    const m = rel.match.get(u.id);
+    const swipe = rel.monSwipe.get(u.id);
+    const status = m ? 'match' : swipe ? (swipe.action === 'like' ? 'liked' : 'passed') : null;
+    const brute = activityBucket(u.lastActiveAt);
+    return { m, swipe, status, activity: m ? brute : (brute ? 'week' : null), likedYou: rel.maLike.has(u.id) };
+  };
+  const retenus = tous
+    .filter((u) => candidat(me, rel, u) && inAgeRange(me, u))
+    .map((u) => ({ u, ...rang(u) }))
     // Ceux qui attendent ta réponse d'abord, puis ceux que tu n'as pas encore vus, puis les balayés,
     // et les matchs en dernier : ils sont déjà dans Messages. À égalité : ton quartier, les plus actifs, les plus récents.
-    .sort((a, b) => listRank(b) - listRank(a) || sameArea(me, b) - sameArea(me, a) || (ACTIVITY_RANK[b.activity] || 0) - (ACTIVITY_RANK[a.activity] || 0) || b.since - a.since)
-    .slice(0, 50)
-    .map(({ since, ...p }) => p);
+    .sort((a, b) => listRank(b) - listRank(a) || sameArea(me, b.u) - sameArea(me, a.u)
+      || (ACTIVITY_RANK[b.activity] || 0) - (ACTIVITY_RANK[a.activity] || 0) || b.u.createdAt - a.u.createdAt)
+    .slice(0, 50);
+  const profiles = await Promise.all(retenus.map(async ({ u, m, status, activity, likedYou }) => ({
+    ...(await publicProfile(u)),
+    activity,
+    likedYou,
+    status,
+    matchId: m?.id || null,
+  })));
   res.json({ profiles });
 });
 
 // Ceux qui ont aimé mon profil et attendent ma réponse. Un like est un signal qui m'est adressé :
-// il ignore ma tranche d'âge, sinon « tu as plu à quelqu'un » mènerait parfois à un écran vide.
-const likersOf = (me) => store.allUsers()
-  .filter((u) => u.id !== me.id && isApproved(u) && !store.isBlocked(me.id, u.id) && compatible(me, u) && store.likedBy(u.id, me.id) && !store.hasSwiped(me.id, u.id))
-  .sort((a, b) => store.swipeOf(b.id, me.id).at - store.swipeOf(a.id, me.id).at);
+// il ignore ma tranche d'âge et ma zone de recherche, sinon « tu as plu à quelqu'un » mènerait
+// parfois à un écran vide.
+const likersOf = (me, rel, tous) => tous
+  .filter((u) => joignable(me, rel, u) && rel.maLike.has(u.id) && !rel.monSwipe.has(u.id))
+  .sort((a, b) => rel.maLike.get(b.id).at - rel.maLike.get(a.id).at);
 
-api.get('/likes', requireApproved, (req, res) => {
-  const profiles = likersOf(req.user).slice(0, 20).map((u) => {
-    const p = publicProfile(u);
+api.get('/likes', requireApproved, async (req, res) => {
+  const me = req.user;
+  const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
+  const profiles = await Promise.all(likersOf(me, rel, tous).slice(0, 20).map(async (u) => {
+    const p = await publicProfile(u);
     return { ...p, activity: p.activity ? 'week' : null, likedYou: true, status: null, matchId: null };
-  });
+  }));
   res.json({ profiles });
 });
 
 api.post('/swipes', requireApproved, limiter('swipe'), async (req, res) => {
   const me = req.user;
   const { targetId, action } = req.body || {};
-  const target = store.getUser(targetId);
+  const target = await store.getUser(targetId);
   if (!target || !['like', 'pass'].includes(action) || target.id === me.id) return fail(res, 400, 'SWIPE_INVALID', 'Action impossible.');
-  if (store.swipesToday(me.id) >= config.dailyProfiles) return fail(res, 429, 'DAILY_LIMIT', "Tu as vu tous tes profils du jour. Reviens demain.");
-  const previous = store.swipeOf(me.id, target.id);
-  if (!previous) store.addSwipe(me.id, target.id, action);
+  if (await store.swipesToday(me.id) >= config.dailyProfiles) return fail(res, 429, 'DAILY_LIMIT', "Tu as vu tous tes profils du jour. Reviens demain.");
+  const previous = await store.swipeOf(me.id, target.id);
+  if (!previous) await store.addSwipe(me.id, target.id, action);
   // Rattrapage depuis la liste : un « Passer » peut devenir un « J'aime ». L'inverse, non : un like
   // a pu prévenir la personne, on ne le retire pas en silence.
-  else if (previous.action === 'pass' && action === 'like') store.updateSwipe(me.id, target.id, 'like');
+  else if (previous.action === 'pass' && action === 'like') await store.updateSwipe(me.id, target.id, 'like');
 
   if (action === 'like') {
     // Les profils de démonstration « likent » en retour pour pouvoir tester seul
-    if (target.demo && target.demoLikeBack !== false && !store.hasSwiped(target.id, me.id)) store.addSwipe(target.id, me.id, 'like');
-    if (store.likedBy(target.id, me.id)) {
-      const match = store.createMatch(me.id, target.id);
+    if (target.demo && target.demoLikeBack !== false && !await store.hasSwiped(target.id, me.id)) await store.addSwipe(target.id, me.id, 'like');
+    if (await store.likedBy(target.id, me.id)) {
+      const match = await store.createMatch(me.id, target.id);
       notify(target.id, 'Nouveau match : {nom} et toi, vous vous plaisez.', { nom: me.profile.name }, { label: 'Écrire', params: { screen: 'chat', match: match.id } });
-      return res.json({ match: { id: match.id, other: publicProfile(target) } });
+      return res.json({ match: { id: match.id, other: await publicProfile(target) } });
     }
     // Like non réciproque : on prévient la personne sans révéler qui (au plus une fois par jour)
     // Écran Messages, pas Découvrir : qui t'a liké apparaît dans /likes, qui ignore le filtre d'âge,
@@ -404,33 +465,35 @@ api.post('/swipes', requireApproved, limiter('swipe'), async (req, res) => {
 // ---------- Matchs et messages ----------
 // Réponses de démo déjà programmées, pour ne pas répondre à chaque message envoyé rapidement
 const demoPending = new Map();
-function loadMatch(req, res) {
-  const m = store.getMatch(req.params.id);
+async function loadMatch(req, res) {
+  const m = await store.getMatch(req.params.id);
   if (!m || !m.users.includes(req.user.id)) { fail(res, 404, 'MATCH_NOT_FOUND', 'Discussion introuvable.'); return null; }
   const otherId = m.users.find((x) => x !== req.user.id);
-  if (store.isBlocked(req.user.id, otherId)) { fail(res, 403, 'BLOCKED', 'Cette discussion est fermée.'); return null; }
-  return { m, other: store.getUser(otherId) };
+  if (await store.isBlocked(req.user.id, otherId)) { fail(res, 403, 'BLOCKED', 'Cette discussion est fermée.'); return null; }
+  return { m, other: await store.getUser(otherId) };
 }
 
-api.get('/matches', requireApproved, (req, res) => {
-  const list = store.matchesOf(req.user.id)
-    .map((m) => {
-      const other = store.getUser(m.users.find((x) => x !== req.user.id));
-      if (!other || store.isBlocked(req.user.id, other.id)) return null;
-      const msgs = store.messagesOf(m.id);
-      const dernier = msgs.at(-1) || null;
-      return {
-        id: m.id,
-        other: publicProfile(other),
-        lastMessage: dernier,
-        createdAt: m.createdAt,
-        unread: store.unreadCount(m.id, req.user.id),
-        isNew: !store.hasOpened(m.id, req.user.id),
-        // « moi » : c'est à moi de répondre, ou de commencer. « autre » : la balle est dans son camp.
-        aQuiDeParler: !dernier ? 'moi' : dernier.from === req.user.id ? 'autre' : 'moi',
-      };
-    })
-    .filter(Boolean)
+api.get('/matches', requireApproved, async (req, res) => {
+  const me = req.user;
+  const bloques = new Set(await store.blocksOf(me.id));
+  const lignes = await Promise.all((await store.matchesOf(me.id)).map(async (m) => {
+    const otherId = m.users.find((x) => x !== me.id);
+    if (bloques.has(otherId)) return null;
+    const other = await store.getUser(otherId);
+    if (!other) return null;
+    const dernier = (await store.messagesOf(m.id)).at(-1) || null;
+    return {
+      id: m.id,
+      other: await publicProfile(other),
+      lastMessage: dernier,
+      createdAt: m.createdAt,
+      unread: await store.unreadCount(m.id, me.id),
+      isNew: !(await store.hasOpened(m.id, me.id)),
+      // « moi » : c'est à moi de répondre, ou de commencer. « autre » : la balle est dans son camp.
+      aQuiDeParler: !dernier ? 'moi' : dernier.from === me.id ? 'autre' : 'moi',
+    };
+  }));
+  const list = lignes.filter(Boolean)
     .sort((a, b) => (b.lastMessage?.at || b.createdAt) - (a.lastMessage?.at || a.createdAt));
   res.json({ matches: list });
 });
@@ -442,33 +505,35 @@ api.post('/presence/leave', (req, res) => {
 });
 
 // Compteurs pour les onglets (messages non lus, nouveaux matchs)
-api.get('/summary', requireApproved, (req, res) => {
+api.get('/summary', requireApproved, async (req, res) => {
+  const me = req.user;
+  const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
   let unread = 0, newMatches = 0;
-  for (const m of store.matchesOf(req.user.id)) {
-    const otherId = m.users.find((x) => x !== req.user.id);
-    if (store.isBlocked(req.user.id, otherId)) continue;
-    unread += store.unreadCount(m.id, req.user.id);
-    if (!store.hasOpened(m.id, req.user.id)) newMatches += 1;
+  for (const m of rel.match.values()) {
+    const otherId = m.users.find((x) => x !== me.id);
+    if (rel.bloque.has(otherId)) continue;
+    unread += await store.unreadCount(m.id, me.id);
+    if (!(await store.hasOpened(m.id, me.id))) newMatches += 1;
   }
-  res.json({ unread, newMatches, likes: likersOf(req.user).length });
+  res.json({ unread, newMatches, likes: likersOf(me, rel, tous).length });
 });
 
-api.get('/matches/:id', requireApproved, (req, res) => {
-  const r = loadMatch(req, res);
+api.get('/matches/:id', requireApproved, async (req, res) => {
+  const r = await loadMatch(req, res);
   if (!r) return;
   store.touchPresence(req.user.id, r.m.id);
-  store.markRead(r.m.id, req.user.id);
+  await store.markRead(r.m.id, req.user.id);
   const after = Number(req.query.after || 0);
   // Premier chargement : tout. Interrogations suivantes : seulement les nouveaux messages.
   // Renvoyer le profil complet de l'autre personne toutes les quatre secondes coûtait environ
   // 700 Ko par heure de discussion ouverte, sans qu'aucun message n'arrive.
   const premierAppel = !req.query.suivi;
-  const messages = store.messagesOf(r.m.id).filter((x) => x.at > after).map((x) => ({ ...x, mine: x.from === req.user.id }));
+  const messages = (await store.messagesOf(r.m.id)).filter((x) => x.at > after).map((x) => ({ ...x, mine: x.from === req.user.id }));
   // L'heure d'arrivée de l'autre personne n'est jamais renvoyée : savoir qu'elle est sur place
   // depuis douze minutes est une information de filature, pas une information de rendez-vous.
   // proposedBy est l'identifiant Telegram de l'autre personne : il ne sort pas non plus, seul
   // compte de savoir si la proposition vient de soi, pour afficher « accepter » ou « annuler ».
-  const dates = store.datesOfMatch(r.m.id).map(({ arrivals, proposedBy, ...d }) => ({
+  const dates = (await store.datesOfMatch(r.m.id)).map(({ arrivals, proposedBy, ...d }) => ({
     ...d,
     venue: venues.find((v) => v.id === d.venueId),
     proposedByMe: proposedBy === req.user.id,
@@ -476,7 +541,7 @@ api.get('/matches/:id', requireApproved, (req, res) => {
     arrivedOther: Object.keys(arrivals).some((id) => id !== req.user.id),
   }));
   const reponse = { id: r.m.id, messages };
-  if (premierAppel) Object.assign(reponse, { other: publicProfile(r.other), dates, unlockAfter: config.contactUnlockAfter });
+  if (premierAppel) Object.assign(reponse, { other: await publicProfile(r.other), dates, unlockAfter: config.contactUnlockAfter });
   // Un rendez-vous peut naître ou changer entre deux interrogations : on renvoie les rendez-vous
   // aussi quand l'un d'eux a bougé depuis le dernier appel.
   else if (dates.some((d) => (d.updatedAt || d.createdAt || 0) > after)) reponse.dates = dates;
@@ -484,13 +549,13 @@ api.get('/matches/:id', requireApproved, (req, res) => {
 });
 
 api.post('/matches/:id/messages', requireApproved, limiter('message'), async (req, res) => {
-  const r = loadMatch(req, res);
+  const r = await loadMatch(req, res);
   if (!r) return;
   const text = String(req.body?.text || '').trim().slice(0, 1000);
   if (!text) return fail(res, 400, 'EMPTY', "Écris un message avant d'envoyer.");
   // Le seuil compte l'échange, pas le total : en comptant tous les messages, il suffisait d'en
   // envoyer dix tout seul pour s'autoriser à donner son numéro.
-  const messages = store.messagesOf(r.m.id);
+  const messages = await store.messagesOf(r.m.id);
   const echange = Math.min(
     messages.filter((x) => x.from === req.user.id).length,
     messages.filter((x) => x.from === r.other.id).length,
@@ -506,19 +571,19 @@ api.post('/matches/:id/messages', requireApproved, limiter('message'), async (re
     return fail(res, 422, check.code, check.message, { categorie: check.categorie, unlockAfter: config.contactUnlockAfter });
   }
 
-  const msg = store.addMessage(r.m.id, req.user.id, text);
+  const msg = await store.addMessage(r.m.id, req.user.id, text);
   if (!store.isViewing(r.other.id, r.m.id)) {
     notify(r.other.id, "{nom} t'a écrit : « {extrait} »", { nom: req.user.profile.name, extrait: `${text.slice(0, 60)}${text.length > 60 ? '…' : ''}` }, { label: 'Répondre', params: { screen: 'chat', match: r.m.id } }, `msg:${r.m.id}`);
   }
 
   // Profil de démo : répond après un délai (le temps de fermer l'app pour tester la notification)
-  const demoReplies = store.messagesOf(r.m.id).filter((x) => x.from === r.other.id).length + (demoPending.get(r.m.id) || 0);
+  const demoReplies = (await store.messagesOf(r.m.id)).filter((x) => x.from === r.other.id).length + (demoPending.get(r.m.id) || 0);
   if (r.other.demo && demoReplies < DEMO_REPLIES.length) {
     const me = req.user;
     demoPending.set(r.m.id, (demoPending.get(r.m.id) || 0) + 1);
-    setTimeout(() => {
+    setTimeout(async () => {
       demoPending.set(r.m.id, demoPending.get(r.m.id) - 1);
-      const reply = store.addMessage(r.m.id, r.other.id, DEMO_REPLIES[demoReplies]);
+      const reply = await store.addMessage(r.m.id, r.other.id, DEMO_REPLIES[demoReplies]);
       if (!store.isViewing(me.id, r.m.id)) {
         notify(me.id, "{nom} t'a écrit : « {extrait} »", { nom: r.other.profile.name, extrait: `${reply.text.slice(0, 60)}${reply.text.length > 60 ? '…' : ''}` }, { label: 'Répondre', params: { screen: 'chat', match: r.m.id } }, `msg:${r.m.id}`);
       }
@@ -530,25 +595,28 @@ api.post('/matches/:id/messages', requireApproved, limiter('message'), async (re
 // ---------- Démo : quelqu'un te « like » pendant ton absence ----------
 onApproved((userId) => {
   if (!config.seedDemo) return;
-  setTimeout(() => {
-    const me = store.getUser(userId);
+  setTimeout(async () => {
+    const me = await store.getUser(userId);
     if (!me?.profile) return;
-    const demo = store.allUsers().find((u) => u.demo && compatible(me, u) && dansLaZone(me, u) && !store.hasSwiped(u.id, me.id) && !store.hasSwiped(me.id, u.id));
+    // Les balayages déjà échangés se chargent en deux requêtes : le choix du profil reste local.
+    const [tous, envoyes, recus] = await Promise.all([store.allUsers(), store.swipesFrom(me.id), store.swipesTo(me.id)]);
+    const dejaTranche = new Set([...envoyes.map((s) => s.to), ...recus.map((s) => s.from)]);
+    const demo = tous.find((u) => u.demo && compatible(me, u) && dansLaZone(me, u) && !dejaTranche.has(u.id));
     if (!demo) return;
-    store.addSwipe(demo.id, me.id, 'like');
+    await store.addSwipe(demo.id, me.id, 'like');
     notify(me.id, "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.", { ville: me.profile.city, app: config.appName }, { label: 'Découvrir', params: { screen: 'matches' } }, 'likes', 24 * 3600 * 1000);
   }, config.demoLikeDelayMs);
 });
 
 // ---------- Rendez-vous ----------
-api.get('/venues', requireApproved, (req, res) => {
+api.get('/venues', requireApproved, async (req, res) => {
   const villes = new Set([cleVille(req.user.profile.city)]);
   // Les deux personnes d'une discussion peuvent être dans deux villes du même pays : on propose
   // les lieux des deux, chacun portant sa ville, pour qu'on sache où l'on va.
   if (req.query.match) {
-    const m = store.getMatch(String(req.query.match));
+    const m = await store.getMatch(String(req.query.match));
     const autreId = m?.users.includes(req.user.id) ? m.users.find((x) => x !== req.user.id) : null;
-    const autre = autreId && store.getUser(autreId);
+    const autre = autreId && await store.getUser(autreId);
     if (autre?.profile?.city) villes.add(cleVille(autre.profile.city));
   }
   const pays = req.user.profile.country || config.defaultCountry;
@@ -558,8 +626,8 @@ api.get('/venues', requireApproved, (req, res) => {
   res.json({ venues: liste, partenairesDansLePays: venues.some((v) => v.country === pays) });
 });
 
-api.post('/matches/:id/dates', requireApproved, limiter('rendezvous'), (req, res) => {
-  const r = loadMatch(req, res);
+api.post('/matches/:id/dates', requireApproved, limiter('rendezvous'), async (req, res) => {
+  const r = await loadMatch(req, res);
   if (!r) return;
   const venue = venues.find((v) => v.id === req.body?.venueId && v.country === (req.user.profile.country || config.defaultCountry));
   const slot = String(req.body?.slot || '').slice(0, 40);
@@ -570,10 +638,10 @@ api.post('/matches/:id/dates', requireApproved, limiter('rendezvous'), (req, res
   if (!controleSlot.ok) return fail(res, 422, controleSlot.code, controleSlot.message, { categorie: controleSlot.categorie, unlockAfter: config.contactUnlockAfter });
   // Un seul rendez-vous vivant par discussion : sans cette règle, « accepté » ne désigne plus rien,
   // et le check-in ne saurait pas de quel rendez-vous il parle.
-  if (store.datesOfMatch(r.m.id).some((x) => VIVANTS.includes(x.status))) {
+  if ((await store.datesOfMatch(r.m.id)).some((x) => VIVANTS.includes(x.status))) {
     return fail(res, 409, 'DATE_EN_COURS', 'Un rendez-vous est déjà en cours. Annule-le avant d\'en proposer un autre.');
   }
-  const d = store.addDate({ matchId: r.m.id, proposedBy: req.user.id, venueId: venue.id, slot, status: 'proposed' });
+  const d = await store.addDate({ matchId: r.m.id, proposedBy: req.user.id, venueId: venue.id, slot, status: 'proposed' });
   notify(r.other.id, '{nom} te propose un rendez-vous : {lieu} ({quartier}), {creneau}.', { nom: req.user.profile.name, lieu: venue.name, quartier: venue.area, creneau: slot }, { label: 'Voir la proposition', params: { screen: 'chat', match: r.m.id } });
   res.json({ date: { ...d, venue: { ...venue, code: undefined } } });
 });
@@ -593,12 +661,12 @@ const CHANGEMENTS = {
   cancelled: { nom: 'annulé', message: '{nom} a annulé le rendez-vous de {lieu}, {creneau}.' },
 };
 
-api.put('/dates/:id', requireApproved, limiter('rendezvous'), (req, res) => {
-  const d = store.getDate(req.params.id);
-  const m = d && store.getMatch(d.matchId);
+api.put('/dates/:id', requireApproved, limiter('rendezvous'), async (req, res) => {
+  const d = await store.getDate(req.params.id);
+  const m = d && await store.getMatch(d.matchId);
   if (!d || !m || !m.users.includes(req.user.id)) return fail(res, 404, 'DATE_NOT_FOUND', 'Rendez-vous introuvable.');
   const autreId = m.users.find((x) => x !== req.user.id);
-  if (store.isBlocked(req.user.id, autreId)) return fail(res, 403, 'BLOCKED', 'Ce rendez-vous est annulé.');
+  if (await store.isBlocked(req.user.id, autreId)) return fail(res, 403, 'BLOCKED', 'Ce rendez-vous est annulé.');
 
   const statut = String(req.body?.status || '');
   const changement = CHANGEMENTS[statut];
@@ -616,58 +684,58 @@ api.put('/dates/:id', requireApproved, limiter('rendezvous'), (req, res) => {
     return fail(res, 403, 'DATE_NOT_YOURS', 'Tu peux refuser cette proposition, pas l\'annuler.');
   }
 
-  const maj = store.updateDate(d.id, { status: statut, [`${statut}At`]: Date.now() });
+  const maj = await store.updateDate(d.id, { status: statut, [`${statut}At`]: Date.now() });
   const venue = venues.find((v) => v.id === d.venueId);
   notify(autreId, changement.message, { nom: req.user.profile.name, lieu: venue?.name || '', creneau: d.slot },
     { label: 'Ouvrir la discussion', params: { screen: 'chat', match: m.id } });
   res.json({ date: { ...maj, arrivals: undefined, proposedBy: undefined, proposedByMe: jePropose, venue: venue && { ...venue, code: undefined } } });
 });
 
-api.post('/dates/:id/checkin', requireApproved, (req, res) => {
-  const d = store.getDate(req.params.id);
-  const m = d && store.getMatch(d.matchId);
+api.post('/dates/:id/checkin', requireApproved, async (req, res) => {
+  const d = await store.getDate(req.params.id);
+  const m = d && await store.getMatch(d.matchId);
   if (!d || !m || !m.users.includes(req.user.id)) return fail(res, 404, 'DATE_NOT_FOUND', 'Rendez-vous introuvable.');
   // Un blocage ferme la discussion : il doit aussi fermer le rendez-vous. Sans ce contrôle,
   // quelqu'un de bloqué déclenchait encore une notification d'arrivée chez la personne protégée.
   const autreId = m.users.find((x) => x !== req.user.id);
-  if (store.isBlocked(req.user.id, autreId)) return fail(res, 403, 'BLOCKED', 'Ce rendez-vous est annulé.');
+  if (await store.isBlocked(req.user.id, autreId)) return fail(res, 403, 'BLOCKED', 'Ce rendez-vous est annulé.');
   // Le contrôle du blocage passe avant celui du statut : se protéger prime sur tout le reste.
   if (d.status !== 'accepted') return fail(res, 409, 'DATE_NOT_ACCEPTED', 'Ce rendez-vous doit d\'abord être accepté par les deux personnes.');
   const venue = venues.find((v) => v.id === d.venueId);
   if (String(req.body?.code || '').trim() !== venue.code) return fail(res, 400, 'WRONG_VENUE', `Ce code ne correspond pas à ${venue.name}. Scanne le code posé sur ta table.`, { venue: venue.name });
-  store.updateDate(d.id, { arrivals: { ...d.arrivals, [req.user.id]: Date.now() } });
+  await store.updateDate(d.id, { arrivals: { ...d.arrivals, [req.user.id]: Date.now() } });
   notify(autreId, '{nom} est bien arrivé(e) à {lieu}.', { nom: req.user.profile.name, lieu: venue.name }, { label: 'Ouvrir la discussion', params: { screen: 'chat', match: m.id } });
   res.json({ arrived: true, venue: { name: venue.name, perk: venue.perk } });
 });
 
 // Défaire un match. Sans notification, volontairement : prévenir quelqu'un qu'on le retire
 // expose la personne qui part. La discussion disparaît des deux côtés.
-api.delete('/matches/:id', requireApproved, (req, res) => {
-  const m = store.getMatch(req.params.id);
+api.delete('/matches/:id', requireApproved, async (req, res) => {
+  const m = await store.getMatch(req.params.id);
   if (!m || !m.users.includes(req.user.id)) return fail(res, 404, 'MATCH_NOT_FOUND', 'Discussion introuvable.');
-  store.removeMatch(m.id);
+  await store.removeMatch(m.id);
   res.json({ removed: true });
 });
 
 // Bloquer sans accuser. Jusqu'ici, se débarrasser de quelqu'un passait obligatoirement par un
 // signalement, donc par une accusation envoyée à la modération : beaucoup de gens ne le font pas,
 // et restent exposés. Le blocage ferme la discussion, le rendez-vous et le check-in.
-api.post('/blocks', requireApproved, limiter('signalement'), (req, res) => {
-  const cible = store.getUser(req.body?.targetId);
+api.post('/blocks', requireApproved, limiter('signalement'), async (req, res) => {
+  const cible = await store.getUser(req.body?.targetId);
   if (!cible || cible.id === req.user.id) return fail(res, 400, 'BLOCK_INVALID', 'Blocage impossible.');
-  store.block(req.user.id, cible.id);
-  const m = store.matchBetween(req.user.id, cible.id);
-  if (m) store.removeMatch(m.id);
+  await store.block(req.user.id, cible.id);
+  const m = await store.matchBetween(req.user.id, cible.id);
+  if (m) await store.removeMatch(m.id);
   res.json({ blocked: true });
 });
 
 // ---------- Signalements ----------
-api.post('/reports', requireApproved, limiter('signalement'), (req, res) => {
+api.post('/reports', requireApproved, limiter('signalement'), async (req, res) => {
   const { targetId, reason, matchId } = req.body || {};
-  const target = store.getUser(targetId);
+  const target = await store.getUser(targetId);
   if (!target || target.id === req.user.id) return fail(res, 400, 'REPORT_INVALID', 'Signalement impossible.');
-  store.addReport({ from: req.user.id, targetId: target.id, reason: String(reason || 'autre').slice(0, 60), matchId: matchId || null });
-  store.block(req.user.id, target.id);
+  await store.addReport({ from: req.user.id, targetId: target.id, reason: String(reason || 'autre').slice(0, 60), matchId: matchId || null });
+  await store.block(req.user.id, target.id);
   notifyAdmin(`Signalement : ${target.profile?.name || target.id} (ID ${target.id}), motif « ${reason || 'autre'} ».`);
   res.json({ reported: true });
 });

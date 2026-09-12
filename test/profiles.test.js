@@ -33,7 +33,7 @@ async function makeUser(id, name, gender, area = '') {
   await call(id, '/me');
   const r = await call(id, '/me/profile', 'PUT', { name, age: 25, gender, intent: 'amitie', city: 'Douala', area, promptA: 'Le poisson braisé' });
   assert.equal(r.status, 200);
-  store.updateUser(id, { verification: 'approved' });
+  await store.updateUser(id, { verification: 'approved' });
 }
 
 test.after(() => server.close());
@@ -51,7 +51,7 @@ test('la liste montre tout le monde, balayés compris, avec le bon statut', asyn
   await call('7104', '/swipes', 'POST', { targetId: '7101', action: 'like' });
   const m = await call('7101', '/swipes', 'POST', { targetId: '7104', action: 'like' });
   assert.ok(m.body.match);
-  store.block('7101', '7105');
+  await store.block('7101', '7105');
   await call('7106', '/swipes', 'POST', { targetId: '7101', action: 'like' });
 
   const r = await call('7101', '/profiles');
@@ -81,32 +81,32 @@ test('la liste montre tout le monde, balayés compris, avec le bon statut', asyn
 });
 
 test('parcourir la liste ne consomme pas le quota', async () => {
-  const avant = store.swipesToday('7101');
+  const avant = await store.swipesToday('7101');
   await call('7101', '/profiles');
   await call('7101', '/profiles');
-  assert.equal(store.swipesToday('7101'), avant);
+  assert.equal(await store.swipesToday('7101'), avant);
 });
 
 test('un « Passer » peut devenir un « J\'aime », pas l\'inverse', async () => {
   // Marc, qu'Aline avait passé, l'aime entre-temps ; elle revient sur sa décision
   await call('7103', '/swipes', 'POST', { targetId: '7101', action: 'like' });
-  const lignesAvant = store.swipesCount('7101');
+  const lignesAvant = await store.swipesCount('7101');
   const r = await call('7101', '/swipes', 'POST', { targetId: '7103', action: 'like' });
   assert.ok(r.body.match, 'le rattrapage crée le match');
-  assert.equal(store.swipeOf('7101', '7103').action, 'like');
-  assert.equal(store.swipesCount('7101'), lignesAvant, 'le rattrapage réutilise le balayage existant, sans nouvelle ligne');
+  assert.equal((await store.swipeOf('7101', '7103')).action, 'like');
+  assert.equal(await store.swipesCount('7101'), lignesAvant, 'le rattrapage réutilise le balayage existant, sans nouvelle ligne');
   assert.equal((await call('7101', '/profiles')).body.profiles.find((p) => p.id === '7103').status, 'match');
 
   // Un like envoyé a pu prévenir la personne : il ne se retire pas en silence
   await call('7101', '/swipes', 'POST', { targetId: '7102', action: 'pass' });
-  assert.equal(store.swipeOf('7101', '7102').action, 'like');
+  assert.equal((await store.swipeOf('7101', '7102')).action, 'like');
 });
 
 test('« Nouveau » la première semaine, dérivé sans exposer la date', async () => {
   await makeUser('7201', 'Bilal', 'homme');
   await makeUser('7202', 'Chloé', 'femme');
   await makeUser('7203', 'Dora', 'femme');
-  store.updateUser('7203', { createdAt: Date.now() - 8 * 86400e3 });
+  await store.updateUser('7203', { createdAt: Date.now() - 8 * 86400e3 });
   const r = await call('7201', '/profiles');
   const by = Object.fromEntries(r.body.profiles.map((p) => [p.id, p]));
   assert.equal(by['7202'].isNew, true, 'inscrite aujourd\'hui');
@@ -127,11 +127,11 @@ test('mon quartier d\'abord, sans position GPS', async () => {
 
 test('le quota du jour ne compte que les « J\'aime »', async () => {
   // Passer un profil qui ne convient pas ne doit pas coûter une journée de découverte
-  const avant = store.swipesToday('7104');
+  const avant = await store.swipesToday('7104');
   await call('7104', '/swipes', 'POST', { targetId: '7101', action: 'pass' });
-  assert.equal(store.swipesToday('7104'), avant, 'un « Passer » ne consomme pas le quota');
+  assert.equal(await store.swipesToday('7104'), avant, 'un « Passer » ne consomme pas le quota');
   await call('7104', '/swipes', 'POST', { targetId: '7102', action: 'like' });
-  assert.equal(store.swipesToday('7104'), avant + 1, 'un « J\'aime » consomme le quota');
+  assert.equal(await store.swipesToday('7104'), avant + 1, 'un « J\'aime » consomme le quota');
 });
 
 test('la découverte dit pourquoi le paquet est vide', async () => {
@@ -145,7 +145,7 @@ test('la découverte dit pourquoi le paquet est vide', async () => {
   // prétendre qu'on a « tout vu »
   await call('7199', '/me');
   await call('7199', '/me/profile', 'PUT', { name: 'Solitaire', age: 30, gender: 'femme', intent: 'serieux', city: 'Garoua', promptA: 'Le riz sauce arachide' });
-  store.updateUser('7199', { verification: 'approved' });
+  await store.updateUser('7199', { verification: 'approved' });
   const seul = await call('7199', '/discover');
   assert.equal(seul.body.vivier.total, 0);
   assert.equal(seul.body.profiles.length, 0);
@@ -154,7 +154,7 @@ test('la découverte dit pourquoi le paquet est vide', async () => {
 test('la tranche d\'âge explique un paquet vide sans vivier vide', async () => {
   await call('7198', '/me');
   await call('7198', '/me/profile', 'PUT', { name: 'Exigeant', age: 25, gender: 'homme', intent: 'amitie', city: 'Douala', promptA: 'Le poisson braisé' });
-  store.updateUser('7198', { verification: 'approved' });
+  await store.updateUser('7198', { verification: 'approved' });
   // Tout le monde a 25 ans dans ce jeu de test : une tranche 40-45 vide le paquet sans vider le vivier
   await call('7198', '/me/filters', 'PUT', { ageMin: 40, ageMax: 45 });
   const r = await call('7198', '/discover');

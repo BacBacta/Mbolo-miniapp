@@ -34,7 +34,7 @@ const call = async (user, p, method = 'GET', body) => {
 async function creer(id, name, gender) {
   await call(id, '/me');
   await call(id, '/me/profile', 'PUT', { name, age: 25, gender, intent: 'amitie', city: 'Yaoundé', promptA: 'Le poisson braisé' });
-  store.updateUser(id, { verification: 'approved' });
+  await store.updateUser(id, { verification: 'approved' });
 }
 async function matcher(a, b) {
   await call(a, '/swipes', 'POST', { targetId: b, action: 'like' });
@@ -124,12 +124,12 @@ test('le geste de vérification expire et ne sert qu\'une fois', async () => {
   assert.ok(g.body.gesture);
 
   // Geste demandé il y a onze minutes : périmé
-  store.updateUser('8210', { pendingGestureAt: Date.now() - 11 * 60 * 1000 });
+  await store.updateUser('8210', { pendingGestureAt: Date.now() - 11 * 60 * 1000 });
   const jpeg = 'data:image/jpeg;base64,' + Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString('base64');
   const perime = await call('8210', '/me/verification', 'POST', { selfie: jpeg });
   assert.equal(perime.status, 400);
   assert.equal(perime.body.code, 'GESTURE_EXPIRED');
-  assert.equal(store.getUser('8210').pendingGesture, null, 'le geste périmé est effacé');
+  assert.equal((await store.getUser('8210')).pendingGesture, null, 'le geste périmé est effacé');
 });
 
 test('un compte vérifié ne peut pas se rétrograder', async () => {
@@ -137,7 +137,7 @@ test('un compte vérifié ne peut pas se rétrograder', async () => {
   const r = await call('8211', '/me/verification/start', 'POST');
   assert.equal(r.status, 409);
   assert.equal(r.body.code, 'ALREADY_VERIFIED');
-  assert.equal(store.getUser('8211').verification, 'approved', 'le badge est conservé');
+  assert.equal((await store.getUser('8211')).verification, 'approved', 'le badge est conservé');
 });
 
 test('défaire un match fait disparaître la discussion des deux côtés', async () => {
@@ -158,12 +158,12 @@ test('on peut bloquer sans accuser, et le blocage ferme la discussion', async ()
   await creer('8304', 'Norbert', 'homme');
   const matchId = await matcher('8303', '8304');
 
-  const avant = store.allUsers().length;
+  const avant = (await store.allUsers()).length;
   const r = await call('8303', '/blocks', 'POST', { targetId: '8304' });
   assert.equal(r.status, 200);
-  assert.equal(store.isBlocked('8303', '8304'), true);
+  assert.equal(await store.isBlocked('8303', '8304'), true);
   assert.equal((await call('8304', `/matches/${matchId}/messages`, 'POST', { text: 'Tu es là ?' })).status, 404, 'plus aucun message ne passe');
-  assert.equal(store.allUsers().length, avant, 'personne n\'est supprimé');
+  assert.equal((await store.allUsers()).length, avant, 'personne n\'est supprimé');
   // Aucun signalement n'est créé : bloquer n'est pas accuser
   assert.equal((await call('8303', '/matches')).body.matches.length, 0);
 });
@@ -174,7 +174,7 @@ test('un match d\'un autre ne peut pas être retiré', async () => {
   await creer('8307', 'Quentin', 'homme');
   const matchId = await matcher('8305', '8306');
   assert.equal((await call('8307', `/matches/${matchId}`, 'DELETE')).status, 404);
-  assert.ok(store.getMatch(matchId), 'le match est intact');
+  assert.ok(await store.getMatch(matchId), 'le match est intact');
 });
 
 test('un selfie que personne n\'a tranché est purgé, et le compte peut recommencer', async () => {
@@ -183,20 +183,20 @@ test('un selfie que personne n\'a tranché est purgé, et le compte peut recomme
   await call('8401', '/me/verification/start', 'POST');
   const jpeg = 'data:image/jpeg;base64,' + Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString('base64');
   await call('8401', '/me/verification', 'POST', { selfie: jpeg });
-  assert.equal(store.getUser('8401').verification, 'pending');
+  assert.equal((await store.getUser('8401')).verification, 'pending');
 
   const fichier = path.join(process.env.DATA_DIR, 'uploads', '8401-selfie.jpg');
   assert.ok(fs.existsSync(fichier), 'le selfie est bien sur le disque');
 
   // Rien ne se passe tant que le délai n'est pas dépassé
-  assert.equal(store.purgerVerificationsOubliees(7 * 86400 * 1000), 0);
+  assert.equal(await store.purgerVerificationsOubliees(7 * 86400 * 1000), 0);
   assert.ok(fs.existsSync(fichier), 'le selfie est conservé pendant le délai');
 
   // Une fois le délai dépassé, il disparaît et le compte repart de zéro
-  store.updateUser('8401', { verificationSentAt: Date.now() - 8 * 86400 * 1000 });
-  assert.equal(store.purgerVerificationsOubliees(7 * 86400 * 1000), 1);
+  await store.updateUser('8401', { verificationSentAt: Date.now() - 8 * 86400 * 1000 });
+  assert.equal(await store.purgerVerificationsOubliees(7 * 86400 * 1000), 1);
   assert.equal(fs.existsSync(fichier), false, 'le selfie est supprimé');
-  const u = store.getUser('8401');
+  const u = await store.getUser('8401');
   assert.equal(u.verification, 'none', 'la personne peut recommencer');
   assert.equal(u.pendingGesture, null);
 });

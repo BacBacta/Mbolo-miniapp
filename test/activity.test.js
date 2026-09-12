@@ -35,7 +35,7 @@ async function makeUser(id, name, gender, city = 'Douala') {
   await call(id, '/me');
   const r = await call(id, '/me/profile', 'PUT', { name, age: 25, gender, intent: 'amitie', city, promptA: 'Le poisson braisé' });
   assert.equal(r.status, 200);
-  store.updateUser(id, { verification: 'approved' });
+  await store.updateUser(id, { verification: 'approved' });
 }
 
 test.after(() => server.close());
@@ -54,10 +54,10 @@ test('signe de vie à chaque appel, tranche fine réservée aux matchs, horodata
   await makeUser('7001', 'Aline', 'femme');
   await makeUser('7002', 'Paul', 'homme');
 
-  const first = store.getUser('7001').lastActiveAt;
+  const first = (await store.getUser('7001')).lastActiveAt;
   assert.ok(Date.now() - first < 5000, 'le premier appel pose l\'horodatage');
   await call('7001', '/me');
-  assert.equal(store.getUser('7001').lastActiveAt, first, 'au plus une écriture par minute');
+  assert.equal((await store.getUser('7001')).lastActiveAt, first, 'au plus une écriture par minute');
 
   // Avant le match, Paul ne voit que « cette semaine »
   const d = await call('7002', '/discover');
@@ -82,7 +82,7 @@ test('signe de vie à chaque appel, tranche fine réservée aux matchs, horodata
 
   // Suppression du compte : l'horodatage part avec le reste
   await call('7001', '/me', 'DELETE');
-  assert.equal(store.getUser('7001'), null);
+  assert.equal(await store.getUser('7001'), null);
 });
 
 test('les profils de démonstration ont une tranche même sans activité réelle', async () => {

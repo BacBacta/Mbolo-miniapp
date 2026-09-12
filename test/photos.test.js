@@ -35,7 +35,7 @@ async function makeUser(id, name, gender) {
   await call(id, '/me');
   const r = await call(id, '/me/profile', 'PUT', { name, age: 25, gender, intent: 'amitie', city: 'Douala', promptA: 'Le poisson braisé' });
   assert.equal(r.status, 200);
-  store.updateUser(id, { verification: 'approved' });
+  await store.updateUser(id, { verification: 'approved' });
 }
 const JPEG = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==';
 const file = (id, n) => path.join(DATA_DIR, 'uploads', `${id}-photo-${n}.jpg`);
@@ -95,7 +95,7 @@ test('retirer sa photo, être bloqué, supprimer son compte', async () => {
 
   await call('7501', '/me/photos/1', 'PUT', { photo: JPEG });
   await decidePhoto('7501', 1, true);
-  store.block('7502', '7501');
+  await store.block('7502', '7501');
   assert.equal((await call('7502', '/photos/7501/1')).status, 404, 'bloqué : pas de photo');
 
   await call('7501', '/me/photos/2', 'PUT', { photo: JPEG });
@@ -105,10 +105,10 @@ test('retirer sa photo, être bloqué, supprimer son compte', async () => {
 
 test('un ancien profil à une photo devient l\'emplacement 1, déjà validé', async () => {
   await makeUser('7503', 'Marc', 'homme');
-  const u = store.getUser('7503');
+  const u = await store.getUser('7503');
   fs.writeFileSync(path.join(DATA_DIR, 'uploads', '7503-profile.jpg'), Buffer.from('jpeg'));
-  u.profile.hasPhoto = true;
-  delete u.photos;
+  // L'état d'avant les trois emplacements : hasPhoto vrai, aucune liste de photos.
+  await store.updateUser('7503', { profile: { ...u.profile, hasPhoto: true }, photos: null });
   assert.deepEqual((await call('7503', '/me')).body.photos, [{ n: 1, status: 'approved' }]);
   assert.ok(fs.existsSync(file('7503', 1)) && !fs.existsSync(path.join(DATA_DIR, 'uploads', '7503-profile.jpg')), 'fichier renommé');
 });

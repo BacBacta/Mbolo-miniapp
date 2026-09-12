@@ -32,6 +32,12 @@ export const config = {
   // Pays proposé par défaut à l'inscription. L'app est ouverte à tous les pays : ce réglage
   // ne fait que pré-remplir le menu, il n'en exclut aucun.
   defaultCountry: (process.env.DEFAULT_COUNTRY || 'CM').toUpperCase(),
+  // Vide : stockage dans un fichier JSON. Renseigné : PostgreSQL, avec migrations au démarrage.
+  databaseUrl: process.env.DATABASE_URL || '',
+  // Schéma PostgreSQL à utiliser. Vide : « public ». Sert à loger plusieurs installations dans
+  // la même base (un schéma par environnement), et aux tests, qui en prennent un par fichier.
+  // Seules les lettres, les chiffres et le tiret bas sont acceptés : ce nom entre dans du SQL.
+  databaseSchema: /^[a-z_][a-z0-9_]*$/i.test(process.env.DATABASE_SCHEMA || '') ? process.env.DATABASE_SCHEMA : '',
   // Durée de validité des données d'authentification Telegram (initData)
   initDataMaxAgeSec: 24 * 60 * 60,
   // Nombre de messages avant d'autoriser liens et numéros dans une discussion

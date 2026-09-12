@@ -33,7 +33,7 @@ async function creer(id, name, gender, country, city, extra = {}) {
   await call(id, '/me');
   const r = await call(id, '/me/profile', 'PUT', { name, age: 25, gender, intent: 'amitie', country, city, promptA: 'Le poisson braisé', ...extra });
   assert.equal(r.status, 200, `profil de ${name} : ${JSON.stringify(r.body)}`);
-  store.updateUser(id, { verification: 'approved' });
+  await store.updateUser(id, { verification: 'approved' });
   return r.body.profile;
 }
 const vus = async (id) => (await call(id, '/discover')).body.profiles.map((p) => p.name);
@@ -216,7 +216,7 @@ test('le fuseau n\'est jamais stocké', async () => {
   await call('9603', '/me?tz=Asia/Tokyo');
   await creer('9603', 'Discret', 'homme', 'JP', 'Osaka');
   await call('9603', '/me?tz=Asia/Tokyo');
-  const brut = JSON.stringify(store.getUser('9603'));
+  const brut = JSON.stringify(await store.getUser('9603'));
   assert.ok(!brut.includes('Asia/Tokyo'), 'le fuseau ne doit apparaître nulle part dans le compte');
   assert.ok(!/\btz\b|timezone|fuseau/i.test(brut), 'aucun champ de fuseau dans le compte');
 });

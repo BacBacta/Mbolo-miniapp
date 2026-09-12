@@ -67,10 +67,10 @@ test('en HTTP, le refus est un 429 avec Retry-After et un message en français',
   await call('6301', '/me');
   const profil = { name: 'Sandra', age: 26, gender: 'femme', intent: 'amitie', city: 'Yaoundé', promptA: 'Le poisson braisé' };
   await call('6301', '/me/profile', 'PUT', profil);
-  store.updateUser('6301', { verification: 'approved' });
+  await store.updateUser('6301', { verification: 'approved' });
   await call('6302', '/me');
   await call('6302', '/me/profile', 'PUT', { ...profil, name: 'Thomas', gender: 'homme' });
-  store.updateUser('6302', { verification: 'approved' });
+  await store.updateUser('6302', { verification: 'approved' });
 
   let dernier = { status: 200 };
   for (let i = 0; i <= REGLES.signalement.max; i++) {

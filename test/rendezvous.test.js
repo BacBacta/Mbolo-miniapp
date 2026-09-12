@@ -38,7 +38,7 @@ const call = async (user, p, method = 'GET', body) => {
 async function creer(id, name, gender) {
   await call(id, '/me');
   await call(id, '/me/profile', 'PUT', { name, age: 25, gender, intent: 'amitie', city: 'Yaoundé', promptA: 'Le poisson braisé' });
-  store.updateUser(id, { verification: 'approved' });
+  await store.updateUser(id, { verification: 'approved' });
 }
 async function matcher(a, b) {
   await call(a, '/swipes', 'POST', { targetId: b, action: 'like' });
@@ -53,6 +53,21 @@ async function proposer(qui, matchId, slot = 'samedi 15h') {
 }
 const statut = async (qui, matchId, id) => (await call(qui, `/matches/${matchId}`)).body.dates.find((d) => d.id === id)?.status;
 
+// Les notifications partent sans retenir la réponse HTTP : prévenir Telegram ne doit pas faire
+// attendre celui qui a cliqué. Il faut donc leur laisser le temps d'arriver avant de compter, puis
+// un instant de plus : c'est ce délai supplémentaire qui ferait apparaître une deuxième notification
+// s'il en partait une, et c'est bien « une, et une seule » que ces tests veulent vérifier.
+async function notifications(attendues = 1) {
+  for (let i = 0; i < 200 && envoyes.length < attendues; i += 1) await new Promise((r) => setTimeout(r, 5));
+  await new Promise((r) => setTimeout(r, 40));
+  return envoyes;
+}
+// Repart d'un compteur vide, une fois les notifications déjà parties bien arrivées.
+async function oublierLesNotifications(dejaParties = 1) {
+  await notifications(dejaParties);
+  envoyes.length = 0;
+}
+
 test.after(() => server.close());
 
 test('la personne invitée accepte, et celle qui propose est prévenue', async () => {
@@ -60,15 +75,16 @@ test('la personne invitée accepte, et celle qui propose est prévenue', async (
   await creer('7002', 'Éric', 'homme');
   const m = await matcher('7001', '7002');
   const id = await proposer('7001', m);
-  envoyes.length = 0;
+  await oublierLesNotifications();
 
   const r = await call('7002', `/dates/${id}`, 'PUT', { status: 'accepted' });
   assert.equal(r.status, 200);
   assert.equal(r.body.date.status, 'accepted');
   assert.equal(await statut('7001', m, id), 'accepted', 'les deux côtés voient le même statut');
-  assert.equal(envoyes.length, 1, 'une notification, et une seule');
-  assert.equal(envoyes[0].id, '7001', 'elle part vers la personne qui a proposé');
-  assert.match(envoyes[0].text, /accepté/);
+  const n = await notifications();
+  assert.equal(n.length, 1, 'une notification, et une seule');
+  assert.equal(n[0].id, '7001', 'elle part vers la personne qui a proposé');
+  assert.match(n[0].text, /accepté/);
 });
 
 test('la personne invitée refuse ; le rendez-vous est clos, pas effacé', async () => {
@@ -76,12 +92,13 @@ test('la personne invitée refuse ; le rendez-vous est clos, pas effacé', async
   await creer('7004', 'Cyrille', 'homme');
   const m = await matcher('7003', '7004');
   const id = await proposer('7003', m);
-  envoyes.length = 0;
+  await oublierLesNotifications();
 
   assert.equal((await call('7004', `/dates/${id}`, 'PUT', { status: 'declined' })).status, 200);
   assert.equal(await statut('7003', m, id), 'declined');
-  assert.equal(envoyes.length, 1);
-  assert.equal(envoyes[0].id, '7003');
+  const n = await notifications();
+  assert.equal(n.length, 1);
+  assert.equal(n[0].id, '7003');
   // Refusé est définitif : on repropose, on ne ressuscite pas
   const encore = await call('7004', `/dates/${id}`, 'PUT', { status: 'accepted' });
   assert.equal(encore.status, 409);
@@ -117,10 +134,12 @@ test('annuler : sa propre proposition avant réponse, le rendez-vous accepté de
   // Une fois accepté, chacun doit pouvoir se décommander : c'est une question de sécurité
   const id2 = await proposer('7007', m, 'dimanche 16h');
   await call('7008', `/dates/${id2}`, 'PUT', { status: 'accepted' });
-  envoyes.length = 0;
+  // Deux notifications sont déjà en route ici : la proposition, puis l'acceptation.
+  await oublierLesNotifications(2);
   assert.equal((await call('7008', `/dates/${id2}`, 'PUT', { status: 'cancelled' })).status, 200);
   assert.equal(await statut('7007', m, id2), 'cancelled');
-  assert.equal(envoyes[0].id, '7007', 'la personne qui avait proposé est prévenue');
+  const n = await notifications();
+  assert.equal(n[0].id, '7007', 'la personne qui avait proposé est prévenue');
 });
 
 test('le check-in exige un rendez-vous accepté', async () => {
@@ -181,7 +200,7 @@ test('une personne bloquée ne change plus le statut, et l\'identifiant de qui p
   assert.equal(vue.proposedBy, undefined, 'l\'identifiant Telegram de l\'autre ne sort jamais');
   assert.equal((await call('7016', `/matches/${m}`)).body.dates[0].proposedByMe, true);
 
-  store.block('7015', '7016');
+  await store.block('7015', '7016');
   const r = await call('7016', `/dates/${id}`, 'PUT', { status: 'cancelled' });
   assert.equal(r.status, 403);
   assert.equal(r.body.code, 'BLOCKED');

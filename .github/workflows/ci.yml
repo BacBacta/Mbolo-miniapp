@@ -31,3 +31,39 @@ jobs:
 
       - name: Vérifier les vulnérabilités connues
         run: npm audit --audit-level=high
+
+  # La même suite, mais sur PostgreSQL : c'est le stockage de production depuis P0-2, et rien ne
+  # garantit qu'un code qui passe sur le fichier JSON passe aussi sur la base (objets partagés en
+  # mémoire d'un côté, copies relues de l'autre). Une seule version de Node suffit ici : c'est le
+  # stockage qu'on vérifie, pas le moteur.
+  postgres:
+    name: PostgreSQL 16
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mbolo_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Lancer les tests sur PostgreSQL
+        run: npm run test:pg
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/mbolo_test
