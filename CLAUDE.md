@@ -53,7 +53,7 @@ public/
   ui.js         Icônes, toast, squelettes de chargement, geste de balayage des cartes
   i18n.js       Choix de la langue, chargement du dictionnaire à la demande, t() et tn()
   i18n/en.js    Dictionnaire anglais ; la clé est la phrase française
-  styles.css    Design : couleurs dérivées des variables --tg-theme-* (clair et sombre), Instrument Serif pour l'identité, Manrope pour l'interface, composants, animations
+  styles.css    Identité « Aura » : surfaces d'encre ou d'os selon data-scheme, aura réservée au match, au badge et au like ; Fraunces pour l'identité, Manrope pour l'interface
 test/
   activity, antiscam, assets, auth, compression, filters, geographie, langues,
   limites, notifications, photos, profiles, securite, webhook (87 tests)
@@ -98,7 +98,7 @@ audit/
 11. **Les erreurs disent ce qui se passe et quoi faire** : « Ce code ne correspond pas à Le Palmier. Scanne le code posé sur ta table. »
 12. **Le nom de l'app n'est jamais écrit en dur** : `config.appName` côté serveur, constante `APP` côté interface (injectée par le serveur depuis `APP_NAME`).
 13. **Toute action principale passe par `tg.setButtons()`**, toute navigation arrière par `tg.setBack()`. N'appelle jamais `window.Telegram.WebApp` en dehors de `public/tg.js`.
-14. **Couleurs uniquement via les variables du thème Telegram** : l'app doit être lisible en clair et en sombre.
+14. **L'app possède ses surfaces, Telegram décide du schéma.** Les couleurs viennent des jetons de `styles.css` (`--bg`, `--bg2`, `--bg3`, `--text`, `--button`…), déclinés en clair et en sombre par `<html data-scheme>` que `tg.js` règle d'après `colorScheme` ; `tg.js` renvoie ensuite la surface de la page au cadre Telegram (`setHeaderColor`, `setBackgroundColor`, `setBottomBarColor`) et la couleur d'action au bouton natif. Jamais de couleur en dur dans un composant : un jeton, ou `color-mix` d'un jeton. **L'aura (`--aura`) n'apparaît qu'au match, sur l'anneau d'un avatar vérifié et sur le stamp du like** ; le rose (`--like`) et l'ambre (`--gold`) sont les seules autres couleurs au repos. L'app doit rester lisible dans les deux schémas (contraste AA mesuré).
 15. **Pensé pour la data et le réseau** : pas de bibliothèque front lourde, images compressées, états de chargement et d'erreur réseau sur chaque écran.
 16. **Ne jamais reconstruire le champ de saisie de la discussion** pendant la frappe (le clavier se fermerait) : mettre à jour seulement `#messages` via `updateChat()`.
 
