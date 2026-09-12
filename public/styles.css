@@ -111,6 +111,14 @@
     --glass-photo: rgb(var(--ink-rgb) / .84);
   }
 }
+/* Le cas qu'aucune requête CSS ne sait poser : l'appareil sait flouter, mais le rend lentement.
+   ui.js le constate — mémoire annoncée, puis durée réelle entre deux images — et pose l'attribut.
+   Les mêmes trois jetons qu'au-dessus : un seul repli, trois façons d'y arriver. */
+:root[data-verre="opaque"] {
+  --glass-blur: none;
+  --glass: var(--bg2);
+  --glass-photo: rgb(var(--ink-rgb) / .84);
+}
 
 /* ------------------------------------------------------------ Base */
 * { box-sizing: border-box; }
