@@ -24,7 +24,14 @@ export const config = {
   webAppUrl: (process.env.WEBAPP_URL || urlHebergeur()).replace(/\/$/, ''),
   adminChatId: process.env.ADMIN_CHAT_ID || '',
   adminKey: process.env.ADMIN_KEY || '',
-  autoApprove: bool(process.env.AUTO_APPROVE, false),
+  // Vrai quand l'app tourne pour de vraies personnes. Deux réglages de confort s'éteignent seuls
+  // ici : ils sont utiles pour développer et dangereux en ligne.
+  isProd: process.env.NODE_ENV === 'production',
+  // Validation automatique des selfies et des photos. Elle marque « vérifié » quelqu'un que
+  // personne n'a regardé — exactement ce que l'app promet à ses membres de ne jamais faire.
+  // Donc jamais en production, quoi que dise la variable : même garde qu'allowDevAuth, et pour
+  // la même raison. Un environnement de recette qui en a besoin ne se déclare pas production.
+  autoApprove: bool(process.env.AUTO_APPROVE, false) && process.env.NODE_ENV !== 'production',
   seedDemo: bool(process.env.SEED_DEMO, false),
   allowDevAuth: bool(process.env.ALLOW_DEV_AUTH, false) && process.env.NODE_ENV !== 'production',
   useWebhook: bool(process.env.USE_WEBHOOK, false),

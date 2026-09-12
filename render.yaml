@@ -16,11 +16,15 @@ services:
         value: Africa/Douala
       - key: USE_WEBHOOK
         value: "true"
-      # Tests uniquement : profils de démonstration, selfies validés sans modération
+      # Profils de démonstration : à « true » pour une machine de démonstration, jamais pour de
+      # vraies personnes, qui se retrouveraient à écrire à des profils qui n'existent pas.
       - key: SEED_DEMO
-        value: "true"
-      - key: AUTO_APPROVE
-        value: "true"
+        value: "false"
+      # AUTO_APPROVE n'est volontairement pas ici : NODE_ENV vaut production, et la validation
+      # automatique des selfies y est éteinte quoi qu'on écrive (server/config.js).
+      # Groupe Telegram qui reçoit les selfies à valider. Sans lui, le serveur refuse de démarrer.
+      - key: ADMIN_CHAT_ID
+        sync: false
       # Demandé à la création : jamais dans Git
       - key: BOT_TOKEN
         sync: false
