@@ -1,76 +1,74 @@
 /* Feuille de style de l'interface.
-   Toutes les couleurs dérivent des variables --tg-theme-* injectées par telegram-web-app.js,
-   donc l'app suit le thème (clair ou sombre) de chaque utilisateur. Les valeurs --fb-* ne
-   servent qu'en dehors de Telegram (développement dans un navigateur). */
+   Identité « Aura » : l'app possède ses surfaces — trois niveaux d'encre en sombre, os et blanc
+   en clair — et ne garde de Telegram que le choix clair ou sombre (<html data-scheme>), que tg.js
+   renvoie au cadre Telegram (en-tête, fond, barre du bas) pour que tout soit d'une pièce.
+   Une seule chose a le droit d'être colorée : l'aura, un gradient rose-ambre-violet, et seulement
+   quand quelque chose arrive — un match, un badge vérifié, un « J'aime » qu'on appuie. Le reste
+   du temps, la couleur est réservée au « J'aime » (rose) et à la confiance (ambre). */
 
 :root {
-  --fb-bg: #ffffff;
-  --fb-bg2: #f0f2f5;
-  --fb-text: #111418;
-  --fb-hint: #6f7780;
-  --fb-link: #2481cc;
-  --fb-button: #2481cc;
-  --fb-button-text: #ffffff;
-  --fb-danger: #d93a3a;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fb-bg: #1c1c1e;
-    --fb-bg2: #0e0e10;
-    --fb-text: #f2f2f2;
-    --fb-hint: #8e8e93;
-    --fb-link: #6ab3f3;
-    --fb-button: #3e88f7;
-    --fb-button-text: #ffffff;
-    --fb-danger: #ff6b6b;
-  }
-}
-
-:root {
-  /* Marque « Nuit chaude » : terracotta pour l'action, or pour la confiance, une teinte chaude sur tout
-     le reste. Les fonds et textes restent dérivés du thème Telegram (clair ou sombre), seulement réchauffés. */
-  --brand: #e0784f;
-  --brand-ink: #141210;
-  --gold: #d9b35a;
-  --text-warm: #2a1f18;
-  --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-ui: 'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
-  /* Couleurs du thème Telegram, réchauffées */
-  --bg: color-mix(in srgb, var(--tg-theme-bg-color, var(--fb-bg)) 96%, var(--brand));
-  --bg2: color-mix(in srgb, var(--tg-theme-secondary-bg-color, var(--fb-bg2)) 95%, var(--brand));
-  --section: var(--tg-theme-section-bg-color, var(--bg));
-  --text: color-mix(in srgb, var(--tg-theme-text-color, var(--fb-text)) 70%, var(--text-warm));
-  /* Le gris d'indication ne vient plus du thème Telegram : mesuré, il tombait à 4,17 pour un
-     seuil WCAG 2.2 AA de 4,5 sur les intitulés de 11 px, et la plupart des thèmes clairs de
-     Telegram sont encore plus clairs. Il est donc dérivé du texte et du fond, ce qui garantit
-     l'écart quel que soit le thème de la personne, tout en restant une couleur du thème. */
-  --hint: color-mix(in srgb, var(--text) 68%, var(--bg));
-  --hint-doux: color-mix(in srgb, var(--text) 52%, var(--bg));
-  --subtitle: var(--tg-theme-subtitle-text-color, var(--hint));
+  /* Constantes de marque, identiques dans les deux thèmes */
+  --like: #ff3d81;
+  --like-ink: #1a0610;
+  --aura: conic-gradient(from 210deg at 50% 50%, #ff3d81, #ff8a3d, #ffd34d, #7a5cff, #ff3d81);
+  --ink: #0b0b14;            /* l'encre la plus profonde : fonds du match, texte sur os */
+  --on-photo: #f7f5fb;       /* texte posé sur une photo, quel que soit le thème */
+  --ink-rgb: 11 11 20;       /* pour les voiles et pastilles sur photo */
+
+  /* Thème clair : os et blanc, même structure que le sombre, jamais une inversion */
+  --bg: #ffffff;             /* cartes, listes, bulles reçues */
+  --bg2: #f4f2f7;            /* page */
+  --bg3: #ebe8f1;            /* relief : boutons secondaires, tuiles */
+  --text: #151420;
+  --hint: color-mix(in srgb, var(--text) 64%, var(--bg2));
+  --hint-doux: color-mix(in srgb, var(--text) 50%, var(--bg2));
+  --button: #151420;         /* l'action : encre sur os */
+  --button-text: #f7f5fb;
+  --accent: #151420;
+  --gold: #d9a63d;
+  --ok-ink: #7a5710;
+  --warn: #b8760f;
+  --danger: #d93a3a;
+  --photo-a: #7c6bb3; --photo-b: #3f3670; --photo-c: #1c1838;
+  --shadow-1: 0 1px 2px rgb(21 20 32 / .05), 0 12px 32px -18px rgb(21 20 32 / .22);
+  --shadow-2: 0 2px 6px rgb(21 20 32 / .06), 0 24px 56px -24px rgb(21 20 32 / .32);
+}
+:root[data-scheme="dark"] {
+  --bg: #14141f;             /* encre 1 : cartes */
+  --bg2: #0b0b14;            /* encre 0 : page */
+  --bg3: #1d1d2b;            /* encre 2 : relief */
+  --text: #f2f0f7;
+  --button: #ece9f7;         /* l'action : le seul objet clair de l'écran */
+  --button-text: #0b0b14;
+  --accent: #ece9f7;
+  --gold: #f2c66b;
+  --ok-ink: #f2c66b;
+  --warn: #e0a23a;
+  --danger: #ff6b6b;
+  --photo-a: #5a4a8a; --photo-b: #2a2350; --photo-c: #0e0c1e;
+  --shadow-1: 0 1px 2px rgb(0 0 0 / .3), 0 10px 28px -14px rgb(0 0 0 / .6);
+  --shadow-2: 0 2px 6px rgb(0 0 0 / .4), 0 30px 60px -30px rgb(0 0 0 / .8);
+}
+/* Les dérivées sont recalculées sur le body aussi : quand body.match-mode force les jetons sombres,
+   --btn-secondary, --line ou --glass suivent au lieu de garder la valeur calculée à la racine. */
+:root, body.match-mode {
+  /* Dérivées, valables dans les deux thèmes */
+  --section: var(--bg);
+  --subtitle: var(--hint);
   --section-title: var(--hint);
-  --link: var(--brand);
-  --accent: var(--brand);
-  --button: var(--brand);
-  --button-text: var(--brand-ink);
-  --danger: var(--tg-theme-destructive-text-color, var(--fb-danger));
-  --bottom-bar: var(--tg-theme-bottom-bar-bg-color, var(--bg2));
-  --btn-secondary: color-mix(in srgb, var(--text) 8%, var(--bg));
-
-  /* Couleurs sémantiques, identiques dans les deux thèmes */
+  --link: var(--accent);
+  --bottom-bar: var(--bg2);
+  --btn-secondary: var(--bg3);
   --ok: var(--gold);
-  --ok-ink: color-mix(in srgb, var(--gold) 45%, var(--text));
-  --warn: #c07f1c;
-  --like: var(--brand);
-
-  /* Dérivées */
   --line: color-mix(in srgb, var(--text) 9%, transparent);
   --line-strong: color-mix(in srgb, var(--text) 18%, transparent);
-  --tint: color-mix(in srgb, var(--button) 12%, var(--bg));
-  --tint-strong: color-mix(in srgb, var(--button) 22%, var(--bg));
+  --tint: color-mix(in srgb, var(--button) 10%, var(--bg));
+  --tint-strong: color-mix(in srgb, var(--button) 20%, var(--bg));
   --glass: color-mix(in srgb, var(--bg2) 84%, transparent);
-  --shadow-1: 0 1px 2px rgb(0 0 0 / .04), 0 12px 32px -18px rgb(0 0 0 / .16);
-  --shadow-2: 0 2px 6px rgb(0 0 0 / .05), 0 24px 56px -24px rgb(0 0 0 / .26);
+  --photo: radial-gradient(120% 90% at 30% 20%, var(--photo-a) 0%, var(--photo-b) 45%, var(--photo-c) 100%);
 
   --r-sm: 12px;
   --r-md: 16px;
@@ -80,11 +78,6 @@
   --spring: cubic-bezier(.3, 1.4, .5, 1);
   --safe-bottom: var(--tg-safe-area-inset-bottom, 0px);
   --topbar-h: 0px;
-}
-:root[data-scheme="dark"] {
-  --text-warm: #f3ede4;
-  --shadow-1: 0 1px 2px rgb(0 0 0 / .3), 0 10px 28px -14px rgb(0 0 0 / .6);
-  --shadow-2: 0 2px 6px rgb(0 0 0 / .4), 0 30px 60px -30px rgb(0 0 0 / .8);
 }
 
 /* ------------------------------------------------------------ Base */
@@ -108,10 +101,10 @@ main {
   min-height: calc(100dvh - var(--topbar-h));
 }
 h1, h2, h3, p { margin: 0; }
-h1 { font-family: var(--font-display); font-size: 30px; line-height: 1.15; font-weight: 400; letter-spacing: -.01em; }
+h1 { font-family: var(--font-display); font-size: 27px; line-height: 1.15; font-weight: 400; letter-spacing: -.01em; }
 h2 { font-size: 21px; line-height: 1.25; font-weight: 700; letter-spacing: -.02em; }
 h3 { font-size: 16px; line-height: 1.3; font-weight: 600; }
-.display { font-family: var(--font-display); font-size: 40px; line-height: 1.06; font-weight: 400; letter-spacing: -.012em; }
+.display { font-family: var(--font-display); font-size: 34px; line-height: 1.06; font-weight: 400; letter-spacing: -.012em; }
 .lead { font-size: 15.5px; line-height: 1.5; color: var(--hint); }
 .eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--section-title); }
 .fine { font-size: 13px; line-height: 1.45; color: var(--hint); display: flex; gap: 8px; align-items: flex-start; }
@@ -203,12 +196,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 4px 9px; border-radius: 999px; background: transparent; border: 1px solid var(--line-strong); color: var(--text); white-space: nowrap; }
 .chip-ok { color: var(--ok-ink); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
 .chip-accent { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
-.chip-like { background: var(--like); color: var(--brand-ink); border-color: transparent; font-weight: 600; }
+.chip-like { background: var(--like); color: var(--like-ink); border-color: transparent; font-weight: 700; }
 .chip-warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
 /* Tranche d'activité : seule « récemment » est mise en couleur, les autres restent discrètes */
 .act-recent { color: var(--ok-ink); }
 .chip.act-recent { border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
-.pill-glass { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 5px 10px; border-radius: 999px; color: #f3ede4; background: rgb(20 18 16 / .45); border: 1px solid rgb(243 237 228 / .14); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); white-space: nowrap; letter-spacing: .01em; }
+.pill-glass { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 5px 10px; border-radius: 999px; color: var(--on-photo); background: rgb(var(--ink-rgb) / .55); border: 1px solid rgb(247 245 251 / .14); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); white-space: nowrap; letter-spacing: .01em; }
 .pill-verified { color: var(--gold); font-weight: 600; }
 .pill-like { background: color-mix(in srgb, var(--like) 78%, transparent); border-color: transparent; }
 
@@ -220,8 +213,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tile-like { background: color-mix(in srgb, var(--like) 14%, var(--bg)); color: var(--like); }
 .tile-neutral { background: var(--bg2); color: var(--hint); }
 
-.avatar { position: relative; border-radius: 14px; display: grid; place-items: center; font-weight: 700; flex-shrink: 0; overflow: hidden; background: linear-gradient(150deg, var(--brand), color-mix(in srgb, var(--brand) 70%, #000)); color: var(--brand-ink); }
+.avatar { position: relative; border-radius: 14px; display: grid; place-items: center; font-weight: 700; flex-shrink: 0; overflow: hidden; background: linear-gradient(150deg, var(--photo-a), var(--photo-c)); color: var(--on-photo); }
 .avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* Personne vérifiée : l'anneau d'aura. La bordure transparente laisse le gradient de fond passer
+   dans la bordure seulement ; l'image, calée sur le padding-box, ne le recouvre pas. */
+.avatar.verified { border: 3px solid transparent; background: linear-gradient(150deg, var(--photo-a), var(--photo-c)) padding-box, var(--aura) border-box; }
 .avatar.sm { width: 46px; height: 46px; font-size: 17px; }
 .avatar.md { width: 60px; height: 60px; font-size: 22px; border-radius: 18px; }
 .avatar.lg { width: 72px; height: 72px; font-size: 28px; border-radius: 24px; }
@@ -292,47 +288,47 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .photo-slot { position: relative; aspect-ratio: 4 / 5; border-radius: 18px; overflow: hidden; background: var(--btn-secondary); border: 1.5px dashed var(--line-strong); display: grid; place-items: center; color: var(--hint); cursor: pointer; }
 .photo-slot.has { border-style: solid; border-color: var(--line); }
 .photo-slot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.photo-slot .rm { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgb(20 18 16 / .7); color: #f3ede4; display: grid; place-items: center; z-index: 1; }
-.photo-slot .state { position: absolute; left: 6px; right: 6px; bottom: 6px; justify-content: center; font-size: 11px; padding: 3px 8px; background: rgb(20 18 16 / .7); color: #f3ede4; border-color: transparent; }
-.photo-slot .num { position: absolute; top: 8px; left: 10px; font-size: 12px; font-weight: 600; color: #f3ede4; text-shadow: 0 1px 2px rgb(0 0 0 / .5); z-index: 1; }
+.photo-slot .rm { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgb(var(--ink-rgb) / .7); color: var(--on-photo); display: grid; place-items: center; z-index: 1; }
+.photo-slot .state { position: absolute; left: 6px; right: 6px; bottom: 6px; justify-content: center; font-size: 11px; padding: 3px 8px; background: rgb(var(--ink-rgb) / .7); color: var(--on-photo); border-color: transparent; }
+.photo-slot .num { position: absolute; top: 8px; left: 10px; font-size: 12px; font-weight: 600; color: var(--on-photo); text-shadow: 0 1px 2px rgb(0 0 0 / .5); z-index: 1; }
 .avatar-big { position: relative; width: 116px; height: 116px; border-radius: 40px; display: grid; place-items: center; overflow: visible; background: linear-gradient(150deg, var(--tint-strong), var(--tint)); color: var(--accent); cursor: pointer; box-shadow: var(--shadow-1); }
 .avatar-big img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 40px; }
 .avatar-big .cam { position: absolute; right: -6px; bottom: -6px; width: 38px; height: 38px; border-radius: 50%; background: var(--button); color: var(--button-text); display: grid; place-items: center; border: 3px solid var(--bg2); }
 
 /* ------------------------------------------------------------ Cartes de profil */
 .card { position: relative; background: var(--bg); border-radius: var(--r-xl); border: 1px solid var(--line); box-shadow: var(--shadow-2); overflow: hidden; }
-.card-photo { position: relative; aspect-ratio: 4 / 5; max-height: 64vh; display: grid; place-items: center; overflow: hidden; background: radial-gradient(120% 90% at 30% 20%, #6b4a3a 0%, #3a2a24 45%, #1d1a17 100%); }
+.card-photo { position: relative; aspect-ratio: 4 / 5; max-height: 64vh; display: grid; place-items: center; overflow: hidden; background: var(--photo); }
 .card-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .45s ease; }
 .card-photo img.loaded { opacity: 1; }
-.card-photo .initial { font-family: var(--font-display); font-size: 150px; font-weight: 400; color: #f3ede4; opacity: .12; user-select: none; }
-.card-photo .scrim { position: absolute; left: 0; right: 0; bottom: 0; height: 58%; background: linear-gradient(to top, rgb(20 18 16 / .94) 0%, rgb(20 18 16 / .55) 42%, transparent 100%); pointer-events: none; }
+.card-photo .initial { font-family: var(--font-display); font-size: 130px; font-weight: 400; color: var(--on-photo); opacity: .12; user-select: none; }
+.card-photo .scrim { position: absolute; left: 0; right: 0; bottom: 0; height: 58%; background: linear-gradient(to top, rgb(var(--ink-rgb) / .94) 0%, rgb(var(--ink-rgb) / .55) 42%, transparent 100%); pointer-events: none; }
 .card-photo .corners { position: absolute; top: 14px; left: 14px; right: 14px; display: flex; gap: 6px; align-items: center; z-index: 2; }
 .card-photo .corners .spacer { flex: 1; }
 /* Un seul bouton discret en haut à droite : se protéger. Le libellé « Signaler ce profil » en bas de carte prenait une ligne entière */
-.card-photo .more { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgb(243 237 228 / .16); background: rgb(20 18 16 / .45); color: #f3ede4; display: grid; place-items: center; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
-.tag-demo { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: rgb(243 237 228 / .7); padding: 4px 8px; border-radius: 999px; background: rgb(20 18 16 / .35); }
+.card-photo .more { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgb(247 245 251 / .16); background: rgb(var(--ink-rgb) / .45); color: var(--on-photo); display: grid; place-items: center; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.tag-demo { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: rgb(247 245 251 / .7); padding: 4px 8px; border-radius: 999px; background: rgb(var(--ink-rgb) / .35); }
 /* Plusieurs photos : repères en haut, on change de photo en touchant la moitié droite ou gauche */
 .card-photo .dots { position: absolute; top: 7px; left: 12px; right: 12px; display: flex; gap: 4px; z-index: 2; pointer-events: none; }
-.card-photo .dots span { flex: 1; height: 3px; border-radius: 2px; background: rgb(243 237 228 / .35); transition: background .2s; }
-.card-photo .dots span.on { background: #f3ede4; }
+.card-photo .dots span { flex: 1; height: 3px; border-radius: 2px; background: rgb(247 245 251 / .35); transition: background .2s; }
+.card-photo .dots span.on { background: var(--on-photo); }
 .card-photo:has(.dots) .corners { top: 18px; }
 .card-photo[data-action="photo-nav"] { cursor: pointer; }
 .card-photo .reveal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .card-photo:has(.reveal) .initial { opacity: .12; }
-.overlay { position: absolute; left: 20px; right: 20px; bottom: 20px; display: grid; gap: 7px; color: #f3ede4; }
-.overlay .name { font-family: var(--font-display); font-size: 44px; font-weight: 400; letter-spacing: -.015em; line-height: 1; display: flex; align-items: baseline; gap: 9px; text-shadow: 0 1px 2px rgb(0 0 0 / .25); }
+.overlay { position: absolute; left: 20px; right: 20px; bottom: 20px; display: grid; gap: 7px; color: var(--on-photo); }
+.overlay .name { font-family: var(--font-display); font-size: 38px; font-weight: 400; letter-spacing: -.015em; line-height: 1; display: flex; align-items: baseline; gap: 9px; text-shadow: 0 1px 2px rgb(0 0 0 / .25); }
 .overlay .name .shield { align-self: center; color: var(--gold); display: inline-flex; margin-left: -2px; }
-.overlay .name .age { font-size: 28px; font-weight: 400; font-style: italic; color: var(--gold); }
+.overlay .name .age { font-size: 28px; font-weight: 400; color: var(--gold); }
 /* Une seule ligne de contexte sous le prénom : le quartier, et l'activité en pointillé */
-.overlay .line { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: rgb(243 237 228 / .82); letter-spacing: .005em; }
-.overlay .line .dot { width: 5px; height: 5px; border-radius: 50%; background: rgb(243 237 228 / .45); }
+.overlay .line { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: rgb(247 245 251 / .82); letter-spacing: .005em; }
+.overlay .line .dot { width: 5px; height: 5px; border-radius: 50%; background: rgb(247 245 251 / .45); }
 .overlay .line .act { color: var(--gold); }
 .overlay .meta { display: flex; gap: 6px; flex-wrap: wrap; }
-.overlay .meta .pill-glass { background: rgb(243 237 228 / .10); border-color: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.overlay .meta .pill-glass { background: rgb(247 245 251 / .10); border-color: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
 .card-body { padding: 20px 22px 20px; display: grid; gap: 14px; }
 .prompt { display: grid; gap: 6px; padding: 0 2px; }
 .prompt .q { font-size: 12.5px; font-weight: 600; color: var(--hint); }
-.prompt .a { font-family: var(--font-display); font-size: 25px; font-weight: 400; line-height: 1.2; letter-spacing: -.005em; }
+.prompt .a { font-family: var(--font-display); font-size: 22px; font-weight: 400; line-height: 1.2; letter-spacing: -.005em; }
 .prompt .a::before { content: '« '; } .prompt .a::after { content: ' »'; }
 /* Fiche en sections : la réponse, ses infos, la confiance */
 .facts-sec { display: grid; gap: 8px; }
@@ -383,7 +379,7 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .deck .card.top.throw { transition: transform .34s cubic-bezier(.4, 0, 1, 1), opacity .34s; opacity: 0; }
 .deck .card.next { position: absolute; top: 0; bottom: 24px; left: 16px; right: 16px; z-index: 1; transform-origin: 50% 100%; transform: translateY(14px) scale(.94); opacity: .8; pointer-events: none; }
 .stamp { position: absolute; top: 64px; z-index: 3; padding: 6px 14px; border: 3px solid; border-radius: 12px; font-size: 22px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; opacity: 0; pointer-events: none; background: color-mix(in srgb, var(--bg) 85%, transparent); }
-.stamp.like { left: 18px; color: var(--like); border-color: var(--like); transform: rotate(-12deg); }
+.stamp.like { left: 18px; color: #fff; border: 0; background: var(--aura); box-shadow: 0 10px 30px -10px rgb(255 61 129 / .6); transform: rotate(-12deg); }
 .stamp.pass { right: 18px; color: var(--hint); border-color: var(--hint); transform: rotate(12deg); }
 
 /* ------------------------------------------------------------ Squelettes de chargement */
@@ -408,8 +404,9 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 /* ------------------------------------------------------------ Accueil */
 .hero { position: relative; display: grid; gap: 12px; padding: 26px 4px 6px; }
 .orb { position: absolute; border-radius: 50%; filter: blur(44px); pointer-events: none; z-index: -1; }
-.orb-1 { width: 240px; height: 240px; right: -80px; top: -90px; background: var(--button); opacity: .5; }
-.orb-2 { width: 190px; height: 190px; left: -80px; top: 120px; background: var(--gold); opacity: .28; }
+.orb-1 { width: 300px; height: 300px; right: -120px; top: -140px; background: var(--aura); opacity: .2; }
+:root[data-scheme="dark"] .orb-1 { opacity: .34; }
+.orb-2 { display: none; }
 .props { display: grid; gap: 10px; }
 .prop { display: flex; gap: 12px; align-items: center; padding: 13px 15px; background: var(--bg); border-radius: 20px; border: 1px solid var(--line); box-shadow: var(--shadow-1); }
 .prop .t { font-weight: 600; font-size: 15px; line-height: 1.3; }
@@ -440,12 +437,24 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .tl .s { font-size: 13px; color: var(--hint); }
 
 /* ------------------------------------------------------------ Match */
-.match-hero { text-align: center; display: grid; justify-items: center; gap: 14px; padding: 36px 8px 8px; position: relative; }
-.match-hero .orb { z-index: -1; }
+/* Le moment signature. Encre dans les deux thèmes : le match n'est pas un écran de l'app, c'est
+   ce qui arrive entre deux écrans. L'aura, voilée et lente, n'existe qu'ici et sur le badge. */
+/* En clair comme en sombre, le match reprend les jetons sombres : le bouton Retour, la barre de
+   secours et les ombres suivent, au lieu de rester clairs sur un écran d'encre. */
+body.match-mode { background: var(--ink); --bg: #14141f; --bg2: #0b0b14; --bg3: #1d1d2b; --text: #f2f0f7; --button: #ece9f7; --button-text: #0b0b14; --accent: #ece9f7; --gold: #f2c66b; --ok-ink: #f2c66b; --shadow-1: 0 1px 2px rgb(0 0 0 / .3), 0 10px 28px -14px rgb(0 0 0 / .6); }
+body.match-mode main { background: var(--ink); color: #fff; }
+.match-hero { text-align: center; display: grid; justify-items: center; gap: 14px; padding: 48px 8px 8px; position: relative; isolation: isolate; color: #fff; }
+.match-hero .eyebrow { color: rgb(255 255 255 / .6); }
+.match-hero .lead { color: rgb(255 255 255 / .72); }
+.match-hero .aura { position: absolute; left: 50%; top: 92px; width: 340px; height: 340px; margin-left: -170px; border-radius: 50%; background: var(--aura); filter: blur(46px); opacity: .55; z-index: -1; pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .match-hero .aura { animation: respire 9s ease-in-out infinite alternate; }
+  @keyframes respire { from { transform: rotate(0deg) scale(1); opacity: .45; } to { transform: rotate(16deg) scale(1.08); opacity: .62; } }
+}
 .pair { display: flex; align-items: center; }
-.pair .avatar { border: 4px solid var(--bg2); box-shadow: var(--shadow-2); }
+.pair .avatar { border: 4px solid var(--ink); box-shadow: 0 20px 50px -20px rgb(0 0 0 / .8); }
 .pair .avatar + .avatar { margin-left: -22px; }
-.pair .spark { width: 40px; height: 40px; border-radius: 50%; background: var(--bg); color: var(--like); display: grid; place-items: center; margin: 0 -12px; z-index: 2; box-shadow: var(--shadow-1); }
+.pair .spark { width: 40px; height: 40px; border-radius: 50%; background: #fff; color: var(--like); display: grid; place-items: center; margin: 0 -12px; z-index: 2; box-shadow: var(--shadow-1); }
 @media (prefers-reduced-motion: no-preference) {
   .pair .avatar:first-child { animation: fromLeft .6s var(--spring) both; }
   .pair .avatar:last-child { animation: fromRight .6s var(--spring) both; }
@@ -524,7 +533,7 @@ body.chat-mode main > * { animation: none; }
 /* ------------------------------------------------------------ Profil, sécurité */
 .me-head { display: flex; gap: 14px; align-items: center; padding: 4px 2px; }
 .me-head .body { flex: 1; min-width: 0; }
-.me-head .n { font-family: var(--font-display); font-size: 31px; font-weight: 400; letter-spacing: -.012em; line-height: 1.08; }
+.me-head .n { font-family: var(--font-display); font-size: 28px; font-weight: 400; letter-spacing: -.012em; line-height: 1.08; }
 .me-head .c { font-size: 13px; color: var(--hint); margin-top: 3px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .acc { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .32s var(--ease); }
 .acc.open { grid-template-rows: 1fr; }

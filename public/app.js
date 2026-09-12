@@ -182,6 +182,8 @@ function go(screen, params = {}) {
   S.screen = screen;
   // La discussion occupe toute la hauteur de l'écran, champ de saisie fixé en bas
   document.body.classList.toggle('chat-mode', screen === 'chat');
+  // Le match est un écran d'encre dans les deux thèmes : le moment signature, pas une page de l'app
+  document.body.classList.toggle('match-mode', screen === 'match');
   const parent = PARENT[screen]?.();
   tg.setBack(parent ? () => go(parent, parent === 'chat' ? { id: S.chat?.id } : {}) : null);
   showTabs(screen);
@@ -252,7 +254,7 @@ async function refreshSummary() {
 // ============================================================
 // Briques partagées : avatars, carte de profil, photos à la demande
 // ============================================================
-const avatar = (p, size = 'sm') => `<span class="avatar ${size}" data-avatar="${esc(p.id)}">${esc(p.name?.[0] || '?')}</span>`;
+const avatar = (p, size = 'sm') => `<span class="avatar ${size}${p.verified ? ' verified' : ''}" data-avatar="${esc(p.id)}">${esc(p.name?.[0] || '?')}</span>`;
 
 function loadAvatar(p, { own = false } = {}) {
   if (!p?.hasPhoto || (!own && S.dataSaver)) return;
@@ -836,7 +838,7 @@ const SCREENS = {
     const me = S.me.publicProfile;
     render(`
       <div class="match-hero">
-        <span class="orb orb-1"></span>
+        <span class="aura" aria-hidden="true"></span>
         <p class="eyebrow">${t("C'est un match")}</p>
         <div class="pair">${avatar(me, 'xl')}<span class="spark">${icon('heart', 20, { fill: true })}</span>${avatar(m.other, 'xl')}</div>
         <h1 class="display">${t('{nom} et toi, vous vous plaisez', { nom: esc(m.other.name) })}</h1>

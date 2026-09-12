@@ -30,8 +30,13 @@ function resolvedColor(varName) {
   return '#' + parts.slice(0, 3).map((n) => Number(n).toString(16).padStart(2, '0')).join('');
 }
 
-// Les boutons natifs prennent les couleurs de la marque ; le cadre Telegram, celle de la page
-const BRAND = { color: '#e0784f', text_color: '#141210' };
+// Le bouton natif prend la couleur d'action du thème en cours (encre sur os, ou os sur encre) ;
+// le cadre Telegram (en-tête, fond, barre du bas) prend la surface de la page.
+const brandColors = () => {
+  const color = resolvedColor('--button');
+  const text_color = resolvedColor('--button-text');
+  return color && text_color ? { color, text_color } : { color: '#ece9f7', text_color: '#0b0b14' };
+};
 const secondaryColors = () => {
   const color = resolvedColor('--btn-secondary');
   const text_color = resolvedColor('--text');
@@ -45,7 +50,7 @@ function syncChrome() {
     W.setBackgroundColor(bg);
   }
   if (bg && supports('7.10')) W.setBottomBarColor(bg);
-  W.MainButton.setParams(BRAND);
+  W.MainButton.setParams(brandColors());
 }
 
 export function init() {
@@ -90,7 +95,7 @@ export function setButtons(buttons = {}) {
     mainHandler = null;
     if (main) {
       mainHandler = () => main.onClick?.();
-      W.MainButton.setParams({ ...BRAND, text: main.text, is_visible: true, is_active: !main.progress });
+      W.MainButton.setParams({ ...brandColors(), text: main.text, is_visible: true, is_active: !main.progress });
       W.MainButton.onClick(mainHandler);
       main.progress ? W.MainButton.showProgress(false) : W.MainButton.hideProgress();
     } else {
