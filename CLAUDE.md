@@ -73,7 +73,7 @@ audit/
 | Découverte | Même zone de recherche et même intention, 20 profils par jour, ceux qui t'ont liké en premier, économie de data (photos à la demande) |
 | Match et discussion | Discussion plein écran, polling toutes les 4 s, non lus, présence (pas de notification si la personne lit) |
 | Notifications bot | Match, message (limité à une par discussion toutes les 2 min), « tu as plu à quelqu'un » (une par jour), test depuis l'onglet Profil, bouton qui rouvre le bon écran (`?screen=chat&match=`) |
-| Anti-arnaque | Argent bloqué (texte normalisé contre les contournements), contacts bloqués avant 10 messages, profil sans contact ni argent |
+| Anti-arnaque | Argent bloqué (texte normalisé contre les contournements : points, lettres détachées, « O » pour zéro), contacts bloqués avant 10 messages, profil et créneau de rendez-vous sans contact ni argent. **International** : 34 familles de moyens de paiement, 56 devises, vocabulaire français et anglais, numéros de n'importe quel indicatif (E.164 ou neuf chiffres). Deux paliers de moyens : inconditionnels, et ambigus (`om`, `visa`, `wave`, `wise`) qui ne bloquent pas seuls mais tiennent le rôle d'objet d'argent |
 | Rendez-vous | Proposition dans un lieu partenaire, check-in par `showScanQrPopup`, notification à l'autre personne |
 | Sécurité | Signaler et bloquer, guide anti-chantage, suppression complète du compte |
 | Éléments natifs | MainButton, SecondaryButton, BackButton, SettingsButton, popups, haptique, scanner QR, confirmation de fermeture, CloudStorage, requestWriteAccess, addToHomeScreen |
@@ -124,7 +124,8 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 - Pas d'interface de modération en dehors du groupe Telegram.
 - Lieux partenaires codés en dur dans `config.js`, codes QR fixes, et seulement au Cameroun : ailleurs, le rendez-vous avec confirmation d'arrivée n'est pas disponible.
 - Compteurs de limitation de débit en mémoire : remis à zéro au redémarrage, non partagés entre instances.
-- `server/antiscam.js` reste calibré sur le Cameroun : préfixe `+237`, numéros à 9 chiffres commençant par 6, MTN MoMo et Orange Money, montants en F CFA. Hors de la zone, un numéro étranger ou un autre moyen de paiement peut passer. À élargir avant d'ouvrir un autre pays pour de vrai.
+- `server/antiscam.js` couvre maintenant tous les pays, avec trois limites connues : les pays à **mobiles à 8 chiffres** (Togo, Gabon) ne sont attrapés que sous la forme `+indicatif` ; un numéro **écrit en toutes lettres** (« six sept sept… ») n'est vu que s'il est annoncé (« mon numéro ») ; et le vocabulaire ne couvre que le **français et l'anglais** — une demande écrite dans une autre langue échappe aux règles de formulation, mais pas à celles des numéros ni des moyens de paiement, qui ne dépendent pas de la langue.
+- Le corpus de non-régression d'`antiscam.js` reste écrit à la main : il fige chaque cas nommé, il ne mesure pas le comportement de vrais utilisateurs. À remplacer par les messages réellement signalés pendant la bêta.
 - La localisation s'arrête au **pays** : le fuseau ne distingue pas Yaoundé de Douala, et l'app ne demande pas le GPS. La ville reste écrite par la personne, avec des suggestions pour 33 pays seulement.
 - Traduction : le français et l'anglais seulement. Les noms de pays viennent d'`Intl.DisplayNames` (donc traduits automatiquement), mais les villes, les quartiers et les textes saisis par les membres restent tels quels.
 - Aucune analytique produit : aucun entonnoir, aucune cohorte, aucune courbe de rétention n'est calculable. Voir `audit/05-mesure-produit.md`.
@@ -156,7 +157,7 @@ L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 6. **Système de garant** : un membre vérifié peut se porter garant de 3 personnes au plus ; il perd son badge si l'une est bannie pour arnaque.
 7. **Mode sortie en duo complet** ou retrait de l'option de l'inscription tant qu'il n'est pas terminé.
 8. **Plusieurs photos** (3 au plus) avec modération.
-9. ~~**Anglais**~~ : fait, fichiers de traduction chargés à la demande, langue de Telegram par défaut, choix dans le profil, bot traduit dans la langue de qui reçoit. Reste à faire : le **pidgin** (`public/i18n/pcm.js` + `server/i18n.js`), et l'élargissement d'`antiscam.js` hors du Cameroun.
+9. ~~**Anglais**~~ : fait, fichiers de traduction chargés à la demande, langue de Telegram par défaut, choix dans le profil, bot traduit dans la langue de qui reçoit. `antiscam.js` est également ouvert à tous les pays. Reste à faire : le **pidgin** (`public/i18n/pcm.js` + `server/i18n.js`).
 10. **Tableau de bord de modération** web protégé : selfies en attente, signalements, bannissements, lieux partenaires et rotation des codes QR, paiements et remboursements.
 11. **Temps réel** (WebSocket ou SSE) avec retour automatique au polling si la connexion est instable.
 
