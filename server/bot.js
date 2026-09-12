@@ -96,6 +96,15 @@ export async function decideVerification(userId, approved) {
   }
 }
 
+// Retire la photo du groupe de modération et laisse à la place une ligne de texte : la trace de
+// la décision reste, l'image ne reste pas. Si Telegram refuse la suppression (message trop ancien),
+// on retombe sur la légende modifiée plutôt que de perdre la trace.
+async function effacerEtTracer(ctx, trace) {
+  const efface = await ctx.deleteMessage().then(() => true).catch(() => false);
+  if (efface) await ctx.api.sendMessage(config.adminChatId, trace).catch(() => {});
+  else await ctx.editMessageCaption({ caption: trace }).catch(() => {});
+}
+
 export function setupBot() {
   if (!bot) {
     console.warn('BOT_TOKEN absent : le bot est désactivé (seule l\'API tourne).');
@@ -120,7 +129,9 @@ export function setupBot() {
     if (String(ctx.chat?.id) !== String(config.adminChatId)) return ctx.answerCallbackQuery({ text: 'Action réservée à la modération.' });
     const [, action, userId] = ctx.match;
     await decideVerification(userId, action === 'approve');
-    await ctx.editMessageCaption({ caption: `${action === 'approve' ? 'Validé' : 'Refusé'} par ${ctx.from.first_name} (ID ${userId})` });
+    // Le selfie est supprimé du disque ET du groupe : une légende modifiée laissait l'image
+    // visible indéfiniment dans Telegram, ce que la promesse faite à la personne exclut.
+    await effacerEtTracer(ctx, `Vérification ${action === 'approve' ? 'validée' : 'refusée'} par ${ctx.from.first_name} (ID ${userId})`);
     await ctx.answerCallbackQuery({ text: action === 'approve' ? 'Profil validé' : 'Profil refusé' });
   });
 
@@ -128,7 +139,7 @@ export function setupBot() {
     if (String(ctx.chat?.id) !== String(config.adminChatId)) return ctx.answerCallbackQuery({ text: 'Action réservée à la modération.' });
     const [, action, userId, n] = ctx.match;
     await decidePhoto(userId, Number(n), action === 'approve');
-    await ctx.editMessageCaption({ caption: `Photo ${n} ${action === 'approve' ? 'validée' : 'refusée'} par ${ctx.from.first_name} (ID ${userId})` });
+    await effacerEtTracer(ctx, `Photo ${n} ${action === 'approve' ? 'validée' : 'refusée'} par ${ctx.from.first_name} (ID ${userId})`);
     await ctx.answerCallbackQuery({ text: action === 'approve' ? 'Photo validée' : 'Photo refusée' });
   });
 

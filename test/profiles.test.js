@@ -90,11 +90,11 @@ test('parcourir la liste ne consomme pas le quota', async () => {
 test('un « Passer » peut devenir un « J\'aime », pas l\'inverse', async () => {
   // Marc, qu'Aline avait passé, l'aime entre-temps ; elle revient sur sa décision
   await call('7103', '/swipes', 'POST', { targetId: '7101', action: 'like' });
-  const avant = store.swipesToday('7101');
+  const lignesAvant = store.swipesCount('7101');
   const r = await call('7101', '/swipes', 'POST', { targetId: '7103', action: 'like' });
   assert.ok(r.body.match, 'le rattrapage crée le match');
   assert.equal(store.swipeOf('7101', '7103').action, 'like');
-  assert.equal(store.swipesToday('7101'), avant, 'le rattrapage réutilise le balayage existant, sans nouvelle ligne');
+  assert.equal(store.swipesCount('7101'), lignesAvant, 'le rattrapage réutilise le balayage existant, sans nouvelle ligne');
   assert.equal((await call('7101', '/profiles')).body.profiles.find((p) => p.id === '7103').status, 'match');
 
   // Un like envoyé a pu prévenir la personne : il ne se retire pas en silence
@@ -123,4 +123,13 @@ test('mon quartier d\'abord, sans position GPS', async () => {
   // Le paquet est limité à dix cartes : on vérifie que le quartier passe en tête, pas la présence de tous
   const cartes = (await call('7301', '/discover')).body.profiles.map((p) => p.id);
   assert.equal(cartes[0], '7303', 'cartes : Bastos en tête du paquet');
+});
+
+test('le quota du jour ne compte que les « J\'aime »', async () => {
+  // Passer un profil qui ne convient pas ne doit pas coûter une journée de découverte
+  const avant = store.swipesToday('7104');
+  await call('7104', '/swipes', 'POST', { targetId: '7101', action: 'pass' });
+  assert.equal(store.swipesToday('7104'), avant, 'un « Passer » ne consomme pas le quota');
+  await call('7104', '/swipes', 'POST', { targetId: '7102', action: 'like' });
+  assert.equal(store.swipesToday('7104'), avant + 1, 'un « J\'aime » consomme le quota');
 });

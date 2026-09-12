@@ -154,10 +154,18 @@ export const store = {
 
   matchBetween: (a, b) => Object.values(db.matches).find((m) => m.key === pairKey(a, b)) || null,
 
+  // Seuls les « J'aime » comptent dans le quota : passer un profil qui ne convient pas ne doit pas
+  // coûter une journée de découverte, sinon le quota punit la personne qui trie sérieusement.
+  // Nombre de lignes de balayage d'une personne, tous types confondus. Sert à vérifier qu'un
+  // rattrapage réutilise la ligne existante au lieu d'en créer une seconde.
+  swipesCount(from) {
+    return db.swipes.filter((s) => s.from === String(from)).length;
+  },
+
   swipesToday(from) {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
-    return db.swipes.filter((s) => s.from === String(from) && s.at >= start.getTime()).length;
+    return db.swipes.filter((s) => s.from === String(from) && s.action === 'like' && s.at >= start.getTime()).length;
   },
 
   createMatch(a, b) {

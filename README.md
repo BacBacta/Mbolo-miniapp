@@ -16,14 +16,14 @@ Ce dépôt contient tout ce qu'il faut pour la tester sur ton propre téléphone
 |---|---|
 | Connexion sans mot de passe | Identité Telegram, signature vérifiée côté serveur (`server/auth.js`) |
 | Profil 18+ | Âge contrôlé, ni numéro ni lien accepté dans le profil |
-| Vérification par selfie | Geste aléatoire, selfie envoyé à ta discussion de modération avec les boutons Valider / Refuser, puis **supprimé** |
-| Découverte | Profils vérifiés de la même ville et de la même intention, dans la tranche d'âge que tu choisis, 20 par jour, ceux de ton quartier d'abord (sans jamais demander ta position). Badge « Nouveau » la première semaine. Une vue **Liste** montre tous les profils compatibles, balayés ou non, avec leur statut (aimé, passé, match) et des vignettes chargées à l'apparition, jamais en économie de data ; la parcourir ne consomme rien, seul un « J'aime » compte, et un « Passer » peut y être rattrapé |
+| Vérification par selfie | Geste aléatoire, valable 10 minutes et à usage unique, selfie envoyé à ta discussion de modération avec les boutons Valider / Refuser, puis **supprimé du disque et du groupe**. Un compte déjà vérifié ne repasse jamais par là |
+| Découverte | Profils vérifiés de la même ville et de la même intention, dans la tranche d'âge que tu choisis, 20 « J'aime » par jour, les profils passés ne comptant pas, ceux de ton quartier d'abord (sans jamais demander ta position). Badge « Nouveau » la première semaine. Une vue **Liste** montre tous les profils compatibles, balayés ou non, avec leur statut (aimé, passé, match) et des vignettes chargées à l'apparition, jamais en économie de data ; la parcourir ne consomme rien, seul un « J'aime » compte, et un « Passer » peut y être rattrapé |
 | Match et discussion | En tête de Messages, ceux qui ont aimé ton profil et attendent ta réponse (visibles quel que soit leur âge). Discussion plein écran, heure des messages, compteur de non lus, pseudos Telegram jamais montrés |
 | Activité | « En ligne récemment », « aujourd'hui » ou « cette semaine », jamais l'heure exacte ni de temps réel. La tranche fine est réservée aux matchs ; en découverte, « cette semaine » au plus |
 | Notifications | Le bot prévient d'un match, d'un message ou d'un like (« tu as plu à quelqu'un », une fois par jour), mais pas si la personne lit déjà la discussion |
 | Onglet Profil | Jusqu'à **3 photos**, chacune validée par la modération avant d'être montrée (refusée : supprimée, et la personne sait pourquoi) ; sur la carte, on change de photo en touchant la moitié droite ou gauche. Taux de complétion avec les étapes qui manquent (photo, quartier, langues), chacune ouvrant directement la bonne étape du formulaire. Aperçu de son profil tel que les autres le voient, en sections (réponse, infos, confiance), modification, test des notifications, paramètres |
-| Anti-arnaque | Demandes d'argent bloquées ; liens, numéros et pseudos bloqués avant 10 messages (`server/antiscam.js`) |
-| Rendez-vous sûr | Lieux partenaires uniquement, arrivée confirmée par le scanner QR natif de Telegram |
+| Anti-arnaque | Demandes d'argent bloquées, dans les messages comme dans le profil et dans le créneau d'un rendez-vous ; liens, numéros et pseudos bloqués tant que l'**échange** n'atteint pas 10 messages de chaque côté, pour qu'un monologue ne débloque rien (`server/antiscam.js`) |
+| Rendez-vous sûr | Lieux partenaires uniquement, arrivée confirmée par le scanner QR natif de Telegram. Un blocage ferme aussi le rendez-vous : la personne bloquée ne peut plus confirmer d'arrivée. Tu sais que l'autre est arrivée, jamais depuis quand |
 | Signalement | Bloque immédiatement et prévient la modération |
 | Données personnelles | Suppression complète du compte depuis les paramètres |
 
