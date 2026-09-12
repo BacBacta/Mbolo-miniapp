@@ -1,5 +1,5 @@
 import * as tg from './tg.js';
-import { icon, toast, skeleton, attachSwipe, throwCard, dayLabel, timeLabel, isSameDay } from './ui.js';
+import { icon, toast, skeleton, attachSwipe, throwCard, dayLabel, timeLabel, isSameDay, reglerLeVerre } from './ui.js';
 import { t, tn, langue, chargerLangue, LANGUES } from './i18n.js';
 
 // ============================================================
@@ -1637,6 +1637,9 @@ window.addEventListener('pagehide', leavePresence);
 // ============================================================
 async function boot() {
   tg.init();
+  // Le flou d'arrière-plan est coupé si l'appareil le rend mal. Sans await : la décision retenue
+  // s'applique tout de suite, la mesure se poursuit pendant que l'app se charge.
+  reglerLeVerre();
   // La langue de Telegram permet déjà de traduire l'écran d'erreur si /api/me échoue
   await chargerLangue(langueVoulue());
   buildTabs();
