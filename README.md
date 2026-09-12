@@ -249,11 +249,11 @@ Si tu obtiens `000`, c'est le résolveur DNS du téléphone qui bloque, et chang
 
 1. Crée un compte sur https://fly.io, puis un jeton dans **Account** → **Tokens**.
 2. Sur GitHub : **Settings** → **Secrets and variables** → **Actions** → **New repository secret**. Ajoute `FLY_API_TOKEN` et `BOT_TOKEN`. Facultatif : `ADMIN_KEY` (généré sinon) et `ADMIN_CHAT_ID`.
-3. Onglet **Actions** → **Déployer sur Fly** → **Run workflow**. Choisis un nom d'app libre (ils sont uniques dans le monde entier) et une région : `cdg` Paris, `jnb` Johannesburg, `mad` Madrid.
+3. Onglet **Actions** → **Déployer sur Fly** → **Run workflow**. Pour une **première installation**, saisis un nom d'app libre (ils sont uniques dans le monde entier) et une région : `ams` Amsterdam, `cdg` Paris, `jnb` Johannesburg, `mad` Madrid — puis reporte ces deux valeurs dans les `default` du workflow, pour n'avoir plus jamais à les retaper.
 4. Au bout de trois à cinq minutes, l'app répond sur `https://<ton-app>.fly.dev`.
 5. Dans Telegram : `/start` → **Ouvrir Mbolo**.
 
-Le workflow crée l'app, le volume et les adresses IP publiques s'ils manquent, pose les secrets, puis déploie. Relance-le à chaque fois que tu veux publier une nouvelle version.
+Le workflow crée l'app, le volume et les adresses IP publiques s'ils manquent, pose les secrets, puis déploie. Relance-le à chaque fois que tu veux publier une nouvelle version : **pour une mise à jour, laisse les deux champs tels quels** et appuie sur le bouton vert. Un nom d'app qui n'existe pas arrête le script avant toute modification — rien n'est déployé nulle part, mais rien n'est publié non plus.
 
 **En ligne de commande**, avec `deployer-fly.sh`. Le script crée l'app, le volume et les adresses IP publiques s'ils manquent, pose les secrets, déploie, puis vérifie que `/health` répond. Relançable sans risque : il ne recrée pas ce qui existe, et s'arrête avant toute modification si le jeton est invalide.
 
