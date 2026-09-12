@@ -56,7 +56,7 @@ public/
   styles.css    Identité « Aura » : surfaces d'encre ou d'os selon data-scheme, aura réservée au match, au badge et au like ; Fraunces pour l'identité, Manrope pour l'interface
 test/
   activity, antiscam, assets, auth, compression, filters, geographie, langues,
-  limites, notifications, photos, profiles, securite, webhook (87 tests)
+  limites, notifications, photos, profiles, securite, webhook (101 tests)
 audit/
   Dossier d'audit du parcours : benchmark, mesures, constats, risques, plan
 ```
@@ -118,7 +118,6 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 
 - Stockage JSON en un seul fichier : pas de concurrence entre plusieurs instances, pas de sauvegarde automatique.
 - Présence et réponses de démo en mémoire : perdues au redémarrage.
-- Pas de limitation du nombre de requêtes (anti-spam).
 - Une proposition de rendez-vous ne peut être ni acceptée ni refusée : elle reste « proposée ».
 - Discussion par polling toutes les 4 secondes.
 - Pas d'interface de modération en dehors du groupe Telegram.
@@ -130,6 +129,7 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 - Traduction : le français et l'anglais seulement. Les noms de pays viennent d'`Intl.DisplayNames` (donc traduits automatiquement), mais les villes, les quartiers et les textes saisis par les membres restent tels quels.
 - Aucune analytique produit : aucun entonnoir, aucune cohorte, aucune courbe de rétention n'est calculable. Voir `audit/05-mesure-produit.md`.
 - `fly.toml` et `render.yaml` livrent `AUTO_APPROVE=true` et `SEED_DEMO=true` en production, et aucun ne définit `ADMIN_CHAT_ID` : la vérification par selfie est débranchée sur l'app déployée. Voir `audit/04-risques.md`.
+- Le **verre** (flou d'arrière-plan) a un repli opaque quand le navigateur ne sait pas flouter ou quand la personne demande moins de transparence (`--glass-blur` et ses trois jetons de fond, dans `styles.css`). Un téléphone qui sait flouter mais le rend lentement garde le flou : aucune règle CSS ne distingue ce cas, seul un vrai Android d'entrée de gamme le dira.
 - Les tests de bout en bout dans un navigateur ont été faits manuellement avec Playwright, ils ne sont pas dans le dépôt.
 
 ## 8. Feuille de route
