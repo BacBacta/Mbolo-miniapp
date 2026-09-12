@@ -56,7 +56,7 @@ public/
   styles.css    Identité « Aura » : surfaces d'encre ou d'os selon data-scheme, aura réservée au match, au badge et au like ; Fraunces pour l'identité, Manrope pour l'interface
 test/
   activity, antiscam, assets, auth, compression, filters, geographie, langues,
-  limites, notifications, photos, profiles, securite, webhook (101 tests)
+  limites, notifications, photos, profiles, rendezvous, securite, webhook (110 tests)
 audit/
   Dossier d'audit du parcours : benchmark, mesures, constats, risques, plan
 ```
@@ -74,7 +74,7 @@ audit/
 | Match et discussion | Discussion plein écran, polling toutes les 4 s, non lus, présence (pas de notification si la personne lit) |
 | Notifications bot | Match, message (limité à une par discussion toutes les 2 min), « tu as plu à quelqu'un » (une par jour), test depuis l'onglet Profil, bouton qui rouvre le bon écran (`?screen=chat&match=`) |
 | Anti-arnaque | Argent bloqué (texte normalisé contre les contournements : points, lettres détachées, « O » pour zéro), contacts bloqués avant 10 messages, profil et créneau de rendez-vous sans contact ni argent. **International** : 34 familles de moyens de paiement, 56 devises, vocabulaire français et anglais, numéros de n'importe quel indicatif (E.164 ou neuf chiffres). Deux paliers de moyens : inconditionnels, et ambigus (`om`, `visa`, `wave`, `wise`) qui ne bloquent pas seuls mais tiennent le rôle d'objet d'argent |
-| Rendez-vous | Proposition dans un lieu partenaire, check-in par `showScanQrPopup`, notification à l'autre personne |
+| Rendez-vous | Proposition dans un lieu partenaire, puis **accepter, refuser ou annuler** : statuts `proposed`, `accepted`, `declined`, `cancelled`, notification du bot à chaque changement. L'invité accepte ou refuse ; celui qui propose annule sa proposition ; une fois accepté, chacun peut se décommander. **Le check-in par `showScanQrPopup` n'est possible que sur un rendez-vous accepté.** Un seul rendez-vous vivant par discussion. `PUT /api/dates/:id` |
 | Sécurité | Signaler et bloquer, guide anti-chantage, suppression complète du compte |
 | Éléments natifs | MainButton, SecondaryButton, BackButton, SettingsButton, popups, haptique, scanner QR, confirmation de fermeture, CloudStorage, requestWriteAccess, addToHomeScreen |
 
@@ -118,7 +118,6 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 
 - Stockage JSON en un seul fichier : pas de concurrence entre plusieurs instances, pas de sauvegarde automatique.
 - Présence et réponses de démo en mémoire : perdues au redémarrage.
-- Une proposition de rendez-vous ne peut être ni acceptée ni refusée : elle reste « proposée ».
 - Discussion par polling toutes les 4 secondes.
 - Pas d'interface de modération en dehors du groupe Telegram.
 - Lieux partenaires codés en dur dans `config.js`, codes QR fixes, et seulement au Cameroun : ailleurs, le rendez-vous avec confirmation d'arrivée n'est pas disponible.
@@ -140,7 +139,7 @@ L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 1. ~~**Intégration continue GitHub Actions**~~ : fait, `.github/workflows/ci.yml` lance `npm ci`, `npm test` et `npm audit` sur chaque pull request et chaque poussée vers `main`, en Node 20 et 22.
 2. **Migration vers PostgreSQL** avec migrations versionnées (`node-pg-migrate` ou équivalent léger), en gardant l'interface de `store.js` ; script d'import depuis `db.json`. Obligatoire avant tout paiement.
 3. ~~**Limitation des requêtes** par utilisateur~~ : fait pour messages, balayages, signalements, vérification, photos, rendez-vous et profil (`server/limites.js`, sans dépendance). Reste à couvrir : les paiements, quand ils existeront.
-4. **Accepter ou refuser un rendez-vous** : statuts `proposed`, `accepted`, `declined`, `cancelled` ; notification à chaque changement ; le check-in n'est possible que si le rendez-vous est accepté.
+4. ~~**Accepter ou refuser un rendez-vous**~~ : fait, `PUT /api/dates/:id` avec les quatre statuts, notification à chaque changement, check-in réservé aux rendez-vous acceptés, un seul rendez-vous vivant par discussion, et l'identifiant Telegram de qui propose ne sort plus du serveur (`test/rendezvous.test.js`).
 5. ~~**Défaire un match**~~ : fait, `DELETE /api/matches/:id`, sans notification, avec blocage sans accusation et six motifs de signalement.
 6. **Version web et paiement par mobile money** : voir la section 10, cahier des charges complet.
 7. **Tests de bout en bout** Playwright dans le dépôt (mode développement), lancés en CI.

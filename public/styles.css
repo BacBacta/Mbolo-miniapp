@@ -543,6 +543,13 @@ body.chat-mode main > * { animation: none; }
 .unlock .fill { height: 100%; border-radius: 2px; background: var(--button); transition: width .5s var(--ease); }
 .datecard { display: grid; gap: 10px; padding: 14px; margin: 6px 0; background: var(--bg); border-radius: 18px; border: 1px solid var(--line); box-shadow: var(--shadow-1); }
 .datecard.ok { border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+/* Refusé ou annulé : la carte reste au fil de la discussion, c'est une trace de ce qui s'est
+   passé, mais elle cesse d'attirer l'œil. Le texte garde son contraste, seuls le fond et l'icône
+   s'effacent — un rendez-vous annulé doit rester lisible. */
+.datecard.clos { background: var(--bg2); box-shadow: none; }
+.datecard.clos .v { text-decoration: line-through; text-decoration-thickness: 1px; }
+.datecard .row { gap: 8px; }
+.datecard .row .btn { flex: 1; }
 .datecard .head { display: flex; gap: 12px; align-items: center; }
 .datecard .v { font-weight: 700; font-size: 15px; }
 .datecard .w { font-size: 13px; color: var(--hint); }
