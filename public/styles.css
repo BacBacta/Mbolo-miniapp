@@ -451,7 +451,11 @@ body.chat-mode:has(#fallback-bar:not([hidden])) main { height: calc(var(--tg-vie
 body.chat-mode main > * { animation: none; }
 .chat { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .chat-head { display: flex; gap: 12px; align-items: center; padding: 6px 0 12px; border-bottom: 1px solid var(--line); }
-.chat-head .body { flex: 1; min-width: 0; }
+.chat-head .body { flex: 1; min-width: 0; text-align: left; }
+/* L'en-tête ouvre le profil : c'est le geste attendu, et le profil est déjà chargé */
+.head-profil { flex: 1; min-width: 0; display: flex; gap: 12px; align-items: center; border: 0; background: none; padding: 4px 0; color: inherit; cursor: pointer; }
+/* À qui de parler : la liste des discussions montrait la même chose des deux côtés */
+.tour { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
 .chat-head .name { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 6px; }
 .chat-head .sub { font-size: 12px; color: var(--hint); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .chat-head .sub .act { white-space: nowrap; }
