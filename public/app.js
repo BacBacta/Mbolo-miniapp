@@ -108,7 +108,7 @@ function compressImage(file, max = 720, quality = 0.8) {
 // ============================================================
 // Navigation
 // ============================================================
-const PARENT = { profile: () => (S.me?.verification === 'approved' ? 'me' : 'welcome'), verify: () => 'profile', match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat' };
+const PARENT = { profile: () => (S.me?.verification === 'approved' ? 'me' : 'welcome'), verify: () => 'profile', match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover') };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
 const TABS = [['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']];
 
@@ -795,6 +795,52 @@ const SCREENS = {
     tg.setButtons({ main: { text: 'Envoyer la proposition', onClick: sendDate } });
   },
 
+  // Se protéger de quelqu'un : trois gestes de gravité croissante, et six motifs de signalement.
+  // Jusqu'ici, se débarrasser d'une personne passait obligatoirement par une accusation.
+  protection({ id, matchId }) {
+    S.protection = { id, matchId };
+    const motif = (cle, texte, sous) => `
+      <button type="button" class="acc" data-action="signaler" data-motif="${cle}">
+        <span class="body"><span class="t">${texte}</span><span class="s">${sous}</span></span>
+        ${icon('chevron-right', 18)}
+      </button>`;
+    render(`
+      <div class="step-head"><h1>Te protéger de cette personne</h1><p class="lead">Elle ne sera jamais prévenue, quel que soit ton choix.</p></div>
+      ${matchId ? `
+      <div class="group"><span class="eyebrow">Sans rien signaler</span>
+        <div class="list">
+          <button type="button" class="acc" data-action="retirer-match">
+            <span class="body"><span class="t">Retirer ce match</span><span class="s">La discussion disparaît des deux côtés. Vous ne vous reverrez pas dans les profils</span></span>
+            ${icon('chevron-right', 18)}
+          </button>
+          <button type="button" class="acc" data-action="bloquer">
+            <span class="body"><span class="t">Bloquer</span><span class="s">Plus aucun message, aucun rendez-vous, aucune notification de sa part</span></span>
+            ${icon('chevron-right', 18)}
+          </button>
+        </div>
+      </div>` : `
+      <div class="group"><span class="eyebrow">Sans rien signaler</span>
+        <div class="list">
+          <button type="button" class="acc" data-action="bloquer">
+            <span class="body"><span class="t">Bloquer</span><span class="s">Ce profil ne peut plus te contacter ni apparaître</span></span>
+            ${icon('chevron-right', 18)}
+          </button>
+        </div>
+      </div>`}
+      <div class="group"><span class="eyebrow">Signaler à la modération</span>
+        <div class="list">
+          ${motif('argent', "Demande d'argent", 'Elle t\'a demandé ou proposé de l\'argent')}
+          ${motif('chantage', 'Chantage ou menace', 'Photos, vidéos, menaces de révéler quelque chose')}
+          ${motif('deplace', 'Comportement déplacé', 'Insultes, propos sexuels non voulus, insistance')}
+          ${motif('usurpation', "Ce n'est pas la bonne personne", 'Photos volées, identité empruntée')}
+          ${motif('mineur', 'Cette personne semble mineure', 'Le compte est bloqué et vérifié en priorité')}
+          ${motif('violence', 'Violence ou menace physique', 'Elle t\'a menacée, ou après un rendez-vous')}
+        </div>
+      </div>
+      <p class="fine">${icon('shield', 14)}<span>Signaler bloque aussi la personne. Un modérateur regarde chaque signalement.</span></p>`);
+    tg.setButtons(null);
+  },
+
   safety() {
     render(`
       <div class="step-head"><h1>Ta sécurité</h1><p class="lead">Ce que ${esc(APP)} garantit, et quoi faire si quelque chose cloche.</p></div>
@@ -1150,26 +1196,49 @@ async function checkin(dateId) {
   }
 }
 
-async function report(targetId, matchId) {
-  const id = await tg.popup({
-    title: 'Signaler et bloquer',
-    message: "La personne ne saura pas que tu l'as signalée. Un modérateur vérifie sous 24 h.",
-    buttons: [
-      { id: 'money', type: 'destructive', text: "Demande d'argent" },
-      { id: 'behavior', type: 'destructive', text: 'Comportement déplacé' },
-      { id: 'cancel', type: 'cancel' },
-    ],
-  });
-  if (!id || id === 'cancel') return;
+// Après n'importe lequel des trois gestes, on quitte l'endroit où la personne était visible.
+function apresProtection(message) {
+  const { id, matchId } = S.protection || {};
+  tg.haptic('success');
+  toast(message, 'ok');
+  S.profiles = S.profiles.filter((p) => p.id !== id);
+  S.people = []; S.likes = []; S.matches = [];
+  S.chat = null;
+  S.protection = null;
+  go(matchId ? 'matches' : 'discover');
+}
+
+async function signaler(motif) {
+  const { id, matchId } = S.protection || {};
+  if (!id) return;
   try {
-    await api('/reports', { method: 'POST', body: { targetId, reason: id, matchId } });
-    tg.haptic('success');
-    toast('Signalement envoyé. Ce profil ne peut plus te contacter.', 'ok');
-    S.profiles = S.profiles.filter((p) => p.id !== targetId);
-    go(matchId ? 'matches' : 'discover');
-  } catch (e) {
-    showError(e);
-  }
+    await api('/reports', { method: 'POST', body: { targetId: id, reason: motif, matchId } });
+    apresProtection('Signalement envoyé. Ce profil ne peut plus te contacter.');
+  } catch (e) { showError(e); }
+}
+
+async function bloquer() {
+  const { id } = S.protection || {};
+  if (!id) return;
+  try {
+    await api('/blocks', { method: 'POST', body: { targetId: id } });
+    apresProtection('Bloqué. Cette personne ne peut plus te contacter.');
+  } catch (e) { showError(e); }
+}
+
+async function retirerMatch() {
+  const { matchId } = S.protection || {};
+  if (!matchId) return;
+  const reponse = await tg.popup({
+    title: 'Retirer ce match',
+    message: "La discussion disparaît des deux côtés, sans que la personne soit prévenue. C'est définitif.",
+    buttons: [{ id: 'ok', type: 'destructive', text: 'Retirer' }, { id: 'cancel', type: 'cancel' }],
+  });
+  if (reponse !== 'ok') return;
+  try {
+    await api(`/matches/${matchId}`, { method: 'DELETE' });
+    apresProtection('Match retiré.');
+  } catch (e) { showError(e); }
 }
 
 // ============================================================
@@ -1204,8 +1273,11 @@ app.addEventListener('click', async (e) => {
       if (S.screen === 'person') SCREENS.person({ id: S.person?.id });
       else SCREENS.discover();
       break;
-    case 'report-profile': report(el.dataset.id); break;
-    case 'report-chat': report(S.chat.other.id, S.chat.id); break;
+    case 'report-profile': go('protection', { id: el.dataset.id }); break;
+    case 'report-chat': go('protection', { id: S.chat.other.id, matchId: S.chat.id }); break;
+    case 'signaler': signaler(el.dataset.motif); break;
+    case 'bloquer': bloquer(); break;
+    case 'retirer-match': retirerMatch(); break;
     case 'open-chat': go('chat', { id: el.dataset.id }); break;
     case 'person': S.personFrom = S.screen; go('person', { id: el.dataset.id }); break;
     case 'filters': go('filters'); break;
