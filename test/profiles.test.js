@@ -133,3 +133,32 @@ test('le quota du jour ne compte que les « J\'aime »', async () => {
   await call('7104', '/swipes', 'POST', { targetId: '7102', action: 'like' });
   assert.equal(store.swipesToday('7104'), avant + 1, 'un « J\'aime » consomme le quota');
 });
+
+test('la découverte dit pourquoi le paquet est vide', async () => {
+  const r = await call('7101', '/discover');
+  assert.ok(r.body.vivier, 'le vivier accompagne toujours la réponse');
+  assert.equal(typeof r.body.vivier.total, 'number');
+  assert.equal(typeof r.body.vivier.horsTranche, 'number');
+  assert.equal(typeof r.body.vivier.vus, 'number');
+
+  // Personne de compatible : le total tombe à zéro, et l'app peut le dire au lieu de
+  // prétendre qu'on a « tout vu »
+  await call('7199', '/me');
+  await call('7199', '/me/profile', 'PUT', { name: 'Solitaire', age: 30, gender: 'femme', intent: 'serieux', city: 'Garoua', promptA: 'Le riz sauce arachide' });
+  store.updateUser('7199', { verification: 'approved' });
+  const seul = await call('7199', '/discover');
+  assert.equal(seul.body.vivier.total, 0);
+  assert.equal(seul.body.profiles.length, 0);
+});
+
+test('la tranche d\'âge explique un paquet vide sans vivier vide', async () => {
+  await call('7198', '/me');
+  await call('7198', '/me/profile', 'PUT', { name: 'Exigeant', age: 25, gender: 'homme', intent: 'amitie', city: 'Douala', promptA: 'Le poisson braisé' });
+  store.updateUser('7198', { verification: 'approved' });
+  // Tout le monde a 25 ans dans ce jeu de test : une tranche 40-45 vide le paquet sans vider le vivier
+  await call('7198', '/me/filters', 'PUT', { ageMin: 40, ageMax: 45 });
+  const r = await call('7198', '/discover');
+  assert.equal(r.body.profiles.length, 0);
+  assert.ok(r.body.vivier.total > 0, 'des profils compatibles existent');
+  assert.ok(r.body.vivier.horsTranche > 0, 'ils sont hors de la tranche choisie');
+});

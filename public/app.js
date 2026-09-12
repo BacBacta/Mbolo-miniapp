@@ -427,7 +427,9 @@ async function swipePerson(action) {
       go('match');
     } else {
       toast(action === 'like' ? 'Aimé. Tu seras prévenu en cas de match.' : 'Passé.');
-      go('discover');
+      // On revient d'où l'on vient : décider depuis Messages ou depuis la liste ne doit pas
+      // éjecter vers le paquet de cartes.
+      go(S.personFrom || 'discover');
     }
   } catch (e) {
     showError(e, null);
@@ -601,6 +603,7 @@ const SCREENS = {
         const r = await api('/discover');
         S.profiles = r.profiles;
         S.remaining = r.remaining;
+        S.vivier = r.vivier;
       } catch (e) {
         return renderError(e, () => go('discover'));
       }
@@ -609,13 +612,35 @@ const SCREENS = {
     const p = S.profiles[0];
     const next = S.profiles[1];
     if (!p) {
+      const v = S.vivier || {};
+      const ville = S.me.profile.city;
+      const intention = (S.me.options?.intents || {})[S.me.profile.intent] || '';
+      let titre, texte, bouton;
+      if (!S.remaining) {
+        titre = 'Ta limite du jour est atteinte';
+        texte = `Tu peux aimer ${20} profils par jour. Le compteur repart à minuit. Passer un profil ne compte pas.`;
+        bouton = { text: 'Voir mes messages', onClick: () => go('matches') };
+      } else if (!v.total) {
+        titre = `Personne d'autre à ${esc(ville)} pour l'instant`;
+        // Ne rien promettre que le code ne tient pas : aucune alerte d'arrivée n'existe aujourd'hui.
+        texte = `Tu es parmi les premiers à ${esc(ville)} sur « ${esc(intention)} ». Reviens dans quelques jours, ou parle de ${esc(APP)} autour de toi.`;
+        bouton = { text: 'Voir mon profil', onClick: () => go('me') };
+      } else if (v.horsTranche) {
+        titre = 'Tu as vu tous les profils de ta tranche d\'âge';
+        texte = `${v.horsTranche} profil${v.horsTranche > 1 ? 's' : ''} de ${esc(ville)} ${v.horsTranche > 1 ? 'sont' : 'est'} en dehors de la tranche que tu as choisie. Tu peux l'élargir.`;
+        bouton = { text: 'Élargir ma tranche d\'âge', onClick: () => go('filters') };
+      } else {
+        titre = 'Tu as vu tous les profils du moment';
+        texte = 'Reviens un peu plus tard : de nouveaux profils vérifiés arrivent chaque jour.';
+        bouton = { text: 'Voir mes messages', onClick: () => go('matches') };
+      }
       render(`
         <div class="empty">
           <span class="glyph">${icon('sparkles', 34)}</span>
-          <h2>Tu as vu tous les profils du moment</h2>
-          <p>${S.remaining ? 'Reviens un peu plus tard : de nouveaux profils vérifiés arrivent chaque jour.' : 'Ta limite du jour est atteinte. Reviens demain.'}</p>
+          <h2>${titre}</h2>
+          <p>${texte}</p>
         </div>`);
-      return tg.setButtons({ main: { text: 'Voir mes messages', onClick: () => go('matches') } });
+      return tg.setButtons({ main: bouton });
     }
     render(`
       ${dbar()}
@@ -637,7 +662,8 @@ const SCREENS = {
         </div>
         <p class="error" id="form-error"></p>
       </form>
-      <p class="fine">${icon('info', 14)}<span>Les personnes qui ont aimé ton profil restent visibles dans Messages, quel que soit leur âge.</span></p>`);
+      <p class="fine">${icon('info', 14)}<span>Les personnes qui ont aimé ton profil restent visibles dans Messages, quel que soit leur âge.</span></p>
+      <p class="fine">${icon('users', 14)}<span>Qui t'est proposé : les profils vérifiés de ${esc(S.me.profile.city)} qui cherchent la même chose que toi. Pour « Relation sérieuse », ce sont les profils de l'autre genre ; pour « Amitié » et « Sortie en duo », tout le monde.</span></p>`);
     document.getElementById('filters-form').addEventListener('submit', (e) => { e.preventDefault(); saveFilters(); });
     tg.setButtons({ main: { text: 'Enregistrer', onClick: () => saveFilters() }, secondary: { text: 'Tout voir', onClick: () => saveFilters({ ageMin: 18, ageMax: 99 }) } });
   },
@@ -710,7 +736,7 @@ const SCREENS = {
           <button type="button" class="list-row ${m.unread ? 'unread' : ''}" data-action="open-chat" data-id="${m.id}">
             ${avatar(m.other, 'sm')}
             <div class="body">
-              <div class="title">${esc(m.other.name)}${m.other.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${m.isNew ? '<span class="chip chip-accent">Nouveau</span>' : ''}${activityChip(m.other)}</div>
+              <div class="title">${esc(m.other.name)}${m.other.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${m.isNew ? '<span class="chip chip-accent">Nouveau</span>' : ''}${activityChip(m.other)}${m.aQuiDeParler === 'moi' && !m.unread ? '<span class="tour">à toi</span>' : ''}</div>
               <div class="preview">${m.lastMessage ? `${m.lastMessage.from === S.me.id ? 'Toi : ' : ''}${esc(m.lastMessage.text)}` : 'Nouveau match, écris le premier message'}</div>
             </div>
             ${m.unread ? `<span class="count-badge">${m.unread}</span>` : `<span class="chev">${icon('chevron-right', 18)}</span>`}
@@ -859,7 +885,9 @@ function stepError(step) {
   const age = Number(f.age);
   if (step === 0) {
     if (!f.name.trim()) return 'Indique ton prénom.';
-    if (!Number.isInteger(age) || age < 18) return `${APP} est réservé aux 18 ans et plus.`;
+    if (!String(f.age).trim()) return 'Indique ton âge.';
+    if (!Number.isInteger(age) || age > 99) return 'Indique ton âge en chiffres, entre 18 et 99.';
+    if (age < 18) return `${APP} est réservé aux 18 ans et plus.`;
     if (!f.gender) return 'Indique si tu es une femme ou un homme.';
   }
   if (step === 1 && !f.intent) return 'Choisis ce que tu cherches.';
@@ -1022,11 +1050,13 @@ function renderChat() {
   render(`
     <div class="chat">
       <div class="chat-head">
-        ${avatar(c.other, 'sm')}
-        <div class="body">
-          <div class="name">${esc(c.other.name)}, ${esc(c.other.age)}${c.other.verified ? `<span class="ok">${icon('shield', 15)}</span>` : ''}</div>
-          <div class="sub">${ACTIVITY_LABELS[c.other.activity] ? `${activityChip(c.other, 'act')}<span aria-hidden="true">·</span>` : ''}${icon('lock', 12)} Pseudos et numéros masqués</div>
-        </div>
+        <button type="button" class="head-profil" data-action="person" data-id="${esc(c.other.id)}" aria-label="Voir le profil de ${esc(c.other.name)}">
+          ${avatar(c.other, 'sm')}
+          <div class="body">
+            <div class="name">${esc(c.other.name)}, ${esc(c.other.age)}${c.other.verified ? `<span class="ok">${icon('shield', 15)}</span>` : ''}</div>
+            <div class="sub">${ACTIVITY_LABELS[c.other.activity] ? `${activityChip(c.other, 'act')}<span aria-hidden="true">·</span>` : ''}${icon('lock', 12)} Pseudos et numéros masqués</div>
+          </div>
+        </button>
         <button type="button" class="icon-btn" data-action="report-chat" aria-label="Signaler">${icon('flag', 18)}</button>
       </div>
       <div class="messages" id="messages">${chatBody(c)}</div>
@@ -1168,11 +1198,16 @@ app.addEventListener('click', async (e) => {
       pressOnly(el, '[data-action="set"]');
       document.getElementById('form-error').textContent = '';
       break;
-    case 'reveal': S.revealed[el.dataset.id] = true; SCREENS.discover(); break;
+    // Afficher une photo depuis une fiche renvoyait sur Découvrir, écran sans carte ni bouton
+    case 'reveal':
+      S.revealed[el.dataset.id] = true;
+      if (S.screen === 'person') SCREENS.person({ id: S.person?.id });
+      else SCREENS.discover();
+      break;
     case 'report-profile': report(el.dataset.id); break;
     case 'report-chat': report(S.chat.other.id, S.chat.id); break;
     case 'open-chat': go('chat', { id: el.dataset.id }); break;
-    case 'person': go('person', { id: el.dataset.id }); break;
+    case 'person': S.personFrom = S.screen; go('person', { id: el.dataset.id }); break;
     case 'filters': go('filters'); break;
     case 'edit-step': S.form = null; S.formStep = Number(el.dataset.step); go('profile'); break;
     case 'photo-nav': photoNav(el, e); break;

@@ -241,10 +241,22 @@ function compatible(me, other) {
 // Même quartier que moi ? Le quartier déclaré tient lieu de proximité, sans jamais demander la position
 const sameArea = (me, p) => Number(!!me.profile.area && p.area === me.profile.area);
 
+// Un écran vide ne dit rien s'il ne dit pas pourquoi. Trois situations très différentes se
+// ressemblaient : personne d'autre n'est vérifié dans ta ville, tu as déjà tout vu, ou ton quota
+// du jour est épuisé. On renvoie donc de quoi les distinguer et proposer le bon geste.
+function vivier(me) {
+  const compatibles = store.allUsers().filter((u) => u.id !== me.id && isApproved(u) && !store.isBlocked(me.id, u.id) && compatible(me, u));
+  return {
+    total: compatibles.length,
+    horsTranche: compatibles.filter((u) => !inAgeRange(me, u)).length,
+    vus: compatibles.filter((u) => inAgeRange(me, u) && store.hasSwiped(me.id, u.id)).length,
+  };
+}
+
 api.get('/discover', requireApproved, (req, res) => {
   const me = req.user;
   const remaining = Math.max(0, config.dailyProfiles - store.swipesToday(me.id));
-  if (!remaining) return res.json({ profiles: [], remaining: 0 });
+  if (!remaining) return res.json({ profiles: [], remaining: 0, vivier: vivier(me) });
   const profiles = store.allUsers()
     .filter((u) => u.id !== me.id && isApproved(u) && !store.hasSwiped(me.id, u.id) && !store.isBlocked(me.id, u.id) && compatible(me, u) && inAgeRange(me, u))
     // Avant le match, on ne dit que « cette semaine » ou rien : la tranche fine est réservée aux matchs
@@ -252,7 +264,7 @@ api.get('/discover', requireApproved, (req, res) => {
     // Ceux qui t'ont liké, puis ton quartier
     .sort((a, b) => Number(b.likedYou) - Number(a.likedYou) || sameArea(me, b) - sameArea(me, a))
     .slice(0, Math.min(10, remaining));
-  res.json({ profiles, remaining });
+  res.json({ profiles, remaining, vivier: vivier(me) });
 });
 
 // Liste des profils compatibles, balayés ou non : la vue d'ensemble que les cartes n'offrent pas.
@@ -344,7 +356,17 @@ api.get('/matches', requireApproved, (req, res) => {
       const other = store.getUser(m.users.find((x) => x !== req.user.id));
       if (!other || store.isBlocked(req.user.id, other.id)) return null;
       const msgs = store.messagesOf(m.id);
-      return { id: m.id, other: publicProfile(other), lastMessage: msgs.at(-1) || null, createdAt: m.createdAt, unread: store.unreadCount(m.id, req.user.id), isNew: !store.hasOpened(m.id, req.user.id) };
+      const dernier = msgs.at(-1) || null;
+      return {
+        id: m.id,
+        other: publicProfile(other),
+        lastMessage: dernier,
+        createdAt: m.createdAt,
+        unread: store.unreadCount(m.id, req.user.id),
+        isNew: !store.hasOpened(m.id, req.user.id),
+        // « moi » : c'est à moi de répondre, ou de commencer. « autre » : la balle est dans son camp.
+        aQuiDeParler: !dernier ? 'moi' : dernier.from === req.user.id ? 'autre' : 'moi',
+      };
     })
     .filter(Boolean)
     .sort((a, b) => (b.lastMessage?.at || b.createdAt) - (a.lastMessage?.at || a.createdAt));
