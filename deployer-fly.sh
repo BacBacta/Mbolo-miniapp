@@ -6,7 +6,8 @@
 #   région  : cdg Paris (défaut), jnb Johannesburg, mad Madrid
 #
 # Secrets lus dans l'environnement : BOT_TOKEN et ADMIN_CHAT_ID (obligatoires),
-# ADMIN_KEY (généré s'il manque). Aucun n'est écrit sur le disque ni affiché.
+# ADMIN_KEY et WEB_SESSION_SECRET (générés s'ils manquent). Aucun n'est écrit sur le disque
+# ni affiché.
 set -euo pipefail
 
 APP="${1:-}"
@@ -76,11 +77,19 @@ else
 fi
 
 echo "== Secrets =="
-# --stage : posés maintenant, appliqués par le déploiement qui suit, sans redémarrage inutile
-flyctl secrets set --stage -a "$APP" \
-  BOT_TOKEN="$BOT_TOKEN" \
+# Le secret des sessions web est tiré au hasard au premier déploiement, puis laissé tel quel :
+# le reposer à chaque fois déconnecterait la modération à chaque mise en ligne.
+set -- BOT_TOKEN="$BOT_TOKEN" \
   ADMIN_KEY="${ADMIN_KEY:-$(head -c 32 /dev/urandom | base64 | tr -d '/+=')}" \
   ADMIN_CHAT_ID="$ADMIN_CHAT_ID"
+if [ -n "${WEB_SESSION_SECRET:-}" ]; then
+  set -- "$@" WEB_SESSION_SECRET="$WEB_SESSION_SECRET"
+elif ! flyctl secrets list -a "$APP" 2>/dev/null | grep -q '^WEB_SESSION_SECRET'; then
+  echo "WEB_SESSION_SECRET absent : j'en tire un au hasard pour l'espace de modération."
+  set -- "$@" WEB_SESSION_SECRET="$(head -c 32 /dev/urandom | base64 | tr -d '/+=')"
+fi
+# --stage : posés maintenant, appliqués par le déploiement qui suit, sans redémarrage inutile
+flyctl secrets set --stage -a "$APP" "$@"
 
 echo "== Déploiement =="
 # --remote-only : l'image est construite chez Fly, aucun Docker local nécessaire

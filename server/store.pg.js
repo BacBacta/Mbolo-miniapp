@@ -315,6 +315,9 @@ export const store = {
     await q('insert into reports (id, data, at) values ($1, $2::jsonb, $3)', [newId(), JSON.stringify(report), Date.now()]);
   },
 
+  // Du plus ancien au plus récent : la modération lit une file, pas un journal à l'envers.
+  reports: async () => (await q('select id, data, at from reports order by at asc')).map((r) => ({ id: r.id, at: Number(r.at), ...r.data })),
+
   // Défaire un match : la discussion, ses messages et ses rendez-vous disparaissent des deux côtés.
   // Les balayages restent, pour que les deux personnes ne se revoient pas en découverte.
   async removeMatch(matchId) {
