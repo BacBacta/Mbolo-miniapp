@@ -8,8 +8,9 @@ import { store } from './store.js';
 import { requireAuth } from './auth.js';
 import { checkMessage } from './antiscam.js';
 import { limiter, consommer } from './limites.js';
-import { notify, notifyAdmin, boutonBannir, sendSelfieToModeration, sendPhotoToModeration, decideVerification, onApproved } from './bot.js';
+import { notify, direATiers, notifyAdmin, boutonBannir, sendSelfieToModeration, sendPhotoToModeration, decideVerification, onApproved } from './bot.js';
 import { mesurer, mesurerRalenti, semaineIso, HEURE, CINQ_MINUTES } from './mesure.js';
+import { creerInvitation, retirer, PREFIXE } from './confiance.js';
 import { DEMO_REPLIES } from './seed.js';
 
 export const api = express.Router();
@@ -117,6 +118,9 @@ api.get('/me', async (req, res) => {
     // Les noms de pays ne transitent pas : le navigateur les affiche dans la langue de la
     // personne à partir du code ISO. On n'envoie donc que les codes, et des suggestions de villes.
     lang: u.lang || null,
+    // Le prénom suffit à l'afficher ; l'identifiant Telegram de la personne de confiance ne sort
+    // jamais du serveur, comme celui de n'importe qui d'autre.
+    confiance: u.confiance ? { prenom: u.confiance.prenom, at: u.confiance.at } : null,
     options: {
       intents: INTENTS, genders: GENDERS, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
       defaultCountry: config.defaultCountry,
@@ -226,6 +230,26 @@ api.post('/me/verification', limiter('verification'), async (req, res) => {
 // Langue choisie explicitement. Gardée sur le compte pour que le bot écrive dans la même langue
 // que l'interface, même quand l'app est fermée. Deux lettres, rien de plus : ce n'est pas une
 // donnée personnelle nouvelle au sens du profil, c'est un réglage d'affichage.
+// ---------- La personne de confiance ----------
+//
+// Elle donne son accord elle-même, dans Telegram : un bot ne peut pas écrire à quelqu'un qui ne
+// lui a jamais parlé, et enregistrer l'identité d'un tiers qui n'a rien demandé serait une donnée
+// personnelle sans consentement. L'app ne fabrique donc qu'une invitation ; c'est elle qui décide.
+api.post('/me/confiance/invitation', limiter('profil'), async (req, res) => {
+  if (!runtime.botUsername) return fail(res, 503, 'BOT_ABSENT', "Le bot n'est pas joignable pour l'instant. Réessaie dans un moment.");
+  const code = await creerInvitation(req.user.id);
+  res.json({ lien: `https://t.me/${runtime.botUsername}?start=${PREFIXE}${code}` });
+});
+
+api.delete('/me/confiance', async (req, res) => {
+  const avait = req.user.confiance;
+  await retirer(req.user.id);
+  // Elle a accepté quelque chose : elle apprend que ça s'arrête, plutôt que de rester à croire
+  // qu'elle veille sur quelqu'un.
+  if (avait) direATiers(avait.id, avait.lang, "{nom} ne t'a plus comme personne de confiance. Tu ne recevras plus rien.", { nom: req.user.profile?.name || req.user.firstName || '' });
+  res.json({ retire: true });
+});
+
 api.put('/me/lang', async (req, res) => {
   const lang = String(req.body?.lang || '').slice(0, 5).toLowerCase();
   if (!LANGUES.includes(lang)) return fail(res, 400, 'LANG_INVALID', 'Langue non prise en charge.');
@@ -758,6 +782,18 @@ api.put('/dates/:id', requireApproved, limiter('rendezvous'), async (req, res) =
   const venue = venues.find((v) => v.id === d.venueId);
   notify(autreId, changement.message, { nom: req.user.profile.name, lieu: venue?.name || '', creneau: d.slot },
     { label: 'Ouvrir la discussion', params: { screen: 'chat', match: m.id } });
+  // Le rendez-vous est accepté : chacune des deux personnes de confiance apprend le lieu et
+  // l'heure — jamais avec qui. L'autre membre n'a pas accepté que son prénom parte chez
+  // quelqu'un qu'il ne connaît pas ; le lieu et l'heure suffisent pour venir aider.
+  if (statut === 'accepted') {
+    for (const id of m.users) {
+      const u = await store.getUser(id);
+      if (u?.confiance) {
+        direATiers(u.confiance.id, u.confiance.lang, "{nom} a un rendez-vous : {lieu}, {creneau}. Tu es sa personne de confiance.",
+          { nom: u.profile?.name || u.firstName || '', lieu: venue?.name || '', creneau: d.slot });
+      }
+    }
+  }
   res.json({ date: { ...maj, arrivals: undefined, proposedBy: undefined, proposedByMe: jePropose, venue: venue && { ...venue, code: undefined } } });
 });
 
@@ -775,6 +811,11 @@ api.post('/dates/:id/checkin', requireApproved, async (req, res) => {
   if (String(req.body?.code || '').trim() !== venue.code) return fail(res, 400, 'WRONG_VENUE', `Ce code ne correspond pas à ${venue.name}. Scanne le code posé sur ta table.`, { venue: venue.name });
   await store.updateDate(d.id, { arrivals: { ...d.arrivals, [req.user.id]: Date.now() } });
   notify(autreId, '{nom} est bien arrivé(e) à {lieu}.', { nom: req.user.profile.name, lieu: venue.name }, { label: 'Ouvrir la discussion', params: { screen: 'chat', match: m.id } });
+  // Arrivée sur place : la personne de confiance le sait aussi. C'est le second des deux moments
+  // qui comptent — parti, puis arrivé.
+  if (req.user.confiance) {
+    direATiers(req.user.confiance.id, req.user.confiance.lang, '{nom} est bien arrivé(e) à {lieu}.', { nom: req.user.profile.name, lieu: venue.name });
+  }
   res.json({ arrived: true, venue: { name: venue.name, perk: venue.perk } });
 });
 
@@ -797,6 +838,20 @@ api.post('/blocks', requireApproved, limiter('signalement'), async (req, res) =>
   const m = await store.matchBetween(req.user.id, cible.id);
   if (m) await store.removeMatch(m.id);
   res.json({ blocked: true });
+});
+
+// Prévenir sa personne de confiance, maintenant. Les notifications automatiques ci-dessous
+// dépendent d'un rendez-vous accepté dans un lieu partenaire ; tant qu'aucun lieu n'existe, elles
+// ne partiront jamais. Celle-ci ne dépend de rien, et c'est elle qui protège au lancement.
+//
+// Le message ne porte aucun texte libre et ne nomme pas l'autre personne : celle-ci n'a jamais
+// accepté que son prénom parte chez quelqu'un qu'elle ne connaît pas.
+api.post('/matches/:id/prevenir', requireApproved, limiter('rendezvous'), async (req, res) => {
+  const r = await loadMatch(req, res);
+  if (!r) return;
+  if (!req.user.confiance) return fail(res, 409, 'PAS_DE_CONFIANCE', "Tu n'as pas encore de personne de confiance. Choisis-en une depuis ton profil.");
+  direATiers(req.user.confiance.id, req.user.confiance.lang, "{nom} te prévient : elle ou il part à un rendez-vous maintenant. Tu es sa personne de confiance.", { nom: req.user.profile.name });
+  res.json({ prevenu: true, prenom: req.user.confiance.prenom });
 });
 
 // ---------- Signalements ----------

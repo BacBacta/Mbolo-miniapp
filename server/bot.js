@@ -5,6 +5,7 @@ import { config, runtime } from './config.js';
 import { t, langueDe } from './i18n.js';
 import { store } from './store.js';
 import { mesurer } from './mesure.js';
+import { PREFIXE, porteurDuCode, accepter, refuser, retirer, membresQuiMOntChoisi } from './confiance.js';
 
 export const bot = config.botToken ? new Bot(config.botToken) : null;
 
@@ -38,6 +39,24 @@ export async function notify(userId, cle, vars, button, throttleKey, throttleMs 
     // L'utilisateur a peut-être bloqué le bot : on ne plante pas le serveur
     console.warn(`Notification impossible pour ${userId} : ${e.description || e.message}`);
     return { sent: false, reason: 'TELEGRAM_ERROR', detail: e.description || e.message };
+  }
+}
+
+// Écrire à quelqu'un qui n'est pas membre : la personne de confiance, et elle seule.
+//
+// notify() cherche un compte et rend la main quand il n'y en a pas — c'est voulu, il ne doit
+// jamais écrire à un inconnu. La personne de confiance est l'exception : elle a explicitement
+// accepté, dans Telegram, après avoir lu ce qu'elle recevrait. Sa langue est celle qu'elle a
+// annoncée à ce moment-là ; on ne peut pas la lire ailleurs, puisqu'elle n'a pas de profil.
+export async function direATiers(chatId, lang, cle, vars) {
+  if (!bot || !chatId) return { sent: false, reason: 'NO_BOT' };
+  try {
+    await bot.api.sendMessage(chatId, t(langueDe({ languageCode: lang }), cle, vars));
+    return { sent: true };
+  } catch (e) {
+    // Elle a peut-être bloqué le bot : on ne plante pas la requête d'un membre pour autant.
+    console.warn(`Message à une personne de confiance impossible (${chatId}) : ${e.description || e.message}`);
+    return { sent: false, reason: 'TELEGRAM_ERROR' };
   }
 }
 
@@ -156,6 +175,20 @@ export async function setupBot() {
 
   bot.command('start', async (ctx) => {
     const lang = langueDe(await store.getUser(ctx.from?.id) || { languageCode: ctx.from?.language_code });
+    // Lien « personne de confiance » : quelqu'un vient d'ouvrir l'invitation d'un membre. On dit
+    // exactement ce qu'elle recevra et ce qu'on garde d'elle, et on attend un accord explicite.
+    // Rien n'est enregistré tant qu'elle n'a pas touché le bouton.
+    const invitation = String(ctx.match || '').startsWith(PREFIXE) && String(ctx.match).slice(PREFIXE.length);
+    if (invitation) {
+      const membre = await porteurDuCode(invitation);
+      if (!membre) return ctx.reply(t(lang, "Cette invitation n'est plus valable. Demande à ton amie ou ton ami de t'en envoyer une autre."));
+      const prenom = membre.profile?.name || membre.firstName || '';
+      return ctx.reply(
+        t(lang, "{nom} te choisit comme personne de confiance sur {app}.\n\nSi tu acceptes, tu recevras un message quand {nom} part à un rendez-vous, avec le lieu et l'heure, et un autre quand {nom} arrive sur place. Tu ne verras rien d'autre : ni avec qui, ni les discussions.\n\nOn garde ton prénom et ton compte Telegram, rien de plus, et tu peux te retirer quand tu veux avec /retirer.",
+          { nom: prenom, app: config.appName }),
+        { reply_markup: new InlineKeyboard().text(t(lang, "J'accepte"), `conf:oui:${membre.id}`).text(t(lang, 'Non merci'), `conf:non:${membre.id}`) },
+      );
+    }
     const text = t(lang, "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans jamais te demander d'argent.\n\nRéservé aux 18 ans et plus.", { nom: ctx.from?.first_name || '', app: config.appName });
     const reply_markup = config.webAppUrl ? new InlineKeyboard().webApp(t(lang, 'Ouvrir {app}', { app: config.appName }), appUrl()) : undefined;
     await ctx.reply(text, { reply_markup });
@@ -211,6 +244,41 @@ export async function setupBot() {
     await ctx.answerCallbackQuery({ text: action === 'approve' ? 'Photo validée' : 'Photo refusée' });
   });
 
+  bot.callbackQuery(/^conf:(oui|non):(\d+)$/, async (ctx) => {
+    const [, reponse, membreId] = ctx.match;
+    const membre = await store.getUser(membreId);
+    const lang = langueDe({ languageCode: ctx.from?.language_code });
+    if (!membre) return ctx.answerCallbackQuery({ text: t(lang, "Ce compte n'existe plus.") });
+    // Une invitation transférée à plusieurs personnes laisse plusieurs boutons vivants : le
+    // premier qui répond consomme le code, et les autres boutons ne valent plus rien. Sans ce
+    // contrôle, le dernier à toucher remplacerait silencieusement celui qui avait déjà accepté.
+    if (!membre.confianceCode) return ctx.answerCallbackQuery({ text: t(lang, "Cette invitation n'est plus valable.") });
+    // Se désigner soi-même ne protège de rien, et ferait croire à un filet qui n'existe pas.
+    if (String(ctx.from.id) === String(membre.id)) return ctx.answerCallbackQuery({ text: t(lang, 'Choisis quelqu\'un d\'autre que toi.') });
+    if (reponse === 'non') {
+      await refuser(membre.id);
+      await ctx.editMessageText(t(lang, "C'est noté, rien n'a été enregistré."));
+      return ctx.answerCallbackQuery();
+    }
+    await accepter(membre, ctx.from);
+    await ctx.editMessageText(t(lang, "C'est fait. Tu seras prévenu quand {nom} part à un rendez-vous. Pour te retirer : /retirer.", { nom: membre.profile?.name || membre.firstName || '' }));
+    // Le membre apprend que c'est accepté : sans ça, il ne saurait jamais si son filet existe.
+    await notify(membre.id, '{nom} a accepté d\'être ta personne de confiance.', { nom: ctx.from.first_name || '' }, { label: 'Voir mon profil', params: { screen: 'me' } });
+    await ctx.answerCallbackQuery();
+  });
+
+  // Se retirer. Elle a accepté, elle doit pouvoir revenir dessus sans passer par quelqu'un d'autre.
+  bot.command('retirer', async (ctx) => {
+    const lang = langueDe(await store.getUser(ctx.from?.id) || { languageCode: ctx.from?.language_code });
+    const membres = await membresQuiMOntChoisi(ctx.from.id);
+    if (!membres.length) return ctx.reply(t(lang, "Personne ne t'a choisi comme personne de confiance."));
+    for (const m of membres) {
+      await retirer(m.id);
+      await notify(m.id, "{nom} ne souhaite plus être ta personne de confiance. Tu peux en désigner une autre.", { nom: ctx.from.first_name || '' }, { label: 'Voir mon profil', params: { screen: 'me' } });
+    }
+    await ctx.reply(t(lang, "C'est fait, tu ne recevras plus rien. Ton prénom et ton compte ont été effacés."));
+  });
+
   bot.catch((err) => console.error('Erreur du bot :', err.error?.message || err.message));
 }
 
@@ -255,6 +323,7 @@ export async function startBot(app, { delais } = {}) {
   await bot.api.setMyCommands([
     { command: 'start', description: `Ouvrir ${config.appName}` },
     { command: 'aide', description: 'Sécurité et aide' },
+    { command: 'retirer', description: 'Ne plus être personne de confiance' },
   ]).catch((e) => console.warn('Commandes non publiées :', e.message));
 
   if (config.useWebhook) {
