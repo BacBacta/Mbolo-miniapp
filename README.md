@@ -449,16 +449,37 @@ Avec `USE_WEBHOOK=true`, Telegram envoie les messages du bot directement à ton 
 
 ## Avant d'ouvrir à de vraies personnes
 
-Ce prototype sert à une **bêta fermée**. Avant un lancement public :
+Ce prototype sert à une **bêta fermée**. La liste ci-dessous sépare ce que le code tient déjà de ce qui attend une décision ou une démarche humaine — la seconde est la seule qui demande du travail.
 
-- [ ] **Autorisation de l'Autorité de protection des données** (loi n° 2024/017, applicable depuis le 23 juin 2026) : tu traites des photos (jusqu'à trois par personne, chacune validée par la modération avant d'être montrée), des données de vie intime, des données biométriques, un horodatage de dernière activité par personne (montré aux autres par tranche seulement), la tranche d'âge recherchée, le pays et la ville déclarés, la zone où la personne cherche, et sa langue de lecture — le tout effacé avec le compte. Le fuseau horaire du téléphone transite pour deviner le pays au premier lancement, mais il n'est ni stocké ni journalisé : aucune coordonnée GPS n'est demandée ni conservée.
-- [ ] Conditions d'utilisation et politique de confidentialité **renseignées dans BotFather** (`/mybots` → ton bot → *Bot Settings*). Les pages existent : `/confidentialite` et `/conditions`. Relis-les avec un juriste avant de les annoncer — elles décrivent fidèlement le traitement, mais ne remplacent ni la déclaration à l'Autorité de protection des données, ni un avis juridique.
-- [ ] `SEED_DEMO=false`. (`AUTO_APPROVE` n'a plus d'effet en production, et sans `ADMIN_CHAT_ID` le serveur ne démarre pas : ces deux-là sont désormais tenus par le code, pas par la vigilance.)
-- [ ] Une équipe de modération disponible chaque jour (selfies et signalements).
-- [ ] `DATABASE_URL` renseignée (PostgreSQL à la place du fichier JSON) et sauvegardes automatiques en place.
-- [ ] Limitation du nombre de requêtes (anti-spam) et journalisation des signalements.
-- [ ] Vérifier où sont hébergées les données (transferts hors du Cameroun encadrés par la loi).
-- [ ] Faire relire le fonctionnement par un juriste.
+### Ce que le code tient déjà, sans compter sur la vigilance
+
+| | Où |
+|---|---|
+| `AUTO_APPROVE` n'a **aucun effet** en production : aucun selfie n'est validé sans qu'un humain le voie | `server/config.js`, `test/production.test.js` |
+| Le serveur **refuse de démarrer** en production sans `ADMIN_CHAT_ID` : pas de vérification muette | `server/index.js` |
+| Le groupe de modération est **interrogé au démarrage** : un bot absent du groupe se voit au déploiement | `server/bot.js` |
+| Un selfie ou une photo qui ne part pas est **défait**, et la personne invitée à réessayer | `server/routes.js`, `test/moderation.test.js` |
+| `SEED_DEMO=false` dans `fly.toml` et `render.yaml` : pas de profils fictifs devant de vraies personnes | `test/production.test.js` |
+| Limitation du nombre de requêtes par compte et par action | `server/limites.js`, `test/limites.test.js` |
+| Les pages `/confidentialite` et `/conditions` existent, sont lisibles sans compte, et **disent ce que le code fait vraiment** | `server/legal/`, `test/pages-publiques.test.js` |
+
+### Ce qui t'attend
+
+Aucune de ces quatre choses ne peut être faite depuis le code.
+
+- [ ] **Renseigner les deux pages dans BotFather.** `/mybots` → ton bot → *Bot Settings*, entrée de politique de confidentialité. Les adresses : `https://<ton-app>.fly.dev/confidentialite` et `/conditions`. Il se peut qu'il n'y ait pas de champ dédié aux **conditions d'utilisation** : dans ce cas, mets le lien dans la description du bot — l'app y renvoie déjà depuis l'onglet Profil, donc l'accès reste assuré.
+- [ ] **Faire relire les deux textes par un juriste camerounais.** Ils décrivent fidèlement le traitement, relevé dans le code et non de mémoire, mais ce n'est pas un avis juridique.
+- [ ] **Déclarer le traitement à l'Autorité de protection des données** (loi n° 2024/017, applicable depuis le 23 juin 2026). Publier une politique ne remplace pas la déclaration. Tu traites des photos (jusqu'à trois par personne, chacune modérée avant d'être montrée), des données de vie intime, des données biométriques, un horodatage de dernière activité (montré aux autres par tranche seulement), la tranche d'âge recherchée, le pays et la ville déclarés, la zone de recherche et la langue de lecture — le tout effacé avec le compte. Le fuseau horaire transite pour deviner le pays au premier lancement, sans être stocké ni journalisé ; aucune coordonnée GPS n'est demandée. **Vérifie aussi où sont hébergées les données** : les transferts hors du Cameroun sont encadrés par la même loi.
+- [ ] **Essayer l'app sur un Android d'entrée de gamme.** Le flou d'arrière-plan de l'identité « Aura » a un repli opaque quand le navigateur ne sait pas flouter, mais **aucune règle CSS ne distingue « sait flouter » de « floute lentement »**. Seul un vrai téléphone bas de gamme le dira. Si ça rame, le repli se force en passant `--glass-blur` à `none` dans `public/styles.css`.
+
+### Ce qui demande une organisation, pas du code
+
+- [ ] **Quelqu'un qui regarde le groupe de modération chaque jour.** Depuis que la validation automatique n'existe plus en production, **personne ne s'inscrit tant qu'un humain n'a pas tranché** : c'est désormais le goulot d'étranglement de l'inscription.
+- [ ] **Passer à PostgreSQL et mettre en place des sauvegardes** avant de dépasser quelques centaines de comptes, et **obligatoirement avant tout paiement**. La marche à suivre est dans [`DEPLOIEMENT.md`](DEPLOIEMENT.md).
+
+### Entretien du dépôt
+
+- [ ] **Supprimer les branches fusionnées** — il y en a une quarantaine. Onglet *Branches* → filtre *Merged*. Puis coche **Automatically delete head branches** dans *Settings → General* pour que les suivantes disparaissent seules.
 
 ### À propos de `MATCH_POLICY`
 
