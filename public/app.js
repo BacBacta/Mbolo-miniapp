@@ -950,7 +950,13 @@ const SCREENS = {
     }
     if (S.screen !== 'chat') return;
     renderChat();
-    tg.setButtons({ main: { text: t('Proposer un rendez-vous'), onClick: () => go('date') } });
+    // Le second bouton est celui qui protège vraiment au lancement : les notifications
+    // automatiques dépendent d'un rendez-vous accepté dans un lieu partenaire, et il n'y en a
+    // aucun. Celui-ci ne dépend de rien — il part au moment où on quitte la maison.
+    tg.setButtons({
+      main: { text: t('Proposer un rendez-vous'), onClick: () => go('date') },
+      ...(S.me.confiance ? { secondary: { text: t('Je pars au rendez-vous'), onClick: prevenirConfiance } } : {}),
+    });
     S.chatTimer = setInterval(pollChat, 4000);
   },
 
@@ -1037,6 +1043,36 @@ const SCREENS = {
     tg.setButtons(null);
   },
 
+  // La personne de confiance. L'app ne fabrique qu'une invitation : c'est elle qui accepte, dans
+  // Telegram, après avoir lu ce qu'elle recevra et ce qu'on garde d'elle. Rien n'est enregistré
+  // avant son accord — un bot ne peut de toute façon pas écrire à qui ne lui a jamais parlé.
+  confiance() {
+    const c = S.me.confiance;
+    render(`
+      <div class="step-head"><h1>${t('Personne de confiance')}</h1>
+        <p class="lead">${t("Quelqu'un qui sait quand tu vas à un rendez-vous, où et à quelle heure. C'est la protection la plus simple et la plus efficace.")}</p></div>
+      ${c ? `
+      <div class="group">
+        <div class="list">
+          <div class="list-row">
+            <span class="tile tile-ok">${icon('shield', 20)}</span>
+            <div class="body"><div class="title">${esc(c.prenom)}</div><div class="sub">${t('Prévenu quand tu pars à un rendez-vous et quand tu arrives')}</div></div>
+          </div>
+        </div>
+        <p class="fine">${icon('lock', 14)}<span>${t("On ne lui dit jamais avec qui tu as rendez-vous, ni ce que vous vous écrivez.")}</span></p>
+      </div>
+      <div class="danger-zone"><button type="button" class="btn btn-danger btn-block" data-action="confiance-retirer">${t('Retirer {prenom}', { prenom: esc(c.prenom) })}</button></div>`
+      : `
+      <div class="list">
+        ${listRow({ iconName: 'info', title: t("Elle accepte elle-même"), sub: t("Tu lui envoies un lien, elle lit ce qu'elle recevra et décide. Rien n'est enregistré avant.") })}
+        ${listRow({ iconName: 'bell', title: t('Ce qu\'elle reçoit'), sub: t('Le lieu et l\'heure de ton rendez-vous, et le moment où tu arrives. Rien d\'autre.') })}
+        ${listRow({ iconName: 'shield', title: t('Ce qu\'on garde d\'elle'), sub: t('Son prénom et son compte Telegram. Elle peut se retirer quand elle veut.') })}
+      </div>`}
+    `);
+    tg.setBack(() => go('me'));
+    tg.setButtons(c ? null : { main: { text: t('Envoyer une invitation'), onClick: inviterConfiance } });
+  },
+
   // Choix de la langue. Par défaut celle de Telegram ; le choix explicite est gardé sur le
   // serveur, pour que le bot écrive lui aussi dans la bonne langue.
   langue() {
@@ -1115,6 +1151,9 @@ const SCREENS = {
             <div class="body"><div class="title">${t('Économie de data')}</div><div class="sub">${t('Photos chargées seulement si tu les demandes')}</div></div>
             <input type="checkbox" class="switch" name="dataSaver" ${S.dataSaver ? 'checked' : ''}>
           </label>
+          ${listRow({ iconName: 'shield', title: t('Personne de confiance'),
+            sub: S.me.confiance ? t('{prenom} est prévenu quand tu vas à un rendez-vous', { prenom: esc(S.me.confiance.prenom) }) : t("Quelqu'un qui sait où tu es quand tu vas à un rendez-vous"),
+            action: 'go', extra: ' data-screen="confiance"' })}
           ${listRow({ iconName: 'heart', tile: 'tile-like', title: t('Inviter une amie ou un ami'), sub: t("Plus il y a de profils vérifiés près de toi, mieux c'est"), action: 'invite', trailing: `<span class="chev">${icon('share', 18)}</span>` })}
           ${tg.canAddToHome() ? listRow({ iconName: 'home', title: t("Ajouter à l'écran d'accueil"), action: 'home' }) : ''}
         </div>
@@ -1154,6 +1193,29 @@ function stepError(step) {
   if (step === 1 && !f.intent) return t('Choisis ce que tu cherches.');
   if (step === 2 && f.promptA.trim().length < 3) return t('Réponds à la question sur toi.');
   return null;
+}
+
+// Prévenir maintenant. Le message ne nomme pas l'autre personne : elle n'a jamais accepté que
+// son prénom parte chez quelqu'un qu'elle ne connaît pas.
+async function prevenirConfiance() {
+  if (!S.chat?.id) return;
+  const prenom = S.me.confiance?.prenom || '';
+  if (!await tg.confirm(t('Prévenir {prenom} que tu pars à un rendez-vous maintenant ?', { prenom }))) return;
+  try {
+    await api(`/matches/${S.chat.id}/prevenir`, { method: 'POST' });
+    tg.haptic('success');
+    toast(t('{prenom} est prévenu', { prenom }));
+  } catch (e) { showError(e); }
+}
+
+// L'invitation part par le partage de Telegram : la personne l'ouvre, le bot lui explique, elle
+// accepte. L'app n'enregistre rien tant qu'elle n'a pas répondu.
+async function inviterConfiance() {
+  try {
+    const { lien } = await api('/me/confiance/invitation', { method: 'POST' });
+    tg.share(lien, t("Je te choisis comme personne de confiance sur {app}. Ouvre ce lien, tu verras ce que ça veut dire avant d'accepter.", { app: APP }));
+    toast(t("Invitation prête. Envoie-la à la personne que tu choisis."));
+  } catch (e) { showError(e); }
 }
 
 function nextStep() {
@@ -1563,6 +1625,16 @@ app.addEventListener('click', async (e) => {
       el.setAttribute('aria-expanded', String(S.guideOpen));
       el.nextElementSibling.classList.toggle('open', S.guideOpen);
       break;
+    case 'confiance-retirer': {
+      if (!await tg.confirm(t('Retirer {prenom} ? Elle ou il ne recevra plus rien, et sera prévenu.', { prenom: S.me.confiance?.prenom || '' }))) break;
+      try {
+        await api('/me/confiance', { method: 'DELETE' });
+        S.me.confiance = null;
+        toast(t('Retiré'));
+        SCREENS.confiance();
+      } catch (e) { showError(e); }
+      break;
+    }
     case 'invite': {
       const url = S.me.botUsername ? `https://t.me/${S.me.botUsername}` : location.origin;
       tg.share(url, t("Je t'invite sur {app} : des rencontres avec des profils vérifiés, sans arnaques.", { app: APP }));

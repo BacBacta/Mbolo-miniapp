@@ -171,6 +171,35 @@ export default {
   'Plus qu\'une étape': 'One step to go',
   'Plus tard': 'Later',
   'Premier rendez-vous dans un lieu public': 'First meet-up in a public place',
+  // Personne de confiance
+  'Personne de confiance': 'Trusted contact',
+  "Quelqu'un qui sait où tu es quand tu vas à un rendez-vous": 'Someone who knows where you are when you go on a date',
+  '{prenom} est prévenu quand tu vas à un rendez-vous': '{prenom} is told when you go on a date',
+  "Quelqu'un qui sait quand tu vas à un rendez-vous, où et à quelle heure. C'est la protection la plus simple et la plus efficace.":
+    'Someone who knows when you are going on a date, where and at what time. It is the simplest and most effective protection.',
+  'Prévenu quand tu pars à un rendez-vous et quand tu arrives': 'Told when you leave for a date and when you arrive',
+  'On ne lui dit jamais avec qui tu as rendez-vous, ni ce que vous vous écrivez.':
+    'They are never told who your date is with, nor what you write to each other.',
+  'Retirer {prenom}': 'Remove {prenom}',
+  'Retirer {prenom} ? Elle ou il ne recevra plus rien, et sera prévenu.':
+    'Remove {prenom}? They will stop receiving anything, and will be told.',
+  'Retiré': 'Removed',
+  'Elle accepte elle-même': 'They accept for themselves',
+  "Tu lui envoies un lien, elle lit ce qu'elle recevra et décide. Rien n'est enregistré avant.":
+    'You send them a link, they read what they would receive and decide. Nothing is saved before that.',
+  "Ce qu'elle reçoit": 'What they receive',
+  "Le lieu et l'heure de ton rendez-vous, et le moment où tu arrives. Rien d'autre.":
+    'The place and time of your date, and the moment you arrive. Nothing else.',
+  "Ce qu'on garde d'elle": 'What we keep about them',
+  'Son prénom et son compte Telegram. Elle peut se retirer quand elle veut.':
+    'Their first name and their Telegram account. They can withdraw at any time.',
+  'Envoyer une invitation': 'Send an invitation',
+  "Je te choisis comme personne de confiance sur {app}. Ouvre ce lien, tu verras ce que ça veut dire avant d'accepter.":
+    'I am choosing you as my trusted contact on {app}. Open this link, you will see what it means before accepting.',
+  'Invitation prête. Envoie-la à la personne que tu choisis.': 'Invitation ready. Send it to the person you choose.',
+  'Je pars au rendez-vous': 'I am leaving for the date',
+  'Prévenir {prenom} que tu pars à un rendez-vous maintenant ?': 'Tell {prenom} that you are leaving for a date now?',
+  '{prenom} est prévenu': '{prenom} has been told',
   'Choisi ensemble, jamais chez quelqu\'un': 'Chosen together, never at someone\'s home',
   'Profil mis à jour': 'Profile updated',
   'Profil visible': 'Profile visible',

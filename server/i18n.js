@@ -16,6 +16,32 @@ const EN = {
   '{app} ne te demandera jamais d\'argent. Si quelqu\'un le fait, signale-le depuis la discussion dans l\'app.\n\nPour supprimer ton compte : Paramètres dans l\'app, puis « Supprimer mon compte ».':
     '{app} will never ask you for money. If someone does, report them from the chat in the app.\n\nTo delete your account: Settings in the app, then "Delete my account".',
   'Identifiant de cette discussion : {id}': 'Chat ID: {id}',
+  // Personne de confiance
+  "{nom} te choisit comme personne de confiance sur {app}.\n\nSi tu acceptes, tu recevras un message quand {nom} part à un rendez-vous, avec le lieu et l'heure, et un autre quand {nom} arrive sur place. Tu ne verras rien d'autre : ni avec qui, ni les discussions.\n\nOn garde ton prénom et ton compte Telegram, rien de plus, et tu peux te retirer quand tu veux avec /retirer.":
+    "{nom} has chosen you as their trusted contact on {app}.\n\nIf you accept, you will get a message when {nom} leaves for a date, with the place and time, and another one when {nom} arrives. You will see nothing else: not who with, not the conversations.\n\nWe keep your first name and your Telegram account, nothing more, and you can withdraw at any time with /retirer.",
+  "J'accepte": 'I accept',
+  'Non merci': 'No thanks',
+  "Cette invitation n'est plus valable. Demande à ton amie ou ton ami de t'en envoyer une autre.":
+    'This invitation is no longer valid. Ask your friend to send you another one.',
+  "Cette invitation n'est plus valable.": 'This invitation is no longer valid.',
+  "Choisis quelqu'un d'autre que toi.": 'Choose someone other than yourself.',
+  "Ce compte n'existe plus.": 'This account no longer exists.',
+  "C'est noté, rien n'a été enregistré.": 'Noted, nothing has been saved.',
+  "C'est fait. Tu seras prévenu quand {nom} part à un rendez-vous. Pour te retirer : /retirer.":
+    'Done. You will be told when {nom} leaves for a date. To withdraw: /retirer.',
+  "{nom} a accepté d'être ta personne de confiance.": '{nom} agreed to be your trusted contact.',
+  'Voir mon profil': 'See my profile',
+  "Personne ne t'a choisi comme personne de confiance.": 'Nobody has chosen you as their trusted contact.',
+  "{nom} ne souhaite plus être ta personne de confiance. Tu peux en désigner une autre.":
+    '{nom} no longer wishes to be your trusted contact. You can choose someone else.',
+  "C'est fait, tu ne recevras plus rien. Ton prénom et ton compte ont été effacés.":
+    'Done, you will not receive anything else. Your first name and your account have been erased.',
+  "{nom} ne t'a plus comme personne de confiance. Tu ne recevras plus rien.":
+    '{nom} no longer has you as their trusted contact. You will not receive anything else.',
+  "{nom} te prévient : elle ou il part à un rendez-vous maintenant. Tu es sa personne de confiance.":
+    '{nom} is letting you know: they are leaving for a date now. You are their trusted contact.',
+  '{nom} a un rendez-vous : {lieu}, {creneau}. Tu es sa personne de confiance.':
+    '{nom} has a date: {lieu}, {creneau}. You are their trusted contact.',
   // Vérification et photos
   'Ton profil est vérifié. Ton badge est visible, tu peux découvrir des profils.':
     'Your profile is verified. Your badge is visible and you can start browsing.',
