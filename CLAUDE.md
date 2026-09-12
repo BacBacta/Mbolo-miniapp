@@ -60,15 +60,17 @@ public/
   i18n/en.js    Dictionnaire anglais ; la clé est la phrase française
   styles.css    Identité « Aura » : surfaces d'encre ou d'os selon data-scheme, aura réservée au match, au badge et au like ; Fraunces pour l'identité, Manrope pour l'interface
 test/
-  activity, antiscam, assets, auth, compression, filters, geographie, langues,
-  limites, moderation, notifications, pages-publiques, photos, production, profiles,
-  rendezvous, securite, stockage, webhook (134 tests, tous rejoués sur PostgreSQL par npm run test:pg)
+  activity, antiscam, assets, auth, compression,
+  deploiement, filters, geographie, langues, limites, moderation, notifications,
+  pages-publiques, photos, production, profiles, rendezvous, securite, stockage,
+  webhook (140 tests, tous rejoués sur PostgreSQL par npm run test:pg)
 e2e/
   aides.js       Gestes partagés : ouvrir, créer un profil, se faire vérifier
   inscription, discussion, pages-publiques (13 tests Playwright, npm run e2e)
 scripts/
   import-json.js Reprise d'un db.json existant vers PostgreSQL
   test-pg.js     La suite complète sur PostgreSQL, un schéma par fichier de test
+DEPLOIEMENT.md  Guide pas à pas de mise en ligne : secrets, contrôles, PostgreSQL, pannes
 audit/
   Dossier d'audit du parcours : benchmark, mesures, constats, risques, plan
 ```
@@ -162,7 +164,7 @@ L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 6. **Version web et paiement par mobile money** : voir la section 10, cahier des charges complet.
 7. ~~**Tests de bout en bout**~~ : fait. `e2e/` contient treize tests Playwright (Chromium, taille d'un téléphone) qui refont le parcours complet en mode développement ; `npm run e2e` en local, travail « Parcours navigateur » en CI, traces et captures conservées en cas d'échec.
 8. ~~**Pages publiques**~~ : fait. `/confidentialite` et `/conditions` sont servies depuis `server/legal/` sans compte, hors de Telegram et sans JavaScript, avec le nom de l'app injecté ; l'onglet Profil y renvoie par `tg.openLink()`. Reste à faire, côté propriétaire : les renseigner dans BotFather et les faire relire par un juriste.
-9. **Déploiement** : Dockerfile, volume persistant, contrôle `/health`, guide pas à pas pour un hébergeur.
+9. ~~**Déploiement**~~ : fait. `Dockerfile` (image sans root, volume sur `/data`, scripts d'exploitation embarqués), `/health`, et **`DEPLOIEMENT.md`** : guide pas à pas, contrôles après déploiement, passage à PostgreSQL, tableau des pannes. `test/deploiement.test.js` démarre le serveur avec le seul contenu de l'image et vérifie que le guide ne cite pas des messages qui n'existent plus.
 10. ~~**Traiter les vulnérabilités `npm audit`**~~ : fait, `qs` est forcé en 6.16.0 par un `overrides` dans `package.json`, sans changement majeur d'`express`. `npm audit` ne signale plus rien.
 
 ### P1 : produit (aligné sur le standard du marché)
