@@ -5,6 +5,7 @@ import { config, runtime, venues, INTENTS, GENDERS, CITIES } from './config.js';
 import { store } from './store.js';
 import { requireAuth } from './auth.js';
 import { checkMessage } from './antiscam.js';
+import { limiter, consommer } from './limites.js';
 import { notify, notifyAdmin, sendSelfieToModeration, sendPhotoToModeration, decideVerification, onApproved } from './bot.js';
 import { DEMO_REPLIES } from './seed.js';
 
@@ -86,7 +87,7 @@ api.get('/me', (req, res) => {
   });
 });
 
-api.put('/me/profile', async (req, res) => {
+api.put('/me/profile', limiter('profil'), async (req, res) => {
   const b = req.body || {};
   const name = String(b.name || '').trim().slice(0, 30);
   const age = Number(b.age);
@@ -115,7 +116,7 @@ api.put('/me/profile', async (req, res) => {
   res.json({ profile });
 });
 
-api.post('/me/verification/start', (req, res) => {
+api.post('/me/verification/start', limiter('verification'), (req, res) => {
   if (!req.user.profile) return fail(res, 400, 'PROFILE_REQUIRED', "Crée ton profil avant la vérification.");
   // Un compte déjà vérifié ne repasse pas par là : sinon une simple modification de profil
   // suffisait à perdre son badge, et un compte validé pouvait se rétrograder tout seul.
@@ -125,7 +126,7 @@ api.post('/me/verification/start', (req, res) => {
   res.json({ gesture });
 });
 
-api.post('/me/verification', async (req, res) => {
+api.post('/me/verification', limiter('verification'), async (req, res) => {
   const u = req.user;
   if (!u.profile) return fail(res, 400, 'PROFILE_REQUIRED', "Crée ton profil avant la vérification.");
   if (!u.pendingGesture) return fail(res, 400, 'GESTURE_REQUIRED', 'Demande un geste avant de prendre le selfie.');
@@ -178,7 +179,7 @@ async function acceptPhoto(user, n, dataUrl) {
 }
 const slotOf = (req) => (PHOTO_SLOTS.includes(Number(req.params.n)) ? Number(req.params.n) : null);
 
-api.put('/me/photos/:n', async (req, res) => {
+api.put('/me/photos/:n', limiter('photo'), async (req, res) => {
   const n = slotOf(req);
   if (!n) return fail(res, 400, 'PHOTO_SLOT', 'Trois photos au plus.');
   if (!req.user.profile) return fail(res, 400, 'PROFILE_REQUIRED', 'Crée ton profil avant d\'ajouter des photos.');
@@ -298,7 +299,7 @@ api.get('/likes', requireApproved, (req, res) => {
   res.json({ profiles });
 });
 
-api.post('/swipes', requireApproved, async (req, res) => {
+api.post('/swipes', requireApproved, limiter('swipe'), async (req, res) => {
   const me = req.user;
   const { targetId, action } = req.body || {};
   const target = store.getUser(targetId);
@@ -395,7 +396,7 @@ api.get('/matches/:id', requireApproved, (req, res) => {
   res.json(reponse);
 });
 
-api.post('/matches/:id/messages', requireApproved, async (req, res) => {
+api.post('/matches/:id/messages', requireApproved, limiter('message'), async (req, res) => {
   const r = loadMatch(req, res);
   if (!r) return;
   const text = String(req.body?.text || '').trim().slice(0, 1000);
@@ -408,7 +409,15 @@ api.post('/matches/:id/messages', requireApproved, async (req, res) => {
     messages.filter((x) => x.from === r.other.id).length,
   );
   const check = checkMessage(text, echange, config.contactUnlockAfter);
-  if (!check.ok) return fail(res, 422, check.code, check.message);
+  if (!check.ok) {
+    // Un blocage d'argent est un signal utile pour la modération : c'est ainsi qu'on saura
+    // quelles formulations circulent vraiment, et qu'on remplacera mon corpus écrit à la main.
+    // Trois alertes par heure et par compte au plus, pour ne pas noyer le groupe.
+    if (check.code === 'MONEY_BLOCKED' && consommer(req.user.id, 'alerteModeration') === null) {
+      notifyAdmin(`Message bloqué (${check.categorie}) de ${req.user.profile.name} (ID ${req.user.id}) : « ${text.slice(0, 120)} »`);
+    }
+    return fail(res, 422, check.code, check.message);
+  }
 
   const msg = store.addMessage(r.m.id, req.user.id, text);
   if (!store.isViewing(r.other.id, r.m.id)) {
@@ -450,7 +459,7 @@ api.get('/venues', requireApproved, (req, res) => {
   res.json({ venues: venues.filter((v) => v.city === city).map(({ code, ...v }) => v) });
 });
 
-api.post('/matches/:id/dates', requireApproved, (req, res) => {
+api.post('/matches/:id/dates', requireApproved, limiter('rendezvous'), (req, res) => {
   const r = loadMatch(req, res);
   if (!r) return;
   const venue = venues.find((v) => v.id === req.body?.venueId);
@@ -481,7 +490,7 @@ api.post('/dates/:id/checkin', requireApproved, (req, res) => {
 });
 
 // ---------- Signalements ----------
-api.post('/reports', requireApproved, (req, res) => {
+api.post('/reports', requireApproved, limiter('signalement'), (req, res) => {
   const { targetId, reason, matchId } = req.body || {};
   const target = store.getUser(targetId);
   if (!target || target.id === req.user.id) return fail(res, 400, 'REPORT_INVALID', 'Signalement impossible.');

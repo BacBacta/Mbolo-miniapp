@@ -34,6 +34,8 @@ export const config = {
   // Nombre de messages avant d'autoriser liens et numéros dans une discussion
   contactUnlockAfter: 10,
   dailyProfiles: 20,
+  // Limitation de débit par compte. Désactivable pour les tests de charge, jamais en production.
+  rateLimit: bool(process.env.RATE_LIMIT, true),
   // Délai de réponse des profils de démo : laisse le temps de fermer l'app pour recevoir la notification
   demoReplyDelayMs: Number(process.env.DEMO_REPLY_DELAY_MS || 15000),
   demoLikeDelayMs: Number(process.env.DEMO_LIKE_DELAY_MS || 60000),
