@@ -47,6 +47,79 @@ export const icon = (name, size = 20, { fill = false } = {}) =>
 
 export const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// ============================================================
+// Le verre : flouter, ou renoncer
+// ============================================================
+// Le flou d'arrière-plan coûte cher à dessiner. styles.css sait déjà y renoncer quand le
+// navigateur ne sait pas flouter, ou quand la personne demande moins de transparence. Restait le
+// cas qu'aucune règle CSS ne distingue : un téléphone qui sait flouter mais le rend lentement.
+//
+// On ne le devine donc pas, on le constate. Deux signaux, et une décision qu'on retient : la
+// mesure d'une seule session est bruitée, l'appareil de quelqu'un, lui, ne change pas.
+
+export const MEMOIRE_FAIBLE_GIO = 2;      // navigator.deviceMemory : 0.25, 0.5, 1, 2, 4, 8…
+export const IMAGE_LENTE_MS = 32;         // au-delà, on est sous 31 images par seconde
+
+// Décide à partir de ce qu'on sait de l'appareil et, si elle a eu lieu, de la mesure.
+// Pure et sans DOM : c'est elle que les tests interrogent.
+export function verreOpaque({ memoire = null, imageMedianeMs = null } = {}) {
+  // Un appareil qui annonce deux gigaoctets ou moins n'a pas besoin qu'on mesure : le flou
+  // plein écran y est un mauvais calcul, même s'il finit par s'afficher.
+  if (typeof memoire === 'number' && memoire > 0 && memoire <= MEMOIRE_FAIBLE_GIO) return true;
+  // Sinon, seule une mesure franchement mauvaise tranche. Le seuil est volontairement bas :
+  // rendre l'app opaque à tort est pire que garder un flou un peu coûteux.
+  if (typeof imageMedianeMs === 'number' && imageMedianeMs > IMAGE_LENTE_MS) return true;
+  return false;
+}
+
+// Durée entre deux images, mesurée pendant que l'app dessine vraiment quelque chose. Mesurer au
+// repos ne dirait rien : sans travail à faire, le navigateur ralentit lui-même les images.
+export function mesurerImages(combien = 40) {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame !== 'function') return resolve(null);
+    const durees = [];
+    let precedent = null;
+    const tic = (maintenant) => {
+      if (precedent !== null) durees.push(maintenant - precedent);
+      precedent = maintenant;
+      if (durees.length < combien) return requestAnimationFrame(tic);
+      durees.sort((a, b) => a - b);
+      resolve(durees[Math.floor(durees.length / 2)]);
+    };
+    requestAnimationFrame(tic);
+  });
+}
+
+const CLE_VERRE = 'verre-v1';
+
+// Applique la décision d'abord, mesure ensuite. L'ordre compte : une décision déjà prise doit
+// s'appliquer avant le premier dessin, sinon on repaye le flou une fois à chaque ouverture.
+//
+// Tout ce que la fonction touche au-dehors se remplace : c'est ce qui la rend vérifiable sans
+// navigateur, et ce qui évite d'avoir à bricoler les globales dans un test.
+export async function reglerLeVerre({
+  racine = document.documentElement,
+  stockage = (() => { try { return window.localStorage; } catch { return null; } })(),
+  memoire = (typeof navigator !== 'undefined' ? navigator.deviceMemory : null) ?? null,
+  mesurer = mesurerImages,
+} = {}) {
+  const poser = (opaque) => racine.setAttribute('data-verre', opaque ? 'opaque' : 'flou');
+  const retenir = (opaque) => { try { stockage?.setItem(CLE_VERRE, opaque ? 'opaque' : 'flou'); } catch { /* navigation privée : on remesurera */ } };
+
+  let retenu = null;
+  try { retenu = stockage?.getItem(CLE_VERRE); } catch { /* idem */ }
+  if (retenu === 'opaque' || retenu === 'flou') { poser(retenu === 'opaque'); return retenu === 'opaque'; }
+
+  // La mémoire annoncée suffit à trancher : inutile de faire ramer l'appareil pour le constater.
+  if (verreOpaque({ memoire })) { poser(true); retenir(true); return true; }
+
+  const imageMedianeMs = await mesurer();
+  const opaque = verreOpaque({ memoire, imageMedianeMs });
+  poser(opaque);
+  retenir(opaque);
+  return opaque;
+}
+
 // ---------- Toast : message bref en bas de l'écran ----------
 let toastTimer;
 export function toast(msg, kind = 'info') {

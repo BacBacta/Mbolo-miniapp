@@ -463,15 +463,15 @@ Ce prototype sert à une **bêta fermée**. La liste ci-dessous sépare ce que l
 | `SEED_DEMO=false` dans `fly.toml` et `render.yaml` : pas de profils fictifs devant de vraies personnes | `test/production.test.js` |
 | Limitation du nombre de requêtes par compte et par action | `server/limites.js`, `test/limites.test.js` |
 | Les pages `/confidentialite` et `/conditions` existent, sont lisibles sans compte, et **disent ce que le code fait vraiment** | `server/legal/`, `test/pages-publiques.test.js` |
+| Le flou d'arrière-plan **se coupe tout seul** sur un appareil qui le rend mal — mémoire annoncée, puis durée réelle entre deux images | `public/ui.js`, `test/verre.test.js`, `e2e/verre.spec.js` |
 
 ### Ce qui t'attend
 
-Aucune de ces quatre choses ne peut être faite depuis le code.
+Aucune de ces trois choses ne peut être faite depuis le code.
 
 - [ ] **Renseigner les deux pages dans BotFather.** `/mybots` → ton bot → *Bot Settings*, entrée de politique de confidentialité. Les adresses : `https://<ton-app>.fly.dev/confidentialite` et `/conditions`. Il se peut qu'il n'y ait pas de champ dédié aux **conditions d'utilisation** : dans ce cas, mets le lien dans la description du bot — l'app y renvoie déjà depuis l'onglet Profil, donc l'accès reste assuré.
 - [ ] **Faire relire les deux textes par un juriste camerounais.** Ils décrivent fidèlement le traitement, relevé dans le code et non de mémoire, mais ce n'est pas un avis juridique.
 - [ ] **Déclarer le traitement à l'Autorité de protection des données** (loi n° 2024/017, applicable depuis le 23 juin 2026). Publier une politique ne remplace pas la déclaration. Tu traites des photos (jusqu'à trois par personne, chacune modérée avant d'être montrée), des données de vie intime, des données biométriques, un horodatage de dernière activité (montré aux autres par tranche seulement), la tranche d'âge recherchée, le pays et la ville déclarés, la zone de recherche et la langue de lecture — le tout effacé avec le compte. Le fuseau horaire transite pour deviner le pays au premier lancement, sans être stocké ni journalisé ; aucune coordonnée GPS n'est demandée. **Vérifie aussi où sont hébergées les données** : les transferts hors du Cameroun sont encadrés par la même loi.
-- [ ] **Essayer l'app sur un Android d'entrée de gamme.** Le flou d'arrière-plan de l'identité « Aura » a un repli opaque quand le navigateur ne sait pas flouter, mais **aucune règle CSS ne distingue « sait flouter » de « floute lentement »**. Seul un vrai téléphone bas de gamme le dira. Si ça rame, le repli se force en passant `--glass-blur` à `none` dans `public/styles.css`.
 
 ### Ce qui demande une organisation, pas du code
 

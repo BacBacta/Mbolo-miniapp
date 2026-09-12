@@ -55,7 +55,7 @@ public/
   index.html    Charge telegram-web-app.js puis app.js
   tg.js         Seul point d'accès au SDK Telegram, avec secours hors Telegram
   app.js        Écrans (objet SCREENS), navigation go(), appels api()
-  ui.js         Icônes, toast, squelettes de chargement, geste de balayage des cartes
+  ui.js         Icônes, toast, squelettes de chargement, geste de balayage, décision du verre
   i18n.js       Choix de la langue, chargement du dictionnaire à la demande, t() et tn()
   i18n/en.js    Dictionnaire anglais ; la clé est la phrase française
   styles.css    Identité « Aura » : surfaces d'encre ou d'os selon data-scheme, aura réservée au match, au badge et au like ; Fraunces pour l'identité, Manrope pour l'interface
@@ -63,10 +63,10 @@ test/
   activity, antiscam, assets, auth, compression,
   deploiement, filters, geographie, langues, limites, moderation, notifications,
   pages-publiques, photos, production, profiles, rendezvous, securite, stockage,
-  webhook (140 tests, tous rejoués sur PostgreSQL par npm run test:pg)
+  verre, webhook (150 tests, tous rejoués sur PostgreSQL par npm run test:pg)
 e2e/
   aides.js       Gestes partagés : ouvrir, créer un profil, se faire vérifier
-  inscription, discussion, pages-publiques (13 tests Playwright, npm run e2e)
+  inscription, discussion, pages-publiques, verre (16 tests Playwright, npm run e2e)
 scripts/
   import-json.js Reprise d'un db.json existant vers PostgreSQL
   test-pg.js     La suite complète sur PostgreSQL, un schéma par fichier de test
@@ -147,7 +147,7 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 - Traduction : le français et l'anglais seulement. Les noms de pays viennent d'`Intl.DisplayNames` (donc traduits automatiquement), mais les villes, les quartiers et les textes saisis par les membres restent tels quels.
 - Aucune analytique produit : aucun entonnoir, aucune cohorte, aucune courbe de rétention n'est calculable. Voir `audit/05-mesure-produit.md`.
 - `SEED_DEMO=true` reste possible en production : c'est un choix assumé pour une machine de démonstration, pas un garde-fou. De vraies personnes y écriraient à des profils fictifs. `AUTO_APPROVE`, lui, n'a plus d'effet en production, et le serveur refuse de démarrer sans `ADMIN_CHAT_ID` (`test/production.test.js`).
-- Le **verre** (flou d'arrière-plan) a un repli opaque quand le navigateur ne sait pas flouter ou quand la personne demande moins de transparence (`--glass-blur` et ses trois jetons de fond, dans `styles.css`). Un téléphone qui sait flouter mais le rend lentement garde le flou : aucune règle CSS ne distingue ce cas, seul un vrai Android d'entrée de gamme le dira.
+- Le **verre** (flou d'arrière-plan) a **trois chemins vers le même repli opaque** : le navigateur ne sait pas flouter (`@supports`), la personne demande moins de transparence (`prefers-reduced-transparency`), ou l'appareil le rend mal — ce dernier cas est constaté par `reglerLeVerre()` dans `public/ui.js`, qui pose `data-verre="opaque"`. La décision est retenue dans `localStorage` : la mesure d'une session est bruitée, l'appareil ne change pas. Elle reste une heuristique : `deviceMemory` est grossier, et la mesure d'images ne vaut que pendant que l'app dessine.
 - Les tests de bout en bout couvrent le parcours principal, pas chaque cas limite : ils sont lents (deux minutes et demie) et ne tournent que sur Chromium, à la taille d'un téléphone. Les règles fines restent la charge des tests unitaires.
 - Un test de bout en bout qui attend passivement ne prouve rien : le rafraîchissement de la discussion ne touche au DOM que lorsqu'un message arrive. Celui de la règle 16 fait donc arriver un vrai message pendant la frappe — sans cela il passait même avec l'écran refait à chaque cycle.
 
@@ -175,10 +175,23 @@ L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 5. **Explication de la jauge de confiance** à l'inscription (écran unique, 3 lignes).
 6. **Système de garant** : un membre vérifié peut se porter garant de 3 personnes au plus ; il perd son badge si l'une est bannie pour arnaque.
 7. **Mode sortie en duo complet** ou retrait de l'option de l'inscription tant qu'il n'est pas terminé.
-8. **Plusieurs photos** (3 au plus) avec modération.
+8. ~~**Plusieurs photos**~~ : fait. Trois emplacements (`PHOTO_SLOTS`), chacun modéré comme le selfie, avec ses propres boutons Valider/Refuser (`test/photos.test.js`).
 9. ~~**Anglais**~~ : fait, fichiers de traduction chargés à la demande, langue de Telegram par défaut, choix dans le profil, bot traduit dans la langue de qui reçoit. `antiscam.js` est également ouvert à tous les pays. Reste à faire : le **pidgin** (`public/i18n/pcm.js` + `server/i18n.js`).
 10. **Tableau de bord de modération** web protégé : selfies en attente, signalements, bannissements, lieux partenaires et rotation des codes QR, paiements et remboursements.
 11. **Temps réel** (WebSocket ou SSE) avec retour automatique au polling si la connexion est instable.
+
+### Dette technique : ce qu'aucun point ci-dessus ne couvre
+
+Ces points ne sont pas des fonctionnalités manquantes mais des choix qui ont vieilli, ou des
+conséquences d'un chantier précédent. Aucun n'a de point de feuille de route attitré, et c'est
+précisément pour cela qu'ils s'oublient.
+
+1. **Les compteurs de limitation de débit sont en mémoire** (`server/limites.js`). Sans conséquence tant qu'une seule machine tourne — mais P0-2 a justement levé la contrainte d'instance unique. À deux machines, le plafond de 20 profils par jour en devient 40, et chaque limite anti-spam est divisée d'autant. **C'est une incohérence introduite par le passage à PostgreSQL**, pas un manque d'origine. À porter en base, ou dans un Redis, avant d'augmenter le nombre d'instances.
+2. **Aucune analytique produit** (`audit/05-mesure-produit.md`). Ni entonnoir d'inscription, ni cohorte, ni rétention. Ouvrir une bêta sans pouvoir mesurer si elle marche prive la bêta de sa raison d'être. À faire avant d'ouvrir, pas après.
+3. **`allUsers()` charge toute la table** à chaque découverte, y compris sur PostgreSQL : la découverte filtre en mémoire. Tenable pour quelques centaines de comptes. Au-delà, c'est le filtre qu'il faut descendre en SQL — pas le stockage qu'il faut changer.
+4. **Les lieux partenaires sont codés en dur** dans `config.js`, au Cameroun seulement, avec des codes QR fixes. Or l'app est ouverte à tous les pays : le rendez-vous avec confirmation d'arrivée n'existe donc nulle part ailleurs. Les lieux et la rotation des codes sont prévus dans P1-10, le reste ne l'est pas.
+5. **Le corpus de non-régression d'`antiscam.js` est écrit à la main** : il fige des cas imaginés, pas des messages réellement signalés. À remplacer par les signalements de la bêta dès qu'il y en aura.
+6. **Présence et réponses de démonstration en mémoire** : perdues au redémarrage, non partagées entre instances. Sans gravité, mais de la même famille que le point 1.
 
 ### P2 : monétisation B2B
 1. **Espace lieux partenaires** : statistiques de rendez-vous confirmés, facturation mensuelle par rendez-vous.
@@ -187,7 +200,7 @@ L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 
 ## 8 bis. Ce qui attend le propriétaire
 
-Quatre points ne peuvent pas être réglés depuis le code, et **ne doivent donc pas être reproposés comme du travail à faire ici** : renseigner les pages publiques dans BotFather, les faire relire par un juriste, déclarer le traitement à l'Autorité de protection des données, et essayer l'app sur un Android d'entrée de gamme (le repli du flou existe, mais aucune règle CSS ne distingue « sait flouter » de « floute lentement »). La liste tenue à jour, avec le détail de chacun, est dans le README, section « Avant d'ouvrir à de vraies personnes ».
+Trois points ne peuvent pas être réglés depuis le code, et **ne doivent donc pas être reproposés comme du travail à faire ici** : renseigner les pages publiques dans BotFather, les faire relire par un juriste, et déclarer le traitement à l'Autorité de protection des données. La liste tenue à jour, avec le détail de chacun, est dans le README, section « Avant d'ouvrir à de vraies personnes ».
 
 ## 9. Définition de « terminé »
 
