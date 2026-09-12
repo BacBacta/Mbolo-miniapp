@@ -318,6 +318,19 @@ export const store = {
   // Du plus ancien au plus récent : la modération lit une file, pas un journal à l'envers.
   reports: async () => (await q('select id, data, at from reports order by at asc')).map((r) => ({ id: r.id, at: Number(r.at), ...r.data })),
 
+  // Ouvrir un fil de discussion signalé laisse une trace sur le signalement : qui a lu, quand.
+  // Sans elle, lire les messages de deux personnes ne coûterait rien à personne.
+  async marquerSignalementLu(id, par) {
+    const r = await un(
+      `update reports
+          set data = jsonb_set(data, '{lectures}', coalesce(data->'lectures', '[]'::jsonb) || $2::jsonb)
+        where id = $1
+    returning id, data, at`,
+      [id, JSON.stringify([{ par: String(par), at: Date.now() }])],
+    );
+    return r && { id: r.id, at: Number(r.at), ...r.data };
+  },
+
   // Défaire un match : la discussion, ses messages et ses rendez-vous disparaissent des deux côtés.
   // Les balayages restent, pour que les deux personnes ne se revoient pas en découverte.
   async removeMatch(matchId) {

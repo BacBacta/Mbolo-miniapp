@@ -34,6 +34,9 @@ export const config = {
   // discussions entre membres. Le lien qui l'ouvre, lui, vaut dix minutes et ne sert qu'une fois.
   modSessionSec: Number(process.env.MOD_SESSION_SEC) || 12 * 3600,
   modLienSec: Number(process.env.MOD_LIEN_SEC) || 600,
+  // Fuseau dans lequel l'espace de modération affiche les dates. Le serveur tourne en UTC :
+  // sans ça, « 22 h 40 » se lirait « 21 h 40 » pour l'équipe, et on daterait mal un signalement.
+  modTimezone: process.env.MOD_TIMEZONE || 'Africa/Douala',
   // Vrai quand l'app tourne pour de vraies personnes. Deux réglages de confort s'éteignent seuls
   // ici : ils sont utiles pour développer et dangereux en ligne.
   isProd: process.env.NODE_ENV === 'production',
