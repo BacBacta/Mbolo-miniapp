@@ -418,7 +418,7 @@ $env:DATABASE_URL="postgres://..."
 node "scripts/import-json.js" "data/db.json"
 ```
 
-Le script applique d'abord les migrations, puis recopie comptes, balayages, matchs, messages, blocages, signalements et rendez-vous. Il refuse de partir si la base porte déjà des comptes — relance avec `--force` pour compléter un import interrompu : chaque ligne est écrite sans écraser ce qui existe, donc une reprise ne crée pas de doublon.
+Le script applique d'abord les migrations, puis recopie comptes, balayages, matchs, messages, blocages, signalements, rendez-vous **et les événements de mesure** — ceux-là ne se reconstituent pas, les oublier à la bascule effacerait l'entonnoir pour toujours. Il refuse de partir si la base porte déjà des comptes — relance avec `--force` pour compléter un import interrompu : chaque ligne est écrite sans écraser ce qui existe, donc une reprise ne crée pas de doublon.
 
 Les photos et les selfies ne passent pas par la base : ce sont des fichiers de `DATA_DIR/uploads`, à copier tels quels vers le volume de la nouvelle machine.
 

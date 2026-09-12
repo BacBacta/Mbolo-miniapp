@@ -2,6 +2,9 @@
 //
 //   $env:DATABASE_URL="postgres://..."; node scripts/import-json.js "data/db.json"
 //
+// Tout ce que porte db.json passe ici, y compris les événements de mesure : ils ne se
+// reconstituent pas, les oublier à la bascule reviendrait à effacer l'entonnoir pour toujours.
+//
 // Le script est sûr à relancer : chaque ligne est écrite avec « on conflict do nothing », donc
 // une reprise après coupure ne crée pas de doublon et n'écrase rien de ce qui a déjà bougé dans
 // PostgreSQL. Il refuse de partir si les tables portent déjà des comptes, sauf avec --force :
@@ -35,7 +38,7 @@ const pool = new pg.Pool({
   ...(config.databaseSchema ? { options: `-c search_path=${config.databaseSchema}` } : {}),
 });
 
-await migrer(pool, console.log, config.databaseSchema);
+await migrer(pool, (m) => console.error(m), config.databaseSchema);
 
 const { rows: [{ n }] } = await pool.query('select count(*)::int as n from users');
 if (n && !force) {
@@ -98,6 +101,13 @@ await ecrire('Rendez-vous', Object.values(db.dates || {}),
     const { id, matchId, ...data } = d;
     return [id, matchId, JSON.stringify(data)];
   });
+
+// Les événements de mesure en dernier, et surtout pas oubliés : ce sont les seules données que
+// personne ne peut reconstituer. Un compte se réinscrit, un message se réécrit ; un entonnoir
+// d'inscription de la semaine dernière, non. Les oublier ici, c'est les perdre à la bascule.
+await ecrire('Événements de mesure', db.events || [],
+  'insert into events (id, u, k, at, p) values ($1, $2, $3, $4, $5::jsonb) on conflict (id) do nothing',
+  (e) => [e.id, e.u === undefined || e.u === null ? null : String(e.u), e.k, Number(e.at) || Date.now(), e.p ? JSON.stringify(e.p) : null]);
 
 await pool.end();
 console.log(`\nImport terminé : ${total} ligne(s) écrite(s) depuis ${source}.`);

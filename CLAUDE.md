@@ -75,7 +75,7 @@ e2e/
   inscription, discussion, mesure, pages-publiques, verre (18 tests Playwright, npm run e2e)
 scripts/
   chiffres.js    npm run chiffres : entonnoir et contre-métriques, --json pour la machine
-  import-json.js Reprise d'un db.json existant vers PostgreSQL
+  import-json.js Reprise d'un db.json existant vers PostgreSQL, événements compris
   test-pg.js     La suite complète sur PostgreSQL, un schéma par fichier de test
 DEPLOIEMENT.md  Guide pas à pas de mise en ligne : secrets, contrôles, PostgreSQL, pannes
 audit/
@@ -142,7 +142,7 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 
 ## 7. Limites connues
 
-- Sans `DATABASE_URL`, le stockage reste un seul fichier JSON : pas de concurrence entre plusieurs instances, pas de sauvegarde automatique. C'est le mode par défaut, pratique pour développer, à ne pas garder en production.
+- Sans `DATABASE_URL`, le stockage reste un seul fichier JSON : pas de concurrence entre plusieurs instances, pas de sauvegarde automatique. C'est le mode par défaut, pratique pour développer. **En production, le serveur démarre quand même mais l'écrit à chaque démarrage** (« Attention : en production sur un fichier JSON ») : refuser casserait une production qui tourne, se taire laisserait perdre des chiffres qui ne se reconstituent pas. `scripts/import-json.js` fait la bascule, **événements de mesure compris**, et `test/import.test.js` l'éprouve de bout en bout sur PostgreSQL.
 - `allUsers()` charge toute la table, y compris sur PostgreSQL : la découverte filtre en mémoire. Tenable pour quelques centaines de comptes ; au-delà, c'est le filtre de découverte qu'il faudra descendre en SQL, pas le stockage qu'il faudra changer.
 - Les notifications partent sans retenir la réponse HTTP. Un test qui les compte doit donc les attendre (voir `test/rendezvous.test.js`), pas les lire aussitôt après l'appel.
 - Présence et réponses de démo en mémoire : perdues au redémarrage.

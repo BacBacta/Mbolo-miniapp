@@ -95,6 +95,13 @@ test('le serveur démarre et sert avec le seul contenu de l\'image', async (t) =
 
   // Et le script d'import doit être là : le guide de déploiement dit de le lancer depuis la machine.
   assert.ok(fs.existsSync(path.join(app, 'scripts', 'import-json.js')), 'scripts/import-json.js manque dans l\'image');
+
+  // Ce serveur tourne en production sans DATABASE_URL : c'est exactement le cas où un fichier
+  // unique sans sauvegarde porte des chiffres qui ne se reconstituent pas. Il démarre — refuser
+  // casserait une production qui tourne — mais il doit le dire, là où l'exploitant regarde.
+  assert.match(journal, /en production sur un fichier JSON/,
+    `le serveur devrait signaler le stockage fichier en production :\n${journal}`);
+  assert.match(journal, /DATABASE_URL/, 'et dire quoi faire, pas seulement que ça ne va pas');
 });
 
 
@@ -112,6 +119,7 @@ test('les messages que le guide dit de chercher existent dans le code', () => {
     ['Modération : les selfies et les photos partent vers', 'server/bot.js'],
     ['Groupe de modération injoignable', 'server/bot.js'],
     ['Stockage : PostgreSQL', 'server/index.js'],
+    ['Attention : en production sur un fichier JSON.', 'server/index.js'],
     ['ADMIN_CHAT_ID absent', 'deployer-fly.sh'],
   ];
   for (const [phrase, fichier] of citations) {
