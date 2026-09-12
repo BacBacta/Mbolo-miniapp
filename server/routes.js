@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
-import { config, runtime, venues, INTENTS, GENDERS, CITIES } from './config.js';
+import { config, runtime, venues, INTENTS, GENDERS } from './config.js';
+import { estPays, cleVille, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
 import { store } from './store.js';
 import { requireAuth } from './auth.js';
 import { checkMessage } from './antiscam.js';
@@ -37,6 +38,7 @@ function publicProfile(user) {
     age: p.age,
     intent: p.intent,
     intentLabel: INTENTS[p.intent],
+    country: p.country,
     city: p.city,
     area: p.area,
     promptQ: p.promptQ,
@@ -83,7 +85,9 @@ api.get('/me', (req, res) => {
     photos: store.photosOf(u),
     filters: filtersOf(u),
     notificationsAvailable: !!config.botToken,
-    options: { intents: INTENTS, genders: GENDERS, cities: CITIES },
+    // Les noms de pays ne transitent pas : le navigateur les affiche dans la langue de la
+    // personne à partir du code ISO. On n'envoie donc que les codes, et des suggestions de villes.
+    options: { intents: INTENTS, genders: GENDERS, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES, defaultCountry: config.defaultCountry },
   });
 });
 
@@ -95,7 +99,12 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
   if (!Number.isInteger(age) || age < 18 || age > 99) return fail(res, 400, 'AGE_INVALID', `${config.appName} est réservé aux 18 ans et plus.`);
   if (!GENDERS[b.gender]) return fail(res, 400, 'GENDER_REQUIRED', 'Indique si tu es une femme ou un homme.');
   if (!INTENTS[b.intent]) return fail(res, 400, 'INTENT_REQUIRED', 'Choisis ce que tu cherches.');
-  if (!CITIES.includes(b.city)) return fail(res, 400, 'CITY_REQUIRED', 'Choisis ta ville.');
+  // Pays : une liste fermée, parce qu'il en existe un nombre fini et que la comparaison doit être
+  // exacte. Ville : un champ libre, parce qu'aucune liste ne couvre le monde. Les comptes créés
+  // avant l'ouverture internationale n'ont pas de pays : ils gardent celui par défaut.
+  const country = estPays(b.country) ? String(b.country).toUpperCase() : (req.user.profile?.country || config.defaultCountry);
+  const city = String(b.city || '').trim().replace(/\s+/g, ' ').slice(0, 40);
+  if (cleVille(city).length < 2) return fail(res, 400, 'CITY_REQUIRED', 'Indique ta ville.');
   const promptA = String(b.promptA || '').trim().slice(0, 120);
   if (promptA.length < 3) return fail(res, 400, 'PROMPT_REQUIRED', 'Réponds à la question pour que les autres te découvrent.');
   const profileText = [name, b.area, b.promptQ, promptA, b.languages].filter(Boolean).join(' ');
@@ -105,7 +114,9 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
   if (b.photo && !(await acceptPhoto(req.user, 1, b.photo))) return fail(res, 400, 'PHOTO_INVALID', 'Photo trop lourde ou format non pris en charge.');
   const hasPhoto = store.photosOf(req.user).some((x) => x.status === 'approved');
   const profile = {
-    name, age, gender: b.gender, intent: b.intent, city: b.city,
+    name, age, gender: b.gender, intent: b.intent, country, city,
+    // Clé de comparaison, jamais affichée : c'est elle qui réunit « Yaoundé » et « Yaounde »
+    cityKey: cleVille(city),
     area: String(b.area || '').trim().slice(0, 40),
     promptQ: String(b.promptQ || 'Mon plat du dimanche').slice(0, 60),
     promptA,
@@ -195,17 +206,45 @@ api.delete('/me/photos/:n', (req, res) => {
 });
 
 // ---------- Filtres : ce que je veux voir ----------
-// Seule la tranche d'âge se règle ; ville et intention viennent du profil
+// La tranche d'âge et la zone de recherche. L'intention vient du profil.
+//
+// La zone est celle où l'on veut rencontrer, pas forcément celle où l'on habite : quelqu'un qui
+// déménage ou qui voyage règle sa zone avant d'arriver. Une ville nulle veut dire « tout le pays ».
+// Chaque personne décide de son propre paquet : si je cherche dans tout le pays et que l'autre ne
+// cherche que sa ville, je la vois sans qu'elle me voie. C'est l'usage de toutes les applications
+// de rencontre, où le rayon de chacun ne s'impose qu'à lui.
 const DEFAULT_FILTERS = { ageMin: 18, ageMax: 99 };
-const filtersOf = (u) => ({ ...DEFAULT_FILTERS, ...(u.filters || {}) });
+const zoneParDefaut = (u) => ({ country: u.profile?.country || config.defaultCountry, city: u.profile?.city || null });
+const filtersOf = (u) => ({ ...DEFAULT_FILTERS, zone: zoneParDefaut(u), ...(u.filters || {}) });
 const inAgeRange = (me, other) => { const f = filtersOf(me); return other.profile.age >= f.ageMin && other.profile.age <= f.ageMax; };
+
+// La zone de la personne qui cherche s'applique à son seul paquet.
+function dansLaZone(me, other) {
+  const zone = filtersOf(me).zone || zoneParDefaut(me);
+  const b = other.profile;
+  if ((b.country || config.defaultCountry) !== zone.country) return false;
+  if (!zone.city) return true;
+  return (b.cityKey || cleVille(b.city)) === cleVille(zone.city);
+}
 
 api.put('/me/filters', (req, res) => {
   const ageMin = Number(req.body?.ageMin), ageMax = Number(req.body?.ageMax);
   const ok = (n) => Number.isInteger(n) && n >= 18 && n <= 99;
   if (!ok(ageMin) || !ok(ageMax)) return fail(res, 400, 'FILTERS_INVALID', 'Indique des âges entre 18 et 99 ans.');
   if (ageMin > ageMax) return fail(res, 400, 'FILTERS_INVALID', "L'âge minimum doit être inférieur ou égal au maximum.");
-  const filters = { ageMin, ageMax };
+
+  // Une requête sans zone ne touche pas à la zone : l'écran des filtres peut n'envoyer que l'âge.
+  let zone = filtersOf(req.user).zone;
+  if (req.body?.zone) {
+    const z = req.body.zone;
+    const country = estPays(z.country) ? String(z.country).toUpperCase() : zone.country;
+    // city null ou vide : tout le pays. Sinon une ville, qui doit être lisible.
+    const ville = z.city == null || z.city === '' ? null : String(z.city).trim().replace(/\s+/g, ' ').slice(0, 40);
+    if (ville !== null && cleVille(ville).length < 2) return fail(res, 400, 'ZONE_INVALID', 'Indique une ville, ou choisis tout le pays.');
+    zone = { country, city: ville };
+  }
+
+  const filters = { ageMin, ageMax, zone };
   store.updateUser(req.user.id, { filters });
   res.json({ filters });
 });
@@ -230,9 +269,12 @@ api.get('/photos/:userId', requireApproved, (req, res) => {
 });
 
 // ---------- Découverte ----------
+// Ce qui rend deux personnes compatibles, indépendamment de l'endroit : la même intention, et la
+// règle de mise en relation. La géographie est traitée à part, par dansLaZone(), parce qu'elle
+// dépend de qui regarde.
 function compatible(me, other) {
   const a = me.profile, b = other.profile;
-  if (!a || !b || a.intent !== b.intent || a.city !== b.city) return false;
+  if (!a || !b || a.intent !== b.intent) return false;
   // Voir README, section Juridique : pour « Relation sérieuse », mise en relation femme/homme uniquement
   if (a.intent === 'serieux' && config.matchPolicy === 'romance_opposite' && a.gender === b.gender) return false;
   return true;
@@ -245,7 +287,7 @@ const sameArea = (me, p) => Number(!!me.profile.area && p.area === me.profile.ar
 // ressemblaient : personne d'autre n'est vérifié dans ta ville, tu as déjà tout vu, ou ton quota
 // du jour est épuisé. On renvoie donc de quoi les distinguer et proposer le bon geste.
 function vivier(me) {
-  const compatibles = store.allUsers().filter((u) => u.id !== me.id && isApproved(u) && !store.isBlocked(me.id, u.id) && compatible(me, u));
+  const compatibles = store.allUsers().filter((u) => u.id !== me.id && isApproved(u) && !store.isBlocked(me.id, u.id) && compatible(me, u) && dansLaZone(me, u));
   return {
     total: compatibles.length,
     horsTranche: compatibles.filter((u) => !inAgeRange(me, u)).length,
@@ -258,7 +300,7 @@ api.get('/discover', requireApproved, (req, res) => {
   const remaining = Math.max(0, config.dailyProfiles - store.swipesToday(me.id));
   if (!remaining) return res.json({ profiles: [], remaining: 0, vivier: vivier(me) });
   const profiles = store.allUsers()
-    .filter((u) => u.id !== me.id && isApproved(u) && !store.hasSwiped(me.id, u.id) && !store.isBlocked(me.id, u.id) && compatible(me, u) && inAgeRange(me, u))
+    .filter((u) => u.id !== me.id && isApproved(u) && !store.hasSwiped(me.id, u.id) && !store.isBlocked(me.id, u.id) && compatible(me, u) && dansLaZone(me, u) && inAgeRange(me, u))
     // Avant le match, on ne dit que « cette semaine » ou rien : la tranche fine est réservée aux matchs
     .map((u) => { const p = publicProfile(u); return { ...p, activity: p.activity ? 'week' : null, likedYou: store.likedBy(u.id, me.id) }; })
     // Ceux qui t'ont liké, puis ton quartier
@@ -274,7 +316,7 @@ const listRank = (p) => (p.status === 'match' ? 0 : p.status ? 1 : p.likedYou ? 
 api.get('/profiles', requireApproved, (req, res) => {
   const me = req.user;
   const profiles = store.allUsers()
-    .filter((u) => u.id !== me.id && isApproved(u) && !store.isBlocked(me.id, u.id) && compatible(me, u) && inAgeRange(me, u))
+    .filter((u) => u.id !== me.id && isApproved(u) && !store.isBlocked(me.id, u.id) && compatible(me, u) && dansLaZone(me, u) && inAgeRange(me, u))
     .map((u) => {
       const p = publicProfile(u);
       const swipe = store.swipeOf(me.id, u.id);
@@ -468,7 +510,7 @@ onApproved((userId) => {
   setTimeout(() => {
     const me = store.getUser(userId);
     if (!me?.profile) return;
-    const demo = store.allUsers().find((u) => u.demo && compatible(me, u) && !store.hasSwiped(u.id, me.id) && !store.hasSwiped(me.id, u.id));
+    const demo = store.allUsers().find((u) => u.demo && compatible(me, u) && dansLaZone(me, u) && !store.hasSwiped(u.id, me.id) && !store.hasSwiped(me.id, u.id));
     if (!demo) return;
     store.addSwipe(demo.id, me.id, 'like');
     notify(me.id, `Tu as plu à quelqu'un à ${me.profile.city}. Ouvre ${config.appName} pour découvrir de qui il s'agit.`, { label: 'Découvrir', params: { screen: 'matches' } }, 'likes', 24 * 3600 * 1000);
@@ -477,14 +519,26 @@ onApproved((userId) => {
 
 // ---------- Rendez-vous ----------
 api.get('/venues', requireApproved, (req, res) => {
-  const city = req.user.profile.city;
-  res.json({ venues: venues.filter((v) => v.city === city).map(({ code, ...v }) => v) });
+  const villes = new Set([cleVille(req.user.profile.city)]);
+  // Les deux personnes d'une discussion peuvent être dans deux villes du même pays : on propose
+  // les lieux des deux, chacun portant sa ville, pour qu'on sache où l'on va.
+  if (req.query.match) {
+    const m = store.getMatch(String(req.query.match));
+    const autreId = m?.users.includes(req.user.id) ? m.users.find((x) => x !== req.user.id) : null;
+    const autre = autreId && store.getUser(autreId);
+    if (autre?.profile?.city) villes.add(cleVille(autre.profile.city));
+  }
+  const pays = req.user.profile.country || config.defaultCountry;
+  const liste = venues.filter((v) => v.country === pays && villes.has(cleVille(v.city))).map(({ code, ...v }) => v);
+  // partenairesDansLePays dit au client si le manque est local ou général : « aucun lieu à Kribi »
+  // et « aucun lieu partenaire dans ton pays » n'appellent pas le même message.
+  res.json({ venues: liste, partenairesDansLePays: venues.some((v) => v.country === pays) });
 });
 
 api.post('/matches/:id/dates', requireApproved, limiter('rendezvous'), (req, res) => {
   const r = loadMatch(req, res);
   if (!r) return;
-  const venue = venues.find((v) => v.id === req.body?.venueId);
+  const venue = venues.find((v) => v.id === req.body?.venueId && v.country === (req.user.profile.country || config.defaultCountry));
   const slot = String(req.body?.slot || '').slice(0, 40);
   if (!venue || !slot) return fail(res, 400, 'DATE_INVALID', 'Choisis un lieu et un horaire.');
   // Le créneau est un champ libre affiché à l'autre personne : il passe par le même filtre

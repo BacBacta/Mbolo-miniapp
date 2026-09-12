@@ -207,6 +207,43 @@ function loadAvatar(p, { own = false } = {}) {
 
 // Tranche d'activité calculée par le serveur, jamais l'heure exacte. Formulation sans accord : le genre n'est pas exposé
 const ACTIVITY_LABELS = { recent: 'En ligne récemment', today: "En ligne aujourd'hui", week: 'En ligne cette semaine' };
+
+// Langue de l'interface. Telegram donne la langue du téléphone ; le choix explicite de la
+// personne, quand il existe, l'emporte.
+const LANGUES = ['fr', 'en'];
+function langue() {
+  const choisie = S.me?.lang;
+  if (LANGUES.includes(choisie)) return choisie;
+  const tgLang = String(tg.telegramUser()?.language_code || '').slice(0, 2).toLowerCase();
+  return LANGUES.includes(tgLang) ? tgLang : 'fr';
+}
+
+// ---------- Géographie ----------
+// Les noms de pays ne sont jamais envoyés par le serveur : le navigateur les donne dans la langue
+// de la personne à partir du code ISO. Une seule instance, gardée en mémoire.
+let nomsPays = null;
+function nomPays(code) {
+  if (!code) return '';
+  try {
+    nomsPays ||= new Intl.DisplayNames([langue()], { type: 'region' });
+    return nomsPays.of(code) || code;
+  } catch { return code; }
+}
+// Liste triée pour les menus, dans la langue de la personne
+function paysTries() {
+  const codes = S.me?.options?.countries || [];
+  const collator = new Intl.Collator(langue(), { sensitivity: 'base' });
+  return codes.map((code) => ({ code, name: nomPays(code) })).sort((a, b) => collator.compare(a.name, b.name));
+}
+// Ce que dit la pilule de Découvrir : la ville, ou le nom du pays quand la zone couvre tout le pays.
+// Aucun article : « le Cameroun », « la France » et « les Pays-Bas » ne suivent pas la même règle,
+// et une table de genres pour 243 pays serait exactement la donnée de traduction qu'on évite ici.
+// L'écran des filtres, lui, dit explicitement « Une ville » ou « Tout le pays ».
+function zoneLabel(zone) {
+  if (!zone) return '';
+  return zone.city || nomPays(zone.country);
+}
+const zoneDe = () => S.me?.filters?.zone || { country: S.me?.profile?.country || S.me?.options?.defaultCountry || 'CM', city: S.me?.profile?.city || null };
 const activityChip = (p, cls = 'chip') => (ACTIVITY_LABELS[p.activity] ? `<span class="${cls} act-${p.activity}">${ACTIVITY_LABELS[p.activity]}</span>` : '');
 
 // Carte de profil, partagée entre la découverte et l'aperçu de son propre profil.
@@ -234,7 +271,7 @@ function profileCard(p, { own = false, cls = '' } = {}) {
         <div class="overlay">
           <div class="name">${esc(p.name)}<span class="age">${esc(p.age)}</span>${p.verified ? `<span class="shield" title="Selfie vérifié">${icon('shield', 18)}</span>` : ''}</div>
           <div class="line">
-            ${icon('pin', 13)}<span>${esc(p.area ? `${p.area} · ${p.city}` : p.city)}</span>
+            ${icon('pin', 13)}<span>${esc(p.area ? `${p.area} · ${p.city}` : p.city)}${p.country && p.country !== S.me?.profile?.country ? esc(` · ${nomPays(p.country)}`) : ''}</span>
             ${!own && ACTIVITY_LABELS[p.activity] ? `<span class="dot"></span><span class="act">${p.activity === 'week' ? 'Cette semaine' : p.activity === 'today' ? "Aujourd'hui" : 'Récemment'}</span>` : ''}
           </div>
         </div>
@@ -318,7 +355,7 @@ function discoverBar() {
   const range = f.ageMin > 18 || f.ageMax < 99 ? ` · ${f.ageMin}–${f.ageMax}` : '';
   return `
     <div class="dbar">
-      <button type="button" class="pill" data-action="filters" aria-label="Filtres">${icon('pin', 15)} ${esc(S.me.profile.city)}${range} ${icon('sliders', 14)}</button>
+      <button type="button" class="pill" data-action="filters" aria-label="Filtres">${icon('pin', 15)} ${esc(zoneLabel(zoneDe()))}${range} ${icon('sliders', 14)}</button>
       <div class="seg seg-mini" aria-label="Affichage">
         <button type="button" data-action="mode" data-mode="cards" aria-pressed="${!list}">${icon('card', 15)} Cartes</button>
         <button type="button" data-action="mode" data-mode="list" aria-pressed="${list}">${icon('rows', 15)} Liste</button>
@@ -346,7 +383,7 @@ async function renderPeople() {
       <div class="empty">
         <span class="glyph">${icon('users', 34)}</span>
         <h2>Personne pour l'instant</h2>
-        <p>Aucun profil vérifié à ${esc(S.me.profile.city)} avec ton intention. Reviens un peu plus tard.</p>
+        <p>Aucun profil vérifié dans ta zone avec ton intention. Élargis ta zone depuis les filtres, ou reviens un peu plus tard.</p>
       </div>`);
     return tg.setButtons(null);
   }
@@ -389,15 +426,21 @@ function lazyAvatars() {
 // Tranche d'âge : enregistrée côté serveur, le paquet et la liste repartent de zéro
 async function saveFilters(values) {
   const form = document.getElementById('filters-form');
-  const v = values || { ageMin: Number(form?.ageMin.value), ageMax: Number(form?.ageMax.value) };
+  const zone = S.zoneDraft
+    ? { country: form?.zoneCountry?.value || S.zoneDraft.country, city: S.zoneDraft.city === null ? null : (form?.zoneCity?.value ?? S.zoneDraft.city) }
+    : undefined;
+  const v = values || { ageMin: Number(form?.ageMin.value), ageMax: Number(form?.ageMax.value), zone };
   const ok = (n) => Number.isInteger(n) && n >= 18 && n <= 99;
   if (!ok(v.ageMin) || !ok(v.ageMax)) return showError(new Error('Indique des âges entre 18 et 99 ans.'));
   if (v.ageMin > v.ageMax) return showError(new Error("L'âge minimum doit être inférieur ou égal au maximum."));
+  if (v.zone && v.zone.city !== null && String(v.zone.city).trim().length < 2) return showError(new Error('Indique une ville, ou choisis tout le pays.'));
   try {
     const r = await api('/me/filters', { method: 'PUT', body: v });
     S.me.filters = r.filters;
+    S.zoneDraft = null;
     S.profiles = [];
     S.people = [];
+    S.venues = [];
     tg.haptic('success');
     go('discover');
   } catch (e) {
@@ -466,7 +509,8 @@ const SCREENS = {
       age: p.age || '',
       gender: p.gender || null,
       intent: p.intent || null,
-      city: p.city || 'Yaoundé',
+      country: p.country || S.me.options.defaultCountry,
+      city: p.city || '',
       area: p.area || '',
       promptQ: p.promptQ || 'Mon plat du dimanche',
       promptA: p.promptA || '',
@@ -500,8 +544,15 @@ const SCREENS = {
           <div class="body"><div class="title">${l}</div><div class="sub">${INTENT_SUBS[k]}</div></div>
           <span class="check">${icon('check', 14)}</span>
         </button>`).join('')}</div>
-      <label class="field"><span class="label">Ville</span>${select('city', o.cities, f.city)}</label>
-      <label class="field"><span class="label">Quartier <span class="opt">facultatif</span></span><input name="area" maxlength="40" value="${esc(f.area)}" placeholder="Bastos"></label>`,
+      <label class="field"><span class="label">Pays</span>
+        <span class="select-wrap"><select name="country">${paysTries().map((c) => `<option value="${esc(c.code)}" ${c.code === f.country ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>${icon('chevron-down', 18)}</span>
+      </label>
+      <label class="field"><span class="label">Ville</span>
+        <input name="city" maxlength="40" value="${esc(f.city)}" placeholder="${esc((S.me.options.knownCities[f.country] || [])[0] || 'Ta ville')}" list="villes-connues" autocomplete="off">
+        <datalist id="villes-connues">${(S.me.options.knownCities[f.country] || []).map((v) => `<option value="${esc(v)}"></option>`).join('')}</datalist>
+      </label>
+      <label class="field"><span class="label">Quartier <span class="opt">facultatif</span></span><input name="area" maxlength="40" value="${esc(f.area)}" placeholder="Ton quartier"></label>
+      <p class="fine">${icon('pin', 14)}<span>Tu verras d'abord les profils de ta ville. Tu pourras élargir à tout le pays, ou viser une autre ville, depuis les filtres.</span></p>`,
       `
       <div class="field"><span class="label">Tes photos <span class="opt">jusqu'à 3, facultatif</span></span>
         <div class="photo-slots">${[1, 2, 3].map((n) => {
@@ -607,7 +658,7 @@ const SCREENS = {
     const next = S.profiles[1];
     if (!p) {
       const v = S.vivier || {};
-      const ville = S.me.profile.city;
+      const ville = zoneLabel(zoneDe());
       const intention = (S.me.options?.intents || {})[S.me.profile.intent] || '';
       let titre, texte, bouton;
       if (!S.remaining) {
@@ -615,13 +666,14 @@ const SCREENS = {
         texte = `Tu peux aimer ${20} profils par jour. Le compteur repart à minuit. Passer un profil ne compte pas.`;
         bouton = { text: 'Voir mes messages', onClick: () => go('matches') };
       } else if (!v.total) {
-        titre = `Personne d'autre à ${esc(ville)} pour l'instant`;
+        titre = `Personne d'autre dans cette zone pour l'instant`;
         // Ne rien promettre que le code ne tient pas : aucune alerte d'arrivée n'existe aujourd'hui.
-        texte = `Tu es parmi les premiers à ${esc(ville)} sur « ${esc(intention)} ». Reviens dans quelques jours, ou parle de ${esc(APP)} autour de toi.`;
+        texte = `Personne ne cherche « ${esc(intention)} » à ${esc(ville)} pour le moment. Élargis ta zone, reviens dans quelques jours, ou parle de ${esc(APP)} autour de toi.`;
+        bouton = { text: 'Changer de zone', onClick: () => go('filters') };
         bouton = { text: 'Voir mon profil', onClick: () => go('me') };
       } else if (v.horsTranche) {
         titre = 'Tu as vu tous les profils de ta tranche d\'âge';
-        texte = `${v.horsTranche} profil${v.horsTranche > 1 ? 's' : ''} de ${esc(ville)} ${v.horsTranche > 1 ? 'sont' : 'est'} en dehors de la tranche que tu as choisie. Tu peux l'élargir.`;
+        texte = `${v.horsTranche} profil${v.horsTranche > 1 ? 's' : ''} de ta zone ${v.horsTranche > 1 ? 'sont' : 'est'} en dehors de la tranche que tu as choisie. Tu peux l'élargir.`;
         bouton = { text: 'Élargir ma tranche d\'âge', onClick: () => go('filters') };
       } else {
         titre = 'Tu as vu tous les profils du moment';
@@ -647,19 +699,35 @@ const SCREENS = {
 
   filters() {
     const f = S.me.filters || { ageMin: 18, ageMax: 99 };
+    const z = S.zoneDraft || (S.zoneDraft = { ...zoneDe() });
+    const toutLePays = z.city === null;
     render(`
-      <div class="step-head"><h1>Qui veux-tu voir ?</h1><p class="lead">Ta ville et ton intention viennent de ton profil. Ici, seulement la tranche d'âge.</p></div>
+      <div class="step-head"><h1>Qui veux-tu voir ?</h1><p class="lead">La zone où tu veux rencontrer, et la tranche d'âge. Ton intention vient de ton profil.</p></div>
       <form id="filters-form" class="stack">
+        <span class="eyebrow">Zone de recherche</span>
+        <label class="field"><span class="label">Pays</span>
+          <span class="select-wrap"><select name="zoneCountry">${paysTries().map((c) => `<option value="${esc(c.code)}" ${c.code === z.country ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>${icon('chevron-down', 18)}</span>
+        </label>
+        <div class="seg seg-zone" aria-label="Étendue">
+          <button type="button" data-action="zone-mode" data-mode="ville" aria-pressed="${!toutLePays}">Une ville</button>
+          <button type="button" data-action="zone-mode" data-mode="pays" aria-pressed="${toutLePays}">Tout le pays</button>
+        </div>
+        ${toutLePays ? '' : `
+        <label class="field"><span class="label">Ville</span>
+          <input name="zoneCity" maxlength="40" value="${esc(z.city || '')}" placeholder="${esc((S.me.options.knownCities[z.country] || [])[0] || 'Ta ville')}" list="villes-zone" autocomplete="off">
+          <datalist id="villes-zone">${(S.me.options.knownCities[z.country] || []).map((v) => `<option value="${esc(v)}"></option>`).join('')}</datalist>
+        </label>`}
+        <span class="eyebrow">Tranche d'âge</span>
         <div class="row">
           <label class="field"><span class="label">De</span><input name="ageMin" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMin)}"></label>
           <label class="field"><span class="label">À</span><input name="ageMax" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMax)}"></label>
         </div>
         <p class="error" id="form-error"></p>
       </form>
-      <p class="fine">${icon('info', 14)}<span>Les personnes qui ont aimé ton profil restent visibles dans Messages, quel que soit leur âge.</span></p>
-      <p class="fine">${icon('users', 14)}<span>Qui t'est proposé : les profils vérifiés de ${esc(S.me.profile.city)} qui cherchent la même chose que toi. Pour « Relation sérieuse », ce sont les profils de l'autre genre ; pour « Amitié » et « Sortie en duo », tout le monde.</span></p>`);
+      <p class="fine">${icon('users', 14)}<span>Ta zone ne vaut que pour toi : elle décide de qui tu vois, pas de qui te voit.</span></p>
+      <p class="fine">${icon('info', 14)}<span>Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.</span></p>`);
     document.getElementById('filters-form').addEventListener('submit', (e) => { e.preventDefault(); saveFilters(); });
-    tg.setButtons({ main: { text: 'Enregistrer', onClick: () => saveFilters() }, secondary: { text: 'Tout voir', onClick: () => saveFilters({ ageMin: 18, ageMax: 99 }) } });
+    tg.setButtons({ main: { text: 'Enregistrer', onClick: () => saveFilters() }, secondary: { text: 'Tout voir', onClick: () => saveFilters({ ageMin: 18, ageMax: 99, zone: { ...zoneDe(), city: null } }) } });
   },
 
   person({ id }) {
@@ -761,7 +829,11 @@ const SCREENS = {
   async date() {
     if (!S.chat) return go('matches');
     if (!S.venues.length) {
-      try { S.venues = (await api('/venues')).venues; } catch (e) { return renderError(e, () => go('date')); }
+      try {
+        const r = await api(`/venues?match=${encodeURIComponent(S.chat.id)}`);
+        S.venues = r.venues;
+        S.partenairesDansLePays = r.partenairesDansLePays;
+      } catch (e) { return renderError(e, () => go('date')); }
     }
     const d = S.dateDraft;
     const slots = ["Aujourd'hui, 17 h", 'Demain, 16 h', 'Samedi, 11 h', 'Dimanche, 15 h'];
@@ -775,9 +847,11 @@ const SCREENS = {
         <div class="stack">${S.venues.length ? S.venues.map((v) => `
           <button type="button" class="choice" aria-pressed="${d.venueId === v.id}" data-action="venue" data-id="${v.id}">
             <span class="tile">${icon('coffee', 20)}</span>
-            <div class="body"><div class="title">${esc(v.name)}</div><div class="sub">${esc(v.area)} · ${esc(v.perk)}</div></div>
+            <div class="body"><div class="title">${esc(v.name)}</div><div class="sub">${esc(v.area)} · ${esc(v.city)} · ${esc(v.perk)}</div></div>
             <span class="check">${icon('check', 14)}</span>
-          </button>`).join('') : `<div class="notice notice-info">${icon('info', 18)}<span>Pas encore de lieu partenaire dans ta ville.</span></div>`}</div>
+          </button>`).join('') : `<div class="notice notice-warn">${icon('info', 18)}<span>${S.partenairesDansLePays
+            ? "Pas encore de lieu partenaire dans ta ville. Le rendez-vous avec confirmation d'arrivée n'est donc pas disponible ici."
+            : `Pas encore de lieu partenaire dans ton pays. Le rendez-vous avec confirmation d'arrivée n'est donc pas disponible.`} Vous pouvez convenir d'un lieu public dans la discussion, et prévenir chacun une personne de confiance.</span></div>`}</div>
       </div>
       <div class="group"><span class="eyebrow">Quand</span>
         <div class="slots">${slots.map((s) => `<button type="button" class="slot" aria-pressed="${d.slot === s}" data-action="slot" data-value="${esc(s)}">${s}</button>`).join('')}</div>
@@ -1277,6 +1351,10 @@ app.addEventListener('click', async (e) => {
     case 'filters': go('filters'); break;
     case 'edit-step': S.form = null; S.formStep = Number(el.dataset.step); go('profile'); break;
     case 'photo-nav': photoNav(el, e); break;
+    case 'zone-mode':
+      S.zoneDraft = { ...(S.zoneDraft || zoneDe()), city: el.dataset.mode === 'pays' ? null : (S.zoneDraft?.city || S.me.profile.city || '') };
+      SCREENS.filters();
+      break;
     case 'photo-remove': e.preventDefault(); S.form.photos[el.dataset.n] = null; SCREENS.profile(); break;
     case 'mode':
       tg.haptic('select');
@@ -1347,8 +1425,16 @@ app.addEventListener('change', async (e) => {
     try { S.form.photos[t.name.slice(-1)] = await compressImage(t.files[0]); SCREENS.profile(); } catch (err) { showError(err); }
   } else if (t.name === 'selfie' && t.files?.[0]) {
     try { S.selfie = await compressImage(t.files[0], 900, 0.85); SCREENS.verify(); } catch (err) { showError(err); }
-  } else if (t.name === 'city' && S.form) {
-    S.form.city = t.value;
+  } else if (t.name === 'country' && S.form) {
+    // Changer de pays change les villes suggérées : on redessine l'étape
+    S.form.country = t.value;
+    S.form.city = '';
+    SCREENS.profile();
+  } else if (t.name === 'zoneCountry' && S.zoneDraft) {
+    S.zoneDraft = { country: t.value, city: null };
+    SCREENS.filters();
+  } else if (t.name === 'zoneCity' && S.zoneDraft) {
+    S.zoneDraft.city = t.value;
   } else if (t.name === 'promptQ' && S.form) {
     S.form.promptQ = t.value;
   } else if (t.name === 'dataSaver') {

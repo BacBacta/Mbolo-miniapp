@@ -572,3 +572,6 @@ body.chat-mode main > * { animation: none; }
 
 /* La carte en retrait ne montre que son bord, jamais son contenu */
 .deck .card.next .card-body, .deck .card.next .corners, .deck .card.next .overlay { visibility: hidden; }
+
+/* Zone de recherche : une ville ou tout le pays */
+.seg-zone { margin-top: 2px; }

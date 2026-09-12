@@ -29,6 +29,9 @@ export const config = {
   allowDevAuth: bool(process.env.ALLOW_DEV_AUTH, false) && process.env.NODE_ENV !== 'production',
   useWebhook: bool(process.env.USE_WEBHOOK, false),
   matchPolicy: process.env.MATCH_POLICY || 'romance_opposite',
+  // Pays proposé par défaut à l'inscription. L'app est ouverte à tous les pays : ce réglage
+  // ne fait que pré-remplir le menu, il n'en exclut aucun.
+  defaultCountry: (process.env.DEFAULT_COUNTRY || 'CM').toUpperCase(),
   // Durée de validité des données d'authentification Telegram (initData)
   initDataMaxAgeSec: 24 * 60 * 60,
   // Nombre de messages avant d'autoriser liens et numéros dans une discussion
@@ -50,12 +53,13 @@ export const config = {
 export const runtime = { botUsername: '' };
 
 export const venues = [
-  { id: 'palmier', name: 'Le Palmier', area: 'Bastos', city: 'Yaoundé', perk: `-10 % avec ${config.appName}`, code: 'rdv:lieu:palmier' },
-  { id: 'etudiants', name: 'Café des étudiants', area: 'Ngoa-Ekellé', city: 'Yaoundé', perk: 'Boisson offerte dès 2 consommations', code: 'rdv:lieu:etudiants' },
-  { id: 'lac', name: 'Terrasse du lac', area: 'Centre-ville', city: 'Yaoundé', perk: `-10 % avec ${config.appName}`, code: 'rdv:lieu:lac' },
-  { id: 'wouri', name: 'Le Wouri Lounge', area: 'Bonapriso', city: 'Douala', perk: `-10 % avec ${config.appName}`, code: 'rdv:lieu:wouri' },
+  { id: 'palmier', name: 'Le Palmier', area: 'Bastos', city: 'Yaoundé', country: 'CM', perk: `-10 % avec ${config.appName}`, code: 'rdv:lieu:palmier' },
+  { id: 'etudiants', name: 'Café des étudiants', area: 'Ngoa-Ekellé', city: 'Yaoundé', country: 'CM', perk: 'Boisson offerte dès 2 consommations', code: 'rdv:lieu:etudiants' },
+  { id: 'lac', name: 'Terrasse du lac', area: 'Centre-ville', city: 'Yaoundé', country: 'CM', perk: `-10 % avec ${config.appName}`, code: 'rdv:lieu:lac' },
+  { id: 'wouri', name: 'Le Wouri Lounge', area: 'Bonapriso', city: 'Douala', country: 'CM', perk: `-10 % avec ${config.appName}`, code: 'rdv:lieu:wouri' },
 ];
 
 export const INTENTS = { amitie: 'Amitié', serieux: 'Relation sérieuse', duo: 'Sortie en duo' };
 export const GENDERS = { femme: 'Femme', homme: 'Homme' };
-export const CITIES = ['Yaoundé', 'Douala', 'Bafoussam', 'Buea', 'Garoua'];
+// La ville n'est plus une liste fermée : elle se saisit librement et se compare par clé
+// normalisée. Voir server/geo.js.
