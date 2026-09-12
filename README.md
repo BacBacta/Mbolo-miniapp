@@ -423,6 +423,8 @@ Les photos et les selfies ne passent pas par la base : ce sont des fichiers de `
 
 ## Mettre en ligne (bêta fermée)
 
+> **Guide pas à pas : [`DEPLOIEMENT.md`](DEPLOIEMENT.md).** Du compte vide à l'application que des gens utilisent, avec les contrôles à faire après chaque déploiement, le passage à PostgreSQL, et un tableau des pannes courantes. Cette section-ci n'en est que le résumé.
+
 N'importe quel hébergeur Node.js avec **stockage persistant** convient (VPS, Railway, Fly.io, Render avec disque, etc.).
 
 Variables à définir chez l'hébergeur :

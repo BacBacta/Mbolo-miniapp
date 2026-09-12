@@ -13,6 +13,9 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 COPY server ./server
 COPY public ./public
+# Les scripts d'exploitation voyagent avec l'app : reprendre un db.json vers PostgreSQL se fait
+# depuis la machine déployée, là où DATABASE_URL est déjà renseignée.
+COPY scripts ./scripts
 
 # Les données (base JSON et photos) vivent sur un volume monté, jamais dans l'image
 ENV DATA_DIR=/data
