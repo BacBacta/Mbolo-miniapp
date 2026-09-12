@@ -49,7 +49,7 @@ public/
   tg.js         Seul point d'accès au SDK Telegram, avec secours hors Telegram
   app.js        Écrans (objet SCREENS), navigation go(), appels api()
   ui.js         Icônes, toast, squelettes de chargement, geste de balayage des cartes
-  styles.css    Design : couleurs dérivées des variables --tg-theme-* (clair et sombre), composants, animations
+  styles.css    Design : couleurs dérivées des variables --tg-theme-* (clair et sombre), Instrument Serif pour l'identité, Manrope pour l'interface, composants, animations
 test/
   activity, antiscam, assets, auth, compression, filters, limites,
   notifications, photos, profiles, securite, webhook (61 tests)

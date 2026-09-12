@@ -31,7 +31,7 @@ Ce dépôt contient tout ce qu'il faut pour la tester sur ton propre téléphone
 
 Éléments natifs Telegram utilisés : bouton principal et secondaire, bouton Retour, bouton Paramètres, popups, retour haptique, scanner de QR code, confirmation de fermeture, stockage Telegram, autorisation d'écriture, couleurs du thème de l'utilisateur.
 
-Design « Nuit chaude » : les fonds et textes suivent le thème Telegram de chaque personne (clair ou sombre), réchauffés d'une pointe de terracotta ; l'action est terracotta, la confiance dorée, les prénoms et titres en Instrument Serif. Cette police est le seul fichier externe de l'interface : environ 34 Ko la première fois, puis en cache, chargée sans bloquer l'affichage — l'app démarre avec la police de secours si Google Fonts tarde. Les boutons natifs Telegram prennent les couleurs de la marque.
+Design « Nuit chaude » : les fonds et textes suivent le thème Telegram de chaque personne (clair ou sombre), réchauffés d'une pointe de terracotta ; l'action est terracotta, la confiance dorée. Deux polices : Instrument Serif pour l'identité (prénoms, titres, réponses aux questions) et Manrope pour tout le reste. Ce sont les seuls fichiers externes de l'interface : environ 60 Ko la première fois, puis en cache, chargés sans bloquer l'affichage — l'app démarre avec les polices de secours si Google Fonts tarde. La carte de profil tient en quatre temps : la photo avec le prénom, un seul statut et une ligne de contexte ; la réponse à la question ; une ligne d'infos ; la confiance sur une ligne. Les boutons natifs Telegram prennent les couleurs de la marque.
 
 ---
 
