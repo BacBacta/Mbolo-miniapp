@@ -423,6 +423,29 @@ Le script applique d'abord les migrations, puis recopie comptes, balayages, matc
 
 Les photos et les selfies ne passent pas par la base : ce sont des fichiers de `DATA_DIR/uploads`, à copier tels quels vers le volume de la nouvelle machine.
 
+Puis le contrôle, qui dit si la bascule peut avoir lieu :
+
+```powershell
+node "scripts/etat-stockage.js" "data/db.json"
+```
+
+Il compare les deux stockages table par table et **sort en erreur** dès que la base porte moins que le fichier. C'est le seul garde-fou contre un import qui a écrit « 0 importé(s) sur 41 » au milieu d'une page de texte, et que personne ne relit ce jour-là. Il compte ce que chaque table sait distinguer, pas les lignes du fichier : deux balayages de la même paire n'écrivent qu'une ligne, et il ne faut pas y voir une perte.
+
+### Basculer la production sans fenêtre à vide
+
+`flyctl postgres attach` pose `DATABASE_URL` et redémarre l'application aussitôt : entre ce redémarrage et la fin de l'import, la production tourne sur une base **vide**. Personne ne retrouve son compte, et quelqu'un qui en recrée un pendant ce temps écrit dans la base que l'import s'apprête à remplir.
+
+`basculer-postgres.sh` évite cette fenêtre en attachant la base sous un nom que le serveur ignore (`DATABASE_URL_FUTURE`), en important, en vérifiant, **et en ne renommant qu'après** :
+
+```powershell
+$env:FLY_API_TOKEN = "..."
+./basculer-postgres.sh preparer mbolo-miniapp mbolo-db   # la production ne bouge pas
+./basculer-postgres.sh basculer mbolo-miniapp mbolo-db   # un redémarrage, et c'est fait
+./basculer-postgres.sh verifier mbolo-miniapp mbolo-db   # ne fait que lire
+```
+
+Le même script se lance depuis l'onglet **Actions** de GitHub (travail **PostgreSQL**), sans ligne de commande. Le jeton doit être un **jeton d'organisation** : un jeton de déploiement limité à une app ne peut pas créer de base. Détail complet dans [`DEPLOIEMENT.md`](DEPLOIEMENT.md).
+
 ---
 
 ## Mettre en ligne (bêta fermée)
@@ -523,7 +546,7 @@ mbolo-miniapp/
 ├── deployer-fly.sh   Déploiement sur Fly : app, volume, secrets, contrôle /health
 ├── fly.toml          Service Fly : port, volume de données, contrôle /health
 ├── render.yaml       Le même service décrit pour Render
-├── scripts/          Import de db.json vers PostgreSQL, suite de tests sur PostgreSQL
+├── scripts/          Import et contrôle de la bascule PostgreSQL, suite de tests sur PostgreSQL
 ├── test/             Tests automatiques
 └── data/             Base et photos (créé automatiquement, ignoré par Git)
 ```

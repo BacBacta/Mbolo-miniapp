@@ -143,35 +143,63 @@ Tout le reste a une valeur par défaut sûre. La liste complète est dans `.env.
 
 Sans `DATABASE_URL`, les données vivent dans `/data/db.json`. C'est suffisant pour une bêta sur une seule machine, et **obligatoire à quitter avant tout paiement** ou dès qu'il y a plus d'une instance.
 
-### 1. Créer la base
+La bascule se fait **en deux temps**, et jamais d'un coup. `flyctl postgres attach` pose `DATABASE_URL` et redémarre l'application aussitôt : entre ce redémarrage et la fin de l'import, la production tournerait sur une base vide. Personne ne retrouverait son compte, et quelqu'un qui en recrée un pendant ce temps écrirait dans la base que l'import s'apprête à remplir — deux comptes pour une personne, et un import qui ne peut plus repartir proprement.
+
+On attache donc la base sous un autre nom, `DATABASE_URL_FUTURE`, que le serveur ignore. On importe, on vérifie, **et on ne renomme qu'après**.
+
+### Depuis un navigateur de téléphone
+
+Onglet **Actions** du dépôt, travail **PostgreSQL**, bouton **Run workflow**. Deux lancements :
+
+1. **`preparer`** — coche « Créer la base » au premier passage, et choisis le moteur : `mpg` (gérée par Fly, sauvegardes comprises) ou `brut` (moins chère, sauvegardes et reprise à ta charge). Crée la base, l'attache sous `DATABASE_URL_FUTURE`, reprend `/data/db.json` et vérifie que rien ne manque. **La production ne bouge pas.**
+2. **`basculer`** — refait le contrôle, puis échange les noms. C'est le seul moment où la production change de stockage, et il dure un redémarrage.
+
+**`verifier`** se lance quand tu veux : il ne fait que lire, et dit sur quoi tourne la production.
+
+`FLY_API_TOKEN` doit être un **jeton d'organisation** (fly.io, Account puis Tokens) : un jeton de déploiement limité à une seule app ne peut pas créer de base.
+
+### En ligne de commande
 
 ```powershell
-flyctl postgres create --name mbolo-db --region ams
-flyctl postgres attach mbolo-db -a ton-app      # pose DATABASE_URL toute seule
+$env:FLY_API_TOKEN = "..."
+./basculer-postgres.sh preparer mbolo-miniapp mbolo-db
+./basculer-postgres.sh basculer mbolo-miniapp mbolo-db
+./basculer-postgres.sh verifier mbolo-miniapp mbolo-db
 ```
 
-### 2. Reprendre les données existantes
+Pour créer la base au passage : `$env:CREER_LA_BASE = "true"` et `$env:MOTEUR = "mpg"`.
 
-Depuis la machine, là où `DATABASE_URL` est déjà renseignée :
+### Ce que l'import emporte
 
-```powershell
-flyctl ssh console -a ton-app
-node scripts/import-json.js /data/db.json
-```
+Comptes, balayages, matchs, messages, blocages, signalements, rendez-vous **et les événements de mesure**. Ces derniers comptent : un compte se réinscrit, un message se réécrit, mais un entonnoir d'inscription de la semaine dernière, non.
 
-Le script applique les migrations, puis recopie comptes, balayages, matchs, messages, blocages, signalements, rendez-vous **et les événements de mesure**. Ces derniers comptent : un compte se réinscrit, un message se réécrit, mais un entonnoir d'inscription de la semaine dernière, non. Il **refuse de partir si la base porte déjà des comptes** — relance avec `--force` pour compléter un import interrompu : chaque ligne est écrite sans écraser, donc une reprise ne crée pas de doublon.
+Le script **refuse de partir si la base porte déjà des comptes** — relance avec `--force` pour compléter un import interrompu : chaque ligne est écrite sans écraser, donc une reprise ne crée pas de doublon.
 
 Les photos et les selfies ne passent pas par la base : ce sont des fichiers de `/data/uploads`, qui restent sur le volume.
 
-### 3. Vérifier
+### Le contrôle qui arrête tout
 
-Redémarre, puis lis le journal :
+Entre l'import et l'échange, `scripts/etat-stockage.js` compare les deux stockages table par table :
+
+```
+table       fichier     base
+users             7        7
+events           41       41
+```
+
+Il **sort en erreur** dès qu'une table porte moins que le fichier, et la bascule s'arrête là. C'est le seul garde-fou contre un import qui a écrit « 0 importé(s) sur 41 » au milieu d'une page de texte — ce qui ne se remarquerait qu'une fois le fichier effacé.
+
+Il compte ce que chaque table sait distinguer, pas les lignes du fichier : deux balayages de la même paire n'écrivent qu'une ligne, et il ne faut pas y voir une perte.
+
+### Vérifier soi-même
+
+Après la bascule, le journal doit porter :
 
 ```
 Stockage : PostgreSQL, 2 migration(s) au total, 2 appliquée(s) au démarrage.
 ```
 
-Garde le `db.json` de côté quelques jours avant de l'effacer.
+Garde le `db.json` de côté quelques jours avant de l'effacer. Pour revenir en arrière tant qu'il est là : `flyctl secrets unset -a mbolo-miniapp DATABASE_URL`.
 
 Tant que la bascule n'est pas faite, chaque démarrage en production l'écrit dans le journal :
 
@@ -180,6 +208,7 @@ Attention : en production sur un fichier JSON.
 ```
 
 ---
+
 
 ## Quand quelque chose ne va pas
 
