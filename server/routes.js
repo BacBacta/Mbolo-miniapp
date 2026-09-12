@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { config, runtime, venues, INTENTS, GENDERS } from './config.js';
-import { estPays, cleVille, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
+import { estPays, cleVille, villeAffichee, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
+import { LANGUES, t as tr } from './i18n.js';
 import { store } from './store.js';
 import { requireAuth } from './auth.js';
 import { checkMessage } from './antiscam.js';
@@ -15,7 +16,9 @@ api.use(requireAuth);
 // Chaque appel authentifié vaut signe de vie : l'app interroge /summary toutes les 20 s tant qu'elle est ouverte
 api.use((req, res, next) => { store.touchActivity(req.user.id); next(); });
 
-const fail = (res, status, code, message) => res.status(status).json({ code, message });
+// L'interface traduit les erreurs par leur code ; certaines phrases ont besoin d'une valeur
+// (le nombre de messages, le nom du lieu). extra les transporte, sans jamais traduire côté serveur.
+const fail = (res, status, code, message, extra) => res.status(status).json({ code, message, ...extra });
 const GESTURES = ['Lève deux doigts et souris', 'Touche ton oreille gauche', 'Fais un pouce levé', 'Pose ta main sur ta joue'];
 // Durée de validité d'un geste de vérification
 const GESTURE_TTL_MS = 10 * 60 * 1000;
@@ -87,6 +90,7 @@ api.get('/me', (req, res) => {
     notificationsAvailable: !!config.botToken,
     // Les noms de pays ne transitent pas : le navigateur les affiche dans la langue de la
     // personne à partir du code ISO. On n'envoie donc que les codes, et des suggestions de villes.
+    lang: u.lang || null,
     options: { intents: INTENTS, genders: GENDERS, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES, defaultCountry: config.defaultCountry },
   });
 });
@@ -103,7 +107,7 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
   // exacte. Ville : un champ libre, parce qu'aucune liste ne couvre le monde. Les comptes créés
   // avant l'ouverture internationale n'ont pas de pays : ils gardent celui par défaut.
   const country = estPays(b.country) ? String(b.country).toUpperCase() : (req.user.profile?.country || config.defaultCountry);
-  const city = String(b.city || '').trim().replace(/\s+/g, ' ').slice(0, 40);
+  const city = villeAffichee(String(b.city || '').slice(0, 40));
   if (cleVille(city).length < 2) return fail(res, 400, 'CITY_REQUIRED', 'Indique ta ville.');
   const promptA = String(b.promptA || '').trim().slice(0, 120);
   if (promptA.length < 3) return fail(res, 400, 'PROMPT_REQUIRED', 'Réponds à la question pour que les autres te découvrent.');
@@ -160,8 +164,18 @@ api.post('/me/verification', limiter('verification'), async (req, res) => {
   res.json({ verification: 'pending' });
 });
 
+// Langue choisie explicitement. Gardée sur le compte pour que le bot écrive dans la même langue
+// que l'interface, même quand l'app est fermée. Deux lettres, rien de plus : ce n'est pas une
+// donnée personnelle nouvelle au sens du profil, c'est un réglage d'affichage.
+api.put('/me/lang', (req, res) => {
+  const lang = String(req.body?.lang || '').slice(0, 5).toLowerCase();
+  if (!LANGUES.includes(lang)) return fail(res, 400, 'LANG_INVALID', 'Langue non prise en charge.');
+  store.updateUser(req.user.id, { lang });
+  res.json({ lang });
+});
+
 api.post('/me/test-notification', async (req, res) => {
-  const r = await notify(req.user.id, `Les notifications ${config.appName} fonctionnent. Tu seras prévenu(e) ici des matchs et des messages.`, { label: `Ouvrir ${config.appName}`, params: { screen: 'me' } }, 'test', 30 * 1000);
+  const r = await notify(req.user.id, 'Les notifications {app} fonctionnent. Tu seras prévenu(e) ici des matchs et des messages.', { app: config.appName }, { label: 'Ouvrir {app}', params: { screen: 'me' } }, 'test', 30 * 1000);
   const messages = {
     NO_BOT: "Le bot n'est pas configuré sur le serveur (BOT_TOKEN).",
     THROTTLED: 'Patiente 30 secondes avant un nouveau test.',
@@ -239,7 +253,7 @@ api.put('/me/filters', (req, res) => {
     const z = req.body.zone;
     const country = estPays(z.country) ? String(z.country).toUpperCase() : zone.country;
     // city null ou vide : tout le pays. Sinon une ville, qui doit être lisible.
-    const ville = z.city == null || z.city === '' ? null : String(z.city).trim().replace(/\s+/g, ' ').slice(0, 40);
+    const ville = z.city == null || z.city === '' ? null : villeAffichee(String(z.city).slice(0, 40));
     if (ville !== null && cleVille(ville).length < 2) return fail(res, 400, 'ZONE_INVALID', 'Indique une ville, ou choisis tout le pays.');
     zone = { country, city: ville };
   }
@@ -370,13 +384,13 @@ api.post('/swipes', requireApproved, limiter('swipe'), async (req, res) => {
     if (target.demo && target.demoLikeBack !== false && !store.hasSwiped(target.id, me.id)) store.addSwipe(target.id, me.id, 'like');
     if (store.likedBy(target.id, me.id)) {
       const match = store.createMatch(me.id, target.id);
-      notify(target.id, `Nouveau match : ${me.profile.name} et toi, vous vous plaisez.`, { label: 'Écrire', params: { screen: 'chat', match: match.id } });
+      notify(target.id, 'Nouveau match : {nom} et toi, vous vous plaisez.', { nom: me.profile.name }, { label: 'Écrire', params: { screen: 'chat', match: match.id } });
       return res.json({ match: { id: match.id, other: publicProfile(target) } });
     }
     // Like non réciproque : on prévient la personne sans révéler qui (au plus une fois par jour)
     // Écran Messages, pas Découvrir : qui t'a liké apparaît dans /likes, qui ignore le filtre d'âge,
     // alors que /discover l'applique. La notification envoyait donc parfois vers un écran vide.
-    notify(target.id, `Tu as plu à quelqu'un à ${target.profile.city}. Ouvre ${config.appName} pour découvrir de qui il s'agit.`, { label: 'Découvrir', params: { screen: 'matches' } }, 'likes', 24 * 3600 * 1000);
+    notify(target.id, "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.", { ville: target.profile.city, app: config.appName }, { label: 'Découvrir', params: { screen: 'matches' } }, 'likes', 24 * 3600 * 1000);
   }
   res.json({ match: null });
 });
@@ -480,12 +494,12 @@ api.post('/matches/:id/messages', requireApproved, limiter('message'), async (re
     if (check.code === 'MONEY_BLOCKED' && consommer(req.user.id, 'alerteModeration') === null) {
       notifyAdmin(`Message bloqué (${check.categorie}) de ${req.user.profile.name} (ID ${req.user.id}) : « ${text.slice(0, 120)} »`);
     }
-    return fail(res, 422, check.code, check.message);
+    return fail(res, 422, check.code, check.message, { categorie: check.categorie, unlockAfter: config.contactUnlockAfter });
   }
 
   const msg = store.addMessage(r.m.id, req.user.id, text);
   if (!store.isViewing(r.other.id, r.m.id)) {
-    notify(r.other.id, `${req.user.profile.name} t'a écrit : « ${text.slice(0, 60)}${text.length > 60 ? '…' : ''} »`, { label: 'Répondre', params: { screen: 'chat', match: r.m.id } }, `msg:${r.m.id}`);
+    notify(r.other.id, "{nom} t'a écrit : « {extrait} »", { nom: req.user.profile.name, extrait: `${text.slice(0, 60)}${text.length > 60 ? '…' : ''}` }, { label: 'Répondre', params: { screen: 'chat', match: r.m.id } }, `msg:${r.m.id}`);
   }
 
   // Profil de démo : répond après un délai (le temps de fermer l'app pour tester la notification)
@@ -497,7 +511,7 @@ api.post('/matches/:id/messages', requireApproved, limiter('message'), async (re
       demoPending.set(r.m.id, demoPending.get(r.m.id) - 1);
       const reply = store.addMessage(r.m.id, r.other.id, DEMO_REPLIES[demoReplies]);
       if (!store.isViewing(me.id, r.m.id)) {
-        notify(me.id, `${r.other.profile.name} t'a écrit : « ${reply.text.slice(0, 60)}${reply.text.length > 60 ? '…' : ''} »`, { label: 'Répondre', params: { screen: 'chat', match: r.m.id } }, `msg:${r.m.id}`);
+        notify(me.id, "{nom} t'a écrit : « {extrait} »", { nom: r.other.profile.name, extrait: `${reply.text.slice(0, 60)}${reply.text.length > 60 ? '…' : ''}` }, { label: 'Répondre', params: { screen: 'chat', match: r.m.id } }, `msg:${r.m.id}`);
       }
     }, config.demoReplyDelayMs);
   }
@@ -513,7 +527,7 @@ onApproved((userId) => {
     const demo = store.allUsers().find((u) => u.demo && compatible(me, u) && dansLaZone(me, u) && !store.hasSwiped(u.id, me.id) && !store.hasSwiped(me.id, u.id));
     if (!demo) return;
     store.addSwipe(demo.id, me.id, 'like');
-    notify(me.id, `Tu as plu à quelqu'un à ${me.profile.city}. Ouvre ${config.appName} pour découvrir de qui il s'agit.`, { label: 'Découvrir', params: { screen: 'matches' } }, 'likes', 24 * 3600 * 1000);
+    notify(me.id, "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.", { ville: me.profile.city, app: config.appName }, { label: 'Découvrir', params: { screen: 'matches' } }, 'likes', 24 * 3600 * 1000);
   }, config.demoLikeDelayMs);
 });
 
@@ -544,9 +558,9 @@ api.post('/matches/:id/dates', requireApproved, limiter('rendezvous'), (req, res
   // Le créneau est un champ libre affiché à l'autre personne : il passe par le même filtre
   // que les messages, sinon il suffisait d'y écrire un numéro pour contourner le blocage.
   const controleSlot = checkMessage(slot, 0, config.contactUnlockAfter);
-  if (!controleSlot.ok) return fail(res, 422, controleSlot.code, controleSlot.message);
+  if (!controleSlot.ok) return fail(res, 422, controleSlot.code, controleSlot.message, { categorie: controleSlot.categorie, unlockAfter: config.contactUnlockAfter });
   const d = store.addDate({ matchId: r.m.id, proposedBy: req.user.id, venueId: venue.id, slot, status: 'proposed' });
-  notify(r.other.id, `${req.user.profile.name} te propose un rendez-vous : ${venue.name} (${venue.area}), ${slot}.`, { label: 'Voir la proposition', params: { screen: 'chat', match: r.m.id } });
+  notify(r.other.id, '{nom} te propose un rendez-vous : {lieu} ({quartier}), {creneau}.', { nom: req.user.profile.name, lieu: venue.name, quartier: venue.area, creneau: slot }, { label: 'Voir la proposition', params: { screen: 'chat', match: r.m.id } });
   res.json({ date: { ...d, venue: { ...venue, code: undefined } } });
 });
 
@@ -559,9 +573,9 @@ api.post('/dates/:id/checkin', requireApproved, (req, res) => {
   const autreId = m.users.find((x) => x !== req.user.id);
   if (store.isBlocked(req.user.id, autreId)) return fail(res, 403, 'BLOCKED', 'Ce rendez-vous est annulé.');
   const venue = venues.find((v) => v.id === d.venueId);
-  if (String(req.body?.code || '').trim() !== venue.code) return fail(res, 400, 'WRONG_VENUE', `Ce code ne correspond pas à ${venue.name}. Scanne le code posé sur ta table.`);
+  if (String(req.body?.code || '').trim() !== venue.code) return fail(res, 400, 'WRONG_VENUE', `Ce code ne correspond pas à ${venue.name}. Scanne le code posé sur ta table.`, { venue: venue.name });
   store.updateDate(d.id, { arrivals: { ...d.arrivals, [req.user.id]: Date.now() } });
-  notify(autreId, `${req.user.profile.name} est bien arrivé(e) à ${venue.name}.`, { label: 'Ouvrir la discussion', params: { screen: 'chat', match: m.id } });
+  notify(autreId, '{nom} est bien arrivé(e) à {lieu}.', { nom: req.user.profile.name, lieu: venue.name }, { label: 'Ouvrir la discussion', params: { screen: 'chat', match: m.id } });
   res.json({ arrived: true, venue: { name: venue.name, perk: venue.perk } });
 });
 

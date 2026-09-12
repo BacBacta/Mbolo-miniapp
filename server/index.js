@@ -53,7 +53,7 @@ app.get('/app.js', precompresser(appJs, 'js', IMMUTABLE));
 
 // Les autres fichiers du navigateur sont compressés une fois au démarrage. Sans cela, styles.css
 // partait en 39 651 octets bruts à chaque premier chargement, sur un forfait data compté.
-const FICHIERS_COMPRESSES = { 'styles.css': 'css', 'tg.js': 'js', 'ui.js': 'js' };
+const FICHIERS_COMPRESSES = { 'styles.css': 'css', 'tg.js': 'js', 'ui.js': 'js', 'i18n.js': 'js', 'i18n/en.js': 'js' };
 for (const [nom, type] of Object.entries(FICHIERS_COMPRESSES)) {
   const chemin = path.join(config.publicDir, nom);
   if (!fs.existsSync(chemin)) continue;

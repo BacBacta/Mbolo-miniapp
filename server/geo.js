@@ -58,6 +58,16 @@ export const cleVille = (nom) =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 
+// Mise en forme d'un nom de ville saisi librement : première lettre de chaque mot en capitale.
+// « yaounde » devient « Yaounde », « SAINT-LOUIS » devient « Saint-Louis ». La comparaison, elle,
+// continue de passer par cleVille : cette mise en forme ne sert qu'à l'affichage.
+export const villeAffichee = (nom) =>
+  String(nom || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('fr')
+    .replace(/(^|[\s'’\-])([\p{L}])/gu, (_, avant, lettre) => avant + lettre.toLocaleUpperCase('fr'));
+
 // Suggestions de villes, proposées pendant la saisie. Ce n'est pas une limite : n'importe quelle
 // ville peut être écrite. La liste sert à éviter les fautes de frappe qui fragmentent le vivier.
 export const VILLES_CONNUES = {

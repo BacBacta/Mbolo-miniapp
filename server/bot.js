@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Bot, InlineKeyboard, InputFile } from 'grammy';
 import { config, runtime } from './config.js';
+import { t, langueDe } from './i18n.js';
 import { store } from './store.js';
 
 export const bot = config.botToken ? new Bot(config.botToken) : null;
@@ -15,16 +16,20 @@ export function appUrl(params = {}) {
 // Envoie un message du bot avec un bouton qui ouvre directement le bon écran de la mini app.
 // throttleKey + throttleMs évitent d'inonder l'utilisateur (ex. une notification par discussion toutes les 2 minutes).
 // Renvoie { sent: true } ou { sent: false, reason }.
-export async function notify(userId, text, button, throttleKey, throttleMs = 2 * 60 * 1000) {
+// Le texte arrive sous forme de clé française et de valeurs : c'est ici, au moment de l'envoi,
+// qu'on sait dans quelle langue écrire, puisque c'est celle de la personne qui reçoit.
+export async function notify(userId, cle, vars, button, throttleKey, throttleMs = 2 * 60 * 1000) {
   const user = store.getUser(userId);
   if (!bot) return { sent: false, reason: 'NO_BOT' };
   if (!user || user.demo) return { sent: false, reason: 'NO_USER' };
+  const lang = langueDe(user);
+  const text = t(lang, cle, vars);
   if (throttleKey) {
     const last = user.lastNotifiedAt?.[throttleKey] || 0;
     if (Date.now() - last < throttleMs) return { sent: false, reason: 'THROTTLED' };
     store.updateUser(userId, { lastNotifiedAt: { ...user.lastNotifiedAt, [throttleKey]: Date.now() } });
   }
-  const reply_markup = button && config.webAppUrl ? new InlineKeyboard().webApp(button.label, appUrl(button.params)) : undefined;
+  const reply_markup = button && config.webAppUrl ? new InlineKeyboard().webApp(t(lang, button.label, { app: config.appName }), appUrl(button.params)) : undefined;
   try {
     await bot.api.sendMessage(userId, text, { reply_markup });
     return { sent: true };
@@ -75,10 +80,10 @@ export async function decidePhoto(userId, n, approved) {
   if (!user || !store.photosOf(user).some((p) => p.n === n)) return; // retirée entre-temps
   if (approved) {
     store.setPhoto(userId, n, 'approved');
-    await notify(userId, `Ta photo ${n} est validée : les autres la voient maintenant.`, { label: 'Voir mon profil', params: { screen: 'me' } });
+    await notify(userId, 'Ta photo {n} est validée : les autres la voient maintenant.', { n }, { label: 'Voir mon profil', params: { screen: 'me' } });
   } else {
     store.removePhoto(userId, n);
-    await notify(userId, `Ta photo ${n} a été refusée : visage peu visible, contenu inadapté, ou ce n'est pas toi. Elle est supprimée, tu peux en mettre une autre.`, { label: 'Changer de photo', params: { screen: 'me' } });
+    await notify(userId, "Ta photo {n} a été refusée : visage peu visible, contenu inadapté, ou ce n'est pas toi. Elle est supprimée, tu peux en mettre une autre.", { n }, { label: 'Changer de photo', params: { screen: 'me' } });
   }
 }
 
@@ -90,9 +95,9 @@ export async function decideVerification(userId, approved) {
   if (fs.existsSync(file)) fs.unlinkSync(file);
   if (approved) {
     approvedHook?.(userId);
-    await notify(userId, 'Ton profil est vérifié. Ton badge est visible, tu peux découvrir des profils.', { label: 'Voir des profils', params: { screen: 'discover' } });
+    await notify(userId, 'Ton profil est vérifié. Ton badge est visible, tu peux découvrir des profils.', null, { label: 'Voir des profils', params: { screen: 'discover' } });
   } else {
-    await notify(userId, "Ta vérification n'a pas abouti : le geste ou le visage n'était pas assez visible. Tu peux réessayer.", { label: 'Réessayer', params: { screen: 'verify' } });
+    await notify(userId, "Ta vérification n'a pas abouti : le geste ou le visage n'était pas assez visible. Tu peux réessayer.", null, { label: 'Réessayer', params: { screen: 'verify' } });
   }
 }
 
@@ -112,17 +117,19 @@ export function setupBot() {
   }
 
   bot.command('start', async (ctx) => {
-    const name = ctx.from?.first_name || '';
-    const text = `Salut ${name}. ${config.appName} te fait rencontrer des personnes vérifiées de ta ville, sans jamais te demander d'argent.\n\nRéservé aux 18 ans et plus.`;
-    const reply_markup = config.webAppUrl ? new InlineKeyboard().webApp(`Ouvrir ${config.appName}`, appUrl()) : undefined;
+    const lang = langueDe(store.getUser(ctx.from?.id) || { languageCode: ctx.from?.language_code });
+    const text = t(lang, "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans jamais te demander d'argent.\n\nRéservé aux 18 ans et plus.", { nom: ctx.from?.first_name || '', app: config.appName });
+    const reply_markup = config.webAppUrl ? new InlineKeyboard().webApp(t(lang, 'Ouvrir {app}', { app: config.appName }), appUrl()) : undefined;
     await ctx.reply(text, { reply_markup });
   });
 
   // Permet de connaître l'identifiant de la discussion à mettre dans ADMIN_CHAT_ID
-  bot.command('id', (ctx) => ctx.reply(`Identifiant de cette discussion : ${ctx.chat.id}`));
+  bot.command('id', (ctx) => ctx.reply(t(langueDe(store.getUser(ctx.from?.id)), 'Identifiant de cette discussion : {id}', { id: ctx.chat.id })));
 
   bot.command('aide', (ctx) =>
-    ctx.reply(`${config.appName} ne te demandera jamais d'argent. Si quelqu'un le fait, signale-le depuis la discussion dans l'app.\n\nPour supprimer ton compte : Paramètres dans l'app, puis « Supprimer mon compte ».`),
+    ctx.reply(t(langueDe(store.getUser(ctx.from?.id) || { languageCode: ctx.from?.language_code }),
+      "{app} ne te demandera jamais d'argent. Si quelqu'un le fait, signale-le depuis la discussion dans l'app.\n\nPour supprimer ton compte : Paramètres dans l'app, puis « Supprimer mon compte ».",
+      { app: config.appName })),
   );
 
   bot.callbackQuery(/^(approve|reject):(.+)$/, async (ctx) => {

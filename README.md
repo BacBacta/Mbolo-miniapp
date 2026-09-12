@@ -19,6 +19,7 @@ Ce dépôt contient tout ce qu'il faut pour la tester sur ton propre téléphone
 | Vérification par selfie | Geste aléatoire, valable 10 minutes et à usage unique, selfie envoyé à ta discussion de modération avec les boutons Valider / Refuser, puis **supprimé du disque et du groupe**. Un selfie que personne n'a tranché est supprimé au bout de sept jours et le compte peut recommencer. Un compte déjà vérifié ne repasse jamais par là |
 | États vides | Un paquet vide dit lequel des trois cas se présente : personne d'autre dans ta ville, tous les profils de ta tranche d'âge déjà vus, ou limite du jour atteinte. Chacun propose le geste correspondant |
 | Zone de recherche | Le **pays** vient d'une liste de 243 entrées, la **ville** s'écrit librement. Dans les filtres, tu choisis où tu veux rencontrer : une ville, ou tout un pays, le tien ou un autre. Ta zone décide de qui tu vois, jamais de qui te voit. Les noms de pays s'affichent dans la langue de la personne, sans table de traduction (`Intl.DisplayNames`) |
+| Langues | **Français et anglais.** La langue vient de ton choix dans le profil, sinon de celle de ton Telegram, sinon du français. Le bot écrit à chacun dans sa langue, pas dans celle de la personne qui a déclenché la notification. Le dictionnaire anglais (315 phrases, 23 Ko) n'est téléchargé que par qui lit en anglais : une personne qui lit en français ne paie rien. Une phrase non traduite s'affiche en français, jamais sous forme d'identifiant. Ajouter une langue = un fichier, sans toucher au reste |
 | Découverte | Profils vérifiés de la même zone et de la même intention, dans la tranche d'âge que tu choisis, 20 « J'aime » par jour, les profils passés ne comptant pas, ceux de ton quartier d'abord (sans jamais demander ta position). Badge « Nouveau » la première semaine. Une vue **Liste** montre tous les profils compatibles, balayés ou non, avec leur statut (aimé, passé, match) et des vignettes chargées à l'apparition, jamais en économie de data ; la parcourir ne consomme rien, seul un « J'aime » compte, et un « Passer » peut y être rattrapé |
 | Match et discussion | En tête de Messages, ceux qui ont aimé ton profil et attendent ta réponse (visibles quel que soit leur âge). La liste marque « à toi » quand c'est à toi de répondre. Discussion plein écran, en-tête qui ouvre la fiche de la personne, heure des messages, compteur de non lus, pseudos Telegram jamais montrés |
 | Activité | « En ligne récemment », « aujourd'hui » ou « cette semaine », jamais l'heure exacte ni de temps réel. La tranche fine est réservée aux matchs ; en découverte, « cette semaine » au plus |
@@ -307,6 +308,23 @@ Sur https://dashboard.render.com : **New** → **Web Service** → dépôt `BacB
 
 Avant un lancement public, vérifie que le nom est libre : marque auprès de l'OAPI (Afrique francophone) et de l'ARIPO (Afrique anglophone), nom de domaine, identifiant Telegram et réseaux sociaux.
 
+## Ajouter une langue
+
+L'app parle français et anglais. La langue affichée vient, dans cet ordre : du choix fait dans **Profil → Langue de l'app**, sinon de la langue du Telegram de la personne, sinon du français.
+
+La clé de traduction **est la phrase française**. Une phrase sans traduction s'affiche donc en français, jamais sous forme d'identifiant : une traduction incomplète reste lisible.
+
+Pour ajouter une langue (exemple : le pidgin, code `pcm`) :
+
+1. Copie `public/i18n/en.js` vers `public/i18n/pcm.js` et traduis les valeurs. Ne touche pas aux clés, et garde les `{variables}` telles quelles.
+2. Ajoute la langue dans `public/i18n.js` : `pcm: 'Pidgin'` dans `LANGUES`.
+3. Ajoute `'pcm'` à la liste `LANGUES` de `server/i18n.js` et traduis-y le dictionnaire des messages du bot (une vingtaine de phrases).
+4. Lance `npm test` : un test vérifie que chaque langue déclarée a bien un dictionnaire, et qu'aucune phrase de l'interface ne manque à l'appel.
+
+Le dictionnaire n'est téléchargé que par les personnes qui lisent dans cette langue : ajouter une langue ne coûte rien aux autres.
+
+Côté serveur, `notify()` prend une clé et des variables, jamais une phrase toute faite : le bot écrit à chacun dans **sa** langue, pas dans celle de la personne qui a déclenché la notification.
+
 ## Développer sans téléphone
 
 Pour travailler l'interface dans un navigateur classique :
@@ -368,7 +386,7 @@ Avec `USE_WEBHOOK=true`, Telegram envoie les messages du bot directement à ton 
 
 Ce prototype sert à une **bêta fermée**. Avant un lancement public :
 
-- [ ] **Autorisation de l'Autorité de protection des données** (loi n° 2024/017, applicable depuis le 23 juin 2026) : tu traites des photos (jusqu'à trois par personne, chacune validée par la modération avant d'être montrée), des données de vie intime, des données biométriques, un horodatage de dernière activité par personne (montré aux autres par tranche seulement), et la tranche d'âge recherchée — le tout effacé avec le compte.
+- [ ] **Autorisation de l'Autorité de protection des données** (loi n° 2024/017, applicable depuis le 23 juin 2026) : tu traites des photos (jusqu'à trois par personne, chacune validée par la modération avant d'être montrée), des données de vie intime, des données biométriques, un horodatage de dernière activité par personne (montré aux autres par tranche seulement), la tranche d'âge recherchée, le pays et la ville déclarés, la zone où la personne cherche, et sa langue de lecture — le tout effacé avec le compte.
 - [ ] Conditions d'utilisation et politique de confidentialité publiées, et renseignées dans BotFather.
 - [ ] `SEED_DEMO=false` et `AUTO_APPROVE=false`.
 - [ ] Une équipe de modération disponible chaque jour (selfies et signalements).
@@ -379,7 +397,7 @@ Ce prototype sert à une **bêta fermée**. Avant un lancement public :
 
 ### À propos de `MATCH_POLICY`
 
-Par défaut (`romance_opposite`), le mode **Relation sérieuse** ne met en relation que des femmes et des hommes, et l'app ne collecte aucune donnée d'orientation. Ce choix répond au cadre pénal camerounais (article 347-1 du Code pénal et loi de 2010 sur la cybercriminalité) et au risque documenté de pièges tendus via les applications de rencontre : stocker ce type de données pourrait mettre des utilisateurs en danger en cas de fuite ou de réquisition. Si tu déploies dans un autre pays, adapte ce paramètre avec un juriste local. Les modes Amitié et Sortie en duo ne sont pas concernés.
+Par défaut (`romance_opposite`), le mode **Relation sérieuse** ne met en relation que des femmes et des hommes, et l'app ne collecte aucune donnée d'orientation. Ce choix répond au cadre pénal camerounais (article 347-1 du Code pénal et loi de 2010 sur la cybercriminalité) et au risque documenté de pièges tendus via les applications de rencontre : stocker ce type de données pourrait mettre des utilisateurs en danger en cas de fuite ou de réquisition. Si tu déploies dans un autre pays, adapte ce paramètre avec un juriste local. Les modes Amitié et Sortie en duo ne sont pas concernés. Attention : le réglage est global au serveur, pas par pays. Depuis que l'app est ouverte à tous les pays, une même instance applique donc la même règle à quelqu'un qui cherche à Yaoundé et à quelqu'un qui cherche à Paris.
 
 ---
 
@@ -395,12 +413,16 @@ mbolo-miniapp/
 │   ├── bot.js        Bot : /start, modération, notifications avec bouton vers le bon écran
 │   ├── antiscam.js   Filtre des demandes d'argent et partages de contact
 │   ├── store.js      Stockage JSON (à remplacer par PostgreSQL)
+│   ├── geo.js        Pays, villes connues, normalisation des noms de ville
+│   ├── i18n.js       Langue de chaque personne, messages du bot traduits
 │   └── seed.js       Profils de démonstration
 ├── public/
 │   ├── index.html    Charge le SDK officiel telegram-web-app.js
 │   ├── tg.js         Accès aux fonctions natives Telegram, avec secours hors Telegram
 │   ├── app.js        Écrans et logique de l'interface
 │   ├── ui.js         Icônes, toast, squelettes de chargement, geste de balayage
+│   ├── i18n.js       Choix de la langue, chargement du dictionnaire à la demande
+│   ├── i18n/en.js    Dictionnaire anglais (la clé est la phrase française)
 │   └── styles.css    Styles basés sur le thème Telegram de chaque utilisateur
 ├── Dockerfile        Image de l'application (Fly, ou tout hébergeur Docker)
 ├── deployer-fly.sh   Déploiement sur Fly : app, volume, secrets, contrôle /health
@@ -415,6 +437,6 @@ mbolo-miniapp/
 1. **Présentation vocale** de 15 secondes sur le profil (plus rassurant qu'une photo seule).
 2. **Système de garant** : un membre vérifié se porte garant d'un autre (le 2e segment de la jauge de confiance).
 3. **Mode duo complet** : inscription à deux et match entre duos.
-4. **Anglais et pidgin** pour les régions anglophones.
+4. **Pidgin et autres langues** : le français et l'anglais sont en place, le mécanisme attend les suivantes.
 5. **Tableau de bord de modération** web (signalements, statistiques, lieux partenaires).
 6. **Temps réel** (WebSocket) à la place de l'interrogation toutes les 4 secondes, quand le trafic le justifie.

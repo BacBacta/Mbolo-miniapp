@@ -64,12 +64,22 @@ test('les pays viennent d\'une liste et se nomment dans la langue de la personne
 test('le profil accepte une ville libre et un pays de la liste', async () => {
   const p = await creer('9101', 'Fatou', 'femme', 'SN', '  dakar ');
   assert.equal(p.country, 'SN');
-  assert.equal(p.city, 'dakar', 'la ville est gardée telle qu\'écrite, seulement mise au propre');
+  assert.equal(p.city, 'Dakar', 'la ville est mise en forme pour l\'affichage');
   assert.equal(p.cityKey, 'dakar');
 
   const vide = await call('9102', '/me/profile', 'PUT', { name: 'Sans ville', age: 25, gender: 'homme', intent: 'amitie', country: 'SN', city: ' ', promptA: 'Le thieboudienne' });
   assert.equal(vide.status, 400);
   assert.equal(vide.body.code, 'CITY_REQUIRED');
+});
+
+test('une ville tapée n\'importe comment s\'affiche proprement, sans changer le vivier', async () => {
+  const a = await creer('9104', 'Majuscule', 'femme', 'SN', 'SAINT-LOUIS');
+  assert.equal(a.city, 'Saint-Louis');
+  assert.equal(a.cityKey, 'saint louis');
+  const b = await creer('9105', 'Minuscule', 'homme', 'SN', "  saint   louis ");
+  assert.equal(b.city, 'Saint Louis');
+  assert.equal(b.cityKey, 'saint louis', 'la clé reste la même, donc le vivier aussi');
+  assert.deepEqual(await vus('9104'), ['Minuscule']);
 });
 
 test('un profil sans pays garde le pays par défaut, pour ne pas casser les comptes existants', async () => {
