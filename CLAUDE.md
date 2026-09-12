@@ -25,10 +25,10 @@ Des rencontres entre personnes réelles et vérifiées, dans des lieux publics, 
 - **Serveur :** Node.js 20 ou plus, Express 4, modules ES (`"type": "module"`).
 - **Bot :** grammY (interrogation longue en local, webhook en production).
 - **Interface :** HTML, CSS et JavaScript sans framework ni étape de build, SDK officiel `telegram-web-app.js`.
-- **Stockage :** fichier JSON avec écriture atomique (`server/store.js`), à migrer vers PostgreSQL.
-- **Tests :** `node --test test/*.test.js` (lancé par `npm test`).
+- **Stockage :** PostgreSQL si `DATABASE_URL` est défini (`server/store.pg.js`, migrations SQL versionnées), sinon fichier JSON avec écriture atomique (`server/store.json.js`). `server/store.js` choisit ; les deux offrent la même interface, asynchrone.
+- **Tests :** `node --test test/*.test.js` (lancé par `npm test`). La même suite tourne sur PostgreSQL avec `npm run test:pg` (un schéma par fichier de test) ; les deux passent en CI.
 - **Nom de l'app :** variable `APP_NAME` (par défaut `Mbolo`), injectée dans `index.html` par le serveur.
-- **Dépendances :** `express`, `grammy`, `qrcode`, `dotenv`. N'en ajoute pas sans justification.
+- **Dépendances :** `express`, `grammy`, `qrcode`, `dotenv`, `pg`. N'en ajoute pas sans justification.
 
 ## 3. Organisation du code
 
@@ -44,7 +44,11 @@ server/
   limites.js    Limitation de débit par compte et par action, en mémoire
   compression.js Compression gzip des fichiers et des réponses d'API
   i18n.js       Langue de chaque personne, dictionnaire des messages du bot
-  store.js      Accès aux données, présence en mémoire, non lus
+  store.js      Choix du stockage selon DATABASE_URL, et rien d'autre
+  store.json.js Stockage fichier JSON : défaut, une seule instance, présence en mémoire
+  store.pg.js   Stockage PostgreSQL : même interface, transactions, plusieurs instances
+  db/migrate.js Lanceur de migrations (verrou consultatif, une transaction par fichier)
+  db/migrations/ Migrations SQL, appliquées une fois chacune, jamais modifiées après coup
   seed.js       Profils de démonstration (SEED_DEMO=true)
 public/
   index.html    Charge telegram-web-app.js puis app.js
@@ -56,7 +60,11 @@ public/
   styles.css    Identité « Aura » : surfaces d'encre ou d'os selon data-scheme, aura réservée au match, au badge et au like ; Fraunces pour l'identité, Manrope pour l'interface
 test/
   activity, antiscam, assets, auth, compression, filters, geographie, langues,
-  limites, notifications, photos, profiles, rendezvous, securite, webhook (110 tests)
+  limites, notifications, photos, profiles, rendezvous, securite, stockage,
+  webhook (113 tests, tous rejoués sur PostgreSQL par npm run test:pg)
+scripts/
+  import-json.js Reprise d'un db.json existant vers PostgreSQL
+  test-pg.js     La suite complète sur PostgreSQL, un schéma par fichier de test
 audit/
   Dossier d'audit du parcours : benchmark, mesures, constats, risques, plan
 ```
@@ -116,7 +124,9 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 
 ## 7. Limites connues
 
-- Stockage JSON en un seul fichier : pas de concurrence entre plusieurs instances, pas de sauvegarde automatique.
+- Sans `DATABASE_URL`, le stockage reste un seul fichier JSON : pas de concurrence entre plusieurs instances, pas de sauvegarde automatique. C'est le mode par défaut, pratique pour développer, à ne pas garder en production.
+- `allUsers()` charge toute la table, y compris sur PostgreSQL : la découverte filtre en mémoire. Tenable pour quelques centaines de comptes ; au-delà, c'est le filtre de découverte qu'il faudra descendre en SQL, pas le stockage qu'il faudra changer.
+- Les notifications partent sans retenir la réponse HTTP. Un test qui les compte doit donc les attendre (voir `test/rendezvous.test.js`), pas les lire aussitôt après l'appel.
 - Présence et réponses de démo en mémoire : perdues au redémarrage.
 - Discussion par polling toutes les 4 secondes.
 - Pas d'interface de modération en dehors du groupe Telegram.
@@ -137,7 +147,7 @@ L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 
 ### P0 : indispensable avant une bêta fermée
 1. ~~**Intégration continue GitHub Actions**~~ : fait, `.github/workflows/ci.yml` lance `npm ci`, `npm test` et `npm audit` sur chaque pull request et chaque poussée vers `main`, en Node 20 et 22.
-2. **Migration vers PostgreSQL** avec migrations versionnées (`node-pg-migrate` ou équivalent léger), en gardant l'interface de `store.js` ; script d'import depuis `db.json`. Obligatoire avant tout paiement.
+2. ~~**Migration vers PostgreSQL**~~ : fait. `DATABASE_URL` bascule le stockage vers `server/store.pg.js`, les migrations SQL de `server/db/migrations/` s'appliquent à l'import du module, et `scripts/import-json.js` reprend un `db.json` existant sans doublon. La suite complète passe sur les deux stockages, en CI comme en local (`npm run test:pg`).
 3. ~~**Limitation des requêtes** par utilisateur~~ : fait pour messages, balayages, signalements, vérification, photos, rendez-vous et profil (`server/limites.js`, sans dépendance). Reste à couvrir : les paiements, quand ils existeront.
 4. ~~**Accepter ou refuser un rendez-vous**~~ : fait, `PUT /api/dates/:id` avec les quatre statuts, notification à chaque changement, check-in réservé aux rendez-vous acceptés, un seul rendez-vous vivant par discussion, et l'identifiant Telegram de qui propose ne sort plus du serveur (`test/rendezvous.test.js`).
 5. ~~**Défaire un match**~~ : fait, `DELETE /api/matches/:id`, sans notification, avec blocage sans accusation et six motifs de signalement.

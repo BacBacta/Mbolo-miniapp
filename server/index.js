@@ -3,7 +3,7 @@ import path from 'node:path';
 import express from 'express';
 import QRCode from 'qrcode';
 import { config, venues } from './config.js';
-import { store } from './store.js';
+import { store, modeStockage, pret } from './store.js';
 import { api } from './routes.js';
 import { setupBot, startBot } from './bot.js';
 import { seedDemo } from './seed.js';
@@ -76,20 +76,24 @@ app.use((err, req, res, next) => {
   res.status(500).json({ code: 'SERVER_ERROR', message: 'Un problème est survenu. Réessaie dans un instant.' });
 });
 
-if (config.seedDemo) seedDemo();
+if (config.seedDemo) seedDemo().catch((e) => console.error('Profils de démonstration non chargés :', e.message));
 setupBot();
 
 // Un selfie qu'aucun modérateur n'a tranché ne doit pas rester sur le disque indéfiniment.
 // Balayage au démarrage puis toutes les six heures.
-const purger = () => {
-  const n = store.purgerVerificationsOubliees(config.verificationTtlMs);
+const purger = async () => {
+  const n = await store.purgerVerificationsOubliees(config.verificationTtlMs);
   if (n) console.warn(`${n} vérification(s) jamais tranchée(s) purgée(s) : selfies supprimés, comptes remis en attente de vérification.`);
 };
-purger();
+await purger();
 setInterval(purger, 6 * 3600 * 1000).unref();
 
 app.listen(config.port, async () => {
   console.log(`${config.appName} écoute sur le port ${config.port}`);
+  // Savoir où vont les données est la première question quand quelque chose ne va pas en production.
+  console.log(modeStockage === 'postgres'
+    ? `Stockage : PostgreSQL${config.databaseSchema ? ` (schéma ${config.databaseSchema})` : ''}, ${pret.total} migration(s) au total, ${pret.appliquees} appliquée(s) au démarrage.`
+    : `Stockage : fichier JSON dans ${config.dataDir}. Une seule instance, aucune sauvegarde automatique : définis DATABASE_URL pour passer à PostgreSQL.`);
   if (!config.webAppUrl) console.warn('WEBAPP_URL absent : les boutons du bot ne pourront pas ouvrir la mini app.');
   if (config.allowDevAuth) console.warn('ALLOW_DEV_AUTH actif : réservé au développement.');
   try {

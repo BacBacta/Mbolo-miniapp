@@ -61,16 +61,16 @@ export const DEMO_REPLIES = [
 const LIKES_DEMO_PAR_PERSONNE = 2;
 
 // Copie les images de démonstration dans le dossier des photos et les marque validées.
-function poserPhotos(id, nombre) {
+async function poserPhotos(id, nombre) {
   for (let n = 1; n <= 3; n++) {
     const source = path.join(DEMO_PHOTOS_DIR, `${id}-${n}.jpg`);
     const cible = path.join(config.uploadsDir, `${id}-photo-${n}.jpg`);
     if (n <= nombre && fs.existsSync(source)) {
       fs.mkdirSync(config.uploadsDir, { recursive: true });
       fs.copyFileSync(source, cible);
-      store.setPhoto(id, n, 'approved');
+      await store.setPhoto(id, n, 'approved');
     } else {
-      store.removePhoto(id, n);
+      await store.removePhoto(id, n);
     }
   }
 }
@@ -83,10 +83,10 @@ function compatibleDemo(me, d) {
   return true;
 }
 
-export function seedDemo() {
+export async function seedDemo() {
   for (const d of DEMO) {
-    const u = store.upsertTelegramUser({ id: d.id, first_name: d.firstName });
-    store.updateUser(u.id, {
+    const u = await store.upsertTelegramUser({ id: d.id, first_name: d.firstName });
+    await store.updateUser(u.id, {
       demo: true,
       // Ne rend pas les « J'aime » : sert à tester un like resté sans réponse
       demoLikeBack: d.likeBack !== false,
@@ -97,18 +97,22 @@ export function seedDemo() {
         promptQ: d.promptQ, promptA: d.promptA, languages: d.languages, hasPhoto: false, trust: d.trust,
       },
     });
-    poserPhotos(d.id, d.photos);
+    await poserPhotos(d.id, d.photos);
   }
 
   // Chaque vraie personne vérifiée reçoit quelques likes de démonstration, sans notification :
   // au redémarrage, ce serait du bruit. Rien n'est refait si la personne a déjà tranché.
-  for (const me of store.allUsers()) {
+  for (const me of await store.allUsers()) {
     if (me.demo || me.verification !== 'approved' || !me.profile) continue;
-    let aDonner = LIKES_DEMO_PAR_PERSONNE - DEMO.filter((d) => store.hasSwiped(d.id, me.id)).length;
+    // Deux requêtes par personne plutôt qu'une par profil de démonstration.
+    const recus = new Set((await store.swipesTo(me.id)).map((s) => s.from));
+    const envoyes = new Set((await store.swipesFrom(me.id)).map((s) => s.to));
+    let aDonner = LIKES_DEMO_PAR_PERSONNE - DEMO.filter((d) => recus.has(d.id)).length;
     for (const d of DEMO) {
       if (aDonner <= 0) break;
-      if (!compatibleDemo(me, d) || d.likeBack === false || store.hasSwiped(d.id, me.id) || store.hasSwiped(me.id, d.id)) continue;
-      store.addSwipe(d.id, me.id, 'like');
+      if (!compatibleDemo(me, d) || d.likeBack === false || recus.has(d.id) || envoyes.has(d.id)) continue;
+      await store.addSwipe(d.id, me.id, 'like');
+      recus.add(d.id);
       aDonner -= 1;
     }
   }

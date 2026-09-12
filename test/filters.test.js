@@ -31,7 +31,7 @@ async function makeUser(id, name, gender, age = 25) {
   await call(id, '/me');
   const r = await call(id, '/me/profile', 'PUT', { name, age, gender, intent: 'amitie', city: 'Douala', promptA: 'Le poisson braisé' });
   assert.equal(r.status, 200);
-  store.updateUser(id, { verification: 'approved' });
+  await store.updateUser(id, { verification: 'approved' });
 }
 const ids = (r) => r.body.profiles.map((p) => p.id);
 
@@ -74,6 +74,6 @@ test('un like reçu disparaît des likes dès que j\'ai répondu', async () => {
   // Bloqué : jamais listé, même s'il a liké
   await makeUser('7405', 'Luc', 'homme', 26);
   await call('7405', '/swipes', 'POST', { targetId: '7401', action: 'like' });
-  store.block('7401', '7405');
+  await store.block('7401', '7405');
   assert.deepEqual(ids(await call('7401', '/likes')), []);
 });

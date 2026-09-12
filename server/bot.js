@@ -19,7 +19,7 @@ export function appUrl(params = {}) {
 // Le texte arrive sous forme de clé française et de valeurs : c'est ici, au moment de l'envoi,
 // qu'on sait dans quelle langue écrire, puisque c'est celle de la personne qui reçoit.
 export async function notify(userId, cle, vars, button, throttleKey, throttleMs = 2 * 60 * 1000) {
-  const user = store.getUser(userId);
+  const user = await store.getUser(userId);
   if (!bot) return { sent: false, reason: 'NO_BOT' };
   if (!user || user.demo) return { sent: false, reason: 'NO_USER' };
   const lang = langueDe(user);
@@ -27,7 +27,7 @@ export async function notify(userId, cle, vars, button, throttleKey, throttleMs 
   if (throttleKey) {
     const last = user.lastNotifiedAt?.[throttleKey] || 0;
     if (Date.now() - last < throttleMs) return { sent: false, reason: 'THROTTLED' };
-    store.updateUser(userId, { lastNotifiedAt: { ...user.lastNotifiedAt, [throttleKey]: Date.now() } });
+    await store.updateUser(userId, { lastNotifiedAt: { ...user.lastNotifiedAt, [throttleKey]: Date.now() } });
   }
   const reply_markup = button && config.webAppUrl ? new InlineKeyboard().webApp(t(lang, button.label, { app: config.appName }), appUrl(button.params)) : undefined;
   try {
@@ -50,7 +50,7 @@ export async function notifyAdmin(text) {
 }
 
 export async function sendSelfieToModeration(userId) {
-  const user = store.getUser(userId);
+  const user = await store.getUser(userId);
   const file = path.join(config.uploadsDir, `${userId}-selfie.jpg`);
   if (!bot || !config.adminChatId || !fs.existsSync(file)) return false;
   const keyboard = new InlineKeyboard().text('Valider', `approve:${userId}`).text('Refuser', `reject:${userId}`);
@@ -64,7 +64,7 @@ export async function sendSelfieToModeration(userId) {
 // Décision de modération : le selfie est supprimé dans tous les cas, comme promis à l'utilisateur.
 // Chaque photo de profil passe par la même modération que le selfie, avec ses propres boutons
 export async function sendPhotoToModeration(userId, n) {
-  const user = store.getUser(userId);
+  const user = await store.getUser(userId);
   const file = path.join(config.uploadsDir, `${userId}-photo-${n}.jpg`);
   if (!bot || !config.adminChatId || !fs.existsSync(file)) return false;
   const keyboard = new InlineKeyboard().text('Valider', `photo:approve:${userId}:${n}`).text('Refuser', `photo:reject:${userId}:${n}`);
@@ -76,21 +76,21 @@ export async function sendPhotoToModeration(userId, n) {
 }
 // Refusée, la photo est supprimée : on ne garde pas ce qu'on ne montrera pas. La personne sait pourquoi.
 export async function decidePhoto(userId, n, approved) {
-  const user = store.getUser(userId);
-  if (!user || !store.photosOf(user).some((p) => p.n === n)) return; // retirée entre-temps
+  const user = await store.getUser(userId);
+  if (!user || !(await store.photosOf(user)).some((p) => p.n === n)) return; // retirée entre-temps
   if (approved) {
-    store.setPhoto(userId, n, 'approved');
+    await store.setPhoto(userId, n, 'approved');
     await notify(userId, 'Ta photo {n} est validée : les autres la voient maintenant.', { n }, { label: 'Voir mon profil', params: { screen: 'me' } });
   } else {
-    store.removePhoto(userId, n);
+    await store.removePhoto(userId, n);
     await notify(userId, "Ta photo {n} a été refusée : visage peu visible, contenu inadapté, ou ce n'est pas toi. Elle est supprimée, tu peux en mettre une autre.", { n }, { label: 'Changer de photo', params: { screen: 'me' } });
   }
 }
 
 export async function decideVerification(userId, approved) {
-  const user = store.getUser(userId);
+  const user = await store.getUser(userId);
   if (!user) return;
-  store.updateUser(userId, { verification: approved ? 'approved' : 'rejected', pendingGesture: null });
+  await store.updateUser(userId, { verification: approved ? 'approved' : 'rejected', pendingGesture: null });
   const file = path.join(config.uploadsDir, `${userId}-selfie.jpg`);
   if (fs.existsSync(file)) fs.unlinkSync(file);
   if (approved) {
@@ -110,24 +110,24 @@ async function effacerEtTracer(ctx, trace) {
   else await ctx.editMessageCaption({ caption: trace }).catch(() => {});
 }
 
-export function setupBot() {
+export async function setupBot() {
   if (!bot) {
     console.warn('BOT_TOKEN absent : le bot est désactivé (seule l\'API tourne).');
     return;
   }
 
   bot.command('start', async (ctx) => {
-    const lang = langueDe(store.getUser(ctx.from?.id) || { languageCode: ctx.from?.language_code });
+    const lang = langueDe(await store.getUser(ctx.from?.id) || { languageCode: ctx.from?.language_code });
     const text = t(lang, "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans jamais te demander d'argent.\n\nRéservé aux 18 ans et plus.", { nom: ctx.from?.first_name || '', app: config.appName });
     const reply_markup = config.webAppUrl ? new InlineKeyboard().webApp(t(lang, 'Ouvrir {app}', { app: config.appName }), appUrl()) : undefined;
     await ctx.reply(text, { reply_markup });
   });
 
   // Permet de connaître l'identifiant de la discussion à mettre dans ADMIN_CHAT_ID
-  bot.command('id', (ctx) => ctx.reply(t(langueDe(store.getUser(ctx.from?.id)), 'Identifiant de cette discussion : {id}', { id: ctx.chat.id })));
+  bot.command('id', async (ctx) => ctx.reply(t(langueDe(await store.getUser(ctx.from?.id)), 'Identifiant de cette discussion : {id}', { id: ctx.chat.id })));
 
-  bot.command('aide', (ctx) =>
-    ctx.reply(t(langueDe(store.getUser(ctx.from?.id) || { languageCode: ctx.from?.language_code }),
+  bot.command('aide', async (ctx) =>
+    ctx.reply(t(langueDe((await store.getUser(ctx.from?.id)) || { languageCode: ctx.from?.language_code }),
       "{app} ne te demandera jamais d'argent. Si quelqu'un le fait, signale-le depuis la discussion dans l'app.\n\nPour supprimer ton compte : Paramètres dans l'app, puis « Supprimer mon compte ».",
       { app: config.appName })),
   );

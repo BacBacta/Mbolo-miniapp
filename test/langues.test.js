@@ -33,7 +33,7 @@ const call = async (user, p, method = 'GET', body) => {
 async function creer(id, name, gender) {
   await call(id, '/me');
   await call(id, '/me/profile', 'PUT', { name, age: 25, gender, intent: 'amitie', country: 'CM', city: 'Yaoundé', promptA: 'Le poisson braisé' });
-  store.updateUser(id, { verification: 'approved' });
+  await store.updateUser(id, { verification: 'approved' });
 }
 
 test.after(() => server.close());
