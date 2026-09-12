@@ -377,6 +377,20 @@ npm run test:pg
 
 Les deux modes de stockage sont lancés à chaque pull request par GitHub Actions.
 
+### Parcours dans un vrai navigateur
+
+```powershell
+npm run e2e
+```
+
+Playwright lance le serveur en mode développement, ouvre Chromium à la taille d'un téléphone et refait le parcours : accueil, profil, selfie, vérification, découverte, match, discussion, pages publiques. Treize tests, environ deux minutes et demie.
+
+Ils disent ce que `npm test` ne peut pas dire — qu'un écran s'affiche, qu'un bouton existe, qu'un message refusé explique quoi corriger, et que **le champ de saisie survit à l'arrivée d'un message pendant la frappe** (règle 16 : sinon le clavier se fermerait au milieu d'un mot).
+
+`npm run e2e:ui` ouvre l'inspecteur pour rejouer un test pas à pas. En cas d'échec en CI, la trace et la capture d'écran sont conservées sept jours dans les artefacts de l'exécution.
+
+La première fois, il faut le navigateur : `npx playwright install chromium`.
+
 ---
 
 ## Stockage : fichier JSON ou PostgreSQL

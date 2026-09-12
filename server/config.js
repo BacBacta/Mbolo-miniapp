@@ -15,8 +15,10 @@ export const config = {
   // Nom affiché partout (app, bot, notifications). Modifiable sans toucher au code.
   appName: (process.env.APP_NAME || 'Mbolo').trim(),
   // DATA_DIR permet de placer les données sur un volume persistant (hébergeur) ou dans un dossier de test
-  dataDir: process.env.DATA_DIR || path.join(root, 'data'),
-  uploadsDir: path.join(process.env.DATA_DIR || path.join(root, 'data'), 'uploads'),
+  // Rendu absolu : res.sendFile() refuse un chemin relatif, et les photos ne partaient donc plus
+  // dès qu'on donnait un DATA_DIR relatif (« ./data »), sans que rien d'autre ne le laisse voir.
+  dataDir: path.resolve(process.env.DATA_DIR || path.join(root, 'data')),
+  uploadsDir: path.resolve(process.env.DATA_DIR || path.join(root, 'data'), 'uploads'),
   publicDir: path.join(root, 'public'),
   port: Number(process.env.PORT || 3000),
   botToken: process.env.BOT_TOKEN || '',
