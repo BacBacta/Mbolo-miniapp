@@ -49,6 +49,28 @@ export async function notifyAdmin(text) {
   await bot.api.sendMessage(config.adminChatId, text).catch((e) => console.warn('Message à la modération impossible :', e.message));
 }
 
+// Le groupe de modération n'avait jamais servi tant qu'AUTO_APPROVE validait tout le monde.
+// Un identifiant mal recopié, ou un bot qu'on a oublié d'ajouter au groupe, ne se verrait
+// qu'au premier vrai selfie — c'est-à-dire chez la première personne qui essaie de s'inscrire,
+// et sans que personne d'autre l'apprenne. On pose donc la question au démarrage, une fois,
+// là où la réponse est encore lisible dans le journal de déploiement.
+export async function verifierGroupeModeration() {
+  if (!bot || !config.adminChatId) return { ok: false, raison: 'NON_CONFIGURE' };
+  try {
+    const chat = await bot.api.getChat(config.adminChatId);
+    console.log(`Modération : les selfies et les photos partent vers « ${chat.title || chat.username || chat.id} ».`);
+    return { ok: true, titre: chat.title || chat.username || String(chat.id) };
+  } catch (e) {
+    const detail = e.description || e.message;
+    console.error([
+      `Groupe de modération injoignable (ADMIN_CHAT_ID=${config.adminChatId}) : ${detail}.`,
+      "Tant que ça dure, aucun selfie n'arrive en modération et personne ne peut être vérifié.",
+      "À vérifier : que le bot est bien membre du groupe, et que l'identifiant est celui que /id a renvoyé dans ce groupe.",
+    ].join('\n'));
+    return { ok: false, raison: 'INJOIGNABLE', detail };
+  }
+}
+
 export async function sendSelfieToModeration(userId) {
   const user = await store.getUser(userId);
   const file = path.join(config.uploadsDir, `${userId}-selfie.jpg`);
@@ -186,6 +208,10 @@ export async function startBot(app, { delais } = {}) {
     // Bouton « Ouvrir » à côté du champ de saisie, pour toutes les discussions avec le bot
     await bot.api.setChatMenuButton({ menu_button: { type: 'web_app', text: 'Ouvrir', web_app: { url: appUrl() } } }).catch((e) => console.warn('Bouton de menu non configuré :', e.message));
   }
+  // Un groupe injoignable ferme l'inscription à tout le monde : autant l'apprendre maintenant.
+  // On ne s'arrête pas pour autant — une panne passagère de Telegram ne doit pas coucher l'app.
+  await verifierGroupeModeration();
+
   // Purement cosmétique : un échec ici ne doit pas empêcher la pose du webhook
   await bot.api.setMyCommands([
     { command: 'start', description: `Ouvrir ${config.appName}` },

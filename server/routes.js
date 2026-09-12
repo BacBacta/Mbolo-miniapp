@@ -135,11 +135,15 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
   const profileText = [name, b.area, b.promptQ, promptA, b.languages].filter(Boolean).join(' ');
   if (!checkMessage(profileText, 0, 1).ok) return fail(res, 400, 'PROFILE_CONTACT', "Ton profil ne doit contenir ni numéro, ni lien, ni pseudo, ni demande d'argent.");
 
-  // Ancien champ « photo » : il alimente l'emplacement 1, avec la même modération
+  // Ancien champ « photo » : il alimente l'emplacement 1, avec la même modération. L'interface
+  // envoie désormais les photos à PUT /me/photos/:n ; ce chemin ne sert plus qu'aux vieux clients.
+  // Une image refusée arrête l'enregistrement, mais une modération injoignable ne doit pas faire
+  // perdre le profil : l'emplacement a déjà été retiré, la personne réessaiera la photo seule.
   let photos = null;
   if (b.photo) {
-    photos = await acceptPhoto(req.user, 1, b.photo);
-    if (!photos) return fail(res, 400, 'PHOTO_INVALID', 'Photo trop lourde ou format non pris en charge.');
+    const r = await acceptPhoto(req.user, 1, b.photo);
+    if (r.code === 'PHOTO_INVALID') return fail(res, 400, r.code, r.message);
+    photos = r.photos;
   }
   const hasPhoto = (photos || await store.photosOf(req.user)).some((x) => x.status === 'approved');
   const profile = {
@@ -183,6 +187,15 @@ api.post('/me/verification', limiter('verification'), async (req, res) => {
   if (config.autoApprove) {
     // Tests uniquement : validation automatique. En production : AUTO_APPROVE=false et ADMIN_CHAT_ID configuré.
     setTimeout(() => decideVerification(u.id, true), 3000);
+  } else if (!sent && config.adminChatId) {
+    // La modération est configurée, et pourtant le selfie n'est pas parti. Le laisser « en attente »
+    // condamnerait la personne à attendre sept jours une décision que personne ne peut prendre,
+    // sans rien lui dire. On efface le selfie, on rend le compte à son état d'avant, et on l'annonce.
+    const selfie = path.join(config.uploadsDir, `${u.id}-selfie.jpg`);
+    if (fs.existsSync(selfie)) fs.unlinkSync(selfie);
+    await store.updateUser(u.id, { verification: 'none', pendingGesture: null, pendingGestureAt: null, verificationSentAt: null });
+    console.error(`Selfie de ${u.id} non transmis à la modération : la personne a été invitée à réessayer.`);
+    return fail(res, 503, 'SELFIE_NOT_SENT', 'On n\'a pas pu envoyer ton selfie en modération. Réessaie dans quelques minutes.');
   } else if (!sent) {
     console.warn(`Selfie de ${u.id} en attente : configure BOT_TOKEN et ADMIN_CHAT_ID pour le recevoir en modération.`);
   }
@@ -217,18 +230,28 @@ api.delete('/me', async (req, res) => {
 
 // ---------- Photos : jusqu'à trois, chacune modérée avant d'être montrée ----------
 const PHOTO_SLOTS = [1, 2, 3];
-// Renvoie la liste des photos après l'ajout, ou null si l'image est refusée. La liste vient du
-// stockage et non de req.user : cette copie de la personne date du début de la requête, et
-// l'enregistrement qu'on vient de faire ne s'y trouve pas.
+// Renvoie `{ photos }` quand tout s'est bien passé, sinon `{ code, message }` prêt pour fail().
+// La liste vient du stockage et non de req.user : cette copie de la personne date du début de la
+// requête, et l'enregistrement qu'on vient de faire ne s'y trouve pas.
 async function acceptPhoto(user, n, dataUrl) {
-  if (!saveJpeg(dataUrl, path.join(config.uploadsDir, `${user.id}-photo-${n}.jpg`))) return null;
+  if (!saveJpeg(dataUrl, path.join(config.uploadsDir, `${user.id}-photo-${n}.jpg`))) {
+    return { code: 'PHOTO_INVALID', message: 'Photo trop lourde ou format non pris en charge.' };
+  }
   // Tests uniquement : validation automatique. En production : AUTO_APPROVE=false et ADMIN_CHAT_ID configuré.
   const photos = await store.setPhoto(user.id, n, config.autoApprove ? 'approved' : 'pending');
-  if (!config.autoApprove) {
-    const sent = await sendPhotoToModeration(user.id, n).catch((e) => { console.warn('Envoi en modération impossible :', e.message); return false; });
-    if (!sent) console.warn(`Photo ${n} de ${user.id} en attente : configure BOT_TOKEN et ADMIN_CHAT_ID pour la recevoir en modération.`);
+  if (config.autoApprove) return { photos };
+
+  const sent = await sendPhotoToModeration(user.id, n).catch((e) => { console.warn('Envoi en modération impossible :', e.message); return false; });
+  if (sent) return { photos };
+  if (!config.adminChatId) {
+    // Pas de modération configurée : c'est le cas d'un poste de développement, pas une panne.
+    console.warn(`Photo ${n} de ${user.id} en attente : configure BOT_TOKEN et ADMIN_CHAT_ID pour la recevoir en modération.`);
+    return { photos };
   }
-  return photos;
+  // Même raisonnement que pour le selfie : une photo « en attente » que personne ne peut trancher
+  // reste en attente pour toujours. On retire l'emplacement plutôt que de faire semblant.
+  console.error(`Photo ${n} de ${user.id} non transmise à la modération : l'emplacement a été retiré.`);
+  return { code: 'PHOTO_NOT_SENT', message: 'On n\'a pas pu envoyer ta photo en modération. Réessaie dans quelques minutes.', photos: await store.removePhoto(user.id, n) };
 }
 const slotOf = (req) => (PHOTO_SLOTS.includes(Number(req.params.n)) ? Number(req.params.n) : null);
 
@@ -236,9 +259,9 @@ api.put('/me/photos/:n', limiter('photo'), async (req, res) => {
   const n = slotOf(req);
   if (!n) return fail(res, 400, 'PHOTO_SLOT', 'Trois photos au plus.');
   if (!req.user.profile) return fail(res, 400, 'PROFILE_REQUIRED', 'Crée ton profil avant d\'ajouter des photos.');
-  const photos = await acceptPhoto(req.user, n, req.body?.photo);
-  if (!photos) return fail(res, 400, 'PHOTO_INVALID', 'Photo trop lourde ou format non pris en charge.');
-  res.json({ photos });
+  const r = await acceptPhoto(req.user, n, req.body?.photo);
+  if (r.code) return fail(res, r.code === 'PHOTO_INVALID' ? 400 : 503, r.code, r.message);
+  res.json({ photos: r.photos });
 });
 
 api.delete('/me/photos/:n', async (req, res) => {

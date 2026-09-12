@@ -146,6 +146,8 @@ export default {
   'Pas de connexion': 'No connection',
   'Pas de connexion. Vérifie ton réseau et réessaie.': 'No connection. Check your network and try again.',
   'Pas de photo.': 'No photo.',
+  "On n'a pas pu envoyer ton selfie en modération. Réessaie dans quelques minutes.": "We could not send your selfie to the moderation team. Try again in a few minutes.",
+  "On n'a pas pu envoyer ta photo en modération. Réessaie dans quelques minutes.": "We could not send your photo to the moderation team. Try again in a few minutes.",
   'Pas encore de lieu partenaire dans ta ville. Le rendez-vous avec confirmation d\'arrivée n\'est donc pas disponible ici.': 'No partner venue in your city yet, so meet-ups with arrival confirmation are not available here.',
   'Pas encore de lieu partenaire dans ton pays. Le rendez-vous avec confirmation d\'arrivée n\'est donc pas disponible.': 'No partner venue in your country yet, so meet-ups with arrival confirmation are not available.',
   'Passer': 'Pass',
