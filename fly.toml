@@ -9,6 +9,8 @@ primary_region = "cdg"
   PORT = "8080"
   DATA_DIR = "/data"
   NODE_ENV = "production"
+  # Le quota du jour repart à minuit : minuit au Cameroun, pas minuit UTC
+  TZ = "Africa/Douala"
   # Telegram appelle le serveur, au lieu que le bot aille chercher les messages
   USE_WEBHOOK = "true"
   # Tests uniquement : profils de démonstration et selfies validés sans modération

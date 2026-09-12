@@ -91,6 +91,29 @@ export const store = {
     save();
   },
 
+  // Purge des fichiers dont la modération n'a jamais tranché. La promesse faite à la personne
+  // est que son selfie disparaît après décision ; sans décision, il ne doit pas rester pour
+  // autant. Au-delà du délai, le selfie est supprimé et la vérification revient à zéro : la
+  // personne peut recommencer, et rien n'est conservé entre-temps.
+  purgerVerificationsOubliees(delaiMs) {
+    const limite = Date.now() - delaiMs;
+    let supprimes = 0;
+    for (const u of Object.values(db.users)) {
+      if (u.verification !== 'pending') continue;
+      const envoi = u.verificationSentAt || u.createdAt || 0;
+      if (envoi > limite) continue;
+      const fichier = path.join(config.uploadsDir, `${u.id}-selfie.jpg`);
+      if (fs.existsSync(fichier)) fs.unlinkSync(fichier);
+      u.verification = 'none';
+      u.pendingGesture = null;
+      u.pendingGestureAt = null;
+      u.verificationSentAt = null;
+      supprimes += 1;
+    }
+    if (supprimes) save();
+    return supprimes;
+  },
+
   // ---------- Photos ----------
   // Jusqu'à trois photos par personne, fichiers <id>-photo-<n>.jpg. Chacune passe par la
   // modération avant d'être montrée aux autres. Les anciens profils n'avaient qu'une photo,

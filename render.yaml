@@ -11,6 +11,9 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Le quota du jour repart à minuit : minuit au Cameroun, pas minuit UTC
+      - key: TZ
+        value: Africa/Douala
       - key: USE_WEBHOOK
         value: "true"
       # Tests uniquement : profils de démonstration, selfies validés sans modération

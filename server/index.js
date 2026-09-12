@@ -3,6 +3,7 @@ import path from 'node:path';
 import express from 'express';
 import QRCode from 'qrcode';
 import { config, venues } from './config.js';
+import { store } from './store.js';
 import { api } from './routes.js';
 import { setupBot, startBot } from './bot.js';
 import { seedDemo } from './seed.js';
@@ -77,6 +78,15 @@ app.use((err, req, res, next) => {
 
 if (config.seedDemo) seedDemo();
 setupBot();
+
+// Un selfie qu'aucun modérateur n'a tranché ne doit pas rester sur le disque indéfiniment.
+// Balayage au démarrage puis toutes les six heures.
+const purger = () => {
+  const n = store.purgerVerificationsOubliees(config.verificationTtlMs);
+  if (n) console.warn(`${n} vérification(s) jamais tranchée(s) purgée(s) : selfies supprimés, comptes remis en attente de vérification.`);
+};
+purger();
+setInterval(purger, 6 * 3600 * 1000).unref();
 
 app.listen(config.port, async () => {
   console.log(`${config.appName} écoute sur le port ${config.port}`);
