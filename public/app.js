@@ -89,6 +89,11 @@ const ERREURS = () => ({
   CITY_REQUIRED: t('Indique ta ville.'),
   PROMPT_REQUIRED: t('Réponds à la question pour que les autres te découvrent.'),
   PROFILE_CONTACT: t("Ton profil ne doit contenir ni numéro, ni lien, ni pseudo, ni demande d'argent."),
+  DATE_NOT_ACCEPTED: t("Ce rendez-vous doit d'abord être accepté par les deux personnes."),
+  DATE_EN_COURS: t("Un rendez-vous est déjà en cours. Annule-le avant d'en proposer un autre."),
+  DATE_CLOSED: t('Ce rendez-vous est déjà clos.'),
+  DATE_NOT_YOURS: t('Seule la personne invitée peut accepter ou refuser.'),
+  STATUS_INVALID: t('Action inconnue sur ce rendez-vous.'),
   PHOTO_INVALID: t('Photo trop lourde ou format non pris en charge.'),
   PHOTO_SLOT: t('Trois photos au plus.'),
   PROFILE_REQUIRED: t('Crée ton profil avant la vérification.'),
@@ -434,6 +439,16 @@ function discoverBar() {
 
 // Liste de tous les profils compatibles, balayés ou non. Initiales seules : les photos ne se
 // chargent qu'en ouvrant un profil (économie de data).
+// État d'un rendez-vous : libellé, icône, tuile, puce. « arrived » n'est pas un statut stocké,
+// c'est l'arrivée confirmée par QR code sur un rendez-vous accepté.
+const ETAT_RDV = () => ({
+  proposed: [t('Proposé'), 'coffee', '', 'chip-accent'],
+  accepted: [t('Accepté'), 'check', 'tile-ok', 'chip-ok'],
+  declined: [t('Refusé'), 'x', 'tile-neutral', ''],
+  cancelled: [t('Annulé'), 'x', 'tile-neutral', ''],
+  arrived: [t('Arrivée confirmée'), 'check', 'tile-ok', 'chip-ok'],
+});
+
 const PERSON_STATUS = () => ({ liked: [t('Aimé'), 'chip-like'], passed: [t('Passé'), ''], match: [t('Match'), 'chip-ok'] });
 async function renderPeople() {
   if (!S.people.length) {
@@ -1227,16 +1242,30 @@ async function swipe(action) {
 
 // ---------- Discussion ----------
 function chatBody(c) {
-  const dateCards = c.dates.map((d) => `
-    <div class="datecard ${d.arrivedMe ? 'ok' : ''}">
+  const dateCards = c.dates.map((d) => {
+    const clos = d.status === 'declined' || d.status === 'cancelled';
+    const etat = ETAT_RDV()[d.arrivedMe ? 'arrived' : d.status] || ETAT_RDV().proposed;
+    // Qui peut faire quoi : la personne invitée accepte ou refuse, celle qui propose annule sa
+    // proposition, et une fois le rendez-vous accepté chacun peut se décommander.
+    const aRepondre = d.status === 'proposed' && !d.proposedByMe;
+    const peutAnnuler = d.status === 'accepted' || (d.status === 'proposed' && d.proposedByMe);
+    return `
+    <div class="datecard ${d.arrivedMe ? 'ok' : ''}${clos ? ' clos' : ''}">
       <div class="head">
-        <span class="tile ${d.arrivedMe ? 'tile-ok' : ''}">${icon(d.arrivedMe ? 'check' : 'coffee', 20)}</span>
+        <span class="tile ${etat[2]}">${icon(etat[1], 20)}</span>
         <div class="body"><div class="v">${esc(d.venue?.name)}</div><div class="w">${esc(d.venue?.area)} · ${esc(d.slot)}</div></div>
-        <span class="chip ${d.arrivedMe ? 'chip-ok' : 'chip-accent'}">${d.arrivedMe ? t('Arrivée confirmée') : t('Proposé')}</span>
+        <span class="chip ${etat[3]}">${etat[0]}</span>
       </div>
-      ${d.arrivedOther ? `<p class="fine">${icon('check', 14)}<span>${t("L'autre personne est arrivée.")}</span></p>` : ''}
-      ${d.arrivedMe ? '' : `<button type="button" class="btn btn-primary btn-sm" data-action="checkin" data-id="${d.id}">${icon('qr', 16)} ${t('Je suis arrivé(e) : scanner le code')}</button>`}
-    </div>`).join('');
+      ${d.arrivedOther && !clos ? `<p class="fine">${icon('check', 14)}<span>${t("L'autre personne est arrivée.")}</span></p>` : ''}
+      ${d.status === 'proposed' && d.proposedByMe ? `<p class="fine">${icon('clock', 14)}<span>${t('En attente de sa réponse.')}</span></p>` : ''}
+      ${aRepondre ? `<div class="row">
+        <button type="button" class="btn btn-tint btn-sm" data-action="rdv" data-status="declined" data-id="${d.id}">${t('Refuser')}</button>
+        <button type="button" class="btn btn-primary btn-sm" data-action="rdv" data-status="accepted" data-id="${d.id}">${t('Accepter')}</button>
+      </div>` : ''}
+      ${d.status === 'accepted' && !d.arrivedMe ? `<button type="button" class="btn btn-primary btn-sm" data-action="checkin" data-id="${d.id}">${icon('qr', 16)} ${t('Je suis arrivé(e) : scanner le code')}</button>` : ''}
+      ${peutAnnuler ? `<button type="button" class="btn btn-ghost btn-sm" data-action="rdv" data-status="cancelled" data-id="${d.id}">${t('Annuler le rendez-vous')}</button>` : ''}
+    </div>`;
+  }).join('');
 
   let msgs = '';
   if (!c.messages.length) {
@@ -1352,6 +1381,21 @@ async function sendDate() {
   } catch (e) {
     showError(e);
     tg.setButtons({ main: { text: t('Envoyer la proposition'), onClick: sendDate } });
+  }
+}
+
+// Accepter, refuser ou annuler un rendez-vous. Une annulation se confirme : c'est le seul des
+// trois gestes qui défait quelque chose que les deux personnes avaient accordé.
+async function repondreRdv(id, status) {
+  if (status === 'cancelled' && !(await tg.confirm(t('Annuler ce rendez-vous ? La personne en sera prévenue.')))) return;
+  try {
+    const r = await api(`/dates/${id}`, { method: 'PUT', body: { status } });
+    tg.haptic(status === 'accepted' ? 'success' : 'light');
+    S.chat.dates = S.chat.dates.map((d) => (d.id === id ? { ...d, ...r.date } : d));
+    updateChat();
+    toast(status === 'accepted' ? t('Rendez-vous accepté. On se voit là-bas.') : status === 'declined' ? t('Proposition refusée. La personne est prévenue.') : t('Rendez-vous annulé.'), status === 'accepted' ? 'ok' : '');
+  } catch (e) {
+    showError(e);
   }
 }
 
@@ -1486,6 +1530,7 @@ app.addEventListener('click', async (e) => {
       tg.closingConfirmation(true);
       break;
     case 'checkin': checkin(el.dataset.id); break;
+    case 'rdv': await repondreRdv(el.dataset.id, el.dataset.status); break;
     case 'toggle-guide':
       S.guideOpen = !S.guideOpen;
       el.setAttribute('aria-expanded', String(S.guideOpen));

@@ -105,6 +105,8 @@ test('l\'heure d\'arrivée de l\'autre personne n\'est jamais renvoyée', async 
   const matchId = await matcher('8208', '8209');
   const lieu = venues.find((v) => v.city === 'Yaoundé');
   const d = await call('8208', `/matches/${matchId}/dates`, 'POST', { venueId: lieu.id, slot: 'dimanche 16h' });
+  // Depuis P0-4, le check-in exige un rendez-vous accepté : Hervé accepte celui que Grâce propose
+  assert.equal((await call('8209', `/dates/${d.body.date.id}`, 'PUT', { status: 'accepted' })).status, 200);
   await call('8209', `/dates/${d.body.date.id}/checkin`, 'POST', { code: lieu.code });
 
   const vu = await call('8208', `/matches/${matchId}`);

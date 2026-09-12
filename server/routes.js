@@ -466,9 +466,12 @@ api.get('/matches/:id', requireApproved, (req, res) => {
   const messages = store.messagesOf(r.m.id).filter((x) => x.at > after).map((x) => ({ ...x, mine: x.from === req.user.id }));
   // L'heure d'arrivée de l'autre personne n'est jamais renvoyée : savoir qu'elle est sur place
   // depuis douze minutes est une information de filature, pas une information de rendez-vous.
-  const dates = store.datesOfMatch(r.m.id).map(({ arrivals, ...d }) => ({
+  // proposedBy est l'identifiant Telegram de l'autre personne : il ne sort pas non plus, seul
+  // compte de savoir si la proposition vient de soi, pour afficher « accepter » ou « annuler ».
+  const dates = store.datesOfMatch(r.m.id).map(({ arrivals, proposedBy, ...d }) => ({
     ...d,
     venue: venues.find((v) => v.id === d.venueId),
+    proposedByMe: proposedBy === req.user.id,
     arrivedMe: !!arrivals[req.user.id],
     arrivedOther: Object.keys(arrivals).some((id) => id !== req.user.id),
   }));
@@ -565,9 +568,59 @@ api.post('/matches/:id/dates', requireApproved, limiter('rendezvous'), (req, res
   // que les messages, sinon il suffisait d'y écrire un numéro pour contourner le blocage.
   const controleSlot = checkMessage(slot, 0, config.contactUnlockAfter);
   if (!controleSlot.ok) return fail(res, 422, controleSlot.code, controleSlot.message, { categorie: controleSlot.categorie, unlockAfter: config.contactUnlockAfter });
+  // Un seul rendez-vous vivant par discussion : sans cette règle, « accepté » ne désigne plus rien,
+  // et le check-in ne saurait pas de quel rendez-vous il parle.
+  if (store.datesOfMatch(r.m.id).some((x) => VIVANTS.includes(x.status))) {
+    return fail(res, 409, 'DATE_EN_COURS', 'Un rendez-vous est déjà en cours. Annule-le avant d\'en proposer un autre.');
+  }
   const d = store.addDate({ matchId: r.m.id, proposedBy: req.user.id, venueId: venue.id, slot, status: 'proposed' });
   notify(r.other.id, '{nom} te propose un rendez-vous : {lieu} ({quartier}), {creneau}.', { nom: req.user.profile.name, lieu: venue.name, quartier: venue.area, creneau: slot }, { label: 'Voir la proposition', params: { screen: 'chat', match: r.m.id } });
   res.json({ date: { ...d, venue: { ...venue, code: undefined } } });
+});
+
+// Accepter, refuser, annuler. Jusqu'ici un rendez-vous restait « proposé » pour toujours, et
+// n'importe qui pouvait confirmer son arrivée à un rendez-vous que l'autre n'avait jamais accepté.
+//
+//   proposé  --accepter/refuser (l'invité)--> accepté / refusé
+//   proposé  --annuler (celui qui propose)--> annulé
+//   accepté  --annuler (l'un ou l'autre)---> annulé
+//
+// Refusé et annulé sont définitifs : on repropose, on ne ressuscite pas.
+const VIVANTS = ['proposed', 'accepted'];
+const CHANGEMENTS = {
+  accepted: { nom: 'accepté', message: '{nom} a accepté le rendez-vous : {lieu}, {creneau}.' },
+  declined: { nom: 'refusé', message: '{nom} ne peut pas venir à {lieu}, {creneau}. Tu peux en proposer un autre.' },
+  cancelled: { nom: 'annulé', message: '{nom} a annulé le rendez-vous de {lieu}, {creneau}.' },
+};
+
+api.put('/dates/:id', requireApproved, limiter('rendezvous'), (req, res) => {
+  const d = store.getDate(req.params.id);
+  const m = d && store.getMatch(d.matchId);
+  if (!d || !m || !m.users.includes(req.user.id)) return fail(res, 404, 'DATE_NOT_FOUND', 'Rendez-vous introuvable.');
+  const autreId = m.users.find((x) => x !== req.user.id);
+  if (store.isBlocked(req.user.id, autreId)) return fail(res, 403, 'BLOCKED', 'Ce rendez-vous est annulé.');
+
+  const statut = String(req.body?.status || '');
+  const changement = CHANGEMENTS[statut];
+  if (!changement) return fail(res, 400, 'STATUS_INVALID', 'Action inconnue sur ce rendez-vous.');
+  if (!VIVANTS.includes(d.status)) return fail(res, 409, 'DATE_CLOSED', 'Ce rendez-vous est déjà clos.');
+
+  const jePropose = d.proposedBy === req.user.id;
+  // Accepter ou refuser revient à la personne invitée : celle qui propose a déjà dit oui.
+  if ((statut === 'accepted' || statut === 'declined') && (jePropose || d.status !== 'proposed')) {
+    return fail(res, 403, 'DATE_NOT_YOURS', 'Seule la personne invitée peut accepter ou refuser.');
+  }
+  // Annuler : sa propre proposition tant qu'elle attend, ou un rendez-vous accepté, des deux côtés.
+  // Quelqu'un doit toujours pouvoir se décommander d'une rencontre, c'est une question de sécurité.
+  if (statut === 'cancelled' && d.status === 'proposed' && !jePropose) {
+    return fail(res, 403, 'DATE_NOT_YOURS', 'Tu peux refuser cette proposition, pas l\'annuler.');
+  }
+
+  const maj = store.updateDate(d.id, { status: statut, [`${statut}At`]: Date.now() });
+  const venue = venues.find((v) => v.id === d.venueId);
+  notify(autreId, changement.message, { nom: req.user.profile.name, lieu: venue?.name || '', creneau: d.slot },
+    { label: 'Ouvrir la discussion', params: { screen: 'chat', match: m.id } });
+  res.json({ date: { ...maj, arrivals: undefined, proposedBy: undefined, proposedByMe: jePropose, venue: venue && { ...venue, code: undefined } } });
 });
 
 api.post('/dates/:id/checkin', requireApproved, (req, res) => {
@@ -578,6 +631,8 @@ api.post('/dates/:id/checkin', requireApproved, (req, res) => {
   // quelqu'un de bloqué déclenchait encore une notification d'arrivée chez la personne protégée.
   const autreId = m.users.find((x) => x !== req.user.id);
   if (store.isBlocked(req.user.id, autreId)) return fail(res, 403, 'BLOCKED', 'Ce rendez-vous est annulé.');
+  // Le contrôle du blocage passe avant celui du statut : se protéger prime sur tout le reste.
+  if (d.status !== 'accepted') return fail(res, 409, 'DATE_NOT_ACCEPTED', 'Ce rendez-vous doit d\'abord être accepté par les deux personnes.');
   const venue = venues.find((v) => v.id === d.venueId);
   if (String(req.body?.code || '').trim() !== venue.code) return fail(res, 400, 'WRONG_VENUE', `Ce code ne correspond pas à ${venue.name}. Scanne le code posé sur ta table.`, { venue: venue.name });
   store.updateDate(d.id, { arrivals: { ...d.arrivals, [req.user.id]: Date.now() } });

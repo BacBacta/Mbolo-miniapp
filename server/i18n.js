@@ -40,6 +40,9 @@ const EN = {
   'Répondre': 'Reply',
   '{nom} te propose un rendez-vous : {lieu} ({quartier}), {creneau}.': '{nom} suggests a meet-up: {lieu} ({quartier}), {creneau}.',
   'Voir la proposition': 'View the invitation',
+  '{nom} a accepté le rendez-vous : {lieu}, {creneau}.': '{nom} accepted the meet-up: {lieu}, {creneau}.',
+  '{nom} ne peut pas venir à {lieu}, {creneau}. Tu peux en proposer un autre.': '{nom} cannot make it to {lieu}, {creneau}. You can suggest another one.',
+  '{nom} a annulé le rendez-vous de {lieu}, {creneau}.': '{nom} cancelled the meet-up at {lieu}, {creneau}.',
   '{nom} est bien arrivé(e) à {lieu}.': '{nom} has arrived at {lieu}.',
   'Ouvrir la discussion': 'Open the chat',
 };
