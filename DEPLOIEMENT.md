@@ -159,7 +159,7 @@ flyctl ssh console -a ton-app
 node scripts/import-json.js /data/db.json
 ```
 
-Le script applique les migrations, puis recopie comptes, balayages, matchs, messages, blocages, signalements et rendez-vous. Il **refuse de partir si la base porte déjà des comptes** — relance avec `--force` pour compléter un import interrompu : chaque ligne est écrite sans écraser, donc une reprise ne crée pas de doublon.
+Le script applique les migrations, puis recopie comptes, balayages, matchs, messages, blocages, signalements, rendez-vous **et les événements de mesure**. Ces derniers comptent : un compte se réinscrit, un message se réécrit, mais un entonnoir d'inscription de la semaine dernière, non. Il **refuse de partir si la base porte déjà des comptes** — relance avec `--force` pour compléter un import interrompu : chaque ligne est écrite sans écraser, donc une reprise ne crée pas de doublon.
 
 Les photos et les selfies ne passent pas par la base : ce sont des fichiers de `/data/uploads`, qui restent sur le volume.
 
@@ -168,10 +168,16 @@ Les photos et les selfies ne passent pas par la base : ce sont des fichiers de `
 Redémarre, puis lis le journal :
 
 ```
-Stockage : PostgreSQL, 1 migration(s) au total, 1 appliquée(s) au démarrage.
+Stockage : PostgreSQL, 2 migration(s) au total, 2 appliquée(s) au démarrage.
 ```
 
 Garde le `db.json` de côté quelques jours avant de l'effacer.
+
+Tant que la bascule n'est pas faite, chaque démarrage en production l'écrit dans le journal :
+
+```
+Attention : en production sur un fichier JSON.
+```
 
 ---
 

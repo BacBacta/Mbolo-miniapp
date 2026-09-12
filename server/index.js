@@ -137,6 +137,18 @@ app.listen(config.port, async () => {
   console.log(modeStockage === 'postgres'
     ? `Stockage : PostgreSQL${config.databaseSchema ? ` (schéma ${config.databaseSchema})` : ''}, ${pret.total} migration(s) au total, ${pret.appliquees} appliquée(s) au démarrage.`
     : `Stockage : fichier JSON dans ${config.dataDir}. Une seule instance, aucune sauvegarde automatique : définis DATABASE_URL pour passer à PostgreSQL.`);
+  // En production, un fichier unique sans sauvegarde n'est plus seulement un inconfort : il porte
+  // désormais des horodatages d'entonnoir et des événements de mesure, et ceux-là ne se
+  // reconstituent pas. Le serveur démarre quand même — refuser casserait une production qui
+  // tourne — mais il le dit à chaque démarrage, là où l'exploitant regarde.
+  if (config.isProd && modeStockage !== 'postgres') {
+    console.warn([
+      'Attention : en production sur un fichier JSON.',
+      "Une seule machine possible, aucune sauvegarde automatique, et si le volume est perdu tout l'est —",
+      'y compris les chiffres de la mesure, qui ne se reconstituent pas.',
+      'À faire : créer une base, poser DATABASE_URL, puis « node scripts/import-json.js ». Voir DEPLOIEMENT.md.',
+    ].join('\n'));
+  }
   if (!config.webAppUrl) console.warn('WEBAPP_URL absent : les boutons du bot ne pourront pas ouvrir la mini app.');
   if (config.allowDevAuth) console.warn('ALLOW_DEV_AUTH actif : réservé au développement.');
   try {
