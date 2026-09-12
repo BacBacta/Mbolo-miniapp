@@ -1,0 +1,33 @@
+# Intégration continue : les tests tournent sur chaque pull request et sur chaque poussée vers
+# main, en Node 20 et 22, les deux versions que le projet annonce prendre en charge.
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  tests:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Lancer les tests
+        run: npm test
+
+      - name: Vérifier les vulnérabilités connues
+        run: npm audit --audit-level=high

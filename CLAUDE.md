@@ -39,7 +39,9 @@ server/
   auth.js       Validation HMAC de Telegram.WebApp.initData, middleware requireAuth
   routes.js     API REST sous /api
   bot.js        Commandes du bot, modération des selfies, notify(), notifyAdmin()
-  antiscam.js   checkMessage() : blocage argent, liens, numéros, pseudos
+  antiscam.js   checkMessage() : blocage argent (contextuel), liens, numéros, pseudos
+  limites.js    Limitation de débit par compte et par action, en mémoire
+  compression.js Compression gzip des fichiers et des réponses d'API
   store.js      Accès aux données, présence en mémoire, non lus
   seed.js       Profils de démonstration (SEED_DEMO=true)
 public/
@@ -49,7 +51,10 @@ public/
   ui.js         Icônes, toast, squelettes de chargement, geste de balayage des cartes
   styles.css    Design : couleurs dérivées des variables --tg-theme-* (clair et sombre), composants, animations
 test/
-  auth.test.js, antiscam.test.js, notifications.test.js
+  activity, antiscam, assets, auth, compression, filters, limites,
+  notifications, photos, profiles, securite, webhook (61 tests)
+audit/
+  Dossier d'audit du parcours : benchmark, mesures, constats, risques, plan
 ```
 
 ## 4. Fonctionnalités en place
@@ -57,7 +62,7 @@ test/
 | Domaine | État |
 |---|---|
 | Authentification | `Authorization: tma <initData>` validé côté serveur (HMAC, expiration 24 h, champ `signature` toléré). Mode développement `x-dev-user` si `ALLOW_DEV_AUTH=true` et hors production |
-| Profil | Prénom, âge 18+, genre, intention (amitié, relation sérieuse, sortie en duo), ville, quartier, question, langues, photo facultative compressée côté client |
+| Profil | Prénom, âge 18+, genre, intention (amitié, relation sérieuse, sortie en duo), ville, quartier, question, langues, jusqu'à trois photos facultatives, chacune modérée, compressées côté client |
 | Vérification | Geste aléatoire, selfie envoyé au groupe de modération avec boutons Valider/Refuser, selfie supprimé après décision, `AUTO_APPROVE` pour les tests |
 | Découverte | Même ville et même intention, 20 profils par jour, ceux qui t'ont liké en premier, économie de data (photos à la demande) |
 | Match et discussion | Discussion plein écran, polling toutes les 4 s, non lus, présence (pas de notification si la personne lit) |
@@ -113,7 +118,9 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 - Discussion par polling toutes les 4 secondes.
 - Pas d'interface de modération en dehors du groupe Telegram.
 - Lieux partenaires codés en dur dans `config.js`, codes QR fixes.
-- `npm audit` signale 2 vulnérabilités modérées dans les dépendances (ne pas utiliser `npm audit fix --force`).
+- Compteurs de limitation de débit en mémoire : remis à zéro au redémarrage, non partagés entre instances.
+- Aucune analytique produit : aucun entonnoir, aucune cohorte, aucune courbe de rétention n'est calculable. Voir `audit/05-mesure-produit.md`.
+- `fly.toml` et `render.yaml` livrent `AUTO_APPROVE=true` et `SEED_DEMO=true` en production, et aucun ne définit `ADMIN_CHAT_ID` : la vérification par selfie est débranchée sur l'app déployée. Voir `audit/04-risques.md`.
 - Les tests de bout en bout dans un navigateur ont été faits manuellement avec Playwright, ils ne sont pas dans le dépôt.
 
 ## 8. Feuille de route
@@ -121,16 +128,16 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 
 ### P0 : indispensable avant une bêta fermée
-1. **Intégration continue GitHub Actions** : `npm ci` et `npm test` sur chaque pull request, Node 20 et 22.
+1. ~~**Intégration continue GitHub Actions**~~ : fait, `.github/workflows/ci.yml` lance `npm ci`, `npm test` et `npm audit` sur chaque pull request et chaque poussée vers `main`, en Node 20 et 22.
 2. **Migration vers PostgreSQL** avec migrations versionnées (`node-pg-migrate` ou équivalent léger), en gardant l'interface de `store.js` ; script d'import depuis `db.json`. Obligatoire avant tout paiement.
-3. **Limitation des requêtes** par utilisateur (messages, likes, signalements, vérification, paiements), sans nouvelle dépendance si possible.
+3. ~~**Limitation des requêtes** par utilisateur~~ : fait pour messages, balayages, signalements, vérification, photos, rendez-vous et profil (`server/limites.js`, sans dépendance). Reste à couvrir : les paiements, quand ils existeront.
 4. **Accepter ou refuser un rendez-vous** : statuts `proposed`, `accepted`, `declined`, `cancelled` ; notification à chaque changement ; le check-in n'est possible que si le rendez-vous est accepté.
 5. **Défaire un match** : la discussion disparaît des deux côtés, sans notification.
 6. **Version web et paiement par mobile money** : voir la section 10, cahier des charges complet.
 7. **Tests de bout en bout** Playwright dans le dépôt (mode développement), lancés en CI.
 8. **Pages publiques** `/confidentialite` et `/conditions`, liées depuis l'accueil, le site et le README.
 9. **Déploiement** : Dockerfile, volume persistant, contrôle `/health`, guide pas à pas pour un hébergeur.
-10. **Traiter les vulnérabilités `npm audit`** sans changement majeur de version non testé.
+10. ~~**Traiter les vulnérabilités `npm audit`**~~ : fait, `qs` est forcé en 6.16.0 par un `overrides` dans `package.json`, sans changement majeur d'`express`. `npm audit` ne signale plus rien.
 
 ### P1 : produit (aligné sur le standard du marché)
 1. **Détection des doublons de visage** : à la validation du selfie, calcul d'une empreinte non réversible (modèle open source côté serveur), comparaison aux empreintes existantes, refus si le visage est déjà lié à un autre compte actif. Le selfie reste supprimé ; seule l'empreinte est conservée, déclarée comme donnée biométrique dans le dossier de protection des données.
