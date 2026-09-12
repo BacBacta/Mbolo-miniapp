@@ -152,7 +152,7 @@ export default {
   'Passé.': 'Passed.',
   'Pays': 'Country',
   'Personne d\'autre dans cette zone pour l\'instant': 'Nobody else in this area yet',
-  'Personne ne cherche « {intention} » à {zone} pour le moment. Élargis ta zone, reviens dans quelques jours, ou parle de {app} autour de toi.': 'Nobody is looking for « {intention} » in {zone} right now. Widen your area, come back in a few days, or tell people around you about {app}.',
+  'Personne ne cherche « {intention} » dans ta zone ({zone}) pour le moment. Change de zone, reviens dans quelques jours, ou parle de {app} autour de toi.': 'Nobody is looking for « {intention} » in your area ({zone}) right now. Change your area, come back in a few days, or tell people around you about {app}.',
   'Personne pour l\'instant': 'Nobody yet',
   'Photo de {nom}': 'Photo of {nom}',
   'Photo trop lourde ou format non pris en charge.': 'Photo too large, or format not supported.',
@@ -329,6 +329,7 @@ export default {
   'Fermer': 'Close',
   'Enregistrement': 'Saving',
   'Envoi': 'Sending',
+  'Ma position : {pays}': 'My location: {pays}',
   'Sections': 'Sections',
   'Parle {langues}': 'Speaks {langues}',
 };

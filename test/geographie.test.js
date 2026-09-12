@@ -16,7 +16,7 @@ const express = (await import('express')).default;
 const { store } = await import('../server/store.js');
 const { bot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
-const { cleVille, estPays, nomPays, listePays, villesConnues } = await import('../server/geo.js');
+const { cleVille, estPays, nomPays, listePays, villesConnues, paysDuFuseau } = await import('../server/geo.js');
 
 bot.api.sendMessage = async () => ({});
 
@@ -173,4 +173,50 @@ test('un rendez-vous ne peut pas être proposé dans un lieu d\'un autre pays', 
   const r = await call('9181', `/matches/${matchId}/dates`, 'POST', { venueId: 'palmier', slot: 'samedi 15h' });
   assert.equal(r.status, 400, 'Le Palmier est à Yaoundé, pas à Dakar');
   assert.equal(r.body.code, 'DATE_INVALID');
+});
+
+// ------------------------------------------------------------------
+// Localisation : le fuseau du téléphone donne le pays, et rien d'autre
+// ------------------------------------------------------------------
+
+test('le fuseau du téléphone donne le pays, sans GPS ni service externe', () => {
+  assert.equal(paysDuFuseau('Africa/Douala'), 'CM');
+  assert.equal(paysDuFuseau('America/New_York'), 'US');
+  assert.equal(paysDuFuseau('Europe/Paris'), 'FR');
+  assert.equal(paysDuFuseau('Africa/Dakar'), 'SN');
+  assert.equal(paysDuFuseau('Pacific/Auckland'), 'NZ');
+  // Anciens noms encore renvoyés par des Android d'entrée de gamme
+  assert.equal(paysDuFuseau('Asia/Calcutta'), 'IN', 'alias historique de Asia/Kolkata');
+  assert.equal(paysDuFuseau('Europe/Kiev'), 'UA', 'alias historique de Europe/Kyiv');
+  // Un fuseau absurde ne casse rien : l'appelant gardera son pays par défaut
+  for (const absurde of ['', null, undefined, 'Terre/Milieu', 'x'.repeat(200), '../../etc/passwd']) {
+    assert.equal(paysDuFuseau(absurde), null, `fuseau refusé : ${absurde}`);
+  }
+});
+
+test('le fuseau préremplit le pays à l\'inscription, mais ne décide de rien', async () => {
+  const r = await call('9601', '/me?tz=Africa/Dakar');
+  assert.equal(r.body.options.suggestedCountry, 'SN', 'le pays est proposé au navigateur');
+  assert.equal(r.body.profile, null, 'rien n\'est encore écrit dans le profil');
+
+  // La personne garde la main : elle s'inscrit ailleurs, et c'est son choix qui compte
+  const p = await creer('9601', 'Voyageuse', 'femme', 'BJ', 'Cotonou');
+  assert.equal(p.country, 'BJ', 'le choix de la personne l\'emporte sur le fuseau');
+  const apres = await call('9601', '/me?tz=Africa/Dakar');
+  assert.equal(apres.body.profile.country, 'BJ', 'un profil existant n\'est jamais réécrit par le fuseau');
+});
+
+test('un fuseau inconnu ou absent laisse le pays par défaut', async () => {
+  assert.equal((await call('9602', '/me')).body.options.suggestedCountry, null, 'sans fuseau, aucune suggestion');
+  assert.equal((await call('9602', '/me?tz=Terre/Milieu')).body.options.suggestedCountry, null);
+  assert.equal((await call('9602', '/me')).body.options.defaultCountry, 'CM', 'le pays de configuration reste le filet');
+});
+
+test('le fuseau n\'est jamais stocké', async () => {
+  await call('9603', '/me?tz=Asia/Tokyo');
+  await creer('9603', 'Discret', 'homme', 'JP', 'Osaka');
+  await call('9603', '/me?tz=Asia/Tokyo');
+  const brut = JSON.stringify(store.getUser('9603'));
+  assert.ok(!brut.includes('Asia/Tokyo'), 'le fuseau ne doit apparaître nulle part dans le compte');
+  assert.ok(!/\btz\b|timezone|fuseau/i.test(brut), 'aucun champ de fuseau dans le compte');
 });
