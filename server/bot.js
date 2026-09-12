@@ -44,10 +44,14 @@ export async function notify(userId, cle, vars, button, throttleKey, throttleMs 
 let approvedHook = null;
 export const onApproved = (fn) => { approvedHook = fn; };
 
-export async function notifyAdmin(text) {
+export async function notifyAdmin(text, reply_markup) {
   if (!bot || !config.adminChatId) return;
-  await bot.api.sendMessage(config.adminChatId, text).catch((e) => console.warn('Message à la modération impossible :', e.message));
+  await bot.api.sendMessage(config.adminChatId, text, { reply_markup }).catch((e) => console.warn('Message à la modération impossible :', e.message));
 }
+
+// Bouton posé sous les messages où la modération voit passer un nom : signalement, message bloqué.
+// La décision reste dans Telegram, là où elle se prend déjà pour les selfies et les photos.
+export const boutonBannir = (userId) => new InlineKeyboard().text('Fermer ce compte', `ban:${userId}`);
 
 // Le groupe de modération n'avait jamais servi tant qu'AUTO_APPROVE validait tout le monde.
 // Un identifiant mal recopié, ou un bot qu'on a oublié d'ajouter au groupe, ne se verrait
@@ -162,6 +166,29 @@ export async function setupBot() {
     // visible indéfiniment dans Telegram, ce que la promesse faite à la personne exclut.
     await effacerEtTracer(ctx, `Vérification ${action === 'approve' ? 'validée' : 'refusée'} par ${ctx.from.first_name} (ID ${userId})`);
     await ctx.answerCallbackQuery({ text: action === 'approve' ? 'Profil validé' : 'Profil refusé' });
+  });
+
+  // Fermer un compte, et rouvrir en cas d'erreur. Réservé au groupe de modération, comme les
+  // deux décisions au-dessus : le compte fermé perd l'accès à l'API et disparaît de la découverte,
+  // ses matchs sont défaits, et la trace dit qui a décidé, quand et pourquoi.
+  bot.callbackQuery(/^ban:(\d+)$/, async (ctx) => {
+    if (String(ctx.chat?.id) !== String(config.adminChatId)) return ctx.answerCallbackQuery({ text: 'Action réservée à la modération.' });
+    const userId = ctx.match[1];
+    const u = await store.banUser(userId, { motif: 'décision de la modération', par: ctx.from.first_name });
+    if (!u) return ctx.answerCallbackQuery({ text: 'Ce compte n\'existe plus.' });
+    await ctx.editMessageReplyMarkup({ reply_markup: new InlineKeyboard().text('Rouvrir ce compte', `unban:${userId}`) }).catch(() => {});
+    await ctx.api.sendMessage(config.adminChatId, `Compte fermé par ${ctx.from.first_name} (ID ${userId})`).catch(() => {});
+    await ctx.answerCallbackQuery({ text: 'Compte fermé' });
+  });
+
+  bot.callbackQuery(/^unban:(\d+)$/, async (ctx) => {
+    if (String(ctx.chat?.id) !== String(config.adminChatId)) return ctx.answerCallbackQuery({ text: 'Action réservée à la modération.' });
+    const userId = ctx.match[1];
+    const u = await store.unbanUser(userId);
+    if (!u) return ctx.answerCallbackQuery({ text: 'Ce compte n\'existe plus.' });
+    await ctx.editMessageReplyMarkup({ reply_markup: boutonBannir(userId) }).catch(() => {});
+    await ctx.api.sendMessage(config.adminChatId, `Compte rouvert par ${ctx.from.first_name} (ID ${userId})`).catch(() => {});
+    await ctx.answerCallbackQuery({ text: 'Compte rouvert' });
   });
 
   bot.callbackQuery(/^photo:(approve|reject):(\d+):([123])$/, async (ctx) => {
