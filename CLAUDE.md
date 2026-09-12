@@ -114,7 +114,6 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 - Présence et réponses de démo en mémoire : perdues au redémarrage.
 - Pas de limitation du nombre de requêtes (anti-spam).
 - Une proposition de rendez-vous ne peut être ni acceptée ni refusée : elle reste « proposée ».
-- Pas de possibilité de défaire un match (unmatch).
 - Discussion par polling toutes les 4 secondes.
 - Pas d'interface de modération en dehors du groupe Telegram.
 - Lieux partenaires codés en dur dans `config.js`, codes QR fixes.
@@ -132,7 +131,7 @@ L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 2. **Migration vers PostgreSQL** avec migrations versionnées (`node-pg-migrate` ou équivalent léger), en gardant l'interface de `store.js` ; script d'import depuis `db.json`. Obligatoire avant tout paiement.
 3. ~~**Limitation des requêtes** par utilisateur~~ : fait pour messages, balayages, signalements, vérification, photos, rendez-vous et profil (`server/limites.js`, sans dépendance). Reste à couvrir : les paiements, quand ils existeront.
 4. **Accepter ou refuser un rendez-vous** : statuts `proposed`, `accepted`, `declined`, `cancelled` ; notification à chaque changement ; le check-in n'est possible que si le rendez-vous est accepté.
-5. **Défaire un match** : la discussion disparaît des deux côtés, sans notification.
+5. ~~**Défaire un match**~~ : fait, `DELETE /api/matches/:id`, sans notification, avec blocage sans accusation et six motifs de signalement.
 6. **Version web et paiement par mobile money** : voir la section 10, cahier des charges complet.
 7. **Tests de bout en bout** Playwright dans le dépôt (mode développement), lancés en CI.
 8. **Pages publiques** `/confidentialite` et `/conditions`, liées depuis l'accueil, le site et le README.

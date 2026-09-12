@@ -511,6 +511,27 @@ api.post('/dates/:id/checkin', requireApproved, (req, res) => {
   res.json({ arrived: true, venue: { name: venue.name, perk: venue.perk } });
 });
 
+// Défaire un match. Sans notification, volontairement : prévenir quelqu'un qu'on le retire
+// expose la personne qui part. La discussion disparaît des deux côtés.
+api.delete('/matches/:id', requireApproved, (req, res) => {
+  const m = store.getMatch(req.params.id);
+  if (!m || !m.users.includes(req.user.id)) return fail(res, 404, 'MATCH_NOT_FOUND', 'Discussion introuvable.');
+  store.removeMatch(m.id);
+  res.json({ removed: true });
+});
+
+// Bloquer sans accuser. Jusqu'ici, se débarrasser de quelqu'un passait obligatoirement par un
+// signalement, donc par une accusation envoyée à la modération : beaucoup de gens ne le font pas,
+// et restent exposés. Le blocage ferme la discussion, le rendez-vous et le check-in.
+api.post('/blocks', requireApproved, limiter('signalement'), (req, res) => {
+  const cible = store.getUser(req.body?.targetId);
+  if (!cible || cible.id === req.user.id) return fail(res, 400, 'BLOCK_INVALID', 'Blocage impossible.');
+  store.block(req.user.id, cible.id);
+  const m = store.matchBetween(req.user.id, cible.id);
+  if (m) store.removeMatch(m.id);
+  res.json({ blocked: true });
+});
+
 // ---------- Signalements ----------
 api.post('/reports', requireApproved, limiter('signalement'), (req, res) => {
   const { targetId, reason, matchId } = req.body || {};

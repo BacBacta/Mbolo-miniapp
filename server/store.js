@@ -254,6 +254,18 @@ export const store = {
     save();
   },
 
+  // Défaire un match : la discussion, ses messages et ses rendez-vous disparaissent des deux
+  // côtés. Les balayages restent, pour que les deux personnes ne se revoient pas en découverte.
+  removeMatch(matchId) {
+    const m = db.matches[matchId];
+    if (!m) return false;
+    delete db.matches[matchId];
+    delete db.messages[matchId];
+    for (const [did, d] of Object.entries(db.dates)) if (d.matchId === matchId) delete db.dates[did];
+    save();
+    return true;
+  },
+
   block(from, to) {
     if (!store.isBlocked(from, to)) db.blocks.push({ from: String(from), to: String(to), at: Date.now() });
     save();

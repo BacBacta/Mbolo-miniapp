@@ -138,6 +138,43 @@ test('un compte vérifié ne peut pas se rétrograder', async () => {
   assert.equal(store.getUser('8211').verification, 'approved', 'le badge est conservé');
 });
 
+test('défaire un match fait disparaître la discussion des deux côtés', async () => {
+  await creer('8301', 'Karine', 'femme');
+  await creer('8302', 'Landry', 'homme');
+  const matchId = await matcher('8301', '8302');
+  await call('8301', `/matches/${matchId}/messages`, 'POST', { text: 'Bonjour, ça va ?' });
+
+  const r = await call('8302', `/matches/${matchId}`, 'DELETE');
+  assert.equal(r.status, 200);
+  assert.equal((await call('8302', '/matches')).body.matches.length, 0, 'la discussion a disparu chez celui qui retire');
+  assert.equal((await call('8301', '/matches')).body.matches.length, 0, "et chez l'autre aussi");
+  assert.equal((await call('8301', `/matches/${matchId}`)).status, 404, 'la discussion n\'est plus atteignable');
+});
+
+test('on peut bloquer sans accuser, et le blocage ferme la discussion', async () => {
+  await creer('8303', 'Mireille', 'femme');
+  await creer('8304', 'Norbert', 'homme');
+  const matchId = await matcher('8303', '8304');
+
+  const avant = store.allUsers().length;
+  const r = await call('8303', '/blocks', 'POST', { targetId: '8304' });
+  assert.equal(r.status, 200);
+  assert.equal(store.isBlocked('8303', '8304'), true);
+  assert.equal((await call('8304', `/matches/${matchId}/messages`, 'POST', { text: 'Tu es là ?' })).status, 404, 'plus aucun message ne passe');
+  assert.equal(store.allUsers().length, avant, 'personne n\'est supprimé');
+  // Aucun signalement n'est créé : bloquer n'est pas accuser
+  assert.equal((await call('8303', '/matches')).body.matches.length, 0);
+});
+
+test('un match d\'un autre ne peut pas être retiré', async () => {
+  await creer('8305', 'Odile', 'femme');
+  await creer('8306', 'Pascal', 'homme');
+  await creer('8307', 'Quentin', 'homme');
+  const matchId = await matcher('8305', '8306');
+  assert.equal((await call('8307', `/matches/${matchId}`, 'DELETE')).status, 404);
+  assert.ok(store.getMatch(matchId), 'le match est intact');
+});
+
 test('un selfie que personne n\'a tranché est purgé, et le compte peut recommencer', async () => {
   await call('8401', '/me');
   await call('8401', '/me/profile', 'PUT', { name: 'Rosine', age: 27, gender: 'femme', intent: 'amitie', city: 'Yaoundé', promptA: 'Le poisson braisé' });
