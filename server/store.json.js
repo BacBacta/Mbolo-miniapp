@@ -296,6 +296,16 @@ export const store = {
   // Du plus ancien au plus récent : la modération lit une file, pas un journal à l'envers.
   reports: async () => db.reports.slice(),
 
+  // Ouvrir un fil de discussion signalé laisse une trace sur le signalement : qui a lu, quand.
+  // Sans elle, lire les messages de deux personnes ne coûterait rien à personne.
+  async marquerSignalementLu(id, par) {
+    const r = db.reports.find((x) => x.id === id);
+    if (!r) return null;
+    (r.lectures ||= []).push({ par: String(par), at: Date.now() });
+    save();
+    return r;
+  },
+
   // Défaire un match : la discussion, ses messages et ses rendez-vous disparaissent des deux
   // côtés. Les balayages restent, pour que les deux personnes ne se revoient pas en découverte.
   async removeMatch(matchId) {
