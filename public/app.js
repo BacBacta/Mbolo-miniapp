@@ -56,13 +56,21 @@ function authHeaders() {
   return tg.inTelegram ? { Authorization: `tma ${tg.initData()}` } : { 'x-dev-user': devUser() || '' };
 }
 
+// Un réseau qui ne répond pas n'est pas un réseau coupé : sans délai maximal, l'app restait
+// sur « Chargement… » indéfiniment au lieu de proposer de réessayer.
+const DELAI_MAX_MS = 12000;
+
 async function api(path, { method = 'GET', body } = {}) {
   const headers = { 'Content-Type': 'application/json', ...authHeaders() };
+  const stop = new AbortController();
+  const minuteur = setTimeout(() => stop.abort(), DELAI_MAX_MS);
   let res;
   try {
-    res = await fetch(`/api${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    res = await fetch(`/api${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: stop.signal });
   } catch {
     throw Object.assign(new Error('Pas de connexion. Vérifie ton réseau et réessaie.'), { code: 'NETWORK' });
+  } finally {
+    clearTimeout(minuteur);
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(data.message || 'Un problème est survenu.'), { code: data.code, status: res.status });
@@ -1046,11 +1054,14 @@ async function pollChat() {
   if (S.screen !== 'chat' || !S.chat || document.hidden) return;
   const last = S.chat.messages.at(-1)?.at || 0;
   try {
-    const data = await api(`/matches/${S.chat.id}?after=${last}`);
-    const datesChanged = JSON.stringify(data.dates) !== JSON.stringify(S.chat.dates);
+    // suivi=1 : le serveur sait que le profil de l'autre personne est déjà chargé et ne le
+    // renvoie plus. Il ne renvoie les rendez-vous que si l'un d'eux a bougé.
+    const data = await api(`/matches/${S.chat.id}?after=${last}&suivi=1`);
+    const dates = data.dates ?? S.chat.dates;
+    const datesChanged = data.dates && JSON.stringify(data.dates) !== JSON.stringify(S.chat.dates);
     if (data.messages.length || datesChanged) {
       S.chat.messages.push(...data.messages);
-      S.chat.dates = data.dates;
+      S.chat.dates = dates;
       updateChat();
       if (data.messages.some((m) => !m.mine)) tg.haptic('light');
     }
@@ -1274,14 +1285,18 @@ async function boot() {
   try {
     S.me = await api('/me');
   } catch (e) {
-    tg.setButtons(null);
-    return render(`
-      <div class="empty">
-        <span class="glyph">${icon('lock', 34)}</span>
-        <h2>Ouvre ${esc(APP)} depuis Telegram</h2>
-        <p>${esc(e.message)}</p>
-        <p class="small">Cherche le bot ${esc(APP)} dans Telegram, envoie /start, puis appuie sur « Ouvrir ${esc(APP)} ».</p>
-      </div>`);
+    // 401 : la personne n'est pas passée par Telegram, il faut lui dire par où entrer.
+    // Réseau ou serveur : c'est passager, il faut un bouton Réessayer, pas un écran figé.
+    if (e.status === 401) {
+      tg.setButtons(null);
+      return render(`
+        <div class="empty">
+          <span class="glyph">${icon('lock', 34)}</span>
+          <h2>Ouvre ${esc(APP)} depuis Telegram</h2>
+          <p class="small">Cherche le bot ${esc(APP)} dans Telegram, envoie /start, puis appuie sur « Ouvrir ${esc(APP)} ».</p>
+        </div>`);
+    }
+    return renderError(e, boot);
   }
   S.dataSaver = (await tg.cloudGet('data_saver')) === '1';
   S.discoverMode = (await tg.cloudGet('discover_mode')) === 'list' ? 'list' : 'cards';
