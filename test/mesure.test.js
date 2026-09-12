@@ -46,12 +46,13 @@ const siens = async (id) => (await store.events()).filter((e) => e.u === String(
 
 test("supprimer son compte emporte ses événements", async () => {
   await membre('700', 'Awa');
-  await store.addEvent('app_opened', '700');
   await store.addEvent('deck_empty', '700', { why: 'vide' });
-  assert.equal((await siens('700')).length, 2, 'les événements sont bien là');
+  // Le parcours en a posé d'autres au passage (app_opened, profile_saved) : on ne compte pas un
+  // total, on exige qu'il n'en reste aucun. C'est la promesse, et elle ne dépend pas du décompte.
+  assert.ok((await siens('700')).length >= 1, 'des événements le désignent');
 
   assert.equal((await call('700', '/me', 'DELETE')).status, 200);
-  assert.equal((await siens('700')).length, 0, 'et il n\'en reste aucun');
+  assert.deepEqual(await siens('700'), [], 'et il n\'en reste aucun');
   assert.equal(await store.getUser('700'), null, 'le compte non plus');
 });
 
@@ -64,10 +65,12 @@ test("account_deleted survit, et ne désigne personne", async () => {
 
   await call('701', '/me', 'DELETE');
   const restants = await store.events({ k: 'account_deleted' });
-  assert.equal(restants.length, 1, 'la ligne est toujours là');
-  assert.ok(!('u' in restants[0]) || restants[0].u === null || restants[0].u === undefined, 'sans identifiant');
-  assert.equal(restants[0].p.d, 12, 'elle garde ce qui ne désigne personne');
-  assert.equal((await siens('701')).length, 0, 'et le reste est bien parti');
+  // La route en pose une elle aussi : il y en a donc au moins deux. Ce qui compte, c'est
+  // qu'aucune ne porte d'identifiant — sinon l'exception rendrait la personne reconnaissable.
+  assert.ok(restants.length >= 2, 'la ligne posée à la main et celle de la route sont là');
+  for (const e of restants) assert.ok(e.u === undefined || e.u === null, `aucune ne porte d'identifiant : ${JSON.stringify(e)}`);
+  assert.ok(restants.some((e) => e.p?.d === 12), 'elle garde ce qui ne désigne personne');
+  assert.deepEqual(await siens('701'), [], 'et le reste est bien parti');
 });
 
 // ---------- Ce qu'un événement a le droit de contenir ----------
