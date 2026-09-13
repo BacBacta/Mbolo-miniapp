@@ -511,7 +511,8 @@ Aucune de ces trois choses ne peut être faite depuis le code.
 ### Ce qui demande une organisation, pas du code
 
 - [ ] **Quelqu'un qui regarde le groupe de modération chaque jour.** Depuis que la validation automatique n'existe plus en production, **personne ne s'inscrit tant qu'un humain n'a pas tranché** : c'est désormais le goulot d'étranglement de l'inscription.
-- [ ] **Passer à PostgreSQL et mettre en place des sauvegardes** avant de dépasser quelques centaines de comptes, et **obligatoirement avant tout paiement**. La marche à suivre est dans [`DEPLOIEMENT.md`](DEPLOIEMENT.md).
+- [x] ~~**Passer à PostgreSQL**~~ : fait le 13 septembre 2026. La production tourne sur `mbolo-pg` (Fly non géré), les 58 lignes du fichier JSON ont été importées — événements de mesure compris — et vérifiées par `scripts/etat-stockage.js` avant que la base ne prenne son nom définitif.
+- [ ] **Mettre en place des sauvegardes.** C'est la moitié qui reste, et elle compte plus que l'autre : une base non gérée ne sauvegarde rien d'elle-même au-delà des instantanés de volume de l'hébergeur, qui protègent d'une panne de disque mais pas d'une suppression ni d'une migration ratée. Un `pg_dump` régulier, déposé ailleurs que sur la même machine. **Avant de dépasser quelques centaines de comptes, et obligatoirement avant tout paiement.** La marche à suivre est dans [`DEPLOIEMENT.md`](DEPLOIEMENT.md).
 
 ### Entretien du dépôt
 
