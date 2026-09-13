@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
-import { config, runtime, venues, INTENTS, GENDERS } from './config.js';
+import { config, runtime, venues, INTENTS, INTENTS_RETIRES, GENDERS } from './config.js';
 import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
 import { LANGUES, t as tr } from './i18n.js';
 import { store } from './store.js';
@@ -58,7 +58,7 @@ async function publicProfile(user) {
     name: p.name,
     age: p.age,
     intent: p.intent,
-    intentLabel: INTENTS[p.intent],
+    intentLabel: INTENTS[p.intent] || INTENTS_RETIRES[p.intent] || '',
     country: p.country,
     city: p.city,
     area: p.area,
@@ -96,9 +96,22 @@ function saveJpeg(dataUrl, file) {
 const isApproved = (u) => u.verification === 'approved' && u.profile && !u.banned;
 const requireApproved = (req, res, next) => (isApproved(req.user) ? next() : fail(res, 403, 'NOT_VERIFIED', 'Vérifie ton profil pour accéder à cette fonction.'));
 
+// Une intention retirée ne peut plus servir à rien : la découverte cherche la même intention
+// chez les autres, donc un compte resté en « Sortie en duo » ne voit plus personne et n'est vu
+// de personne. On le ramène vers Amitié à sa prochaine ouverture, et on le lui dit — changer le
+// profil de quelqu'un sans l'en informer serait pire que le laisser en panne.
+async function retirerIntentionDisparue(u) {
+  if (!u.profile || INTENTS[u.profile.intent]) return u;
+  const remplacement = 'amitie';
+  await store.updateUser(u.id, { profile: { ...u.profile, intent: remplacement } });
+  notify(u.id, "L'option « Sortie en duo » n'existe pas encore pour de vrai : elle promettait des rencontres à quatre que {app} ne sait pas encore organiser. Ton profil est passé en « Amitié ». Tu peux choisir autre chose quand tu veux.",
+    { app: config.appName }, { label: 'Changer mon intention', params: { screen: 'me' } });
+  return (await store.getUser(u.id)) || u;
+}
+
 // ---------- Moi ----------
 api.get('/me', async (req, res) => {
-  const u = req.user;
+  const u = await retirerIntentionDisparue(req.user);
   // Le seul événement de fréquence du plan : sans lui, lastActiveAt (écrasé à chaque passage)
   // dit qui est parti, jamais quand. Une fois par heure suffit à dater un départ.
   mesurerRalenti('app_opened', u, HEURE);

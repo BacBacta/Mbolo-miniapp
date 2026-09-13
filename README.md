@@ -123,7 +123,7 @@ démarrage. Deux d'entre eux t'aiment automatiquement dès que ton profil est v�
 | Relation sérieuse, tu es un homme | Carine 24 (3 photos), Laure 21, Sandrine 29 (2 photos), Estelle 19 (sans photo) | changement de photo au toucher sur Carine, filtre d'âge (de 19 à 29), **Sandrine ne rend jamais les « J'aime »** : ton like reste en attente dans la liste |
 | Relation sérieuse, tu es une femme | Junior 28 (2 photos), Landry 23, Armand 30 (sans photo), Thierry 26, Kevin 22 | même chose, **Armand ne rend jamais les « J'aime »** |
 | Amitié | Brice 27, Nadège 22 (2 photos), Aïcha 26 (3 photos), Yannick 25 (sans photo), Serge 20 | tout le monde est proposé, quel que soit ton genre ; **Yannick ne rend jamais les « J'aime »** |
-| Sortie en duo | Mireille 25, Stéphane 26, Patricia 23 (2 photos) | le mode duo, tel qu'il existe aujourd'hui |
+| *(ces trois profils illustraient la sortie en duo, retirée en P1-7 : ils sont passés en Amitié)* | Mireille 25, Stéphane 26, Patricia 23 (2 photos) | |
 | Ville Douala | Ulrich 27, Chantal 24 (2 photos), Franck 22 | changer de ville dans ton profil |
 | Ville Bafoussam, Buea ou Garoua | personne | l'écran « Personne d'autre à … pour l'instant » |
 
@@ -512,7 +512,7 @@ Aucune de ces trois choses ne peut être faite depuis le code.
 
 ### À propos de `MATCH_POLICY`
 
-Par défaut (`romance_opposite`), le mode **Relation sérieuse** ne met en relation que des femmes et des hommes, et l'app ne collecte aucune donnée d'orientation. Ce choix répond au cadre pénal camerounais (article 347-1 du Code pénal et loi de 2010 sur la cybercriminalité) et au risque documenté de pièges tendus via les applications de rencontre : stocker ce type de données pourrait mettre des utilisateurs en danger en cas de fuite ou de réquisition. Si tu déploies dans un autre pays, adapte ce paramètre avec un juriste local. Les modes Amitié et Sortie en duo ne sont pas concernés. Attention : le réglage est global au serveur, pas par pays. Depuis que l'app est ouverte à tous les pays, une même instance applique donc la même règle à quelqu'un qui cherche à Yaoundé et à quelqu'un qui cherche à Paris.
+Par défaut (`romance_opposite`), le mode **Relation sérieuse** ne met en relation que des femmes et des hommes, et l'app ne collecte aucune donnée d'orientation. Ce choix répond au cadre pénal camerounais (article 347-1 du Code pénal et loi de 2010 sur la cybercriminalité) et au risque documenté de pièges tendus via les applications de rencontre : stocker ce type de données pourrait mettre des utilisateurs en danger en cas de fuite ou de réquisition. Si tu déploies dans un autre pays, adapte ce paramètre avec un juriste local. Le mode Amitié n'est pas concerné. Attention : le réglage est global au serveur, pas par pays. Depuis que l'app est ouverte à tous les pays, une même instance applique donc la même règle à quelqu'un qui cherche à Yaoundé et à quelqu'un qui cherche à Paris.
 
 ---
 
@@ -555,7 +555,7 @@ mbolo-miniapp/
 
 1. **Présentation vocale** de 15 secondes sur le profil (plus rassurant qu'une photo seule).
 2. **Système de garant** : un membre vérifié se porte garant d'un autre (le 2e segment de la jauge de confiance).
-3. **Mode duo complet** : inscription à deux et match entre duos.
+3. **Mode duo complet** : inscription à deux et match entre duos. L'option a été **retirée de l'inscription** en attendant (P1-7) : elle promettait des rencontres à quatre que rien dans le serveur ne sait organiser.
 4. **Pidgin et autres langues** : le français et l'anglais sont en place, le mécanisme attend les suivantes.
 5. **Tableau de bord de modération** web (signalements, statistiques, lieux partenaires).
 6. **Temps réel** (WebSocket) à la place de l'interrogation toutes les 4 secondes, quand le trafic le justifie.
