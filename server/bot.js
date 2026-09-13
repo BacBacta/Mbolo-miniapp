@@ -6,6 +6,8 @@ import { t, langueDe } from './i18n.js';
 import { store } from './store.js';
 import { mesurer } from './mesure.js';
 import { PREFIXE, porteurDuCode, accepter, refuser, retirer, membresQuiMOntChoisi } from './confiance.js';
+import { refusDuree, fichierVoix, DUREE_MAX_S } from './voix.js';
+import { consommer } from './limites.js';
 
 export const bot = config.botToken ? new Bot(config.botToken) : null;
 
@@ -133,6 +135,44 @@ export async function decidePhoto(userId, n, approved) {
   }
 }
 
+// La présentation vocale part à la modération comme une photo, avec ses propres boutons. Elle
+// doit être **écoutée** : aucune règle automatique ne lit la voix, et rien n'empêche quelqu'un d'y
+// dire son numéro. C'est le seul filtre qui existe pour ce canal.
+export async function sendVoiceToModeration(userId) {
+  const user = await store.getUser(userId);
+  const file = path.join(config.uploadsDir, fichierVoix(userId));
+  if (!bot || !config.adminChatId || !fs.existsSync(file)) return false;
+  const keyboard = new InlineKeyboard().text('Valider', `voix:approve:${userId}`).text('Refuser', `voix:reject:${userId}`);
+  await bot.api.sendVoice(config.adminChatId, new InputFile(file), {
+    caption: `Présentation vocale de ${user.profile?.name || user.firstName}, ${user.profile?.age || '?'} ans\nID : ${userId}\nÉcoute-la : ni les numéros ni les demandes d'argent ne sont détectables dans la voix.`,
+    reply_markup: keyboard,
+  });
+  return true;
+}
+
+// Refusée, la présentation est supprimée : on ne garde pas ce qu'on ne fera pas entendre.
+export async function decideVoice(userId, approved) {
+  const user = await store.getUser(userId);
+  if (!user?.voix) return; // retirée entre-temps
+  if (approved) {
+    await store.setVoice(userId, 'approved', user.voix.duree);
+    await notify(userId, 'Ta présentation vocale est validée : les autres peuvent l\'écouter.', {}, { label: 'Voir mon profil', params: { screen: 'me' } });
+  } else {
+    await store.removeVoice(userId);
+    await notify(userId, "Ta présentation vocale a été refusée : coordonnées, demande d'argent, ou contenu inadapté. Elle est supprimée, tu peux en enregistrer une autre.", {}, { label: 'Ouvrir le profil', params: { screen: 'me' } });
+  }
+}
+
+// La consigne d'enregistrement, dite au même endroit qu'on vienne de /voix ou du bouton de
+// l'app : deux textes qui divergent, c'est une promesse qui diverge.
+async function expliquerLaVoix(ctx, lang) {
+  const user = await store.getUser(ctx.from?.id);
+  if (!user?.profile) return ctx.reply(t(lang, "Crée d'abord ton profil dans l'app, puis reviens enregistrer ta présentation."));
+  return ctx.reply(t(lang,
+    "Enregistre une présentation de {max} secondes au plus : appuie sur le micro ici même et parle.\n\nDis qui tu es et ce que tu cherches. Ne donne ni numéro, ni pseudo, ni rendez-vous : la modération l'écoute avant les autres, et la refuserait.\n\nPour la retirer plus tard : /sansvoix.",
+    { max: DUREE_MAX_S }));
+}
+
 export async function decideVerification(userId, approved) {
   const user = await store.getUser(userId);
   if (!user) return;
@@ -189,6 +229,9 @@ export async function setupBot() {
         { reply_markup: new InlineKeyboard().text(t(lang, "J'accepte"), `conf:oui:${membre.id}`).text(t(lang, 'Non merci'), `conf:non:${membre.id}`) },
       );
     }
+    // Lien venu de l'app : « Présentation vocale » y renvoie ici, faute de micro accessible
+    // depuis une mini app. On enchaîne directement sur la consigne d'enregistrement.
+    if (String(ctx.match || '') === 'voix') return expliquerLaVoix(ctx, lang);
     const text = t(lang, "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans jamais te demander d'argent.\n\nRéservé aux 18 ans et plus.", { nom: ctx.from?.first_name || '', app: config.appName });
     const reply_markup = config.webAppUrl ? new InlineKeyboard().webApp(t(lang, 'Ouvrir {app}', { app: config.appName }), appUrl()) : undefined;
     await ctx.reply(text, { reply_markup });
@@ -202,6 +245,76 @@ export async function setupBot() {
       "{app} ne te demandera jamais d'argent. Si quelqu'un le fait, signale-le depuis la discussion dans l'app.\n\nPour supprimer ton compte : Paramètres dans l'app, puis « Supprimer mon compte ».",
       { app: config.appName })),
   );
+
+  // Enregistrer dans Telegram plutôt que dans la mini app : voir l'en-tête de server/voix.js.
+  // La personne ne quitte pas un outil qu'elle connaît, et rien ne dépend d'une permission
+  // micro que les mini apps Android n'accordent pas.
+  bot.command('voix', async (ctx) => {
+    const lang = langueDe(await store.getUser(ctx.from?.id) || { languageCode: ctx.from?.language_code });
+    await expliquerLaVoix(ctx, lang);
+  });
+
+  bot.command('sansvoix', async (ctx) => {
+    const user = await store.getUser(ctx.from?.id);
+    const lang = langueDe(user || { languageCode: ctx.from?.language_code });
+    if (!user?.voix) return ctx.reply(t(lang, "Tu n'as pas de présentation vocale."));
+    await store.removeVoice(user.id);
+    await ctx.reply(t(lang, 'Ta présentation vocale est supprimée.'));
+  });
+
+  bot.on('message:voice', async (ctx) => {
+    if (ctx.chat?.type !== 'private') return;
+    const user = await store.getUser(ctx.from?.id);
+    const lang = langueDe(user || { languageCode: ctx.from?.language_code });
+    if (!user?.profile) return ctx.reply(t(lang, "Crée d'abord ton profil dans l'app, puis reviens enregistrer ta présentation."));
+    if (user.banned) return ctx.reply(t(lang, "Ton compte a été fermé par l'équipe de {app}. Si tu penses que c'est une erreur, écris /aide.", { app: config.appName }));
+
+    const refus = refusDuree(ctx.message.voice?.duration);
+    if (refus) return ctx.reply(t(lang, refus.cle, refus.vars));
+
+    const attente = consommer(user.id, 'voix');
+    if (attente) return ctx.reply(t(lang, 'Trop de présentations envoyées. Réessaie dans un moment.'));
+
+    const dest = path.join(config.uploadsDir, fichierVoix(user.id));
+    try {
+      const fichier = await ctx.api.getFile(ctx.message.voice.file_id);
+      // L'adresse porte le jeton du bot : elle ne doit jamais être journalisée.
+      const reponse = await fetch(`https://api.telegram.org/file/bot${config.botToken}/${fichier.file_path}`);
+      if (!reponse.ok) throw new Error(`réponse ${reponse.status}`);
+      fs.writeFileSync(dest, Buffer.from(await reponse.arrayBuffer()));
+    } catch (e) {
+      console.warn(`Présentation vocale non récupérée pour ${user.id} : ${e.message}`);
+      return ctx.reply(t(lang, "Le son n'est pas arrivé jusqu'à nous. Réessaie dans un moment."));
+    }
+
+    await store.setVoice(user.id, 'pending', ctx.message.voice.duration);
+    // Même règle que pour le selfie et les photos : si la modération est configurée mais
+    // injoignable, on défait l'envoi au lieu de laisser la personne attendre une décision que
+    // personne ne peut prendre.
+    if (config.adminChatId) {
+      let parti = false;
+      try { parti = await sendVoiceToModeration(user.id); } catch { parti = false; }
+      if (!parti) {
+        await store.removeVoice(user.id);
+        return ctx.reply(t(lang, "La modération est injoignable pour l'instant. Ta présentation n'a pas été enregistrée, réessaie plus tard."));
+      }
+    } else {
+      // Sans modération configurée (développement), rien ne peut être écouté : on valide.
+      await store.setVoice(user.id, 'approved', ctx.message.voice.duration);
+    }
+    await ctx.reply(t(lang, 'Reçue. La modération l\'écoute, et tu seras prévenu dès que ce sera fait.'));
+  });
+
+  bot.callbackQuery(/^voix:(approve|reject):(\d+)$/, async (ctx) => {
+    if (String(ctx.chat?.id) !== String(config.adminChatId)) return ctx.answerCallbackQuery({ text: 'Action réservée à la modération.' });
+    const [, action, userId] = ctx.match;
+    await decideVoice(userId, action === 'approve');
+    // Le vocal est retiré du groupe et remplacé par une ligne de texte : la trace de la décision
+    // reste, le son ne traîne pas dans une discussion Telegram.
+    await ctx.deleteMessage().catch(() => {});
+    await ctx.api.sendMessage(config.adminChatId, `Présentation vocale de ${userId} : ${action === 'approve' ? 'validée' : 'refusée'}.`, { reply_markup: boutonBannir(userId) });
+    await ctx.answerCallbackQuery({ text: action === 'approve' ? 'Validée' : 'Refusée' });
+  });
 
   bot.callbackQuery(/^(approve|reject):(.+)$/, async (ctx) => {
     if (String(ctx.chat?.id) !== String(config.adminChatId)) return ctx.answerCallbackQuery({ text: 'Action réservée à la modération.' });
@@ -323,6 +436,8 @@ export async function startBot(app, { delais } = {}) {
   await bot.api.setMyCommands([
     { command: 'start', description: `Ouvrir ${config.appName}` },
     { command: 'aide', description: 'Sécurité et aide' },
+    { command: 'voix', description: 'Enregistrer ma présentation vocale' },
+    { command: 'sansvoix', description: 'Supprimer ma présentation vocale' },
     { command: 'retirer', description: 'Ne plus être personne de confiance' },
   ]).catch((e) => console.warn('Commandes non publiées :', e.message));
 

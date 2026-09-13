@@ -356,6 +356,13 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .card-photo:has(.dots) .corners { top: 18px; }
 .card-photo[data-action="photo-nav"] { cursor: pointer; }
 .card-photo .reveal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+
+/* Présentation vocale : un bouton posé dans le corps de la carte, jamais sur la photo — il se
+   touche pendant qu'on lit, pas pendant qu'on balaie. Rien n'est téléchargé avant l'appui. */
+.card-body .voix { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 7px 14px; border-radius: 999px; background: var(--bg3); color: var(--text); border: 1px solid var(--line); }
+.card-body .voix .voix-icone { display: inline-flex; }
+.card-body .voix.joue { background: color-mix(in srgb, var(--like) 16%, var(--bg3)); border-color: color-mix(in srgb, var(--like) 40%, var(--line)); }
+.card-body .voix.charge { opacity: .6; pointer-events: none; }
 .card-photo:has(.reveal) .initial { opacity: .12; }
 .overlay { position: absolute; left: 20px; right: 20px; bottom: 20px; display: grid; gap: 7px; color: var(--on-photo); }
 .overlay .name { font-family: var(--font-display); font-size: 38px; font-weight: 400; letter-spacing: -.015em; line-height: 1; display: flex; align-items: baseline; gap: 9px; text-shadow: 0 1px 2px rgb(0 0 0 / .25); }

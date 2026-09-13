@@ -14,6 +14,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import pg from 'pg';
 import { config } from './config.js';
+import { fichierVoix } from './voix.js';
 import { migrer } from './db/migrate.js';
 
 fs.mkdirSync(config.uploadsDir, { recursive: true });
@@ -68,6 +69,13 @@ function supprimerFichiers(id, noms) {
     const p = path.join(config.uploadsDir, `${id}-${f}.jpg`);
     if (fs.existsSync(p)) fs.unlinkSync(p);
   }
+}
+
+// La présentation vocale n'est pas un .jpg : elle a son propre effacement, sans quoi elle
+// survivrait à la suppression du compte.
+function supprimerLaVoix(id) {
+  const p = path.join(config.uploadsDir, fichierVoix(id));
+  if (fs.existsSync(p)) fs.unlinkSync(p);
 }
 
 // Présence : en mémoire, comme en mode JSON. Savoir qui regarde une discussion à la seconde près
@@ -140,6 +148,7 @@ export const store = {
       client.release();
     }
     supprimerFichiers(id, ['profile', 'selfie', 'photo-1', 'photo-2', 'photo-3']);
+    supprimerLaVoix(id);
   },
 
   // Purge des selfies que la modération n'a jamais tranchés : la promesse est qu'il disparaît
@@ -186,6 +195,24 @@ export const store = {
     if (u.profile) patch.profile = { ...u.profile, hasPhoto: photos.some((p) => p.status === 'approved') };
     await fusionner('users', userId, patch);
     return photos;
+  },
+
+  // La présentation vocale : un seul emplacement, et son fichier à côté. Même cycle que les
+  // photos — « pending » tant que la modération n'a pas écouté, « approved » ensuite.
+  async setVoice(userId, status, duree) {
+    const u = await store.getUser(userId);
+    if (!u) return null;
+    const voix = { status, duree: Number(duree) || 0, at: Date.now() };
+    await fusionner('users', userId, { voix });
+    return voix;
+  },
+
+  async removeVoice(userId) {
+    const u = await store.getUser(userId);
+    if (!u) return null;
+    supprimerLaVoix(u.id);
+    await fusionner('users', userId, { voix: null });
+    return null;
   },
 
   async removePhoto(userId, n) {
