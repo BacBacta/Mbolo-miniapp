@@ -121,6 +121,9 @@ api.get('/me', async (req, res) => {
     // Le prénom suffit à l'afficher ; l'identifiant Telegram de la personne de confiance ne sort
     // jamais du serveur, comme celui de n'importe qui d'autre.
     confiance: u.confiance ? { prenom: u.confiance.prenom, at: u.confiance.at } : null,
+    // La présentation vocale, telle que la personne la voit pour elle-même : son statut et sa
+    // durée. Ce que les autres en sauront est décidé ailleurs (publicProfile).
+    voix: u.voix ? { status: u.voix.status, duree: u.voix.duree } : null,
     options: {
       intents: INTENTS, genders: GENDERS, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
       defaultCountry: config.defaultCountry,
@@ -247,6 +250,14 @@ api.delete('/me/confiance', async (req, res) => {
   // Elle a accepté quelque chose : elle apprend que ça s'arrête, plutôt que de rester à croire
   // qu'elle veille sur quelqu'un.
   if (avait) direATiers(avait.id, avait.lang, "{nom} ne t'a plus comme personne de confiance. Tu ne recevras plus rien.", { nom: req.user.profile?.name || req.user.firstName || '' });
+  res.json({ retire: true });
+});
+
+// Retirer sa présentation vocale depuis l'app. L'enregistrement, lui, se fait dans le bot :
+// voir l'en-tête de server/voix.js. Supprimer doit rester possible des deux côtés — c'est une
+// donnée personnelle, et la retirer ne doit jamais demander d'aller la chercher ailleurs.
+api.delete('/me/voix', async (req, res) => {
+  await store.removeVoice(req.user.id);
   res.json({ retire: true });
 });
 

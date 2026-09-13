@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { config } from './config.js';
+import { fichierVoix } from './voix.js';
 
 const file = path.join(config.dataDir, 'db.json');
 const empty = () => ({ users: {}, swipes: [], matches: {}, messages: {}, reports: [], blocks: [], dates: {}, events: [] });
@@ -96,6 +97,9 @@ export const store = {
       const p = path.join(config.uploadsDir, `${id}-${f}.jpg`);
       if (fs.existsSync(p)) fs.unlinkSync(p);
     }
+    // La présentation vocale n'est pas un .jpg : oubliée ici, elle survivrait à l'effacement.
+    const voix = path.join(config.uploadsDir, fichierVoix(id));
+    if (fs.existsSync(voix)) fs.unlinkSync(voix);
     save();
   },
 
@@ -148,6 +152,29 @@ export const store = {
     if (u.profile) u.profile.hasPhoto = u.photos.some((p) => p.status === 'approved');
     save();
     return u.photos;
+  },
+
+  // La présentation vocale : un seul emplacement, et son fichier à côté. Le statut suit celui
+  // des photos — « pending » tant que la modération n'a pas écouté, « approved » ensuite.
+  async setVoice(userId, status, duree) {
+    const u = db.users[String(userId)];
+    if (!u) return null;
+    u.voix = { status, duree: Number(duree) || 0, at: Date.now() };
+    save();
+    return u.voix;
+  },
+
+  async removeVoice(userId) {
+    const u = db.users[String(userId)];
+    if (!u) return null;
+    // null, pas « delete » : store.pg.js fusionne du JSON et ne sait pas retirer une clé. Les
+    // deux stockages doivent rendre la même chose, sinon un « === undefined » marche d'un côté
+    // seulement — et ne se voit qu'en production.
+    u.voix = null;
+    const f = path.join(config.uploadsDir, fichierVoix(u.id));
+    if (fs.existsSync(f)) fs.unlinkSync(f);
+    save();
+    return null;
   },
 
   async removePhoto(userId, n) {

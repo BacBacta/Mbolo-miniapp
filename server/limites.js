@@ -16,6 +16,7 @@ export const REGLES = {
   swipe: { max: 60, fenetreMs: 60_000, message: 'Tu vas trop vite. Reprends dans une minute.' },
   verification: { max: 5, fenetreMs: 3_600_000, message: 'Trop de tentatives de vérification. Réessaie dans une heure.' },
   photo: { max: 12, fenetreMs: 3_600_000, message: 'Trop de photos envoyées. Réessaie dans une heure.' },
+  voix: { max: 6, fenetreMs: 3_600_000, message: 'Trop de présentations vocales envoyées. Réessaie dans une heure.' },
   signalement: { max: 5, fenetreMs: 3_600_000, message: 'Trop de signalements en peu de temps. La modération a bien reçu les précédents.' },
   rendezvous: { max: 10, fenetreMs: 3_600_000, message: 'Trop de propositions de rendez-vous. Réessaie plus tard.' },
   profil: { max: 20, fenetreMs: 3_600_000, message: 'Trop de modifications du profil. Réessaie dans une heure.' },
