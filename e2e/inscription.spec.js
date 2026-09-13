@@ -104,3 +104,29 @@ test("la jauge de confiance s'explique à l'inscription, et n'annonce que des cr
   await expect(page.locator('main')).toContainText(/Confiance 1 sur 2/);
   await expect(page.locator('main')).not.toContainText(/sur 3/);
 });
+
+// La langue vivait au fond de l'onglet Profil, donc derrière l'inscription et la vérification.
+// Quelqu'un dont le Telegram est dans une langue qu'on ne connaît pas voyait du français et
+// n'avait aucun moyen d'en changer — il devait comprendre la page pour trouver le réglage qui la
+// lui aurait rendue lisible. Elle se choisit maintenant depuis l'accueil, avant tout engagement.
+test("la langue se choisit dès l'accueil, avant de créer quoi que ce soit", async ({ page }) => {
+  await ouvrir(page, nouvelIdentifiant());
+  await expect(titre(page)).toHaveText(/Des rencontres vérifiées/);
+
+  // Le sélecteur est sur le premier écran, et annonce la langue en cours.
+  const chip = page.locator('.langue-chip');
+  await expect(chip).toBeVisible();
+  await expect(chip).toContainText('Français');
+
+  await chip.click();
+  await expect(titre(page)).toHaveText(/Langue|Language/);
+  await page.locator('main button', { hasText: 'English' }).click();
+
+  // On revient à l'accueil — pas dans l'onglet Profil, qui n'existe pas encore — et il est traduit.
+  await expect(titre(page)).toHaveText(/Verified people, face to face/);
+  await expect(page.locator('.langue-chip')).toContainText('English');
+
+  // Et le choix tient pendant l'inscription : c'est tout l'intérêt de le proposer si tôt.
+  await actionPrincipale(page).click();
+  await expect(titre(page)).not.toHaveText(/Fais-toi connaître/);
+});
