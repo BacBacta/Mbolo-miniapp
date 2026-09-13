@@ -8,8 +8,12 @@
 #      production change de stockage, et il dure un redémarrage.
 # « verifier » se lance quand tu veux : il ne fait que lire.
 #
-# FLY_API_TOKEN doit être un jeton d'organisation (fly.io, Account puis Tokens). Le jeton de
-# déploiement d'une seule app ne peut pas créer de base.
+# Créer une base demande un jeton d'organisation (fly.io, Account puis Tokens) : le jeton de
+# déploiement qui suffit à mettre l'app en ligne ne voit aucune organisation.
+#
+# Deux secrets possibles, dans cet ordre : FLY_ORG_TOKEN s'il existe, sinon FLY_API_TOKEN.
+# Poser FLY_ORG_TOKEN à côté est le plus sain — le déploiement garde son jeton limité à l'app,
+# et seul ce travail-ci reçoit les droits étendus. Une fois la bascule faite, il se supprime.
 name: PostgreSQL
 
 on:
@@ -57,7 +61,7 @@ jobs:
 
       - name: ${{ inputs.etape }}
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_ORG_TOKEN || secrets.FLY_API_TOKEN }}
           CREER_LA_BASE: ${{ inputs.creer_la_base }}
           MOTEUR: ${{ inputs.moteur }}
         # Même script que pour une bascule à la main : une seule logique à maintenir
