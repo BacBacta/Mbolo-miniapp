@@ -175,6 +175,8 @@ Pour créer la base au passage : `$env:CREER_LA_BASE = "true"` et `$env:MOTEUR =
 
 `FLY_ORG` change d'organisation si tu n'utilises pas la personnelle.
 
+**La machine de l'app est réveillée d'abord.** `fly.toml` l'éteint quand personne ne s'en sert, et `flyctl ssh console` ne sait pas entrer dans une machine arrêtée. Le script la réveille par une requête sur `/health` avant chaque commande à distance.
+
 **Relancer une étape ne coûte rien.** Si l'import est coupé en route, relance `preparer` : la base déjà attachée est reconnue à son secret, et l'import reprend sans rien écraser — jamais une seconde base facturée à côté de la bonne.
 
 ### Ce que l'import emporte

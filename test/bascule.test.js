@@ -325,3 +325,26 @@ test('un secret que la machine ne voit pas est appliqué avant l\'import', async
   assert.match(appels, /secrets deploy/, 'les secrets en attente doivent être déployés');
   assert.ok(!/import-json/.test(appels), "et l'import ne doit pas partir sur une variable vide");
 });
+
+// La machine de l'app s'éteint quand personne ne s'en sert (auto_stop_machines). « ssh console »
+// répond alors « has no started VMs », et tout ce que la bascule fait à distance — import,
+// contrôle, relecture du secret — échoue sans raison lisible. Le script la réveille d'abord,
+// par une requête, comme le ferait un visiteur.
+test('la machine est réveillée avant toute commande à distance', async () => {
+  const { dossier, trace } = fauxFlyctl('{"personal":"Bacta"}', ' DATABASE_URL | abc | Deployed\n');
+  // Un faux curl, pour voir dans quel ordre les deux sont appelés.
+  fs.writeFileSync(path.join(dossier, 'curl'), `#!/bin/sh\necho "curl $@" >> ${trace}\n`, { mode: 0o755 });
+
+  // « verifier » ne fait que lire, et passe par le même chemin que l'import.
+  await lancer('./basculer-postgres.sh', ['verifier', 'mbolo-miniapp', 'mbolo-pg'], {
+    cwd: RACINE,
+    env: { ...process.env, PATH: `${dossier}:${process.env.PATH}`, FLY_API_TOKEN: 'jeton-de-test' },
+  });
+
+  const appels = fs.readFileSync(trace, 'utf8');
+  const reveil = appels.indexOf('/health');
+  const commande = appels.indexOf('ssh console');
+  assert.ok(reveil >= 0, 'la machine doit être réveillée par une requête');
+  assert.ok(commande >= 0, 'et la commande à distance doit bien partir');
+  assert.ok(reveil < commande, 'le réveil doit précéder la commande, sinon « has no started VMs »');
+});
