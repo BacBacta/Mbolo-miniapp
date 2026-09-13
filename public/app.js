@@ -426,6 +426,7 @@ function profileCard(p, { own = false, cls = '' } = {}) {
       </div>
       <div class="card-body">
         <div class="prompt"><span class="q">${esc(libelleQuestion(p.promptQ))}</span><span class="a">${esc(p.promptA)}</span></div>
+        ${p.compat ? `<div class="compat">${p.compat.map((c) => `<span class="chip chip-compat"><span class="q">${t(c.question)}</span><span class="a">${t(c.reponse)}</span></span>`).join('')}</div>` : ''}
         ${p.voix ? `<button type="button" class="btn btn-glass voix" data-action="voix" data-id="${esc(p.id)}" data-duree="${esc(dureeLisible(p.voix.duree))}" aria-label="${t('Écouter la présentation de {nom}', { nom: esc(p.name) })}"><span class="voix-icone">${icon('play', 16)}</span><span class="voix-label">${t('Écouter · {duree}', { duree: dureeLisible(p.voix.duree) })}</span></button>` : ''}
         <div class="facts-line">
           <span>${esc(t(p.intentLabel))}</span>
@@ -684,6 +685,7 @@ const SCREENS = {
       promptQ: p.promptQ || 'plat',
       promptA: p.promptA || '',
       languages: p.languages || '',
+      compat: { ...(p.compat || {}) },
       // Par emplacement : 'keep' (photo existante), une image encodée (nouvelle), ou null (vide ou à retirer)
       photos: Object.fromEntries([1, 2, 3].map((n) => [n, (S.me.photos || []).some((x) => x.n === n) ? 'keep' : null])),
     });
@@ -714,6 +716,11 @@ const SCREENS = {
           <div class="body"><div class="title">${t(l)}</div><div class="sub">${INTENT_SUBS()[k]}</div></div>
           <span class="check">${icon('check', 14)}</span>
         </button>`).join('')}</div>
+      ${f.intent === 'serieux' ? Object.entries(o.compat || {}).map(([champ, { question, valeurs }]) => `
+        <div class="field"><span class="label">${t(question)} <span class="opt">${t('facultatif')}</span></span>
+          <div class="seg seg-wrap">${Object.entries(valeurs).map(([v, l]) => `
+            <button type="button" aria-pressed="${f.compat[champ] === v}" data-action="set-compat" data-champ="${champ}" data-value="${v}">${t(l)}</button>`).join('')}</div>
+        </div>`).join('') : ''}
       <label class="field"><span class="label">${t('Pays')}</span>
         <span class="select-wrap"><select name="country">${paysTries().map((c) => `<option value="${esc(c.code)}" ${c.code === f.country ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>${icon('chevron-down', 18)}</span>
       </label>
@@ -1631,6 +1638,16 @@ app.addEventListener('click', async (e) => {
       pressOnly(el, '[data-action="set"]');
       document.getElementById('form-error').textContent = '';
       break;
+    // Retoucher la réponse déjà choisie l'efface : ne pas répondre est une réponse, et il faut
+    // pouvoir y revenir sans recommencer son profil.
+    case 'set-compat': {
+      tg.haptic('select');
+      const { champ, value } = el.dataset;
+      if (S.form.compat[champ] === value) delete S.form.compat[champ];
+      else S.form.compat[champ] = value;
+      SCREENS.profile();
+      break;
+    }
     case 'voix': tg.haptic('light'); ecouterLaVoix(el.dataset.id); break;
     // L'enregistrement se fait dans Telegram, pas ici : le micro n'est pas accessible depuis une
     // mini app sur Android. On ouvre donc la discussion avec le bot, qui explique la marche à suivre.

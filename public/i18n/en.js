@@ -382,6 +382,18 @@ export default {
   'Action inconnue sur ce rendez-vous.': 'Unknown action on this meet-up.',
   'Sections': 'Sections',
   'Parle {langues}': 'Speaks {langues}',
+  // Questions de compatibilité : ces libellés viennent du serveur (options.compat), donc le test
+  // de complétude ne peut pas les voir — il ne lit que les t('…') littéraux de l'interface. Comme
+  // pour les intentions et les genres, ils s'ajoutent ici à la main.
+  'Le mariage, pour toi ?': 'Marriage, for you?',
+  "C'est mon projet": "It's what I want",
+  'Peut-être, un jour': 'Maybe, one day',
+  "Ce n'est pas mon projet": "It's not what I want",
+  'Des enfants ?': 'Children?',
+  "J'en veux": 'I want some',
+  "J'en ai déjà": 'I already have some',
+  'Peut-être': 'Maybe',
+  "Je n'en veux pas": "I don't want any",
   'Arrêter': 'Stop',
   'Écouter · {duree}': 'Listen · {duree}',
   "La présentation n'a pas pu être chargée. Réessaie.": "The voice intro couldn't be loaded. Try again.",
