@@ -18,6 +18,7 @@ const { store } = await import('../server/store.js');
 const { bot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 const { venues, VENUES_DEMO } = await import('../server/config.js');
+const { codeDuLieu } = await import('../server/lieux.js');
 // La liste des lieux est vide par défaut : aucun n'entre en production sans partenariat signé.
 // Un test qui éprouve le rendez-vous dit donc de quels lieux il a besoin.
 venues.push(...VENUES_DEMO);
@@ -59,7 +60,7 @@ test('un compte bloqué ne peut plus déclencher de notification d\'arrivée', a
   const s = await call('8201', '/reports', 'POST', { targetId: '8202', reason: 'argent' });
   assert.equal(s.status, 200);
 
-  const c = await call('8202', `/dates/${d.body.date.id}/checkin`, 'POST', { code: lieu.code });
+  const c = await call('8202', `/dates/${d.body.date.id}/checkin`, 'POST', { code: codeDuLieu(lieu.id) });
   assert.equal(c.status, 403, 'le check-in est refusé après un blocage');
   assert.equal(c.body.code, 'BLOCKED');
 });
@@ -110,7 +111,7 @@ test('l\'heure d\'arrivée de l\'autre personne n\'est jamais renvoyée', async 
   const d = await call('8208', `/matches/${matchId}/dates`, 'POST', { venueId: lieu.id, slot: 'dimanche 16h' });
   // Depuis P0-4, le check-in exige un rendez-vous accepté : Hervé accepte celui que Grâce propose
   assert.equal((await call('8209', `/dates/${d.body.date.id}`, 'PUT', { status: 'accepted' })).status, 200);
-  await call('8209', `/dates/${d.body.date.id}/checkin`, 'POST', { code: lieu.code });
+  await call('8209', `/dates/${d.body.date.id}/checkin`, 'POST', { code: codeDuLieu(lieu.id) });
 
   const vu = await call('8208', `/matches/${matchId}`);
   const rdv = vu.body.dates[0];

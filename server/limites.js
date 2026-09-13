@@ -19,6 +19,9 @@ export const REGLES = {
   voix: { max: 6, fenetreMs: 3_600_000, message: 'Trop de présentations vocales envoyées. Réessaie dans une heure.' },
   signalement: { max: 5, fenetreMs: 3_600_000, message: 'Trop de signalements en peu de temps. La modération a bien reçu les précédents.' },
   rendezvous: { max: 10, fenetreMs: 3_600_000, message: 'Trop de propositions de rendez-vous. Réessaie plus tard.' },
+  // Confirmer une arrivée, c'est scanner un QR une fois par rendez-vous. Dix par heure laisse
+  // largement la place aux mauvais scans, et ferme la porte à qui essaierait des codes en série.
+  checkin: { max: 10, fenetreMs: 3_600_000, message: 'Trop de tentatives de confirmation. Réessaie dans une heure.' },
   profil: { max: 20, fenetreMs: 3_600_000, message: 'Trop de modifications du profil. Réessaie dans une heure.' },
   // Alerte de modération : ce n'est pas une limite imposée à la personne, c'est une digue qui
   // empêche un seul compte de noyer le groupe de modération sous ses propres blocages.

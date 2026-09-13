@@ -21,6 +21,7 @@ const { store } = await import('../server/store.js');
 const { bot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 const { venues, VENUES_DEMO } = await import('../server/config.js');
+const { codeDuLieu } = await import('../server/lieux.js');
 // La liste est vide par défaut : aucun lieu n'entre en production sans partenariat signé. Un
 // test qui éprouve le rendez-vous doit donc dire de quels lieux il a besoin, au lieu de compter
 // sur ceux que la configuration portait — c'est cette dépendance tacite qui laissait croire que
@@ -153,12 +154,12 @@ test('le check-in exige un rendez-vous accepté', async () => {
   const m = await matcher('7009', '7010');
   const id = await proposer('7009', m);
 
-  const tot = await call('7010', `/dates/${id}/checkin`, 'POST', { code: lieu.code });
+  const tot = await call('7010', `/dates/${id}/checkin`, 'POST', { code: codeDuLieu(lieu.id) });
   assert.equal(tot.status, 409, 'on ne confirme pas son arrivée à un rendez-vous jamais accepté');
   assert.equal(tot.body.code, 'DATE_NOT_ACCEPTED');
 
   await call('7010', `/dates/${id}`, 'PUT', { status: 'accepted' });
-  const ok = await call('7010', `/dates/${id}/checkin`, 'POST', { code: lieu.code });
+  const ok = await call('7010', `/dates/${id}/checkin`, 'POST', { code: codeDuLieu(lieu.id) });
   assert.equal(ok.status, 200);
   assert.equal(ok.body.arrived, true);
 });
@@ -171,7 +172,7 @@ test('un rendez-vous annulé ferme aussi le check-in', async () => {
   await call('7012', `/dates/${id}`, 'PUT', { status: 'accepted' });
   await call('7011', `/dates/${id}`, 'PUT', { status: 'cancelled' });
 
-  const r = await call('7012', `/dates/${id}/checkin`, 'POST', { code: lieu.code });
+  const r = await call('7012', `/dates/${id}/checkin`, 'POST', { code: codeDuLieu(lieu.id) });
   assert.equal(r.status, 409);
   assert.equal(r.body.code, 'DATE_NOT_ACCEPTED');
 });

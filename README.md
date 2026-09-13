@@ -144,11 +144,16 @@ Tout cela fonctionne sur l'app en ligne tant que `SEED_DEMO=true` y est actif. D
 
 ## Étape 5 : tester le QR code d'arrivée
 
-1. Mets une valeur à `ADMIN_KEY` dans `.env` et redémarre.
+1. Mets une valeur à `ADMIN_KEY` **et à `VENUE_SECRET`** dans `.env`, puis redémarre.
 2. Sur ton ordinateur, ouvre `https://TON-ADRESSE/qr/palmier.png?key=TA_CLE`.
 3. Dans la discussion Mbolo sur ton téléphone, appuie sur **Je suis arrivé(e) : scanner le code** et vise l'écran.
 
 Lieux disponibles : `palmier`, `etudiants`, `lac` (Yaoundé) et `wouri` (Douala). Ils se modifient dans `server/config.js`.
+
+Sans `VENUE_SECRET`, le secret est tiré au hasard à chaque démarrage : le QR affiché reste valable
+tant que le serveur tourne, et cesse de l'être au redémarrage suivant. C'est voulu — un défaut qui
+échoue du bon côté. **Le code ne se déduit pas de l'identifiant du lieu et n'est jamais envoyé au
+navigateur** : il n'existe que sur le serveur et sur la feuille imprimée.
 
 ## Étape 6 : activer la vraie modération des selfies
 
@@ -464,6 +469,7 @@ WEBAPP_URL=https://ton-domaine
 ADMIN_CHAT_ID=...
 ADMIN_KEY=une-longue-cle-aleatoire
 WEB_SESSION_SECRET=une-autre-longue-cle-aleatoire
+VENUE_SECRET=une-troisieme-longue-cle-aleatoire
 EVENTS_RETENTION_DAYS=180
 USE_WEBHOOK=true
 AUTO_APPROVE=false
@@ -529,6 +535,7 @@ mbolo-miniapp/
 │   ├── bot.js        Bot : /start, modération, notifications avec bouton vers le bon écran
 │   ├── antiscam.js   Filtre des demandes d'argent et partages de contact
 │   ├── jauge.js      Jauge de confiance : la liste des critères, et rien qu'elle
+│   ├── lieux.js      Le code d'un lieu : empreinte du secret serveur, jamais servie au client
 │   ├── store.js      Choix du stockage selon DATABASE_URL
 │   ├── store.json.js Stockage dans un fichier JSON (défaut, une seule instance)
 │   ├── store.pg.js   Stockage PostgreSQL (production), même interface

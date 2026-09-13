@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import QRCode from 'qrcode';
 import { config, venues } from './config.js';
+import { codeDuLieu } from './lieux.js';
 import { store, modeStockage, pret } from './store.js';
 import { api } from './routes.js';
 import { setupBot, startBot } from './bot.js';
@@ -27,6 +28,24 @@ if (config.isProd && !config.adminChatId) {
     '',
     'À faire : crée un groupe Telegram, ajoute-y ton bot, envoie /id dans le groupe, puis mets',
     "la valeur obtenue dans ADMIN_CHAT_ID (secret de l'hébergeur ou du dépôt).",
+  ].join('\n'));
+  process.exit(1);
+}
+
+// Même raisonnement, pour les codes des lieux partenaires. Sans VENUE_SECRET, le secret est tiré
+// au hasard à chaque démarrage : les QR imprimés et posés sur les tables cesseraient de marcher à
+// chaque déploiement, et personne ne pourrait plus confirmer son arrivée. La garde ne se déclenche
+// que s'il y a au moins un lieu — aujourd'hui la liste est vide, donc rien ne change.
+if (config.isProd && venues.length && !config.venueSecret) {
+  console.error([
+    `VENUE_SECRET manquant alors que ${venues.length} lieu(x) partenaire(s) sont configurés. ${config.appName} ne démarre pas.`,
+    '',
+    "Sans lui, le code de chaque QR est tiré au hasard au démarrage : les feuilles déjà posées",
+    'sur les tables ne seraient plus reconnues, et aucune arrivée ne pourrait être confirmée.',
+    '',
+    'À faire : génère un secret et mets-le dans VENUE_SECRET (secret de l\'hébergeur), puis',
+    'réimprime les QR depuis /qr/<lieu>.png?key=ADMIN_KEY.',
+    'Sous PowerShell : [Convert]::ToHexString((1..32 | %{ Get-Random -Max 256 }))',
   ].join('\n'));
   process.exit(1);
 }
@@ -56,7 +75,7 @@ app.use('/api', (req, res) => res.status(404).json({ code: 'NOT_FOUND', message:
 app.get('/qr/:venueId.png', async (req, res) => {
   const venue = venues.find((v) => v.id === req.params.venueId);
   if (!config.adminKey || req.query.key !== config.adminKey || !venue) return res.status(404).end();
-  res.type('png').send(await QRCode.toBuffer(venue.code, { width: 600, margin: 2 }));
+  res.type('png').send(await QRCode.toBuffer(codeDuLieu(venue.id), { width: 600, margin: 2 }));
 });
 
 // Empreinte du contenu des fichiers du navigateur, calculée une fois au démarrage

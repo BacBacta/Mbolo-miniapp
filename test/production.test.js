@@ -69,6 +69,27 @@ function demarrer(env, timeout = 15000) {
   return { code: r.status, sortie: `${r.stdout}${r.stderr}` };
 }
 
+// Même famille que la garde précédente : un secret absent ne doit pas se remplacer en silence
+// par un secret jetable. Sans VENUE_SECRET, les codes des QR sont tirés au hasard à chaque
+// démarrage — les feuilles posées sur les tables cesseraient d'être reconnues à chaque
+// déploiement, et personne ne pourrait plus confirmer son arrivée.
+test('en production avec un lieu partenaire et sans VENUE_SECRET, le serveur refuse de démarrer', () => {
+  const r = demarrer({ NODE_ENV: 'production', ADMIN_CHAT_ID: '-100', SEED_DEMO: 'true', VENUE_SECRET: '' });
+  assert.equal(r.code, 1, 'le démarrage s\'arrête');
+  assert.match(r.sortie, /VENUE_SECRET manquant/);
+  // Le message dit quoi faire, pas seulement ce qui manque (règle 11 de CLAUDE.md)
+  assert.match(r.sortie, /réimprime les QR/i);
+  assert.ok(!/écoute sur le port/.test(r.sortie), 'aucune requête n\'est servie');
+});
+
+// La garde ne se déclenche que s'il y a un lieu à protéger. La liste est vide aujourd'hui : une
+// production sans partenariat ne doit pas se voir réclamer un secret qui ne sert à rien.
+test('sans lieu partenaire, VENUE_SECRET n\'est pas réclamé', () => {
+  const r = demarrer({ NODE_ENV: 'production', ADMIN_CHAT_ID: '-100', SEED_DEMO: 'false', VENUE_SECRET: '' }, 6000);
+  assert.match(r.sortie, /écoute sur le port/, 'le serveur démarre et sert');
+  assert.ok(!/VENUE_SECRET manquant/.test(r.sortie), 'et sans reproche');
+});
+
 test('en production sans groupe de modération, le serveur refuse de démarrer', () => {
   const r = demarrer({ NODE_ENV: 'production', ADMIN_CHAT_ID: '' });
   assert.equal(r.code, 1, 'le démarrage s\'arrête');
