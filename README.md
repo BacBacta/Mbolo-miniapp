@@ -16,11 +16,11 @@ Ce dépôt contient tout ce qu'il faut pour la tester sur ton propre téléphone
 |---|---|
 | Connexion sans mot de passe | Identité Telegram, signature vérifiée côté serveur (`server/auth.js`) |
 | Profil 18+ | Âge contrôlé, ni numéro ni lien accepté dans le profil |
-| Vérification par selfie | Geste aléatoire, valable 10 minutes et à usage unique, selfie envoyé à ta discussion de modération avec les boutons Valider / Refuser, puis **supprimé du disque et du groupe**. Un selfie que personne n'a tranché est supprimé au bout de sept jours et le compte peut recommencer. Un compte déjà vérifié ne repasse jamais par là |
+| Vérification par selfie | **Le selfie se choisit dans la galerie, et l'app le dit** : Telegram Android construit son sélecteur de fichiers sans jamais lire `capture`, donc aucun balisage ne peut y ouvrir la caméra. L'écran demande de prendre le selfie d'abord, puis de le choisir. Ce qui vérifie n'est pas l'appareil mais le geste : geste aléatoire, valable 10 minutes et à usage unique, selfie envoyé à ta discussion de modération avec les boutons Valider / Refuser, puis **supprimé du disque et du groupe**. Un selfie que personne n'a tranché est supprimé au bout de sept jours et le compte peut recommencer. Un compte déjà vérifié ne repasse jamais par là |
 | États vides | Un paquet vide dit lequel des trois cas se présente : personne d'autre dans ta ville, tous les profils de ta tranche d'âge déjà vus, ou limite du jour atteinte. Chacun propose le geste correspondant |
 | Zone de recherche | Le **pays** vient d'une liste de 243 entrées, la **ville** s'écrit librement. Dans les filtres, tu choisis où tu veux rencontrer : une ville, ou tout un pays, le tien ou un autre. Ta zone décide de qui tu vois, jamais de qui te voit. Un état vide garde la barre de zone et propose « Changer de zone » : l'écran qui te dit d'en changer est aussi celui d'où tu peux le faire. Les noms de pays s'affichent dans la langue de la personne, sans table de traduction (`Intl.DisplayNames`) |
 | Localisation | Le **pays est deviné au premier lancement** à partir du fuseau horaire du téléphone : pas de permission à accorder, pas de GPS, pas de service externe, pas de requête en plus. Le navigateur envoie son fuseau (`Africa/Dakar`), le serveur renvoie un code pays (`SN`) — **le fuseau n'est ni stocké ni journalisé**. Le fuseau donne le pays, jamais la ville : celle-ci reste écrite par la personne, avec des suggestions. Dans les filtres, un bouton « Ma position : Cameroun » ramène la zone là où tu es, en un geste. Rien ne s'applique tout seul : le choix de la personne l'emporte toujours (`server/geo.js`, `paysDuFuseau`) |
-| Langues | **Français et anglais.** La langue vient de ton choix dans le profil, sinon de celle de ton Telegram, sinon du français. Le bot écrit à chacun dans sa langue, pas dans celle de la personne qui a déclenché la notification. Le dictionnaire anglais (315 phrases, 23 Ko) n'est téléchargé que par qui lit en anglais : une personne qui lit en français ne paie rien. Une phrase non traduite s'affiche en français, jamais sous forme d'identifiant. Ajouter une langue = un fichier, sans toucher au reste |
+| Langues | **Cinq langues** : français, anglais, espagnol, portugais et swahili. Le choix se fait **dès le premier écran**, avant de créer quoi que ce soit — sans quoi il fallait comprendre la page pour trouver le réglage qui l'aurait rendue lisible. Chaque langue est nommée dans sa propre langue. La langue vient de ton choix, sinon de celle de ton Telegram, sinon du français. Le bot écrit à chacun dans sa langue, pas dans celle de la personne qui a déclenché la notification. **Un dictionnaire n'est téléchargé que par qui lit cette langue** : une personne qui lit en français ne paie rien. Une phrase non traduite s'affiche en français, jamais sous forme d'identifiant, et un test compare chaque dictionnaire à l'anglais clé par clé. Ajouter une langue = un fichier. **L'espagnol, le portugais et le swahili ont été traduits sans locuteur natif** : à faire relire avant d'ouvrir la bêta dans un pays qui les lit |
 | Découverte | Profils vérifiés de la même zone et de la même intention, dans la tranche d'âge que tu choisis, 20 « J'aime » par jour, les profils passés ne comptant pas, ceux de ton quartier d'abord (sans jamais demander ta position). Badge « Nouveau » la première semaine. Une vue **Liste** montre tous les profils compatibles, balayés ou non, avec leur statut (aimé, passé, match) et des vignettes chargées à l'apparition, jamais en économie de data ; la parcourir ne consomme rien, seul un « J'aime » compte, et un « Passer » peut y être rattrapé |
 | Match et discussion | En tête de Messages, ceux qui ont aimé ton profil et attendent ta réponse (visibles quel que soit leur âge). La liste marque « à toi » quand c'est à toi de répondre. Discussion plein écran, en-tête qui ouvre la fiche de la personne, heure des messages, compteur de non lus, pseudos Telegram jamais montrés |
 | Activité | « En ligne récemment », « aujourd'hui » ou « cette semaine », jamais l'heure exacte ni de temps réel. La tranche fine est réservée aux matchs ; en découverte, « cette semaine » au plus |
@@ -334,7 +334,7 @@ Avant un lancement public, vérifie que le nom est libre : marque auprès de l'O
 
 ## Ajouter une langue
 
-L'app parle **français, anglais, russe et ukrainien**. La langue affichée vient, dans cet ordre : du choix fait dans **Profil → Langue de l'app**, sinon de la langue du Telegram de la personne, sinon du français.
+L'app parle **sept langues** : français, anglais, espagnol, portugais, swahili, russe et ukrainien. Le choix se fait **dès l'accueil**, avant toute inscription, et reste disponible dans **Profil → Langue de l'app**. Sans choix, l'app suit la langue du Telegram de la personne, et à défaut le français. Chaque langue est nommée dans sa propre langue.
 
 La clé de traduction **est la phrase française**. Une phrase sans traduction s'affiche donc en français, jamais sous forme d'identifiant : une traduction incomplète reste lisible.
 
@@ -342,8 +342,8 @@ Pour ajouter une langue (exemple : le pidgin, code `pcm`) :
 
 1. Copie `public/i18n/en.js` vers `public/i18n/pcm.js` et traduis les valeurs. Ne touche pas aux clés, et garde les `{variables}` telles quelles.
 2. Ajoute la langue dans `public/i18n.js` : `pcm: 'Pidgin'` dans `LANGUES`.
-3. Ajoute `'pcm'` à la liste `LANGUES` de `server/i18n.js` et traduis-y le dictionnaire des messages du bot (une vingtaine de phrases).
-4. Lance `npm test`. Quatre contrôles s'appliquent à **chaque** langue déclarée, pas seulement à l'anglais : chacune a un dictionnaire, aucune phrase de l'interface ne manque, aucune traduction ne perd une `{variable}` de la phrase française, et les phrases comptées couvrent toutes les formes de pluriel de leur langue.
+3. Ajoute `'pcm'` à la liste `LANGUES` de `server/i18n.js` et traduis-y le dictionnaire des messages du bot (42 phrases).
+4. Lance `npm test`. Les contrôles s'appliquent à **chaque** langue déclarée, pas seulement à l'anglais : le bot et l'interface connaissent les mêmes langues, chaque dictionnaire porte exactement les clés de l'anglais — ni trou, ni clé morte —, aucune traduction ne perd une `{variable}` de la phrase française, et les phrases comptées couvrent toutes les formes de pluriel de leur langue. Un test de bout en bout vérifie enfin que la liste s'affiche et que le choix change vraiment l'interface.
 
 ### Les langues qui comptent autrement
 
@@ -537,7 +537,7 @@ Aucune de ces trois choses ne peut être faite depuis le code.
 
 - [ ] **Quelqu'un qui regarde le groupe de modération chaque jour.** Depuis que la validation automatique n'existe plus en production, **personne ne s'inscrit tant qu'un humain n'a pas tranché** : c'est désormais le goulot d'étranglement de l'inscription.
 - [x] ~~**Passer à PostgreSQL**~~ : fait le 13 septembre 2026. La production tourne sur `mbolo-pg` (Fly non géré), les 58 lignes du fichier JSON ont été importées — événements de mesure compris — et vérifiées par `scripts/etat-stockage.js` avant que la base ne prenne son nom définitif.
-- [ ] **Mettre en place des sauvegardes.** C'est la moitié qui reste, et elle compte plus que l'autre : une base non gérée ne sauvegarde rien d'elle-même au-delà des instantanés de volume de l'hébergeur, qui protègent d'une panne de disque mais pas d'une suppression ni d'une migration ratée. Un `pg_dump` régulier, déposé ailleurs que sur la même machine. **Avant de dépasser quelques centaines de comptes, et obligatoirement avant tout paiement.** La marche à suivre est dans [`DEPLOIEMENT.md`](DEPLOIEMENT.md).
+- [ ] **Poser `BACKUP_SECRET` pour allumer les sauvegardes.** Le mécanisme est en place — travail **Sauvegarde** chaque nuit, copie chiffrée sur le volume et dans les artefacts GitHub, restauration éprouvée par `test/sauvegarde.test.js` à chaque `npm run test:pg`. Il ne manque que le secret, et **rien ne se sauvegarde tant qu'il n'est pas posé** : `flyctl secrets set BACKUP_SECRET="$(openssl rand -hex 32)"`. **Garde-le ailleurs que sur la machine** — il ouvre les copies, et lui seul. Marche à suivre complète, restauration comprise, dans [`DEPLOIEMENT.md`](DEPLOIEMENT.md).
 
 ### Entretien du dépôt
 
@@ -562,6 +562,7 @@ mbolo-miniapp/
 │   ├── antiscam.js   Filtre des demandes d'argent et partages de contact
 │   ├── jauge.js      Jauge de confiance : la liste des critères, et rien qu'elle
 │   ├── lieux.js      Le code d'un lieu : empreinte du secret serveur, jamais servie au client
+│   ├── sauvegarde.js Sauvegarde chiffrée de la base : ce qu'elle emporte, ce qu'elle laisse
 │   ├── limites.js    Limitation de débit : les règles ; les compteurs sont dans le stockage
 │   ├── store.js      Choix du stockage selon DATABASE_URL
 │   ├── store.json.js Stockage dans un fichier JSON (défaut, une seule instance)

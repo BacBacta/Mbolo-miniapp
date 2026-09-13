@@ -125,6 +125,8 @@ test('les messages que le guide dit de chercher existent dans le code', () => {
     ['Stockage : PostgreSQL', 'server/index.js'],
     ['Attention : en production sur un fichier JSON.', 'server/index.js'],
     ['ADMIN_CHAT_ID absent', 'deployer-fly.sh'],
+    ['Sauvegarde écrite', 'scripts/sauvegarde.js'],
+    ['Restauré et vérifié', 'scripts/restaurer.js'],
   ];
   for (const [phrase, fichier] of citations) {
     assert.ok(guide.includes(phrase), `le guide devrait citer « ${phrase} »`);

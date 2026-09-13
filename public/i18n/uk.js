@@ -45,7 +45,6 @@ export default {
   "Commence par une question sur son profil. Ton pseudo et ton numéro Telegram restent masqués.": "Почни з питання про її профіль. Твій нік і номер Telegram залишаються прихованими.",
   "Complété à {pct} %": "Заповнено на {pct} %",
   "Comportement déplacé": "Неприйнятна поведінка",
-  "Confiance {n} sur 3": "Довіра {n} з 3",
   "Connecté avec Telegram, sans mot de passe. Ton pseudo et ton numéro restent cachés aux autres.": "Вхід через Telegram, без пароля. Твій нік і номер залишаються прихованими від інших.",
   "Conseil : préviens une personne de confiance du lieu et de l'heure.": "Порада: повідом довірену особу про місце та час.",
   "Construire quelque chose de durable": "Побудувати щось тривале",
@@ -140,7 +139,6 @@ export default {
   "Ont aimé ton profil": "Вподобали твій профіль",
   "Ouvre {app} depuis Telegram": "Відкрий {app} у Telegram",
   "Ouvre {app} depuis Telegram.": "Відкрий {app} у Telegram.",
-  "Ouvrir la caméra": "Відкрити камеру",
   "Où": "Де",
   "Paramètres": "Налаштування",
   "Paramètres et confidentialité": "Налаштування та приватність",
@@ -405,4 +403,7 @@ export default {
   "En attente : la modération doit l'écouter avant les autres": "Очікує: модерація має послухати її раніше за інших",
   "15 secondes pour te présenter, enregistrées dans le bot": "15 секунд, щоб розповісти про себе, записуються в боті",
   "Le bot n'est pas joignable pour l'instant.": "Наразі бот недоступний.",
+  "Choisir mon selfie": "Вибрати селфі",
+  "Prends un selfie avec ce geste, puis choisis-le ici.": "Зроби селфі з цим жестом, потім вибери його тут.",
+  "Changer": "Замінити",
 };

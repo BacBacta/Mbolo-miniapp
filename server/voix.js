@@ -2,10 +2,11 @@
 //
 // **Pourquoi dans Telegram et pas dans la mini app.** `getUserMedia` est inutilisable dans les
 // mini apps sur Android : la caméra ne s'ouvre pas, et la demande de permission se répète ou
-// n'apparaît jamais. Android d'entrée de gamme est précisément notre cible. L'app délègue déjà la
-// prise du selfie au module natif (`capture="user"`) pour cette raison ; le message vocal de
-// Telegram est le même choix, poussé au bout : c'est l'enregistreur que la personne a déjà, qu'elle
-// sait utiliser, et qui marche sur tous les téléphones où l'app tourne.
+// n'apparaît jamais. Android d'entrée de gamme est précisément notre cible. Le selfie a rencontré
+// le même mur par un autre chemin — Telegram Android ignore `capture`, la galerie s'ouvre quoi
+// qu'on écrive, et l'app a cessé de promettre une caméra. Le message vocal de Telegram est ce
+// constat poussé au bout : c'est l'enregistreur que la personne a déjà, qu'elle sait utiliser, et
+// qui marche sur tous les téléphones où l'app tourne.
 //
 // Ce que ce choix évite en plus : **aucun transcodage**. Telegram livre de l'opus déjà compressé
 // (une quinzaine de kilo-octets) avec sa durée. Un fichier venu d'un enregistreur Android

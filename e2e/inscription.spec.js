@@ -69,7 +69,7 @@ test('le selfie se relit avant d\'être envoyé, et rien ne part tant qu\'on n\'
 
   await page.locator('input[type=file][name=selfie]').setInputFiles(sonSelfie);
   await expect(page.getByRole('img', { name: /Aperçu du selfie/ })).toBeVisible();
-  await expect(page.locator('main')).toContainText(/Reprendre/);
+  await expect(page.locator('main')).toContainText(/Changer/);
   await page.waitForTimeout(500);
   assertRien(envois);
 
@@ -103,4 +103,79 @@ test("la jauge de confiance s'explique à l'inscription, et n'annonce que des cr
   await onglet(page, /Profil/).click();
   await expect(page.locator('main')).toContainText(/Confiance 1 sur 2/);
   await expect(page.locator('main')).not.toContainText(/sur 3/);
+});
+
+// La langue vivait au fond de l'onglet Profil, donc derrière l'inscription et la vérification.
+// Quelqu'un dont le Telegram est dans une langue qu'on ne connaît pas voyait du français et
+// n'avait aucun moyen d'en changer — il devait comprendre la page pour trouver le réglage qui la
+// lui aurait rendue lisible. Elle se choisit maintenant depuis l'accueil, avant tout engagement.
+test("la langue se choisit dès l'accueil, avant de créer quoi que ce soit", async ({ page }) => {
+  await ouvrir(page, nouvelIdentifiant());
+  await expect(titre(page)).toHaveText(/Des rencontres vérifiées/);
+
+  // Le sélecteur est sur le premier écran, et annonce la langue en cours.
+  const chip = page.locator('.langue-chip');
+  await expect(chip).toBeVisible();
+  await expect(chip).toContainText('Français');
+
+  await chip.click();
+  await expect(titre(page)).toHaveText(/Langue|Language/);
+  await page.locator('main button', { hasText: 'English' }).click();
+
+  // On revient à l'accueil — pas dans l'onglet Profil, qui n'existe pas encore — et il est traduit.
+  await expect(titre(page)).toHaveText(/Verified people, face to face/);
+  await expect(page.locator('.langue-chip')).toContainText('English');
+
+  // Et le choix tient pendant l'inscription : c'est tout l'intérêt de le proposer si tôt.
+  await actionPrincipale(page).click();
+  await expect(titre(page)).not.toHaveText(/Fais-toi connaître/);
+});
+
+// Le selfie n'ouvre pas la caméra, et l'app ne le promet plus.
+//
+// `capture="user"` est une indication, et Telegram Android ne la lit pas : sa WebView construit le
+// sélecteur avec `fileChooserParams.createIntent()` sans jamais appeler `isCaptureEnabled()`. La
+// galerie s'ouvrait donc quel que soit le balisage — sur notre cible, un bouton « ouvrir la
+// caméra » était une promesse qu'aucun code de notre côté ne pouvait tenir.
+//
+// Ce test fige les deux moitiés du renoncement : plus d'attribut (on ne garde pas un mécanisme
+// qui ne marche pas là où ça compte), et une consigne qui dit ce qui va vraiment se passer.
+test("le selfie ne promet pas la caméra : c'est la galerie qui s'ouvre", async ({ page }) => {
+  await ouvrir(page, nouvelIdentifiant());
+  await creerProfil(page, { prenom: 'Ada' });
+  await passerLaJauge(page);
+
+  const selfie = page.locator('input[type=file][name=selfie]');
+  await expect(selfie).toHaveAttribute('accept', 'image/*');
+  const force = await selfie.evaluate((el) => el.hasAttribute('capture'));
+  expect(force, "`capture` ne tient pas sa promesse dans Telegram : on ne le remet pas").toBe(false);
+
+  // Et la consigne dit quoi faire, dans l'ordre où ça se fait.
+  const carte = page.locator('.gesture-card');
+  await expect(carte).toContainText(/puis choisis-le ici/i);
+  await expect(carte).not.toContainText(/caméra/i);
+});
+
+// Les photos du profil se choisissent dans la galerie : on pose ce qu'on a déjà. `capture` ne
+// changerait rien dans Telegram — il y est ignoré — mais forcerait la caméra ailleurs (iPhone,
+// navigateur), et empêcherait donc d'y mettre une photo prise l'an dernier.
+test('les photos du profil ne demandent pas la caméra', async ({ page }) => {
+  await ouvrir(page, nouvelIdentifiant());
+  await actionPrincipale(page).click();
+  await expect(titre(page)).toHaveText(/Fais-toi connaître/);
+  await page.locator('input[name=name]').fill('Ada');
+  await page.locator('input[name=age]').fill('24');
+  await page.locator('main button', { hasText: /Femme/ }).first().click();
+  await actionPrincipale(page).click();
+  await expect(titre(page)).toHaveText(/Ce que tu cherches/);
+  await page.locator('main button', { hasText: /Amitié/ }).first().click();
+  await page.locator('input[name=city]').fill('Yaoundé');
+  await actionPrincipale(page).click();
+  await expect(titre(page)).toHaveText(/Ta touche personnelle/);
+
+  const photos = page.locator('input[type=file][name^=photo-]');
+  await expect(photos).toHaveCount(3);
+  for (let i = 0; i < 3; i += 1) {
+    await expect(photos.nth(i)).not.toHaveAttribute('capture', /.*/);
+  }
 });
