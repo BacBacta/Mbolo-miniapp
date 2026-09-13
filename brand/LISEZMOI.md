@@ -1,53 +1,59 @@
 # Identité visuelle
 
 Tout ce dossier est **fabriqué**, jamais dessiné à la main. `brand/generer.js` produit les SVG et
-les PNG à partir de trois choses : les couleurs de `public/styles.css`, les lettres figées dans
-`brand/traces.js`, et le Chromium de Playwright déjà installé pour les tests de bout en bout.
+les PNG à partir de trois choses : les couleurs et les proportions de `public/styles.css`, les
+lettres figées dans `brand/traces.js`, et le Chromium de Playwright déjà installé pour les tests de
+bout en bout.
 
 ```powershell
 npm run logo
 ```
 
 Un test (`test/marque.test.js`) vérifie que les couleurs du logo sont toujours celles de la feuille
-de style, et que les SVG du dépôt sont bien ceux que le générateur produit aujourd'hui. Si tu
-modifies `generer.js` sans relancer `npm run logo`, `npm test` te le dit.
+de style, que les lettres sont des tracés et non du texte, et que les SVG du dépôt sont bien ceux
+que le générateur produit aujourd'hui. Si tu modifies `generer.js` sans relancer `npm run logo`,
+`npm test` te le dit.
 
 ## L'idée
 
-Dans l'app, l'aura — le dégradé rose, ambre, violet — n'a le droit d'apparaître qu'à trois
-endroits : le match, l'anneau autour d'un avatar vérifié, et le stamp du « J'aime ». Le logo est
-donc l'anneau du profil vérifié, appliqué à la marque elle-même.
+Le logo est **l'avatar vérifié de l'app elle-même**, à ses proportions exactes.
 
-L'initiale est un **O**, c'est-à-dire déjà un anneau. Deux constructions en sortent, et les deux
-sont produites :
+Dans l'app, un avatar est un carré arrondi au rayon de 30 %, sur le dégradé violet-encre des photos,
+avec l'initiale en os quand il n'y a pas de photo. Une personne vérifiée y gagne une bordure fine
+d'aura, le dégradé rose, ambre, violet. C'est tout ce que le logo est : ce carré, cette bordure,
+cette initiale. Il n'invente rien que l'app ne montre déjà.
 
-| Dossier | Construction | Quand |
+L'aura n'est jamais posée pleine : nette sur la bordure seulement, et sinon floutée derrière
+l'avatar, comme au match. Ni grain, ni lueur, ni lettre colorée.
+
+## Les quatre usages
+
+Une seule construction, et ce qui change est l'anneau, avec le sens que l'app lui donne déjà.
+
+| Fichier | Anneau | Destination |
 |---|---|---|
-| `lettre/` | La lettre **est** l'anneau, peinte de l'aura. Rien d'autre. | **Par défaut.** Un seul objet, et le O de Fraunces garde ses pleins et ses déliés, donc il se lit comme une lettre, pas comme un cercle |
-| `anneau/` | La lettre est posée au centre d'un anneau séparé | Gardée pour comparaison. Avec un O, l'anneau et la lettre font deux cercles concentriques : la forme se répète au lieu de se renforcer |
+| `avatar-app-512.png` | Aura, la bordure d'une personne vérifiée, avec l'aura floutée derrière comme au match | Photo de profil du bot. Dans @BotFather : `/setuserpic`. Sert aussi d'icône de la mini app |
+| `avatar-moderation-512.png` | Doré, séparé par un liseré : dans l'app c'est l'anneau de « ce qu'on t'accorde », et la modération accorde la vérification | Photo du groupe privé de modération, celui de `ADMIN_CHAT_ID` |
+| `avatar-communaute-512.png` | Os, séparé par un liseré : dans l'app c'est l'anneau des nouveaux matchs | Photo du groupe ouvert aux membres de la bêta |
+| `avatar-annonces-512.png` | Aura, sur le thème clair | Photo du canal d'annonces public |
 
-## Où va chaque fichier
+Et autour :
 
-Les PNG de `png/lettre/` sont prêts à envoyer. Les SVG de `svg/lettre/` sont la source : ils se
-redimensionnent sans perte, pour une impression ou une affiche.
-
-| Fichier | Destination |
+| Fichier | Usage |
 |---|---|
-| `avatar-app-512.png` | Photo de profil du bot. Dans @BotFather : `/setuserpic`. Sert aussi d'icône de la mini app |
-| `avatar-moderation-512.png` | Photo du groupe privé de modération, celui de `ADMIN_CHAT_ID`. L'ambre est la couleur de la confiance dans l'app |
-| `avatar-communaute-512.png` | Photo du groupe ouvert aux membres de la bêta. Le rose est la couleur du « J'aime » |
-| `avatar-annonces-512.png` | Photo du canal d'annonces public. La version claire, os et encre |
 | `presentation-640x360.png` | Image de présentation demandée par @BotFather pour la mini app |
-| `logo-horizontal-sombre.png` | Verrouillage horizontal sur fond sombre, fond transparent |
-| `logo-horizontal-clair.png` | Le même sur fond clair |
-| `../logotype-os.png` | Le nom seul, sans la marque |
+| `logo-horizontal-sombre.png`, `logo-horizontal-clair.png` | Verrouillage horizontal, fond transparent ; `-sur-encre` et `-sur-os` sont les mêmes avec leur fond |
+| `marque-*-512.png` | L'avatar seul, fond transparent, pour le poser sur autre chose |
+| `logotype-os.png` | Le nom seul |
+| `svg/monogramme-*.svg` | Le logo en une couleur : tampon, filigrane, gravure |
+| `svg/favicon.svg` | Pour un onglet de navigateur |
+
+Les SVG de `svg/` sont la source : ils se redimensionnent sans perte, pour une impression ou une
+affiche. Les PNG en 1024 et l'affiche en 1280 ne sont pas versionnés, `npm run logo` les refait.
 
 Pour poser une photo de groupe dans Telegram : ouvrir le groupe, toucher son nom, **Modifier**,
 puis l'icône d'appareil photo. Telegram découpe lui-même un cercle dans le carré, et tout le dessin
 tient dans le cercle inscrit, donc rien n'est coupé.
-
-Les PNG en 1024 ne sont pas versionnés : ils pèsent près d'un mégaoctet chacun à cause du grain, et
-`npm run logo` les refait en quelques secondes quand une impression en a besoin.
 
 ## Changer le nom
 
@@ -55,7 +61,7 @@ Le nom vit dans une seule constante, `MARQUE` en haut de `generer.js`. En change
 gestes :
 
 1. régénérer `brand/traces.js` avec la nouvelle initiale et le nouveau mot, en suivant l'en-tête de
-   ce fichier — il faut les deux polices et `opentype.js` ;
+   ce fichier — il faut les polices et `opentype.js` ;
 2. mettre `MARQUE.nom`, `MARQUE.mot` et `MARQUE.lettre` à jour, puis `npm run logo`.
 
 Le nom de l'app côté serveur ne vit pas ici : c'est la variable d'environnement `APP_NAME`.
@@ -63,10 +69,11 @@ Le nom de l'app côté serveur ne vit pas ici : c'est la variable d'environnemen
 ## Les polices
 
 Aucune police n'est embarquée ni requise. Les lettres du logo sont des **tracés**, extraits une
-fois et figés dans `brand/traces.js`, ce qu'un test vérifie. Les deux familles sont sous licence
-SIL Open Font License 1.1, qui autorise cet usage :
+fois et figés dans `brand/traces.js`, ce qu'un test vérifie. Le logotype est en Fraunces 500, la
+graisse que l'app charge pour son identité ; le monogramme en 600, qui tient mieux en petit. Les
+deux familles sont sous licence SIL Open Font License 1.1, qui autorise cet usage :
 
-- **Fraunces** (144pt, Soft, SemiBold), undercase type — le monogramme et le logotype ;
+- **Fraunces** (144pt, Soft), undercase type — le monogramme et le logotype ;
 - **Manrope** (Medium, SemiBold), Mikhail Sharanda — la signature et l'étiquette de la bêta.
 
 ## Ce qui reste à faire hors du code

@@ -2,51 +2,69 @@
 //
 //   node brand/generer.js          (ou npm run logo)
 //
-// Tout part d'ici, rien n'est dessiné à la main : les couleurs sont celles de public/styles.css,
-// les lettres viennent de brand/traces.js (Fraunces et Manrope figées en tracés), et les PNG sont
-// rendus par le Chromium de Playwright, déjà présent pour les tests de bout en bout. Changer une
-// couleur, une taille ou le nom de la marque, c'est changer une constante ici et relancer.
+// Tout part d'ici, rien n'est dessiné à la main : les couleurs et les proportions sont celles de
+// public/styles.css, les lettres viennent de brand/traces.js (Fraunces et Manrope figées en
+// tracés), et les PNG sont rendus par le Chromium de Playwright, déjà présent pour les tests de
+// bout en bout. Changer une couleur, une taille ou le nom, c'est changer une constante et relancer.
 //
-// Le concept : le logo est l'anneau « vérifié » de l'app elle-même. Dans l'interface, l'aura
-// (rose, ambre, violet) n'a le droit d'apparaître qu'au match, sur l'anneau d'un avatar vérifié
-// et sur le stamp du like. L'avatar du bot est donc un avatar vérifié.
-//
-// Deux constructions sont produites, parce que l'initiale d'Odo est un O, c'est-à-dire un anneau :
-//   « anneau »  la lettre est posée au centre d'un anneau, comme un avatar vérifié dans l'app ;
-//   « lettre »  la lettre EST l'anneau, peinte de l'aura, et il n'y a rien d'autre.
-// La seconde est la plus tenue : un seul objet au lieu de deux, et le O de Fraunces garde ses
-// pleins et ses déliés, donc il se lit comme une lettre et non comme un cercle.
+// Le concept : le logo est l'avatar vérifié de l'app elle-même, à ses proportions exactes.
+// Dans l'app, un avatar est un carré arrondi (rayon 30 %) sur le dégradé violet-encre des photos,
+// avec l'initiale en os quand il n'y a pas de photo ; une personne vérifiée y gagne une bordure
+// fine d'aura. C'est tout ce que le logo est : ce carré, cette bordure, cette initiale. Les
+// groupes reprennent les deux autres anneaux que l'app connaît, séparés de l'avatar par un liseré
+// de fond : l'anneau doré (« ce qu'on t'accorde », et la modération accorde la vérification) et
+// l'anneau os (« nouveau », et la communauté est ce qui vient d'arriver). L'aura n'est jamais posée
+// pleine : nette sur la bordure seulement, et sinon floutée derrière l'avatar, comme au match.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TRACES, CAP_HEIGHT_FRAUNCES } from './traces.js';
 
 // ------------------------------------------------------------------ La marque
-// Le nom vit ici et nulle part ailleurs dans ce fichier. En changer, c'est changer ces trois
-// lignes puis relancer l'extraction des tracés (voir l'en-tête de brand/traces.js).
+// Le nom vit ici et nulle part ailleurs dans ce fichier. En changer, c'est changer ces lignes puis
+// relancer l'extraction des tracés (voir l'en-tête de brand/traces.js).
 export const MARQUE = {
   nom: 'Odo',
-  mot: 'Odo',        // clé dans TRACES, pour le logotype
-  lettre: 'O',       // clé dans TRACES, pour le monogramme
+  mot: 'Odo',        // clé dans TRACES : le logotype, en Fraunces 500, la graisse que l'app charge
+  lettre: 'O',       // clé dans TRACES : le monogramme, en Fraunces 600, qui tient mieux en petit
 };
 
 // ------------------------------------------------------------------ Palette (= styles.css)
 export const COULEURS = {
-  encre: '#0b0b14',      // --ink, --bg2 en sombre
-  encre1: '#14141f',     // --bg en sombre
-  encre2: '#1d1d2b',     // --bg3 en sombre
-  os: '#f7f5fb',         // --on-photo, --button-text en clair
+  encre: '#0b0b14',      // --ink : le fond du match, et --bg2 en sombre
+  os: '#f7f5fb',         // --on-photo : le texte posé sur une photo, dans les deux thèmes
   osPage: '#f4f2f7',     // --bg2 en clair
   texteClair: '#151420', // --text en clair
+  boutonSombre: '#ece9f7', // --button en sombre : le seul objet clair de l'écran
   like: '#ff3d81',       // --like
   orSombre: '#f2c66b',   // --gold en sombre
   orClair: '#d9a63d',    // --gold en clair
+  photoA: '#5a4a8a',     // --photo-a en sombre
+  photoC: '#0e0c1e',     // --photo-c en sombre
+  photoAClair: '#7c6bb3', // --photo-a en clair
+  photoCClair: '#1c1838', // --photo-c en clair
   violet: '#7a5cff',     // quatrième arrêt de l'aura
   ambre: '#ff8a3d',      // deuxième arrêt de l'aura
   jaune: '#ffd34d',      // troisième arrêt de l'aura
 };
 // conic-gradient(from 210deg at 50% 50%, #ff3d81, #ff8a3d, #ffd34d, #7a5cff, #ff3d81)
 export const AURA = { depart: 210, arrets: [COULEURS.like, COULEURS.ambre, COULEURS.jaune, COULEURS.violet, COULEURS.like] };
+
+// ------------------------------------------------------------------ Proportions (= styles.css)
+// .avatar : border-radius 14 px sur 46 px, 32 px sur 104 px, soit 30 % du côté.
+// .avatar.verified : bordure de 3 px, soit 3 à 6 % du côté selon la taille.
+// .new-item et .like-item : anneau posé en ombre, un liseré de fond puis la couleur.
+// .avatar.xl : initiale à 40 px sur 104 px, soit une hauteur de capitale d'environ 27 % du côté.
+export const AVATAR = {
+  canevas: 1024,   // le carré que Telegram découpe en cercle
+  cote: 600,       // le côté du carré arrondi
+  rayon: 0.30,     // fraction du côté
+  bordure: 22,     // la bordure d'aura d'une personne vérifiée
+  lisere: 18,      // le liseré de fond entre l'avatar et un anneau
+  anneau: 22,      // l'anneau doré ou os
+  lettre: 0.34,    // hauteur de l'initiale, en fraction du côté : un peu plus que dans l'app (27 %),
+                   // pour rester lisible à 40 px dans une liste de discussions
+};
 
 // ------------------------------------------------------------------ Outils
 function hexVersRgb(hex) {
@@ -73,22 +91,8 @@ function point(cx, cy, r, deg) {
 const n2 = (v) => (Math.round(v * 100) / 100).toString();
 const svgOuvre = (l, h) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${l} ${h}" width="${l}" height="${h}">`;
 
-// Anneau conique : SVG n'a pas de dégradé conique, on pose N arcs de couleur interpolée.
-// Chaque arc dépasse un peu sur le suivant pour qu'aucune couture ne se voie.
-export function anneauAura(cx, cy, r, epaisseur, segments = 180) {
-  const pas = 360 / segments;
-  const arcs = [];
-  for (let i = 0; i < segments; i++) {
-    const a0 = AURA.depart + i * pas;
-    const a1 = a0 + pas + 0.7;
-    const [x0, y0] = point(cx, cy, r, a0);
-    const [x1, y1] = point(cx, cy, r, a1);
-    arcs.push(`<path d="M${n2(x0)} ${n2(y0)}A${r} ${r} 0 0 1 ${n2(x1)} ${n2(y1)}" stroke="${couleurAura(i / segments)}"/>`);
-  }
-  return `<g fill="none" stroke-width="${epaisseur}" stroke-linecap="butt">${arcs.join('')}</g>`;
-}
-// Le même conique, mais plein : des parts de tarte depuis le centre. Sert à peindre l'intérieur
-// d'une lettre, puisqu'un dégradé conique ne se pose pas en `fill`.
+// Le conique de l'aura, plein : SVG n'a pas de dégradé conique, on pose des parts de tarte de
+// couleur interpolée, et la forme qui doit en être peinte sert de fenêtre.
 function disqueAura(cx, cy, r, segments = 180) {
   const pas = 360 / segments;
   const parts = [];
@@ -101,9 +105,15 @@ function disqueAura(cx, cy, r, segments = 180) {
   }
   return parts.join('');
 }
-function anneauSimple(cx, cy, r, epaisseur, trait) {
-  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${trait}" stroke-width="${epaisseur}"/>`;
+// linear-gradient(150deg, a, c) : en CSS, 150° pointe vers le bas, un peu à droite.
+function degradePhoto(id, a, c) {
+  const rad = (150 * Math.PI) / 180;
+  const dx = Math.sin(rad) / 2;
+  const dy = -Math.cos(rad) / 2;
+  return `<linearGradient id="${id}" x1="${n2(0.5 - dx)}" y1="${n2(0.5 - dy)}" x2="${n2(0.5 + dx)}" y2="${n2(0.5 + dy)}"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${c}"/></linearGradient>`;
 }
+const arrondi = (x, y, cote, rayon, extra = '') =>
+  `<rect x="${n2(x)}" y="${n2(y)}" width="${n2(cote)}" height="${n2(cote)}" rx="${n2(rayon)}"${extra}/>`;
 
 // Un texte tracé : taille = hauteur d'un em en pixels, ancré à gauche, centré, ou à droite.
 function texte(cle, { taille, x, y, ancre = 'gauche', fill, opacity }) {
@@ -114,185 +124,134 @@ function texte(cle, { taille, x, y, ancre = 'gauche', fill, opacity }) {
   const op = opacity == null ? '' : ` opacity="${opacity}"`;
   return `<path transform="translate(${n2(dx)} ${n2(y)}) scale(${n2(s)})" fill="${fill}"${op} d="${t.d}"/>`;
 }
-// La transformation qui pose une lettre centrée sur (cx, cy), à une hauteur d'œil donnée.
-// La boîte réelle du glyphe sert de référence, pas la hauteur de capitale : un O déborde
-// volontairement au-dessus et au-dessous de la ligne des capitales, et ce débord doit être gardé,
-// sinon la lettre paraît plus petite que les autres.
-function poserLettre(cle, cx, cy, hauteur) {
+// L'initiale, centrée sur (cx, cy) par sa boîte réelle : un O déborde de la ligne des capitales,
+// et ce débord doit être gardé, sinon la lettre paraît plus petite qu'elle n'est. Elle est
+// remontée d'un rien (2 % de sa hauteur) : centrée au millimètre, elle paraît tomber.
+function initiale(cx, cy, hauteur, fill, cle = MARQUE.lettre) {
   const t = TRACES[cle];
   const s = hauteur / (t.y2 - t.y1);
   const l = (t.x2 - t.x1) * s;
   const dx = cx - l / 2 - t.x1 * s;
-  const dy = cy + hauteur / 2 - t.y2 * s;
-  return { transform: `translate(${n2(dx)} ${n2(dy)}) scale(${n2(s)})`, d: t.d, largeur: l };
+  const dy = cy + hauteur / 2 - t.y2 * s - hauteur * 0.02;
+  return `<path transform="translate(${n2(dx)} ${n2(dy)}) scale(${n2(s)})" fill="${fill}" d="${t.d}"/>`;
 }
-// Le monogramme plein, d'une seule couleur.
-function monogramme(cx, cy, hauteur, fill, cle = MARQUE.lettre) {
-  const p = poserLettre(cle, cx, cy, hauteur);
-  return `<path transform="${p.transform}" fill="${fill}" d="${p.d}"/>`;
+function ombre(id) {
+  // .pair .avatar : 0 20px 50px -20px rgb(0 0 0 / .8), soit une ombre portée basse et douce
+  return `<filter id="${id}" x="-30%" y="-30%" width="160%" height="170%" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="22" stdDeviation="22" flood-color="#000" flood-opacity="0.45"/></filter>`;
 }
-// Le monogramme peint de l'aura : la lettre sert de fenêtre, le conique est posé dedans.
-function monogrammeAura(cx, cy, hauteur, idClip, cle = MARQUE.lettre) {
-  const p = poserLettre(cle, cx, cy, hauteur);
-  return {
-    defs: `<clipPath id="${idClip}"><path transform="${p.transform}" d="${p.d}"/></clipPath>`,
-    peinture: `<g clip-path="url(#${idClip})">${disqueAura(cx, cy, hauteur * 0.8)}</g>`,
-  };
-}
-// Le monogramme peint d'un dégradé droit, pour les déclinaisons or et rose.
-function monogrammeDegrade(cx, cy, hauteur, idGrad, de, a, cle = MARQUE.lettre) {
-  const p = poserLettre(cle, cx, cy, hauteur);
-  return {
-    defs: `<linearGradient id="${idGrad}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${de}"/><stop offset="1" stop-color="${a}"/></linearGradient>`,
-    peinture: `<path transform="${p.transform}" fill="url(#${idGrad})" d="${p.d}"/>`,
-  };
-}
-
-// Le grain : une texture très légère, qui rend le disque moins « écran » et plus « matière ».
-function grain(id, force = 0.035) {
-  return `<filter id="${id}" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
-    <feTurbulence type="fractalNoise" baseFrequency="0.62" numOctaves="2" stitchTiles="stitch" result="bruit"/>
-    <feColorMatrix in="bruit" type="saturate" values="0"/>
-    <feComponentTransfer><feFuncA type="linear" slope="${force}"/></feComponentTransfer>
-  </filter>`;
-}
-function halo(id, flou) {
-  return `<filter id="${id}" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
-    <feGaussianBlur stdDeviation="${flou}"/>
-  </filter>`;
-}
-// L'aura qui respire : des nappes radiales très douces, rose en haut à gauche, violet en bas à
-// droite, comme sur l'écran de match où l'aura respire derrière la paire.
-function respiration(largeur, hauteur, force, id = 'r') {
-  const r = Math.max(largeur, hauteur) * 0.62;
-  return `<defs>
-    <radialGradient id="${id}a" gradientUnits="userSpaceOnUse" cx="${n2(largeur * 0.24)}" cy="${n2(hauteur * 0.2)}" r="${n2(r)}">
-      <stop offset="0" stop-color="${COULEURS.like}" stop-opacity="${force}"/><stop offset="1" stop-color="${COULEURS.like}" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="${id}b" gradientUnits="userSpaceOnUse" cx="${n2(largeur * 0.8)}" cy="${n2(hauteur * 0.86)}" r="${n2(r)}">
-      <stop offset="0" stop-color="${COULEURS.violet}" stop-opacity="${force * 1.15}"/><stop offset="1" stop-color="${COULEURS.violet}" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="${id}c" gradientUnits="userSpaceOnUse" cx="${n2(largeur * 0.78)}" cy="${n2(hauteur * 0.12)}" r="${n2(r * 0.6)}">
-      <stop offset="0" stop-color="${COULEURS.ambre}" stop-opacity="${force * 0.5}"/><stop offset="1" stop-color="${COULEURS.ambre}" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-  <rect width="${largeur}" height="${hauteur}" fill="url(#${id}a)"/>
-  <rect width="${largeur}" height="${hauteur}" fill="url(#${id}b)"/>
-  <rect width="${largeur}" height="${hauteur}" fill="url(#${id}c)"/>`;
+function flou(id, rayon) {
+  return `<filter id="${id}" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="${rayon}"/></filter>`;
 }
 
 // ------------------------------------------------------------------ Les quatre usages
-// Une seule construction, ce qui change est la teinte, le fond et la couleur de la lettre.
 export const VARIANTES = {
   app: {
     titre: 'Bot et mini app',
-    fond: COULEURS.encre, respiration: 0.26, teinte: 'aura', lettre: COULEURS.os,
-    usage: 'Photo de profil du bot (BotFather, /setuserpic) et icône de la mini app.',
+    scheme: 'sombre', anneau: 'aura', halo: 0.4,
+    usage: 'Photo de profil du bot (BotFather, /setuserpic) et icône de la mini app. L’avatar vérifié, avec l’aura floutée derrière comme au match.',
   },
   moderation: {
     titre: 'Groupe de modération',
-    fond: COULEURS.encre, respiration: 0, ambre: 0.16, teinte: 'or', lettre: COULEURS.orSombre,
-    usage: 'Photo du groupe privé de modération (ADMIN_CHAT_ID). L’ambre est la couleur de la confiance dans l’app.',
+    scheme: 'sombre', anneau: 'or', halo: 0,
+    usage: 'Photo du groupe privé de modération (ADMIN_CHAT_ID). L’anneau doré est celui de « ce qu’on t’accorde », et la modération accorde la vérification.',
   },
   communaute: {
     titre: 'Groupe de la communauté',
-    fond: COULEURS.encre, respiration: 0.22, teinte: 'rose', lettre: COULEURS.os,
-    usage: 'Photo du groupe ouvert aux membres de la bêta. Le rose est la couleur du « J’aime ».',
+    scheme: 'sombre', anneau: 'os', halo: 0.3,
+    usage: 'Photo du groupe ouvert aux membres de la bêta. L’anneau os est celui des nouveaux matchs : ce qui vient d’arriver.',
   },
   annonces: {
     titre: 'Canal d’annonces',
-    fond: COULEURS.os, respiration: 0.14, teinte: 'aura', lettre: COULEURS.texteClair,
-    usage: 'Photo du canal public. La version claire : os et encre, comme le thème clair de l’app.',
+    scheme: 'clair', anneau: 'aura', halo: 0.3,
+    usage: 'Photo du canal public. Le thème clair : le même avatar vérifié, posé sur l’os.',
   },
 };
 
-// La pastille : 1024 × 1024. Le fond remplit tout le carré, parce que Telegram y découpe
-// lui-même un cercle. Tout le dessin tient dans le cercle inscrit, donc rien n'est coupé.
-export const PASTILLE = {
-  taille: 1024,
-  rayonAnneau: 428,      // construction « anneau »
-  epaisseur: 26,
-  hauteurLettre: 376,    // la lettre au centre de l'anneau
-  hauteurLettreSeule: 812, // construction « lettre » : la lettre occupe la place de l'anneau
-};
-
-function teinteAnneau(v, cx, cy, r, ep, defs) {
-  if (v.teinte === 'aura') return anneauAura(cx, cy, r, ep);
-  if (v.teinte === 'or') {
-    defs.push(`<linearGradient id="or" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${COULEURS.orSombre}"/><stop offset="1" stop-color="${COULEURS.orClair}"/></linearGradient>`);
-    return anneauSimple(cx, cy, r, ep, 'url(#or)');
+// L'avatar seul, à poser n'importe où : le carré arrondi, sa bordure ou son anneau, l'initiale.
+// (x, y) est le coin du carré, cote son côté. Les identifiants sont préfixés pour qu'on puisse en
+// inclure plusieurs dans un même dessin.
+function avatar(v, x, y, cote, id) {
+  const r = cote * AVATAR.rayon;
+  const cx = x + cote / 2;
+  const cy = y + cote / 2;
+  const e = cote / AVATAR.cote; // échelle des épaisseurs
+  const [pa, pc] = v.scheme === 'clair' ? [COULEURS.photoAClair, COULEURS.photoCClair] : [COULEURS.photoA, COULEURS.photoC];
+  const fond = v.scheme === 'clair' ? COULEURS.osPage : COULEURS.encre;
+  const defs = [degradePhoto(`${id}p`, pa, pc), ombre(`${id}o`)];
+  let corps;
+  if (v.anneau === 'aura') {
+    // .avatar.verified : la bordure est l'aura, l'image en retrait dessine le padding-box
+    const b = AVATAR.bordure * e;
+    defs.push(`<clipPath id="${id}c">${arrondi(x, y, cote, r)}</clipPath>`);
+    corps = `<g filter="url(#${id}o)">${arrondi(x, y, cote, r, ` fill="${pc}"`)}</g>
+    <g clip-path="url(#${id}c)">${disqueAura(cx, cy, cote)}</g>
+    ${arrondi(x + b, y + b, cote - 2 * b, r - b, ` fill="url(#${id}p)"`)}`;
+  } else {
+    // .like-item / .new-item : un liseré de fond, puis l'anneau, posés en ombre autour de l'avatar
+    const l = AVATAR.lisere * e;
+    const a = AVATAR.anneau * e;
+    const couleur = v.anneau === 'or' ? (v.scheme === 'clair' ? COULEURS.orClair : COULEURS.orSombre) : (v.scheme === 'clair' ? COULEURS.texteClair : COULEURS.boutonSombre);
+    corps = `${arrondi(x - l - a, y - l - a, cote + 2 * (l + a), r + l + a, ` fill="${couleur}"`)}
+    ${arrondi(x - l, y - l, cote + 2 * l, r + l, ` fill="${fond}"`)}
+    <g filter="url(#${id}o)">${arrondi(x, y, cote, r, ` fill="url(#${id}p)"`)}</g>`;
   }
-  if (v.teinte === 'rose') {
-    defs.push(`<linearGradient id="rose" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${COULEURS.like}"/><stop offset="1" stop-color="${COULEURS.ambre}"/></linearGradient>`);
-    return anneauSimple(cx, cy, r, ep, 'url(#rose)');
-  }
-  return anneauSimple(cx, cy, r, ep, v.lettre);
-}
-function teinteLettre(v, cx, cy, h, defs) {
-  if (v.teinte === 'aura') {
-    const m = monogrammeAura(cx, cy, h, 'lettre');
-    defs.push(m.defs);
-    return m.peinture;
-  }
-  const [de, a] = v.teinte === 'or' ? [COULEURS.orSombre, COULEURS.orClair] : [COULEURS.like, COULEURS.ambre];
-  const m = monogrammeDegrade(cx, cy, h, 'teinte', de, a);
-  defs.push(m.defs);
-  return m.peinture;
+  return { defs: defs.join(''), corps: `${corps}\n    ${initiale(cx, cy, cote * AVATAR.lettre, COULEURS.os)}` };
 }
 
-// construction : « anneau » (la lettre dans l'anneau) ou « lettre » (la lettre est l'anneau).
-// carre : true remplit le carré pour un avatar Telegram ; false donne un disque détouré, dont la
-// lueur déborde un peu, ce qui est ce qui la fait exister sur un fond sombre.
-export function pastille(nom, { carre = true, taille = PASTILLE.taille, construction = 'lettre' } = {}) {
+// La pastille Telegram : 1024 × 1024, le fond remplit le carré parce que Telegram y découpe un
+// cercle ; l'avatar et son anneau tiennent dans le cercle inscrit, donc rien n'est coupé.
+export function pastille(nom, { taille = AVATAR.canevas } = {}) {
   const v = VARIANTES[nom];
-  const T = PASTILLE.taille;
+  const T = AVATAR.canevas;
   const c = T / 2;
-  const defs = [grain('grain'), halo('halo', 30)];
-  const nappe = v.respiration
-    ? respiration(T, T, v.respiration)
-    : v.ambre
-      ? `<defs><radialGradient id="ra" gradientUnits="userSpaceOnUse" cx="${T * 0.3}" cy="${T * 0.22}" r="${T * 0.7}"><stop offset="0" stop-color="${COULEURS.orSombre}" stop-opacity="${v.ambre}"/><stop offset="1" stop-color="${COULEURS.orSombre}" stop-opacity="0"/></radialGradient></defs><rect width="${T}" height="${T}" fill="url(#ra)"/>`
-      : '';
-  const marque =
-    construction === 'lettre'
-      ? teinteLettre(v, c, c, PASTILLE.hauteurLettreSeule, defs)
-      : `${teinteAnneau(v, c, c, PASTILLE.rayonAnneau, PASTILLE.epaisseur, defs)}${monogramme(c, c, PASTILLE.hauteurLettre, v.lettre)}`;
-  const aLueur =
-    construction === 'lettre'
-      ? teinteLettre(v, c, c, PASTILLE.hauteurLettreSeule, [])
-      : teinteAnneau(v, c, c, PASTILLE.rayonAnneau, PASTILLE.epaisseur, []);
-  const clip = carre ? '' : ` clip-path="url(#rond)"`;
-  const lueur = v.fond === COULEURS.os ? 0.3 : 0.5;
+  const fond = v.scheme === 'clair' ? COULEURS.osPage : COULEURS.encre;
+  const a = avatar(v, c - AVATAR.cote / 2, c - AVATAR.cote / 2, AVATAR.cote, 'a');
+  // .match-hero .aura : l'aura floutée derrière l'avatar, voilée et lente
+  const halo = v.halo
+    ? `<g filter="url(#h)" opacity="${v.halo}"><clipPath id="hc"><circle cx="${c}" cy="${c}" r="${T * 0.36}"/></clipPath><g clip-path="url(#hc)">${disqueAura(c, c, T * 0.36, 90)}</g></g>`
+    : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${T} ${T}" width="${taille}" height="${taille}">
   <title>${MARQUE.nom} — ${v.titre}</title>
-  <defs>${defs.join('')}<clipPath id="rond"><circle cx="${c}" cy="${c}" r="${c}"/></clipPath></defs>
-  <g${clip}>
-    <rect width="${T}" height="${T}" fill="${v.fond}"/>
-    ${nappe}
-  </g>
-  <g filter="url(#halo)" opacity="${lueur}">${aLueur}</g>
-  ${marque}
-  <rect width="${T}" height="${T}" filter="url(#grain)"${clip}/>
+  <defs>${a.defs}${flou('h', 90)}</defs>
+  <rect width="${T}" height="${T}" fill="${fond}"/>
+  ${halo}
+  ${a.corps}
 </svg>
 `;
 }
 
-// Le monogramme seul, en une couleur : tampon, filigrane, impression en une couleur.
-export function marqueMono(couleur = 'currentColor', construction = 'lettre') {
-  const T = 1024;
-  const c = T / 2;
-  const corps =
-    construction === 'lettre'
-      ? monogramme(c, c, PASTILLE.hauteurLettreSeule, couleur)
-      : `${anneauSimple(c, c, PASTILLE.rayonAnneau, PASTILLE.epaisseur, couleur)}${monogramme(c, c, PASTILLE.hauteurLettre, couleur)}`;
+// La marque seule : l'avatar sans fond, pour un verrouillage, une affiche, une impression.
+export function marque(nom = 'app', { taille = 512 } = {}) {
+  const v = VARIANTES[nom];
+  const T = 512;
+  const marge = v.anneau === 'aura' ? 40 : 40 + AVATAR.lisere + AVATAR.anneau;
+  const a = avatar(v, marge, marge, T - 2 * marge, 'm');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${T} ${T}" width="${taille}" height="${taille}">
+  <title>${MARQUE.nom}</title>
+  <defs>${a.defs}</defs>
+  ${a.corps}
+</svg>
+`;
+}
+
+// Le monogramme en une couleur : tampon, filigrane, gravure. Le carré arrondi en réserve, l'initiale
+// en plein, ou l'inverse selon la surface.
+export function marqueMono(couleur = 'currentColor') {
+  const T = 512;
+  const cote = 432;
+  const x = (T - cote) / 2;
+  const r = cote * AVATAR.rayon;
+  const b = AVATAR.bordure * (cote / AVATAR.cote);
   return `${svgOuvre(T, T)}
   <title>${MARQUE.nom} — monogramme</title>
-  ${corps}
+  <path fill-rule="evenodd" fill="${couleur}" d="M${n2(x + r)} ${n2(x)}h${n2(cote - 2 * r)}a${n2(r)} ${n2(r)} 0 0 1 ${n2(r)} ${n2(r)}v${n2(cote - 2 * r)}a${n2(r)} ${n2(r)} 0 0 1 -${n2(r)} ${n2(r)}h-${n2(cote - 2 * r)}a${n2(r)} ${n2(r)} 0 0 1 -${n2(r)} -${n2(r)}v-${n2(cote - 2 * r)}a${n2(r)} ${n2(r)} 0 0 1 ${n2(r)} -${n2(r)}z M${n2(x + r)} ${n2(x + b)}a${n2(r - b)} ${n2(r - b)} 0 0 0 -${n2(r - b)} ${n2(r - b)}v${n2(cote - 2 * r)}a${n2(r - b)} ${n2(r - b)} 0 0 0 ${n2(r - b)} ${n2(r - b)}h${n2(cote - 2 * r)}a${n2(r - b)} ${n2(r - b)} 0 0 0 ${n2(r - b)} -${n2(r - b)}v-${n2(cote - 2 * r)}a${n2(r - b)} ${n2(r - b)} 0 0 0 -${n2(r - b)} -${n2(r - b)}z"/>
+  ${initiale(T / 2, T / 2, cote * AVATAR.lettre, couleur)}
 </svg>
 `;
 }
 
-// Le logotype : le nom en Fraunces, avec une marge égale tout autour.
+// Le logotype : le nom en Fraunces 500, la graisse de l'identité dans l'app (.boot-mark), avec
+// l'interlettrage serré de -.01em déjà appliqué dans le tracé.
 const LOGOTYPE = { hauteurCap: 280, marge: 24 };
 export function logotype(couleur) {
   const s = LOGOTYPE.hauteurCap / CAP_HEIGHT_FRAUNCES;
@@ -309,97 +268,74 @@ export function logotype(couleur) {
 `;
 }
 
-// La marque seule : la lettre peinte et sa lueur, sur fond transparent, sans disque. C'est ce
-// qui sert dans un verrouillage horizontal ou sur une affiche : le disque de la pastille y
-// dessinerait un cercle plus sombre que le fond, qu'on lit comme une salissure.
-export function marqueSeule(nom = 'app', { taille = PASTILLE.taille, id = 'm' } = {}) {
+// Le logo horizontal : l'avatar à gauche, le nom à droite, le nom aligné sur le carré. L'écart vaut
+// un tiers du côté, et la hauteur de capitale les deux tiers : c'est la proportion d'une ligne de
+// liste dans l'app, avatar puis prénom.
+export function logoHorizontal(nom, couleurTexte) {
   const v = VARIANTES[nom];
-  const T = PASTILLE.taille;
-  const c = T / 2;
-  const defs = [halo(`${id}h`, 26)];
-  const peinture = teinteLettre(v, c, c, PASTILLE.hauteurLettreSeule, defs);
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${T} ${T}" width="${taille}" height="${taille}">
-  <title>${MARQUE.nom}</title>
-  <defs>${defs.join('')}</defs>
-  <g filter="url(#${id}h)" opacity="0.45">${peinture}</g>
-  ${peinture}
-</svg>
-`;
-}
-
-// Sert à poser une pastille ou la marque seule dans un autre dessin, sans balises <svg> ni titre.
-function inclure(svgSource) {
-  return svgSource
-    .replace(/^<svg[^>]*>/, '')
-    .replace(/<\/svg>\s*$/, '')
-    .replace(/<title>.*?<\/title>/, '');
-}
-const pastilleIncluse = (nom, construction) =>
-  construction === 'lettre' ? inclure(marqueSeule(nom)) : inclure(pastille(nom, { carre: false, construction }));
-
-// Le logo horizontal : pastille à gauche, logotype à droite, alignés sur l'axe de la pastille.
-export function logoHorizontal(nom, couleurTexte, { construction = 'lettre', fond = null } = {}) {
-  const P = 320;
-  const cap = 232;
+  const cote = 240;
+  const cap = cote * 0.66;
   const s = cap / CAP_HEIGHT_FRAUNCES;
   const t = TRACES[MARQUE.mot];
   const largeurMot = (t.x2 - t.x1) * (s / 1000);
-  const marge = 64;
-  const ecart = 56;
-  const L = Math.ceil(marge + P + ecart + largeurMot + marge);
-  const H = P + marge * 2;
-  const echelle = P / PASTILLE.taille;
+  const marge = 56;
+  const ecart = cote / 3;
+  const L = Math.ceil(marge + cote + ecart + largeurMot + marge);
+  const H = cote + marge * 2;
+  const a = avatar(v, marge, marge, cote, 'l');
   return `${svgOuvre(L, H)}
   <title>${MARQUE.nom}</title>
-  ${fond ? `<rect width="${L}" height="${H}" fill="${fond}"/>` : ''}
-  <g transform="translate(${marge} ${marge}) scale(${n2(echelle)})">${pastilleIncluse(nom, construction)}</g>
-  ${texte(MARQUE.mot, { taille: s, x: marge + P + ecart, y: H / 2 + cap / 2 - cap * 0.04, fill: couleurTexte })}
+  <defs>${a.defs}</defs>
+  ${a.corps}
+  ${texte(MARQUE.mot, { taille: s, x: marge + cote + ecart, y: H / 2 + cap / 2 - cap * 0.04, fill: couleurTexte })}
 </svg>
 `;
 }
 
-// Image de présentation de la mini app (BotFather en demande une de 640 × 360).
-export function affiche(largeur, hauteur, { beta = true, construction = 'lettre' } = {}) {
+// L'image de présentation de la mini app (BotFather en demande une de 640 × 360) : le match, en
+// somme — l'encre, l'aura floutée, l'avatar vérifié et le nom.
+export function affiche(largeur, hauteur, { beta = true } = {}) {
   const u = hauteur / 360;
-  const P = 128 * u;
-  const cap = 84 * u;
+  const cote = 104 * u;
+  const cap = cote * 0.66;
   const s = cap / CAP_HEIGHT_FRAUNCES;
   const t = TRACES[MARQUE.mot];
   const largeurMot = (t.x2 - t.x1) * (s / 1000);
-  const ecart = 26 * u;
-  const bloc = P + ecart + largeurMot;
+  const ecart = cote / 3;
+  const bloc = cote + ecart + largeurMot;
   const x0 = (largeur - bloc) / 2;
-  const cy = hauteur * 0.43;
-  const echelle = P / PASTILLE.taille;
+  const cy = hauteur * 0.42;
+  const a = avatar(VARIANTES.app, x0, cy - cote / 2, cote, 'p');
+  const rh = 118 * u;
   const etiquette = beta
-    ? `<g>
-    <rect x="${n2(largeur / 2 - 62 * u)}" y="${n2(hauteur * 0.815)}" width="${n2(124 * u)}" height="${n2(24 * u)}" rx="${n2(12 * u)}" fill="none" stroke="${COULEURS.os}" stroke-opacity="0.28" stroke-width="${n2(1.2 * u)}"/>
-    ${texte('beta', { taille: 9.5 * u, x: largeur / 2, y: hauteur * 0.815 + 16.4 * u, ancre: 'centre', fill: COULEURS.os, opacity: 0.72 })}
-  </g>`
+    ? `<rect x="${n2(largeur / 2 - 62 * u)}" y="${n2(hauteur * 0.815)}" width="${n2(124 * u)}" height="${n2(24 * u)}" rx="${n2(12 * u)}" fill="none" stroke="${COULEURS.os}" stroke-opacity="0.22" stroke-width="${n2(1.2 * u)}"/>
+  ${texte('beta', { taille: 9.5 * u, x: largeur / 2, y: hauteur * 0.815 + 16.4 * u, ancre: 'centre', fill: COULEURS.os, opacity: 0.6 })}`
     : '';
   return `${svgOuvre(largeur, hauteur)}
   <title>${MARQUE.nom} — présentation</title>
-  <defs>${grain('grainA', 0.03)}</defs>
+  <defs>${a.defs}${flou('ph', 34 * u)}<clipPath id="phc"><circle cx="${n2(x0 + cote / 2)}" cy="${n2(cy)}" r="${n2(rh)}"/></clipPath></defs>
   <rect width="${largeur}" height="${hauteur}" fill="${COULEURS.encre}"/>
-  ${respiration(largeur, hauteur, 0.2, 'af')}
-  <g transform="translate(${n2(x0)} ${n2(cy - P / 2)}) scale(${n2(echelle)})">${pastilleIncluse('app', construction)}</g>
-  ${texte(MARQUE.mot, { taille: s, x: x0 + P + ecart, y: cy + cap / 2 - cap * 0.04, fill: COULEURS.os })}
-  ${texte('slogan', { taille: 17 * u, x: largeur / 2, y: hauteur * 0.74, ancre: 'centre', fill: COULEURS.os, opacity: 0.72 })}
+  <g filter="url(#ph)" opacity="0.32"><g clip-path="url(#phc)">${disqueAura(x0 + cote / 2, cy, rh, 90)}</g></g>
+  ${a.corps}
+  ${texte(MARQUE.mot, { taille: s, x: x0 + cote + ecart, y: cy + cap / 2 - cap * 0.04, fill: COULEURS.os })}
+  ${texte('slogan', { taille: 16 * u, x: largeur / 2, y: hauteur * 0.7, ancre: 'centre', fill: COULEURS.os, opacity: 0.62 })}
   ${etiquette}
-  <rect width="${largeur}" height="${hauteur}" filter="url(#grainA)"/>
 </svg>
 `;
 }
 
-// Le favicon : sans lueur ni grain, en 36 segments seulement, parce qu'il fait 16 px sur un onglet.
+// Le favicon : l'avatar vérifié en 64 px, sans ombre, en 36 segments — il fait 16 px sur un onglet.
 export function favicon() {
   const T = 64;
-  const c = 32;
-  const m = monogrammeAura(c, c, 52, 'f');
+  const cote = 60;
+  const x = 2;
+  const r = cote * AVATAR.rayon;
+  const b = 4;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${T} ${T}">
-  <defs>${m.defs}</defs>
-  <circle cx="${c}" cy="${c}" r="${c}" fill="${COULEURS.encre}"/>
-  ${m.peinture}
+  <defs>${degradePhoto('fp', COULEURS.photoA, COULEURS.photoC)}<clipPath id="fc">${arrondi(x, x, cote, r)}</clipPath></defs>
+  <g clip-path="url(#fc)">${disqueAura(T / 2, T / 2, cote, 36)}</g>
+  ${arrondi(x + b, x + b, cote - 2 * b, r - b, ' fill="url(#fp)"')}
+  ${initiale(T / 2, T / 2, cote * AVATAR.lettre, COULEURS.os)}
 </svg>
 `;
 }
@@ -407,35 +343,33 @@ export function favicon() {
 // ------------------------------------------------------------------ Ce qui est écrit sur le disque
 export function fichiersSvg() {
   const svg = {};
-  for (const construction of ['lettre', 'anneau']) {
-    for (const nom of Object.keys(VARIANTES)) {
-      svg[`svg/${construction}/avatar-${nom}.svg`] = pastille(nom, { carre: true, construction });
-      svg[`svg/${construction}/pastille-${nom}.svg`] = pastille(nom, { carre: false, construction });
-    }
-    svg[`svg/${construction}/monogramme-encre.svg`] = marqueMono(COULEURS.texteClair, construction);
-    svg[`svg/${construction}/monogramme-os.svg`] = marqueMono(COULEURS.os, construction);
-    svg[`svg/${construction}/logo-horizontal-sombre.svg`] = logoHorizontal('app', COULEURS.os, { construction });
-    svg[`svg/${construction}/logo-horizontal-clair.svg`] = logoHorizontal('annonces', COULEURS.texteClair, { construction });
-    svg[`svg/${construction}/presentation-640x360.svg`] = affiche(640, 360, { construction });
+  for (const nom of Object.keys(VARIANTES)) {
+    svg[`svg/avatar-${nom}.svg`] = pastille(nom);
+    svg[`svg/marque-${nom}.svg`] = marque(nom);
   }
+  svg['svg/monogramme-encre.svg'] = marqueMono(COULEURS.texteClair);
+  svg['svg/monogramme-os.svg'] = marqueMono(COULEURS.os);
   svg['svg/logotype-encre.svg'] = logotype(COULEURS.texteClair);
   svg['svg/logotype-os.svg'] = logotype(COULEURS.os);
+  svg['svg/logo-horizontal-sombre.svg'] = logoHorizontal('app', COULEURS.os);
+  svg['svg/logo-horizontal-clair.svg'] = logoHorizontal('annonces', COULEURS.texteClair);
+  svg['svg/presentation-640x360.svg'] = affiche(640, 360);
   svg['svg/favicon.svg'] = favicon();
   return svg;
 }
 
 export const RENDUS = [
-  ...['lettre', 'anneau'].flatMap((k) => [
-    ...Object.keys(VARIANTES).flatMap((nom) => [
-      { source: `svg/${k}/avatar-${nom}.svg`, sortie: `png/${k}/avatar-${nom}-1024.png`, largeur: 1024, hauteur: 1024 },
-      { source: `svg/${k}/avatar-${nom}.svg`, sortie: `png/${k}/avatar-${nom}-512.png`, largeur: 512, hauteur: 512 },
-    ]),
-    { source: `svg/${k}/pastille-app.svg`, sortie: `png/${k}/pastille-app-512.png`, largeur: 512, hauteur: 512, transparent: true },
-    { source: `svg/${k}/logo-horizontal-sombre.svg`, sortie: `png/${k}/logo-horizontal-sombre.png`, transparent: true },
-    { source: `svg/${k}/logo-horizontal-clair.svg`, sortie: `png/${k}/logo-horizontal-clair.png`, transparent: true },
-    { source: `svg/${k}/presentation-640x360.svg`, sortie: `png/${k}/presentation-640x360.png`, largeur: 640, hauteur: 360 },
-    { source: `svg/${k}/presentation-640x360.svg`, sortie: `png/${k}/presentation-1280x720.png`, largeur: 1280, hauteur: 720 },
+  ...Object.keys(VARIANTES).flatMap((nom) => [
+    { source: `svg/avatar-${nom}.svg`, sortie: `png/avatar-${nom}-1024.png`, largeur: 1024, hauteur: 1024 },
+    { source: `svg/avatar-${nom}.svg`, sortie: `png/avatar-${nom}-512.png`, largeur: 512, hauteur: 512 },
+    { source: `svg/marque-${nom}.svg`, sortie: `png/marque-${nom}-512.png`, largeur: 512, hauteur: 512, transparent: true },
   ]),
+  { source: 'svg/logo-horizontal-sombre.svg', sortie: 'png/logo-horizontal-sombre.png', transparent: true },
+  { source: 'svg/logo-horizontal-clair.svg', sortie: 'png/logo-horizontal-clair.png', transparent: true },
+  { source: 'svg/logo-horizontal-sombre.svg', sortie: 'png/logo-horizontal-sur-encre.png', fond: COULEURS.encre },
+  { source: 'svg/logo-horizontal-clair.svg', sortie: 'png/logo-horizontal-sur-os.png', fond: COULEURS.osPage },
+  { source: 'svg/presentation-640x360.svg', sortie: 'png/presentation-640x360.png', largeur: 640, hauteur: 360 },
+  { source: 'svg/presentation-640x360.svg', sortie: 'png/presentation-1280x720.png', largeur: 1280, hauteur: 720 },
   { source: 'svg/logotype-os.svg', sortie: 'png/logotype-os.png', transparent: true },
 ];
 

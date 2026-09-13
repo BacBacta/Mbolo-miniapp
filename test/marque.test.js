@@ -27,7 +27,12 @@ function jeton(nom, bloc = ':root {') {
 
 test('les couleurs de la marque sont celles de la feuille de style', () => {
   assert.equal(COULEURS.like, jeton('like'));
-  assert.equal(COULEURS.ink ?? COULEURS.encre, jeton('ink'));
+  assert.equal(COULEURS.encre, jeton('ink'));
+  assert.equal(COULEURS.photoA, jeton('photo-a', ':root[data-scheme="dark"] {'));
+  assert.equal(COULEURS.photoC, jeton('photo-c', ':root[data-scheme="dark"] {'));
+  assert.equal(COULEURS.photoAClair, jeton('photo-a'));
+  assert.equal(COULEURS.photoCClair, jeton('photo-c'));
+  assert.equal(COULEURS.boutonSombre, jeton('button', ':root[data-scheme="dark"] {'));
   assert.equal(COULEURS.os, jeton('on-photo'));
   assert.equal(COULEURS.texteClair, jeton('text'));
   assert.equal(COULEURS.orClair, jeton('gold'));
@@ -56,8 +61,8 @@ test('chaque usage Telegram a sa pastille, et le nom vient d’une seule constan
   const svg = fichiersSvg();
   for (const usage of ['app', 'moderation', 'communaute', 'annonces']) {
     assert.ok(VARIANTES[usage].usage, `${usage} n’explique pas à quoi il sert`);
-    assert.ok(svg[`svg/lettre/avatar-${usage}.svg`], `pastille manquante pour ${usage}`);
-    assert.match(svg[`svg/lettre/avatar-${usage}.svg`], new RegExp(`<title>${MARQUE.nom} — `));
+    assert.ok(svg[`svg/avatar-${usage}.svg`], `pastille manquante pour ${usage}`);
+    assert.match(svg[`svg/avatar-${usage}.svg`], new RegExp(`<title>${MARQUE.nom} — `));
   }
 });
 
