@@ -95,6 +95,10 @@ basculer-postgres.sh  Bascule vers PostgreSQL en deux temps : preparer, basculer
 DEPLOIEMENT.md  Guide pas à pas de mise en ligne : secrets, contrôles, PostgreSQL, pannes
 audit/
   Dossier d'audit du parcours : benchmark, mesures, constats, risques, plan
+identite/
+  Ce que BotFather affiche : photo du bot, image d'accueil, textes des cinq langues.
+  Jamais servi au navigateur. `source/` porte les pages HTML, les polices et le script
+  de rendu, pour refabriquer les images le jour où le nom ou une phrase change.
 ```
 
 ## 4. Fonctionnalités en place
