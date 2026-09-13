@@ -1,6 +1,6 @@
 # Odo : rencontres vérifiées, face à face
 
-**Odo** est court, se prononce de la même façon en français et en anglais, et se retient du premier coup. Le nom précédent, **Mbolo**, signifiait « salut, bienvenue » dans plusieurs langues d'Afrique centrale ; si Odo porte à son tour un sens, il reste à l'écrire ici — une étymologie inventée après coup ne tiendrait pas devant quelqu'un qui parle la langue.
+**Odo** (ɔdɔ) veut dire « l'amour » en twi, la langue akan du Ghana, et un proverbe adinkra en tire *Odo Nnyew Fie Kwan* : « l'amour ne perd jamais le chemin de la maison ». Le sens est relevé dans un dictionnaire akan, pas inventé après coup. Le nom est court, se prononce de la même façon en français et en anglais, et se retient du premier coup. Le nom précédent, **Mbolo**, signifiait « salut, bienvenue » dans plusieurs langues d'Afrique centrale.
 
 > Le nom se change sans toucher au code : variable `APP_NAME` dans `.env` (voir « Changer le nom de l'application »).
 
@@ -55,7 +55,7 @@ Identité « Aura » : l'app possède ses surfaces — trois niveaux d'encre à 
 
 1. Dans Telegram, ouvre **@BotFather**.
 2. Envoie `/newbot`.
-3. Donne un nom affiché (ex. `Odo Test`), puis un nom d'utilisateur finissant par `bot` (ex. `mbolo_test_bot`).
+3. Donne un nom affiché (ex. `Odo Test`), puis un nom d'utilisateur finissant par `bot` (ex. `odo_test_bot`).
 4. BotFather te donne un **jeton** du type `123456789:AAH...`. Garde-le secret : quiconque l'a contrôle ton bot.
 
 ## Étape 2 : installer le projet
@@ -95,7 +95,7 @@ Tu dois voir :
 ```
 Profils de démonstration chargés : 20
 Odo écoute sur le port 3000
-Bot @mbolo_test_bot démarré (interrogation longue)
+Bot @odo_test_bot démarré (interrogation longue)
 ```
 
 Sur ton téléphone :
@@ -246,7 +246,7 @@ Quand aucun tunnel ne passe sur ton réseau, fais tourner le serveur chez un hé
 Vérifie d'abord que ton réseau atteint le domaine visé. Une adresse inexistante doit répondre autre chose que `000` :
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://mbolo-inexistant.fly.dev/
+curl -s -o /dev/null -w "%{http_code}\n" https://odo-inexistant.fly.dev/
 ```
 
 Si tu obtiens `000`, c'est le résolveur DNS du téléphone qui bloque, et changer d'hébergeur n'y fera rien : règle le **DNS privé** d'Android sur `dns.google` (Paramètres → Connexions → Plus de paramètres de connexion).
@@ -331,9 +331,11 @@ Pour les modifier, édite les deux fichiers HTML et change la date en haut de pa
 
 Avant un lancement public, vérifie que le nom est libre : marque auprès de l'OAPI (Afrique francophone) et de l'ARIPO (Afrique anglophone), nom de domaine, identifiant Telegram et réseaux sociaux.
 
+**Pour « Odo », ce travail n'est pas fait.** Ce qui a été vérifié : `odo.com`, `odo.app`, `odo.africa` et `odo.fr` sont pris, `odo.io`, `odo.co`, `odo.love` et `odo.chat` sont libres, `@odobot` est libre sur Telegram et `@odo_bot` est pris. Ce qui reste : la recherche d'antériorité à l'OAPI, dont le siège est à Yaoundé et dont un dépôt couvre dix-sept pays, en faisant examiner la proximité avec **Odoo**, l'éditeur belge de logiciels de gestion, dont la marque est enregistrée dans la catégorie des services informatiques. Réserve le domaine et le pseudo du bot le jour du choix, pas après.
+
 ## Ajouter une langue
 
-L'app parle français et anglais. La langue affichée vient, dans cet ordre : du choix fait dans **Profil → Langue de l'app**, sinon de la langue du Telegram de la personne, sinon du français.
+L'app parle **sept langues** : français, anglais, espagnol, portugais, swahili, russe et ukrainien. Le choix se fait **dès l'accueil**, avant toute inscription, et reste disponible dans **Profil → Langue de l'app**. Sans choix, l'app suit la langue du Telegram de la personne, et à défaut le français. Chaque langue est nommée dans sa propre langue.
 
 La clé de traduction **est la phrase française**. Une phrase sans traduction s'affiche donc en français, jamais sous forme d'identifiant : une traduction incomplète reste lisible.
 
@@ -341,10 +343,33 @@ Pour ajouter une langue (exemple : le pidgin, code `pcm`) :
 
 1. Copie `public/i18n/en.js` vers `public/i18n/pcm.js` et traduis les valeurs. Ne touche pas aux clés, et garde les `{variables}` telles quelles.
 2. Ajoute la langue dans `public/i18n.js` : `pcm: 'Pidgin'` dans `LANGUES`.
-3. Ajoute `'pcm'` à la liste `LANGUES` de `server/i18n.js` et traduis-y le dictionnaire des messages du bot (une vingtaine de phrases).
-4. Lance `npm test` : un test vérifie que chaque langue déclarée a bien un dictionnaire, et qu'aucune phrase de l'interface ne manque à l'appel.
+3. Ajoute `'pcm'` à la liste `LANGUES` de `server/i18n.js` et traduis-y le dictionnaire des messages du bot (42 phrases).
+4. Lance `npm test`. Les contrôles s'appliquent à **chaque** langue déclarée, pas seulement à l'anglais : le bot et l'interface connaissent les mêmes langues, chaque dictionnaire porte exactement les clés de l'anglais — ni trou, ni clé morte —, aucune traduction ne perd une `{variable}` de la phrase française, et les phrases comptées couvrent toutes les formes de pluriel de leur langue. Un test de bout en bout vérifie enfin que la liste s'affiche et que le choix change vraiment l'interface.
+
+### Les langues qui comptent autrement
+
+Le français et l'anglais ne distinguent que un et plusieurs. Le russe et l'ukrainien en distinguent **quatre** : un profil, deux profils, cinq profils, puis vingt et un qui revient à la première forme. Deux clés françaises ne peuvent donc pas porter quatre formes russes.
+
+La traduction d'une phrase comptée est alors un **objet** plutôt qu'une chaîne, posé sous la clé du pluriel français, dont les propriétés sont les catégories d'`Intl.PluralRules` :
+
+```js
+'{n} restants': {
+  one: 'осталась {n} анкета',
+  few: 'осталось {n} анкеты',
+  many: 'осталось {n} анкет',
+  other: 'осталось {n} анкеты',
+},
+```
+
+Une chaîne toute simple reste valable, et c'est ce que fait l'anglais. Pour savoir de combien de formes une langue a besoin :
+
+```powershell
+node -e "const r=new Intl.PluralRules('ru');const f=new Set();for(let n=0;n<=120;n++)f.add(r.select(n));console.log([...f])"
+```
 
 Le dictionnaire n'est téléchargé que par les personnes qui lisent dans cette langue : ajouter une langue ne coûte rien aux autres.
+
+> **Traduire l'interface n'étend pas l'anti-arnaque.** `server/antiscam.js` ne connaît le vocabulaire de l'argent qu'en français et en anglais. Les montants, les numéros et les moyens de paiement restent attrapés dans toutes les langues, parce qu'ils n'en dépendent pas ; les tournures, non. Et la modération doit pouvoir lire un fil signalé pour le trancher. Une langue ajoutée invite des gens à écrire là où ces deux garde-fous ne suivent pas encore.
 
 Côté serveur, `notify()` prend une clé et des variables, jamais une phrase toute faite : le bot écrit à chacun dans **sa** langue, pas dans celle de la personne qui a déclenché la notification.
 

@@ -1,4 +1,4 @@
-# Mbolo — passe adverse sur les 113 constats
+# Odo — passe adverse sur les 113 constats
 
 Ce fichier ne défend rien. Il cherche à casser ce que quatre agents de diagnostic ont écrit.
 Chaque verdict repose sur la preuve rouverte à la ligne citée, ou sur une mesure refaite avec mes
@@ -158,7 +158,7 @@ ce qu'il dit.
 ### 1.5 Âge : borne haute (INSCRIPTION-13)
 
 ```
-# âge 120 : 400 {"code":"AGE_INVALID","message":"Mbolo est réservé aux 18 ans et plus."}
+# âge 120 : 400 {"code":"AGE_INVALID","message":"Odo est réservé aux 18 ans et plus."}
 ```
 
 Une personne qui saisit 120 est informée qu'elle est trop jeune. Le constat annonçait une erreur mal
@@ -186,7 +186,7 @@ MESURÉ, `<scratch>/verif/m-relation.mjs`, après que 6002 a signalé et bloqué
 # message : 403 BLOCKED | proposition de rendez-vous : 403 BLOCKED | CHECK-IN : 200 {"arrived":true,...}
 # 5 check-in successifs du même compte sur le même rendez-vous : 200, 200, 200, 200, 200
 # check-in avec le code lu dans server/config.js : 200
-# GET /venues : {"id":"palmier","name":"Le Palmier","area":"Bastos","city":"Yaoundé","perk":"-10 % avec Mbolo"}
+# GET /venues : {"id":"palmier","name":"Le Palmier","area":"Bastos","city":"Yaoundé","perk":"-10 % avec Odo"}
 # vu par 6002, qui n'est PAS arrivée : arrivals = {"6001":1789173620311} | arrivedMe = false
 # créneau piégé accepté tel quel : "APPELLE MOI 677889900 URGENT ARGENT"
 # POST /dates/:id/accept|decline|cancel|status → 404 NOT_FOUND (les quatre)
@@ -251,14 +251,14 @@ sans `defer` ni `async`, dans le `<head>`, avant le corps de la page).
 ### 1.12 Échec du premier appel (INSCRIPTION-04)
 
 ```
-# écran : "Ouvre Mbolo depuis Telegram" / "Pas de connexion. Vérifie ton réseau et réessaie." /
-#         "Cherche le bot Mbolo dans Telegram, envoie /start, puis appuie sur « Ouvrir Mbolo »."
+# écran : "Ouvre Odo depuis Telegram" / "Pas de connexion. Vérifie ton réseau et réessaie." /
+#         "Cherche le bot Odo dans Telegram, envoie /start, puis appuie sur « Ouvrir Odo »."
 # barre de boutons masquée : true | boutons : 0 | liens : 0 | éléments cliquables : 0
 ```
 
 Zéro issue, confirmé. Sur la répétition du texte, j'avais d'abord cru le constat inexact : dans le
 cas d'une coupure réseau, les trois phrases diffèrent. Mais MESURÉ, `curl /api/me` sans en-tête :
-`401 {"code":"UNAUTHORIZED","message":"Ouvre Mbolo depuis Telegram."}` — c'est le cas le plus
+`401 {"code":"UNAUTHORIZED","message":"Ouvre Odo depuis Telegram."}` — c'est le cas le plus
 fréquent en vrai (app ouverte hors de Telegram), et le message du serveur est alors **mot pour mot**
 le titre de l'écran. Le constat est exact.
 

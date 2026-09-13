@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'mbolo-duo-'));
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'odo-duo-'));
 process.env.DATA_DIR = DATA_DIR;
 process.env.BOT_TOKEN = '123456:TEST_TOKEN';
 process.env.WEBAPP_URL = 'https://exemple.test';

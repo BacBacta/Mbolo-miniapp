@@ -1,4 +1,4 @@
-# Mbolo — plan d'action
+# Odo — plan d'action
 
 Lisible en dix minutes. Si tu n'en lis qu'une partie, lis le §3 : les huit premières lignes, quatre
 jours de travail, et sept d'entre elles touchent la sécurité.
@@ -32,7 +32,7 @@ minimum acceptable (niveau 2). Détail et preuves : `audit/04-risques.md` §10.
 
 ## 2. Comment lire le tableau
 
-### 2.1 Impact (1 à 10), ancré sur Mbolo
+### 2.1 Impact (1 à 10), ancré sur Odo
 
 | note | ce que ça veut dire ici |
 |---|---|
@@ -257,7 +257,7 @@ permet de repartir. **Une condition.**
 `public/app.js:1274-1283` — appeler `renderError` (`public/app.js:136-144`), qui sait déjà proposer
 « Réessayer », au lieu de rendre un bloc figé après `tg.setButtons(null)`.
 MESURÉ : 0 bouton, 0 lien, 0 élément cliquable, et le titre de l'écran répète mot pour mot le message
-du serveur (`401 "Ouvre Mbolo depuis Telegram."`). **Une fonction déjà écrite, à appeler.**
+du serveur (`401 "Ouvre Odo depuis Telegram."`). **Une fonction déjà écrite, à appeler.**
 
 *Quatrième candidate si la matinée le permet* : retirer `maximum-scale=1` de `public/index.html:5`,
 qui interdit le zoom à deux doigts alors que les mentions décisives de l'accueil sont à 13 px et à un
@@ -321,4 +321,4 @@ Par honnêteté, et parce que les inventer serait pire que de les taire.
   un fichier déposé par l'API, sans passer par `compressImage`.
 - **Tout objectif de rétention.** Les repères du secteur (J1 24-26 %, J30 5-7 %) sont SOURCE secondaire,
   issus d'apps installées depuis une boutique sur d'autres marchés. Ils situent un ordre de grandeur ;
-  ils ne fixent pas une cible. **Mbolo se compare à lui-même dans le temps.**
+  ils ne fixent pas une cible. **Odo se compare à lui-même dans le temps.**

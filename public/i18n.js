@@ -10,7 +10,10 @@
 
 // Chaque langue est nommée dans sa propre langue : quelqu'un qui ne lit pas le français doit
 // reconnaître la sienne dans la liste sans avoir à la traduire.
-export const LANGUES = { fr: 'Français', en: 'English', es: 'Español', pt: 'Português', sw: 'Kiswahili' };
+export const LANGUES = {
+  fr: 'Français', en: 'English', es: 'Español', pt: 'Português', sw: 'Kiswahili',
+  ru: 'Русский', uk: 'Українська',
+};
 export const LANGUE_SOURCE = 'fr';
 
 const dictionnaires = { fr: {} };
@@ -37,17 +40,55 @@ export async function chargerLangue(code) {
   return c;
 }
 
-// t('Ta limite du jour est atteinte')
-// t('Il te reste {n} profils', { n: 4 })
-export function t(cle, vars) {
-  let s = dictionnaires[courante]?.[cle] ?? cle;
+function remplacer(s, vars) {
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(v);
   return s;
 }
 
-// Pluriel. Les cinq langues en place distinguent seulement un et plusieurs — c'est aussi le cas
-// de l'espagnol, du portugais et du swahili. Une langue à pluriels multiples (l'arabe en a six)
-// demanderait Intl.PluralRules, qui s'insérerait ici sans rien changer ailleurs.
+// t('Ta limite du jour est atteinte')
+// t('Il te reste {n} profils', { n: 4 })
+export function t(cle, vars) {
+  const valeur = dictionnaires[courante]?.[cle];
+  return remplacer(typeof valeur === 'string' ? valeur : cle, vars);
+}
+
+// Pluriel.
+//
+// Cinq des sept langues ne distinguent que un et plusieurs : le français, l'anglais, l'espagnol,
+// le portugais et le swahili. L'appel reflète cette langue source : tn('{n} restant',
+// '{n} restants', n). Mais le russe et l'ukrainien en distinguent quatre — один профиль, два профиля, пять профилей, puis vingt et un профиль qui revient à la
+// première forme. Deux clés françaises ne peuvent donc pas porter quatre formes russes.
+//
+// La traduction d'une phrase comptée est donc un objet plutôt qu'une chaîne, posé sous la clé
+// du pluriel français, et dont les propriétés sont les catégories d'Intl.PluralRules :
+//
+//   '{n} restants': { one: '{n} остался', few: '{n} осталось', many: '{n} осталось', other: '…' }
+//
+// Une chaîne toute simple reste valable : c'est ce que font l'anglais et toute langue à deux
+// formes, et c'est aussi le repli si le navigateur ne connaît pas Intl.PluralRules — un Android
+// d'entrée de gamme très ancien afficherait alors un pluriel approximatif, jamais un trou.
+const regles = new Map();
+function categorie(code, n) {
+  if (!regles.has(code)) {
+    try {
+      regles.set(code, new Intl.PluralRules(code));
+    } catch {
+      regles.set(code, null);
+    }
+  }
+  const r = regles.get(code);
+  try {
+    return r ? r.select(n) : n > 1 ? 'other' : 'one';
+  } catch {
+    return n > 1 ? 'other' : 'one';
+  }
+}
+
 export function tn(un, plusieurs, n, vars) {
+  const formes = dictionnaires[courante]?.[plusieurs];
+  if (formes && typeof formes === 'object') {
+    const forme = formes[categorie(courante, n)] ?? formes.other ?? plusieurs;
+    return remplacer(forme, { n, ...vars });
+  }
   return t(n > 1 ? plusieurs : un, { n, ...vars });
 }

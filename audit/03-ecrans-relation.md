@@ -37,13 +37,13 @@ Toutes les références ci-dessous ont été relues dans le dépôt au commit `9
 
 ## 1. Écran `matches` — la liste des discussions
 
-### Concurrence, Mbolo, écart
+### Concurrence, Odo, écart
 
-| Sujet | Concurrence (SOURCE, grille §C10, C12) | Mbolo (VU / MESURÉ) | Écart |
+| Sujet | Concurrence (SOURCE, grille §C10, C12) | Odo (VU / MESURÉ) | Écart |
 |---|---|---|---|
 | Tour de parole | Hinge « Your Turn », Grindr « Smart Inbox » : la boîte dit qui attend | Tri par date du dernier message seul (VU `server/routes.js:336`) | fort |
 | Non-lus | Standard | Présents et comptés (VU `:333`, `public/app.js:702-708`) | **à parité** |
-| Réciprocité | « Likes You » payant chez les leaders | Bande « Ont aimé ton profil », gratuite, actionnable (VU `public/app.js:681-684`) | **Mbolo devant** |
+| Réciprocité | « Likes You » payant chez les leaders | Bande « Ont aimé ton profil », gratuite, actionnable (VU `public/app.js:681-684`) | **Odo devant** |
 | Discussion morte | CMB fait expirer à 8 jours (écarté par la grille) | Rien n'expire, rien ne se clôt (VU `server/store.js:163-172`) | moyen |
 | Sortie de discussion | Unmatch silencieux partout | Aucun (VU : aucune route de suppression de match) | fort |
 
@@ -60,15 +60,15 @@ Toutes les références ci-dessous ont été relues dans le dépôt au commit `9
 
 ## 2. Écran `chat` — discussion, anti-arnaque, déblocage des contacts, présence
 
-### Concurrence, Mbolo, écart
+### Concurrence, Odo, écart
 
-| Sujet | Concurrence (SOURCE, grille §C11, C16, C17, C19) | Mbolo (VU / MESURÉ) | Écart |
+| Sujet | Concurrence (SOURCE, grille §C11, C16, C17, C19) | Odo (VU / MESURÉ) | Écart |
 |---|---|---|---|
 | Lanceur de conversation | Hinge : like ciblé + commentaire, le premier message existe avant le match | « Commence par une question sur son profil » — et le profil est inaccessible (VU `public/app.js:987`, `:1015-1022`) | fort |
 | Anti-arnaque | Classification continue, avertissement avant envoi, score par compte | Filtre par motifs, blocage muet, rien ne remonte (VU `server/antiscam.js:42-56`) | fort |
 | Faux positifs | Mesurés et tenus bas | **44 % sur mon corpus, 16 % sur celui du dossier de mesures** (MESURÉ) | fort |
 | Contacts | Déblocage progressif | Compteur remplissable par une seule personne (MESURÉ) | fort |
-| Ne pas notifier qui lit | Standard | Fait, et bien fait (VU `server/routes.js:378`, `server/store.js:193-197`) | **Mbolo à parité** |
+| Ne pas notifier qui lit | Standard | Fait, et bien fait (VU `server/routes.js:378`, `server/store.js:193-197`) | **Odo à parité** |
 | Clavier pendant la frappe | Standard | Jamais reconstruit (VU `public/app.js:1035-1041`, règle CLAUDE.md §5.16 tenue) | **à parité** |
 
 ### Notes de l'écran
@@ -85,11 +85,11 @@ Toutes les références ci-dessous ont été relues dans le dépôt au commit `9
 
 ## 3. Écran `date` — proposition de rendez-vous et check-in QR
 
-### Concurrence, Mbolo, écart
+### Concurrence, Odo, écart
 
-| Sujet | Concurrence (SOURCE, grille §C13, C14) | Mbolo (VU / MESURÉ) | Écart |
+| Sujet | Concurrence (SOURCE, grille §C13, C14) | Odo (VU / MESURÉ) | Écart |
 |---|---|---|---|
-| Lieux | Happn « Perfect Date » : suggestion algorithmique via Foursquare | Lieux réels, négociés, avec avantage commercial (VU `server/config.js:47-52`) | **Mbolo devant** |
+| Lieux | Happn « Perfect Date » : suggestion algorithmique via Foursquare | Lieux réels, négociés, avec avantage commercial (VU `server/config.js:47-52`) | **Odo devant** |
 | Cycle de vie | Standard implicite : un rendez-vous se refuse et s'annule | MESURÉ : `accept`, `decline`, `cancel` → 404 ; statut figé à `proposed` | total |
 | Preuve d'arrivée | Hinge « We Met » : déclaration | Code QR en lieu partenaire — mais code constant et publié (MESURÉ) | **principe devant, mise en œuvre derrière** |
 | Personne de confiance | Tinder « Share My Date », Bumble « Share Date » | Une phrase, répétée trois fois, jamais une fonction (VU `public/app.js:783`, `:841-842`) | total |
@@ -108,15 +108,15 @@ Toutes les références ci-dessous ont été relues dans le dépôt au commit `9
 
 ## 4. Écran `safety` — signaler, bloquer, guide anti-chantage
 
-### Concurrence, Mbolo, écart
+### Concurrence, Odo, écart
 
-| Sujet | Concurrence (SOURCE, grille §C15) | Mbolo (VU / MESURÉ) | Écart |
+| Sujet | Concurrence (SOURCE, grille §C15) | Odo (VU / MESURÉ) | Écart |
 |---|---|---|---|
 | Bloquer sans accuser | Disponible partout | Impossible : toute sortie crée un signalement (VU `public/app.js:1111-1131`) | fort |
 | Motifs | Couvrant chantage, images intimes, mineur, usurpation, violence | Deux : `money`, `behavior` (VU `public/app.js:1116-1117`) | fort |
 | Suite donnée | DSA art. 17 : motivation claire (hors champ au Cameroun, standard de fait) | « Un modérateur vérifie sous 24 h » (VU `:1114`), jamais suivi d'effet (VU `server/routes.js:447`) | fort |
 | Sanction | Porte sur toutes les discussions du compte | Aucun état de compte sanctionné (VU `server/store.js:51-61`) | total |
-| Discrétion | Pas d'identifiant exposé | Pseudo et numéro jamais montrés (VU `server/routes.js:29-54`) | **Mbolo à parité, et il le dit** |
+| Discrétion | Pas d'identifiant exposé | Pseudo et numéro jamais montrés (VU `server/routes.js:29-54`) | **Odo à parité, et il le dit** |
 
 ### Notes de l'écran
 
@@ -130,12 +130,12 @@ Toutes les références ci-dessous ont été relues dans le dépôt au commit `9
 
 ## 5. Écran `me` — réglages, notifications, suppression de compte
 
-### Concurrence, Mbolo, écart
+### Concurrence, Odo, écart
 
-| Sujet | Concurrence (SOURCE, grille §C17, C24) | Mbolo (VU / MESURÉ) | Écart |
+| Sujet | Concurrence (SOURCE, grille §C17, C24) | Odo (VU / MESURÉ) | Écart |
 |---|---|---|---|
 | Réglage des notifications | Réglage fin par type dans l'app | Aucun : seulement un test (VU `public/app.js:819-830`) ; bot sans `/stop` (VU `server/bot.js:105-117`) | fort |
-| Suppression de compte | En autonomie | Deux taps, bouton + confirmation (VU `public/app.js:831`, `:1203-1214`) | **Mbolo devant** |
+| Suppression de compte | En autonomie | Deux taps, bouton + confirmation (VU `public/app.js:831`, `:1203-1214`) | **Odo devant** |
 | Complétude de la suppression | Tout ou rien | MESURÉ : `db.reports` et les blocages survivent ou disparaissent au mauvais moment | fort |
 | Économie de data | Plafond réglable (Spotify Lite) | Interrupteur oui, compteur en mégaoctets non (VU `public/app.js:822-826`) | moyen |
 
@@ -246,7 +246,7 @@ argot, application du motif de numéro au texte brut avant normalisation, et un 
 par les vrais messages signalés. **1 à 2 jours** : `server/antiscam.js`, tests.
 
 **RELATION-08 — Le message de blocage accuse, ne nomme pas la catégorie et ne dit pas quoi corriger.**
-VU `server/antiscam.js:46` : « Les demandes et offres d'argent sont bloquées sur Mbolo. » VU
+VU `server/antiscam.js:46` : « Les demandes et offres d'argent sont bloquées sur Odo. » VU
 `public/app.js:1072` : l'interface ajoute « Reformule sans montant ni moyen de paiement. »
 **uniquement** pour `MONEY_BLOCKED` ; `CONTACT_TOO_EARLY` affiche le message brut (VU
 `server/antiscam.js:52`). Sur un faux positif — « Tu es prête ? » — la personne lit qu'elle est
@@ -562,14 +562,14 @@ sont déjà dans la feuille de route.
 
 ---
 
-## 8. Ce que Mbolo fait mieux que la concurrence sur ce lot
+## 8. Ce que Odo fait mieux que la concurrence sur ce lot
 
 Sept points, tous VU, à protéger de toute correction qui les abîmerait.
 
 1. **Les lieux de rendez-vous sont réels, négociés et porteurs d'un avantage.** VU
    `server/config.js:47-52` : quatre lieux avec quartier, avantage commercial et code de confirmation.
    Happn vient de lancer « Perfect Date » en s'appuyant sur un référentiel externe et un modèle de
-   recommandation ; Mbolo fait déjà plus concret, sans dépendance.
+   recommandation ; Odo fait déjà plus concret, sans dépendance.
 2. **Le check-in est une preuve de présence, pas une déclaration.** VU `server/routes.js:428-437`.
    Hinge « We Met » demande aux gens de dire s'ils se sont vus ; ici, un code scanné dans un lieu
    partenaire vaut preuve — le principe est supérieur, même si sa mise en œuvre est aujourd'hui
@@ -590,7 +590,7 @@ Sept points, tous VU, à protéger de toute correction qui les abîmerait.
    `#messages` est reconstruit. Sur Android d'entrée de gamme, c'est un détail qui décide de la
    qualité perçue d'une discussion.
 7. **La suppression de compte se fait en deux taps, depuis l'app, sans passer par un support.** VU
-   `public/app.js:831` et `:1203-1214`. Le minimum de C24 demande moins de cinq taps : Mbolo est
+   `public/app.js:831` et `:1203-1214`. Le minimum de C24 demande moins de cinq taps : Odo est
    nettement en dessous. Reste à la rendre réellement complète (RELATION-21).
 
 ---

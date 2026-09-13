@@ -116,9 +116,9 @@ test('le groupe de modération est vérifié au démarrage', async () => {
   try {
     bot.api.getChat = async (id) => {
       assert.equal(String(id), config.adminChatId, 'c\'est bien le groupe configuré qui est interrogé');
-      return { id, title: 'Modération Mbolo' };
+      return { id, title: 'Modération Odo' };
     };
-    assert.deepEqual(await verifierGroupeModeration(), { ok: true, titre: 'Modération Mbolo' });
+    assert.deepEqual(await verifierGroupeModeration(), { ok: true, titre: 'Modération Odo' });
 
     bot.api.getChat = async () => { throw Object.assign(new Error('x'), { description: 'Bad Request: chat not found' }); };
     const ko = await verifierGroupeModeration();
@@ -136,7 +136,7 @@ test('le démarrage du bot interroge bien le groupe, sans s\'arrêter s\'il est 
   const vrais = { getChat: bot.api.getChat, getMe: bot.api.getMe, menu: bot.api.setChatMenuButton, cmd: bot.api.setMyCommands, hook: bot.api.deleteWebhook, start: bot.start };
   let interroge = 0;
   try {
-    bot.api.getMe = async () => ({ username: 'mbolo_test_bot' });
+    bot.api.getMe = async () => ({ username: 'odo_test_bot' });
     bot.api.setChatMenuButton = async () => ({});
     bot.api.setMyCommands = async () => ({});
     bot.api.deleteWebhook = async () => ({});

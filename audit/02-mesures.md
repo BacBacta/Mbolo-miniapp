@@ -1,4 +1,4 @@
-# Mbolo — protocole de mesure, volet exécution
+# Odo — protocole de mesure, volet exécution
 
 Chaque affirmation porte une marque :
 **VU** = lu dans le code, avec `chemin:ligne` ; **MESURÉ** = obtenu en exécutant, avec la commande et la
@@ -307,7 +307,7 @@ n'est donc pas une protection contre l'arnaque, seulement un délai de 10 messag
 
 | Message | Règle de `server/antiscam.js` | Message d'erreur reçu |
 |---|---|---|
-| « Je prends le taxi jusqu'à Mvog-Mbi, ça me coûte 300 F » | `:28` `/\d+ ?(f\|fcfa\|francs\|cfa\|euros?\|€\|\$)\b/` | « Les demandes et offres d'argent sont bloquées sur Mbolo. » |
+| « Je prends le taxi jusqu'à Mvog-Mbi, ça me coûte 300 F » | `:28` `/\d+ ?(f\|fcfa\|francs\|cfa\|euros?\|€\|\$)\b/` | « Les demandes et offres d'argent sont bloquées sur Odo. » |
 | « J'ai plus de crédit sur ma ligne, je t'écris depuis le wifi du campus » | `:21` `/\bcredit\b/` | idem |
 | « Les frais de scolarité sont chers cette année, je gère comme je peux » | `:23` `/\bfrais\b/` | idem |
 | « Mon oncle m'a dépanné avec sa voiture pour le déménagement » | `:26` `/\bdepann/` | idem |
@@ -423,11 +423,11 @@ MESURÉ, serveur C (production, `ALLOW_DEV_AUTH=false`), navigateur 360 x 740 :
 ```
 ## Navigateur ordinaire, SDK telegram.org injoignable
    temps jusqu'au premier message lisible : 109 ms
-   texte affiché : "Ouvre Mbolo depuis Telegram
+   texte affiché : "Ouvre Odo depuis Telegram
 
-Ouvre Mbolo depuis Telegram.
+Ouvre Odo depuis Telegram.
 
-Cherche le bot Mbolo dans Telegram, envoie /start, puis appuie sur « Ouvrir Mbolo »."
+Cherche le bot Odo dans Telegram, envoie /start, puis appuie sur « Ouvrir Odo »."
    barre de boutons visible : false
 ```
 MESURÉ, ce qu'un visiteur anonyme peut atteindre :
@@ -450,7 +450,7 @@ Constats :
   d'erreur du serveur) : VU, `public/app.js:1280-1281`.
 - **`/confidentialite` et `/conditions` renvoient l'application elle-même**, pas une page. VU,
   `server/index.js:56` : `app.get('*', renderIndex)`. La personne non connectée y voit donc le même
-  écran « Ouvre Mbolo depuis Telegram ». La tâche P0-8 du CLAUDE.md n'est pas faite, et l'effet visible
+  écran « Ouvre Odo depuis Telegram ». La tâche P0-8 du CLAUDE.md n'est pas faite, et l'effet visible
   est pire qu'un 404 : le lien semble exister.
 - **Aucune version web n'existe.** MESURÉ : `grep -rn "plans|payments|web/auth|entitlement|origin" server/`
   ne renvoie rien ; `ls public/*.webmanifest public/manifest* public/sw.js` ne renvoie rien.
@@ -479,7 +479,7 @@ Ce que cela produit, VU :
   notifications partent sans bouton** : match, message reçu, « tu as plu à quelqu'un », rendez-vous
   proposé, arrivée confirmée, vérification acceptée ou refusée. La personne lit « Nouveau match :
   Carine et toi, vous vous plaisez. » et n'a aucun moyen d'ouvrir l'app depuis là.
-- `server/bot.js:108` : la réponse à `/start` part elle aussi sans bouton « Ouvrir Mbolo ».
+- `server/bot.js:108` : la réponse à `/start` part elle aussi sans bouton « Ouvrir Odo ».
 - `server/bot.js:167-170` : le bouton de menu permanent n'est pas posé.
 - `server/bot.js:182` : en mode webhook, `poseWebhook('' + '/telegram/...')` est appelé avec une adresse
   relative. VU, `server/bot.js:142` : six tentatives, espacées de 5 s à 300 s, soit **8 minutes et

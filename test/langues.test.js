@@ -142,6 +142,64 @@ test('chaque dictionnaire porte exactement les mêmes clés que l\'anglais', asy
   }
 });
 
+// Une variable perdue à la traduction ne se voit pas : la phrase reste lisible, mais le nombre,
+// le prénom ou la ville n'y sont plus. C'est le genre d'erreur qu'on ne trouve qu'en production,
+// et seulement si quelqu'un lit cette langue-là.
+test('aucune traduction ne perd une variable de la phrase française', () => {
+  const variables = (s) => (s.match(/\{[a-zA-Z]+\}/g) || []).sort().join(',');
+  const formes = (v) => (typeof v === 'string' ? [v] : Object.values(v));
+  const fautes = [];
+  for (const [code, dico] of Object.entries(DICOS)) {
+    for (const [fr, trad] of Object.entries(dico)) {
+      for (const forme of formes(trad)) {
+        if (variables(forme) !== variables(fr)) fautes.push(`${code} | ${fr} → ${forme}`);
+      }
+    }
+  }
+  assert.deepEqual(fautes, [], `variables perdues ou inventées :\n  ${fautes.join('\n  ')}`);
+});
+
+// Le russe et l'ukrainien comptent en quatre formes, là où les cinq autres langues n'en ont que
+// deux. Une phrase comptée dont le dictionnaire n'en fournit que trois afficherait, pour certains
+// nombres seulement, le français d'origine.
+test('les phrases comptées couvrent toutes les formes de pluriel de leur langue', () => {
+  const source = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const pluriels = [...source.matchAll(/\btn\(\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")\s*,\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")/g)]
+    .map((m) => (m[3] ?? m[4]).replace(/\\'/g, "'").replace(/\\"/g, '"'));
+  assert.ok(pluriels.length >= 2, "la liste des phrases comptées est bien celle qu'on croit");
+  for (const [code, dico] of Object.entries(DICOS)) {
+    const attendues = new Set();
+    const regle = new Intl.PluralRules(code);
+    for (let n = 0; n <= 120; n++) attendues.add(regle.select(n));
+    // Une langue à deux formes se contente d'une chaîne : c'est le cas de cinq des sept.
+    if (attendues.size <= 2) continue;
+    for (const cle of pluriels) {
+      const trad = dico[cle];
+      assert.equal(typeof trad, 'object', `${code} : « ${cle} » doit donner ses ${attendues.size} formes`);
+      for (const forme of attendues) {
+        assert.equal(typeof trad[forme], 'string', `${code} : « ${cle} » n'a pas de forme « ${forme} »`);
+      }
+    }
+  }
+});
+
+// Le mécanisme du pluriel, éprouvé de bout en bout : c'est lui qui décide ce que voit une
+// personne qui lit en russe, et il ne se voit nulle part ailleurs dans la suite.
+// 1, 21 et 31 prennent la première forme ; 2 à 4 la deuxième ; 5 à 20 la troisième.
+test('le pluriel russe choisit la bonne forme selon le nombre', async () => {
+  globalThis.document = { documentElement: {} };
+  const i18n = await import('../public/i18n.js');
+  await i18n.chargerLangue('ru');
+  const dit = (n) => i18n.tn('{n} restant', '{n} restants', n);
+  assert.equal(dit(1), 'осталась 1 анкета');
+  assert.equal(dit(3), 'осталось 3 анкеты');
+  assert.equal(dit(7), 'осталось 7 анкет');
+  assert.equal(dit(21), 'осталась 21 анкета', 'vingt et un revient à la première forme');
+  await i18n.chargerLangue('fr');
+  assert.equal(dit(3), '3 restants', 'et le français reste à deux formes');
+});
+
+
 test('toute clé employée par l\'interface est traduite dans chaque langue', async () => {
   const source = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const cles = new Set();

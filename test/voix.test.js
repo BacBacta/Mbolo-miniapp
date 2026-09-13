@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'mbolo-voix-'));
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'odo-voix-'));
 process.env.DATA_DIR = DATA_DIR;
 process.env.BOT_TOKEN = '123456:TEST_TOKEN';
 process.env.WEBAPP_URL = 'https://exemple.test';
@@ -60,8 +60,8 @@ bot.api.config.use(async (prev, method, payload) => {
   }
   return { ok: true, result: true };
 });
-bot.botInfo = { id: 1, is_bot: true, first_name: 'T', username: 'mbolo_bot', can_join_groups: true, can_read_all_group_messages: false, supports_inline_queries: false };
-runtime.botUsername = 'mbolo_bot';
+bot.botInfo = { id: 1, is_bot: true, first_name: 'T', username: 'odo_bot', can_join_groups: true, can_read_all_group_messages: false, supports_inline_queries: false };
+runtime.botUsername = 'odo_bot';
 await setupBot();
 
 const app = express();

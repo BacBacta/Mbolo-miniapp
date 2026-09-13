@@ -41,7 +41,7 @@ Ce qui les concerne ici est signalé dans les fiches sans note.
 
 **Ce que fait la concurrence.**
 SOURCE (consultée, benchmark 2026) : Facebook Dating se greffe sur une audience installée, sans
-inscription séparée ; c'est exactement la position de Mbolo sur Telegram. Limite de comparabilité :
+inscription séparée ; c'est exactement la position de Odo sur Telegram. Limite de comparabilité :
 SOURCE (secondaire) WhatsApp et Facebook dominent l'usage camerounais, Telegram reste derrière — la
 greffe est plus étroite.
 SOURCE (consultée) : budgets de performance 2026 au 75e percentile — 2,0 Mio au total dont 0,3 Mio de
@@ -50,7 +50,7 @@ une app de rencontres.
 SOURCE (secondaire) : Facebook Lite déplace le travail vers le serveur et change la stratégie d'images
 pour afficher vite sur connexion faible.
 
-**Ce que fait Mbolo.** Un seul fichier HTML de 1,9 Ko, aucune bibliothèque front, quatre fichiers de
+**Ce que fait Odo.** Un seul fichier HTML de 1,9 Ko, aucune bibliothèque front, quatre fichiers de
 première partie, une seule requête d'API au démarrage. C'est structurellement léger. Trois choix
 d'implantation annulent cet avantage : un script tiers bloquant, l'absence de compression, et l'absence
 de tout garde-fou quand une de ces briques ne répond pas.
@@ -72,8 +72,8 @@ de tout garde-fou quand une de ces briques ne répond pas.
 | **INSCRIPTION-01** | Sans `WEBAPP_URL`, `/start` répond sans bouton : aucune entrée dans l'app | VU `server/bot.js:108` (`reply_markup = config.webAppUrl ? … : undefined`), `:27` (idem pour toutes les notifications), `:167-170` (bouton de menu non posé) ; VU `server/config.js:24` : l'adresse n'est déduite que sur Render et Fly ; MESURÉ (dossier de mesures §5.2) : `appUrl() = "/"` | 4 | aucun |
 | **INSCRIPTION-02** | Le premier rendu est otage d'un script tiers chargé en bloquant : rien n'est peint avant lui, pas même « Chargement… » | VU `public/index.html:10` (ni `defer` ni `async`), `:24` (bloc de démarrage jamais atteint) ; MESURÉ : first-paint 12 472 ms quand `telegram.org` traîne, 109 ms quand il échoue vite (dossier §5.1) ; MESURÉ : le CPU n'y change rien (12 588 ms à ×6) | 4 | aucun |
 | **INSCRIPTION-03** | Aucune compression HTTP : 131 455 o transférés là où environ 35 700 suffiraient | MESURÉ ci-dessus ; MESURÉ `grep -rn "compression\|gzip" server/ package.json` : rien ; MESURÉ, comble : le script tiers, lui, arrive gzippé (`content-encoding: gzip`, 116 510 o bruts, 18 318 o gzippés, `cache-control: max-age=345600`) | 3 | aucun |
-| **INSCRIPTION-04** | Échec du premier appel : écran sans issue, sans bouton, sans lien vers le bot, avec le même texte écrit deux fois | VU `public/app.js:1274-1283` (`tg.setButtons(null)`) ; VU `server/routes.js:77` : le nom du bot n'est servi que par `/api/me`, qui vient de répondre 401 ; MESURÉ : 0 bouton, 0 lien, « Ouvre Mbolo depuis Telegram \| Ouvre Mbolo depuis Telegram. \| Cherche le bot Mbolo… » | 4 | aucun |
-| **INSCRIPTION-05** | Aucun délai maximal sur le démarrage : « Chargement… » peut durer indéfiniment | VU `public/app.js:59-70` (aucun `AbortController`), VU `public/tg.js:205-210` (callback CloudStorage sans garde-fou) ; MESURÉ : `/api/me` sans réponse, écran figé sur « Mbolo \| Chargement… » à 3 s, 10 s et 25 s, 0 bouton | 3 | aucun |
+| **INSCRIPTION-04** | Échec du premier appel : écran sans issue, sans bouton, sans lien vers le bot, avec le même texte écrit deux fois | VU `public/app.js:1274-1283` (`tg.setButtons(null)`) ; VU `server/routes.js:77` : le nom du bot n'est servi que par `/api/me`, qui vient de répondre 401 ; MESURÉ : 0 bouton, 0 lien, « Ouvre Odo depuis Telegram \| Ouvre Odo depuis Telegram. \| Cherche le bot Odo… » | 4 | aucun |
+| **INSCRIPTION-05** | Aucun délai maximal sur le démarrage : « Chargement… » peut durer indéfiniment | VU `public/app.js:59-70` (aucun `AbortController`), VU `public/tg.js:205-210` (callback CloudStorage sans garde-fou) ; MESURÉ : `/api/me` sans réponse, écran figé sur « Odo \| Chargement… » à 3 s, 10 s et 25 s, 0 bouton | 3 | aucun |
 | **INSCRIPTION-06** | Deux lectures CloudStorage bloquent le premier écran, pour deux réglages qui ne servent ni à `welcome` ni au formulaire | VU `public/app.js:1285-1286` (deux `await` successifs avant tout `go()`) ; SUPPOSÉ pour le coût réel dans Telegram — test qui trancherait : horodater les deux appels sur un téléphone réel et lire l'écart | 2 | aucun |
 | **INSCRIPTION-07** | Toute la palette repose sur `color-mix()` sans repli : une WebView qui ne le connaît pas perd fond et texte | VU `public/styles.css:39-43, 52, 60-64` — aucune déclaration simple avant le `color-mix`. Impact SUPPOSÉ, test qui trancherait : ouvrir sur une WebView Android antérieure à Chrome 111 et photographier `welcome` | 2 | aucun |
 
@@ -88,14 +88,14 @@ trancherait : chronométrer `GET /health` sur la machine endormie.
 
 **Ce que fait la concurrence.**
 SOURCE (secondaire, à revérifier) : Badoo est installé en Afrique francophone et joue l'entrée sans
-friction, vivier visible avant de donner quoi que ce soit. Limite : Badoo a un vivier installé, Mbolo
+friction, vivier visible avant de donner quoi que ce soit. Limite : Badoo a un vivier installé, Odo
 démarre à zéro ; la comparaison ne porte que sur le **coût d'entrée perçu**.
 SOURCE (consultée) : les conditions développeurs Telegram exigent une politique de confidentialité
 facilement accessible et déclarée.
 Corollaire d'audit posé en phase 1 : chaque friction ajoutée doit être payée par une promesse de
 sécurité **visible au moment où la friction est imposée**.
 
-**Ce que fait Mbolo.** Quatre promesses, deux mentions fines, un bouton. Aucun chiffre, aucun profil,
+**Ce que fait Odo.** Quatre promesses, deux mentions fines, un bouton. Aucun chiffre, aucun profil,
 aucun lien. Le texte est juste, court, tutoyé, sans point d'exclamation : conforme à CLAUDE.md §5.10.
 
 **L'écart, mesuré.**
@@ -129,7 +129,7 @@ photo), le reste différé et présenté comme une amélioration des résultats 
 prompts plutôt qu'en formulaire. Limite : ces apps ont un vivier dense et peuvent se permettre un profil
 pauvre au départ.
 
-**Ce que fait Mbolo.** Trois champs, une progression visible (`Étape 1 sur 3`), un retour arrière qui ne
+**Ce que fait Odo.** Trois champs, une progression visible (`Étape 1 sur 3`), un retour arrière qui ne
 perd rien dans la session, une validation au clic. Le prénom est prérempli depuis Telegram
 (VU `public/app.js:461` ; MESURÉ : vide hors de Telegram, ce qui est le comportement attendu).
 
@@ -137,7 +137,7 @@ perd rien dans la session, une validation au clic. Le prénom est prérempli dep
 
 ```
 # étape 1 (MESURÉ, insc.mjs / insc3.mjs)
-  âge laissé vide → « Mbolo est réservé aux 18 ans et plus. »
+  âge laissé vide → « Odo est réservé aux 18 ans et plus. »
   âge 105 → passe l'étape 1, passe l'étape 2, refusé seulement après « Enregistrer »
   étape affichée au moment du refus : ÉTAPE 3 SUR 3 ; champs « âge » à l'écran : 0
   cibles tactiles sous 44 px : « Femme » et « Homme », 159 x 40 ; sous 24 px : 0
@@ -163,9 +163,9 @@ la sortie en duo, tu verras tout le monde. »).
 commutable en haut de l'écran. Limite reprise de la phase 1 : sur un vivier de bêta fermée, multiplier
 les modes vide chaque mode ; l'enseignement transposable est la **lisibilité**, pas la multiplication.
 SOURCE (consultée) : Happn « Perfect Date » propose des lieux de rendez-vous via un référentiel externe —
-Mbolo fait déjà mieux, avec des lieux réels et négociés (VU `server/config.js:47-52`).
+Odo fait déjà mieux, avec des lieux réels et négociés (VU `server/config.js:47-52`).
 
-**Ce que fait Mbolo.** Trois intentions, cinq villes, un quartier facultatif. C'est l'écran le moins
+**Ce que fait Odo.** Trois intentions, cinq villes, un quartier facultatif. C'est l'écran le moins
 coûteux du formulaire et le plus lourd de conséquences : il fixe le vivier, les lieux de rendez-vous et
 la règle de genre, sans le dire.
 
@@ -185,7 +185,7 @@ un commentaire attaché, si bien que le premier message existe avant le match ; 
 prompts. Limite : cela suppose un profil riche. SOURCE (connaissance, non revérifiée) : Muzz floute la
 photo jusqu'à accord — mécanique transposable ici à coût data **négatif**.
 
-**Ce que fait Mbolo.** Un couple question / réponse, trois emplacements photo modérés, une compression
+**Ce que fait Odo.** Un couple question / réponse, trois emplacements photo modérés, une compression
 côté client avant envoi. C'est la bonne brique pour un lanceur de conversation, et elle est déjà là.
 
 **L'écart, mesuré.**
@@ -237,13 +237,13 @@ côté client avant envoi. C'est la bonne brique pour un lanceur de conversation
 
 ---
 
-## 8. Ce que Mbolo fait mieux que la concurrence sur ce lot
+## 8. Ce que Odo fait mieux que la concurrence sur ce lot
 
 Ces points sont acquis et ne doivent pas être abîmés par les corrections ci-dessus.
 
 1. **Aucun mot de passe, aucun courriel, aucun numéro de téléphone demandé.** L'identité vient d'un
    `initData` validé côté serveur (VU `server/auth.js:20-46`), `initDataUnsafe` ne sert qu'à préremplir
-   (VU `public/app.js:436, 461`). Là où Badoo et Tinder imposent une création de compte, Mbolo n'a
+   (VU `public/app.js:436, 461`). Là où Badoo et Tinder imposent une création de compte, Odo n'a
    aucun formulaire d'identification. C'est le seul avantage de distribution réel face à un vivier
    installé, et il est dit à l'écran (VU `public/app.js:451`).
 2. **Le pseudo et le numéro Telegram ne sortent jamais.** Le profil public est une liste blanche
@@ -258,7 +258,7 @@ Ces points sont acquis et ne doivent pas être abîmés par les corrections ci-d
    toutes les animations sont derrière `prefers-reduced-motion: no-preference`. C'est un élément du
    niveau 3 de C20, déjà acquis.
 6. **L'app est rapide même sur processeur lent.** MESURÉ : `welcome` → étape 1 en 155 ms avec un CPU
-   bridé ×6, étape 1 → étape 2 en 113 ms. Le coût de démarrage n'est pas dans le code de Mbolo.
+   bridé ×6, étape 1 → étape 2 en 113 ms. Le coût de démarrage n'est pas dans le code de Odo.
 7. **Le profil est filtré contre l'arnaque dès l'inscription.** VU `server/routes.js:98-99` : prénom,
    quartier, réponse et langues passent par `checkMessage`. MESURÉ : une demande d'argent dans la
    réponse est refusée. Aucune app du benchmark ne bloque la sollicitation financière dans le profil.

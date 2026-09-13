@@ -1,4 +1,4 @@
-# Grille de benchmark — Mbolo, bêta fermée à Yaoundé
+# Grille de benchmark — Odo, bêta fermée à Yaoundé
 
 Phase 1 de l'audit. Ce document fige la grille d'évaluation **avant** tout diagnostic.
 Aucune note n'est attribuée ici. Les agents de diagnostic noteront, criterion par critère, sur du VU ou du MESURÉ uniquement.
@@ -20,7 +20,7 @@ Chaque affirmation porte une marque. Aucune affirmation n'en est dépourvue.
 | **SUPPOSÉ** | hypothèse non vérifiée | le test falsifiable qui trancherait |
 | **SOURCE** | repère externe de marché ou de norme | provenance, fiabilité, et limite de comparabilité |
 
-Les marques VU / MESURÉ / SUPPOSÉ portent sur Mbolo. La marque SOURCE porte sur tout ce qui vient du dehors.
+Les marques VU / MESURÉ / SUPPOSÉ portent sur Odo. La marque SOURCE porte sur tout ce qui vient du dehors.
 Un repère de marché n'est jamais un objectif : il sert à situer, pas à viser.
 
 Trois niveaux de fiabilité pour les SOURCE, repris du dossier de références :
@@ -70,7 +70,7 @@ MESURÉ (dossier de mesures §1, environnement où `telegram.org` est injoignabl
 
 **Mesure.** Compter les champs obligatoires et les écrans avant l'accès à la découverte. Pour chaque champ obligatoire, vérifier qu'une phrase à l'écran dit à quoi il sert. Vérifier que toute option proposée mène à un parcours complet.
 
-**État de l'art.** SOURCE (consultée) : 3 à 5 champs obligatoires seulement (prénom, âge, genre, photo), le reste différé et présenté comme une amélioration de résultats ; Hinge structure le profil en prompts plutôt qu'en formulaire. Limite : ces apps disposent d'un vivier dense, elles peuvent se permettre un profil pauvre au départ ; Mbolo ne le peut pas au même degré.
+**État de l'art.** SOURCE (consultée) : 3 à 5 champs obligatoires seulement (prénom, âge, genre, photo), le reste différé et présenté comme une amélioration de résultats ; Hinge structure le profil en prompts plutôt qu'en formulaire. Limite : ces apps disposent d'un vivier dense, elles peuvent se permettre un profil pauvre au départ ; Odo ne le peut pas au même degré.
 
 **Minimum acceptable.** Aucun champ obligatoire qui ne serve ni au matching ni à la sécurité. Une phrase de justification par champ obligatoire. Retour arrière sans perte de saisie.
 
@@ -157,7 +157,7 @@ MESURÉ (dossier de mesures §1, environnement où `telegram.org` est injoignabl
 
 **Mesure.** Pour un compte neuf à Yaoundé, compter les profils compatibles réellement renvoyés, par intention et par tranche d'âge. Refaire l'essai avec une ville sans lieu partenaire et avec l'intention « sortie en duo ». Relever mot à mot ce qui s'affiche quand le résultat est vide.
 
-**État de l'art.** SOURCE (connaissance) : jamais d'écran vide ; élargissement progressif et annoncé des critères plutôt qu'un vide. SOURCE (secondaire, à revérifier) : Badoo est décrit comme particulièrement installé dans les pays francophones d'Afrique, dont le Cameroun. Limite de comparabilité déterminante : Badoo a un vivier installé, Mbolo démarre à zéro en bêta fermée. La densité n'est pas un problème d'interface, c'est un problème d'offre ; la grille note la **gestion honnête du vide**, pas le nombre de profils.
+**État de l'art.** SOURCE (connaissance) : jamais d'écran vide ; élargissement progressif et annoncé des critères plutôt qu'un vide. SOURCE (secondaire, à revérifier) : Badoo est décrit comme particulièrement installé dans les pays francophones d'Afrique, dont le Cameroun. Limite de comparabilité déterminante : Badoo a un vivier installé, Odo démarre à zéro en bêta fermée. La densité n'est pas un problème d'interface, c'est un problème d'offre ; la grille note la **gestion honnête du vide**, pas le nombre de profils.
 
 **Minimum acceptable.** Aucun écran vide muet. L'écran dit pourquoi c'est vide, ce que la personne peut changer, et propose d'être prévenue quand quelqu'un arrive.
 
@@ -193,7 +193,7 @@ MESURÉ (dossier de mesures §1, environnement où `telegram.org` est injoignabl
 
 **Mesure.** Épuiser le quota et relever l'écran affiché, le compteur restant, l'heure de réinitialisation annoncée et le fuseau réellement utilisé. Vérifier ce qui reste faisable une fois le quota épuisé.
 
-**État de l'art.** SOURCE (consultée) : Hinge accorde 8 likes gratuits par jour avec une réinitialisation à heure locale connue ; Coffee Meets Bagel présente un petit nombre de profils du jour avec 24 heures pour décider. Limite : chez eux la limite est un levier de monétisation ; chez Mbolo elle sert la qualité du vivier. La comparaison porte sur la **mise en scène**, pas sur la finalité.
+**État de l'art.** SOURCE (consultée) : Hinge accorde 8 likes gratuits par jour avec une réinitialisation à heure locale connue ; Coffee Meets Bagel présente un petit nombre de profils du jour avec 24 heures pour décider. Limite : chez eux la limite est un levier de monétisation ; chez Odo elle sert la qualité du vivier. La comparaison porte sur la **mise en scène**, pas sur la finalité.
 
 **Minimum acceptable.** Compteur visible en continu, heure de réinitialisation connue et calée sur le fuseau de l'utilisateur, écran de quota épuisé qui propose autre chose que l'attente.
 
@@ -418,7 +418,7 @@ VU : `public/styles.css:74` (seule la zone sûre basse est utilisée), `public/u
 
 **Où regarder.** VU : aucune route ni mention de paiement dans `server/` (aucune occurrence de `XTR`, `invoice`, `paysupport`) ; `server/bot.js:172-175` ne publie que `/start` et `/aide`. VU : `server/bot.js:107` (« sans jamais te demander d'argent ») et `:116` (« ne te demandera jamais d'argent ») — formulations à confronter à l'existence future d'un pass payant.
 
-**Tension de règle.** La recette la plus répandue du marché — verrouiller « qui t'a aimé » derrière un paywall — est techniquement possible en Stars, mais elle contredit la promesse anti-arnaque de Mbolo et rendrait payant le seul signal qui protège d'un vivier vide. CLAUDE.md §5.7 interdit par ailleurs tout autre moyen de paiement dans la mini app, et §5.9 interdit la publicité tierce dans les écrans de rencontre. Alternative proposée : garder la réciprocité gratuite (niveau 2 de C10), monétiser le confort (filtres élargis, pass de visibilité) et le B2B (lieux partenaires payés au rendez-vous confirmé), comme la feuille de route le prévoit déjà.
+**Tension de règle.** La recette la plus répandue du marché — verrouiller « qui t'a aimé » derrière un paywall — est techniquement possible en Stars, mais elle contredit la promesse anti-arnaque de Odo et rendrait payant le seul signal qui protège d'un vivier vide. CLAUDE.md §5.7 interdit par ailleurs tout autre moyen de paiement dans la mini app, et §5.9 interdit la publicité tierce dans les écrans de rencontre. Alternative proposée : garder la réciprocité gratuite (niveau 2 de C10), monétiser le confort (filtres élargis, pass de visibilité) et le B2B (lieux partenaires payés au rendez-vous confirmé), comme la feuille de route le prévoit déjà.
 
 ---
 
@@ -426,7 +426,7 @@ VU : `public/styles.css:74` (seule la zone sûre basse est utilisée), `public/u
 
 **Mesure.** Reconstituer l'entonnoir en neuf étapes datées : ouverture, profil enregistré, selfie envoyé, décision de modération, premier like émis, premier match, premier message envoyé, rendez-vous proposé, arrivée confirmée. Pour chaque étape, dire si elle est mesurable et avec quel champ exact. Vérifier l'exclusion des profils de démonstration et du mode développement.
 
-**État de l'art.** SOURCE (connaissance) : AARRR pour le volume. SOURCE (consultée) : HEART et le passage Objectifs → Signaux → Métriques, Rodden, Hutchinson et Fu, CHI 2010, Google — la colonne « réussite de la tâche » est celle qui manque à AARRR. SOURCE (secondaire, pages sources inaccessibles, 403 et 429) : repères de rétention du secteur des rencontres, J1 autour de 24 à 26 %, J30 autour de 5 à 7 %. Limite explicite : ces valeurs viennent d'apps installées depuis une boutique, sur des marchés non comparables ; elles ne doivent jamais servir d'objectif ni de critère de réussite. Comparer Mbolo à lui-même dans le temps.
+**État de l'art.** SOURCE (connaissance) : AARRR pour le volume. SOURCE (consultée) : HEART et le passage Objectifs → Signaux → Métriques, Rodden, Hutchinson et Fu, CHI 2010, Google — la colonne « réussite de la tâche » est celle qui manque à AARRR. SOURCE (secondaire, pages sources inaccessibles, 403 et 429) : repères de rétention du secteur des rencontres, J1 autour de 24 à 26 %, J30 autour de 5 à 7 %. Limite explicite : ces valeurs viennent d'apps installées depuis une boutique, sur des marchés non comparables ; elles ne doivent jamais servir d'objectif ni de critère de réussite. Comparer Odo à lui-même dans le temps.
 
 **Minimum acceptable.** Chaque étape de l'entonnoir est horodatée. Le délai de modération est mesurable. Les profils de démonstration sont exclus de tout calcul. Une contre-métrique de sécurité est suivie.
 
@@ -485,7 +485,7 @@ Limite de comparabilité : Badoo dispose d'un vivier installé et d'une décenni
 
 **Mécanique A — entrée sans friction et vivier immédiatement visible.**
 - Résout : le vide des premières minutes. On voit du monde avant de donner quoi que ce soit.
-- Coûte : un taux d'arnaque et de faux profils que l'utilisateur absorbe lui-même. C'est exactement le coût que Mbolo prétend supprimer.
+- Coûte : un taux d'arnaque et de faux profils que l'utilisateur absorbe lui-même. C'est exactement le coût que Odo prétend supprimer.
 - Transposable : partiellement, et c'est le point d'arbitrage central de l'audit. Un aperçu sans photo (prénom, âge, quartier, intention, nombre de personnes vérifiées dans la ville) est transposable, ne coûte presque aucune data, et ne casse pas la promesse. Montrer des photos avant vérification n'est pas transposable : cela ouvrirait l'aspiration des photos par des comptes non vérifiés.
 
 **Mécanique B — crédits à l'acte (voir qui t'a aimé, mise en avant).**
@@ -493,7 +493,7 @@ Limite de comparabilité : Badoo dispose d'un vivier installé et d'une décenni
 - Coûte : une frustration entretenue, et la transformation d'un signal utile en produit d'appel.
 - Transposable : non en l'état. CLAUDE.md §5.7 impose les Stars pour tout bien numérique dans la mini app, et l'achat de Stars passe par les boutiques d'applications, ce qui n'est pas praticable pour la cible. Alternative : garder « qui t'a aimé » gratuit et vendre un pass à durée fixe (voir C21).
 
-**Ce que Mbolo peut défendre face à Badoo.** Ni le vivier ni le nombre de fonctions. Seulement le taux d'arnaque perçu, la discrétion (pseudo et numéro jamais exposés, VU `server/routes.js:29-54`) et le rendez-vous en lieu partenaire avec confirmation d'arrivée. Corollaire d'audit : **chaque friction ajoutée doit être payée par une promesse de sécurité visible à l'écran, au moment où la friction est imposée**. Sinon la personne repart sur une app qui ne demande rien.
+**Ce que Odo peut défendre face à Badoo.** Ni le vivier ni le nombre de fonctions. Seulement le taux d'arnaque perçu, la discrétion (pseudo et numéro jamais exposés, VU `server/routes.js:29-54`) et le rendez-vous en lieu partenaire avec confirmation d'arrivée. Corollaire d'audit : **chaque friction ajoutée doit être payée par une promesse de sécurité visible à l'écran, au moment où la friction est imposée**. Sinon la personne repart sur une app qui ne demande rien.
 
 ### 2.2 Tinder
 
@@ -507,7 +507,7 @@ SOURCE (consultée) pour Face Check et les Modes ; SOURCE (consultée) pour Shar
 **Modes (Double Date, College) — modes d'usage commutables en haut de l'écran.**
 - Résout : la cohabitation de publics différents sans les mélanger, et la lisibilité du choix.
 - Coûte : le fractionnement du vivier, redoutable quand le vivier est petit.
-- Transposable : l'idée valide l'architecture d'intentions de Mbolo. Mais sur un vivier de bêta fermée, multiplier les modes vide chaque mode. À transposer comme **lisibilité** (l'intention est visible et changeable) et non comme **multiplication**.
+- Transposable : l'idée valide l'architecture d'intentions de Odo. Mais sur un vivier de bêta fermée, multiplier les modes vide chaque mode. À transposer comme **lisibilité** (l'intention est visible et changeable) et non comme **multiplication**.
 
 **Share My Date — partage du plan de rendez-vous avec un proche.**
 - Résout : le seul vrai filet de sécurité hors ligne du premier rendez-vous.
@@ -521,7 +521,7 @@ SOURCE (consultée, fiche encyclopédique) pour le like ciblé, les 8 likes par 
 **Like ciblé avec commentaire.**
 - Résout : le premier message qui part de zéro, et donc le silence après le match.
 - Coûte : très peu — un champ de plus dans la requête de like, un affichage de plus dans l'écran de match.
-- Transposable : oui, c'est le levier le moins cher et le plus rentable du benchmark pour Mbolo. Le profil porte déjà un couple question / réponse (VU `server/routes.js:39-40`) ; le like est binaire (VU `:290-314`). Coût data : quelques dizaines d'octets. Bénéfice secondaire : un commentaire donne à la modération un signal de qualité qu'un like binaire ne donne pas.
+- Transposable : oui, c'est le levier le moins cher et le plus rentable du benchmark pour Odo. Le profil porte déjà un couple question / réponse (VU `server/routes.js:39-40`) ; le like est binaire (VU `:290-314`). Coût data : quelques dizaines d'octets. Bénéfice secondaire : un commentaire donne à la modération un signal de qualité qu'un like binaire ne donne pas.
 
 **Your Turn — rappel du tour de parole.**
 - Résout : le ghosting et les conversations mortes.
@@ -531,12 +531,12 @@ SOURCE (consultée, fiche encyclopédique) pour le like ciblé, les 8 likes par 
 **We Met — confirmation privée du premier rendez-vous.**
 - Résout : l'absence de signal de résultat réel ; permet de classer sur autre chose que la photo.
 - Coûte : une question de plus, et un risque de non-réponse.
-- Transposable : oui, et Mbolo dispose d'un signal plus fort que We Met — le check-in par QR code dans un lieu partenaire est une preuve de présence, pas une déclaration. VU `server/routes.js:428-438` : ce signal ne sert aujourd'hui qu'à notifier l'autre personne. C'est l'actif le plus sous-exploité du produit.
+- Transposable : oui, et Odo dispose d'un signal plus fort que We Met — le check-in par QR code dans un lieu partenaire est une preuve de présence, pas une déclaration. VU `server/routes.js:428-438` : ce signal ne sert aujourd'hui qu'à notifier l'autre personne. C'est l'actif le plus sous-exploité du produit.
 
 **Direct to Date — disponibilités partagées dès le match.**
 - Résout : la lenteur entre le match et la rencontre réelle.
 - Coûte : une pression possible sur qui ne veut pas aller vite.
-- Transposable : oui, et cela confirme la thèse produit de Mbolo. Mais l'ordre compte : proposer un rendez-vous n'a de sens que si on peut le refuser (C13).
+- Transposable : oui, et cela confirme la thèse produit de Odo. Mais l'ordre compte : proposer un rendez-vous n'a de sens que si on peut le refuser (C13).
 
 ### 2.4 Bumble
 
@@ -545,12 +545,12 @@ SOURCE (consultée) : remplacement du swipe par une recommandation conversationn
 **Abandon du swipe comme dogme.**
 - Résout : la lassitude du balayage et le classement par photo.
 - Coûte : une refonte complète, et une dépendance à un modèle de langage.
-- Transposable : l'IA conversationnelle, non — hors de portée en coût data et en dépendances. L'enseignement transposable est plus simple : la vue liste de Mbolo (VU `server/routes.js:250-274`) n'est pas un secours, c'est la direction du marché. À assumer comme mode principal possible, pas comme repli.
+- Transposable : l'IA conversationnelle, non — hors de portée en coût data et en dépendances. L'enseignement transposable est plus simple : la vue liste de Odo (VU `server/routes.js:250-274`) n'est pas un secours, c'est la direction du marché. À assumer comme mode principal possible, pas comme repli.
 
 **Règle de genre imposée, puis assouplie.**
 - Résout : le déséquilibre de sollicitation.
 - Coûte : une contrainte que l'inventrice de la règle est en train d'abandonner après une chute d'usage.
-- Transposable : à ne pas copier sans test. Toute contrainte de genre ajoutée à Mbolo doit être testée, jamais reprise par autorité.
+- Transposable : à ne pas copier sans test. Toute contrainte de genre ajoutée à Odo doit être testée, jamais reprise par autorité.
 
 **Vérification par pièce d'identité gouvernementale.**
 - Résout : l'usurpation d'identité de façon plus forte que le selfie.
@@ -564,7 +564,7 @@ SOURCE (consultée) : rachat par Hello Group en septembre 2025 avec intention an
 **Perfect Date — suggestion de lieux de rendez-vous.**
 - Résout : le blocage au moment de choisir où se voir.
 - Coûte : une dépendance à un référentiel de lieux et à un modèle de recommandation.
-- Transposable : Mbolo fait déjà mieux, en dur — des lieux réels, négociés, avec un avantage commercial et un code de confirmation (VU `server/config.js:47-52`). Rien à copier ; en revanche l'annonce d'expansion africaine d'un acteur financé est un signal de calendrier.
+- Transposable : Odo fait déjà mieux, en dur — des lieux réels, négociés, avec un avantage commercial et un code de confirmation (VU `server/config.js:47-52`). Rien à copier ; en revanche l'annonce d'expansion africaine d'un acteur financé est un signal de calendrier.
 
 **Croisement géographique en temps réel.**
 - Résout : la pertinence par proximité physique.
@@ -578,7 +578,7 @@ SOURCE (consultée) : petit nombre de profils du jour avec 24 heures pour décid
 **Rareté mise en scène comme sélection.**
 - Résout : la fatigue du volume et la banalisation des profils.
 - Coûte : rien, si la sélection est expliquée ; beaucoup, si elle est subie comme une pénurie.
-- Transposable : oui, directement. Le quota de 20 de Mbolo (VU `server/config.js:36`) est aujourd'hui présenté comme une limite (VU `server/routes.js:295`) et non comme une sélection du jour. Coût data nul, c'est une question de formulation et de compteur.
+- Transposable : oui, directement. Le quota de 20 de Odo (VU `server/config.js:36`) est aujourd'hui présenté comme une limite (VU `server/routes.js:295`) et non comme une sélection du jour. Coût data nul, c'est une question de formulation et de compteur.
 
 **Péremption des conversations à 8 jours.**
 - Résout : les matchs morts qui encombrent la boîte.
@@ -597,7 +597,7 @@ SOURCE (consultée) : appariement fondé sur la personnalité plutôt que sur la
 **Group Dates.**
 - Résout : la peur du face-à-face avec un inconnu, et la légitimité sociale de la rencontre.
 - Coûte : une complexité de coordination importante, et un vivier qu'il faut multiplier par le nombre de groupes.
-- Transposable : l'idée valide le mode « sortie en duo » de Mbolo (VU `server/config.js:54`). Mais la convergence Boo / Tinder Double Date ne dit pas que c'est faisable à petit vivier. Décision d'audit à trancher : terminer le mode ou le retirer de l'inscription (CLAUDE.md §8 P1-7), car une intention proposée qui ne mène nulle part abîme la confiance au premier écran.
+- Transposable : l'idée valide le mode « sortie en duo » de Odo (VU `server/config.js:54`). Mais la convergence Boo / Tinder Double Date ne dit pas que c'est faisable à petit vivier. Décision d'audit à trancher : terminer le mode ou le retirer de l'inscription (CLAUDE.md §8 P1-7), car une intention proposée qui ne mène nulle part abîme la confiance au premier écran.
 
 **Appariement par personnalité, pas par photo.**
 - Résout : le classement par désirabilité visuelle.
@@ -630,7 +630,7 @@ SOURCE (consultée pour l'annonce du 22 septembre 2025 : « Dating Assistant » 
 **Greffe sur une audience déjà installée, sans inscription séparée.**
 - Résout : le coût d'acquisition et la friction d'installation, qui sont les deux plus gros postes d'une app de rencontres.
 - Coûte : l'identité liée au profil social réel, que beaucoup refusent.
-- Transposable : Mbolo est **structurellement dans la même position** — greffé sur Telegram, sans installation, identité déjà présente, connexion sans mot de passe. Deux conséquences d'audit. Un : vérifier que cet avantage est réellement exploité et **dit à l'écran**, car c'est le seul argument de distribution face à Badoo. Deux : le point faible de Facebook Dating est l'argument inverse de Mbolo — ici, pseudo et numéro restent cachés (VU `server/routes.js:29-54`).
+- Transposable : Odo est **structurellement dans la même position** — greffé sur Telegram, sans installation, identité déjà présente, connexion sans mot de passe. Deux conséquences d'audit. Un : vérifier que cet avantage est réellement exploité et **dit à l'écran**, car c'est le seul argument de distribution face à Badoo. Deux : le point faible de Facebook Dating est l'argument inverse de Odo — ici, pseudo et numéro restent cachés (VU `server/routes.js:29-54`).
 - Nuance qui coûte cher : la greffe Telegram est plus étroite que la greffe Facebook. SOURCE (secondaire) : WhatsApp et Facebook dominent l'usage camerounais, Telegram reste derrière. L'avant-parcours — la personne reçoit un lien et n'a pas Telegram — est une étape du parcours, pas un préalable acquis.
 
 ### 2.10 Grindr
@@ -640,7 +640,7 @@ SOURCE (consultée, page de feuille de route 2026) : « Smart Inbox » (la boît
 **Smart Inbox — priorisation de la boîte de réception.**
 - Résout : la boîte qui s'empile et les conversations perdues.
 - Coûte : rien si elle est faite par tri simple, beaucoup si elle passe par un modèle.
-- Transposable : oui, en version pauvre et sans IA — trier par « qui attend ta réponse » (C12). La brique existe déjà ailleurs dans le code de Mbolo. Coût data nul.
+- Transposable : oui, en version pauvre et sans IA — trier par « qui attend ta réponse » (C12). La brique existe déjà ailleurs dans le code de Odo. Coût data nul.
 
 **Traduction en temps réel.**
 - Résout : la barrière de langue dans la conversation elle-même.
@@ -655,9 +655,9 @@ SOURCE (consultée, page de feuille de route 2026) : « Smart Inbox » (la boît
 Avertissement de comparabilité : aucune app de **rencontres** conçue pour la faible bande passante n'a été trouvée avec une source fiable. Les deux acteurs retenus ci-dessous sont des références d'ingénierie et de marché, pas des concurrents directs. Leurs mécaniques sont transposables ; leurs chiffres ne sont pas comparables.
 
 **A — Facebook Lite (Meta).** SOURCE (secondaire) : paquet plus petit, moins de traitement côté client, plus de travail côté serveur, stratégie différente de chargement des images pour afficher du contenu vite sur connexion faible.
-- Résout : l'abandon au premier chargement sur réseau lent, qui est le risque n° 1 mesuré chez Mbolo (MESURÉ, dossier §1).
+- Résout : l'abandon au premier chargement sur réseau lent, qui est le risque n° 1 mesuré chez Odo (MESURÉ, dossier §1).
 - Coûte : un second chemin de rendu à maintenir.
-- Transposable : oui, partiellement et sans second chemin. Mbolo n'a aucune bibliothèque front (MESURÉ ci-dessus : 35 956 o gzippés au total) ; le gain ne se joue donc pas sur le paquet mais sur trois points — activer la compression HTTP (absente, MESURÉ : aucune dépendance de compression), ne pas laisser un script tiers bloquer le premier rendu (VU `public/index.html:10`), et ne pas renvoyer le profil complet à chaque sondage (VU `server/routes.js:358-367`).
+- Transposable : oui, partiellement et sans second chemin. Odo n'a aucune bibliothèque front (MESURÉ ci-dessus : 35 956 o gzippés au total) ; le gain ne se joue donc pas sur le paquet mais sur trois points — activer la compression HTTP (absente, MESURÉ : aucune dépendance de compression), ne pas laisser un script tiers bloquer le premier rendu (VU `public/index.html:10`), et ne pas renvoyer le profil complet à chaque sondage (VU `server/routes.js:358-367`).
 
 **B — Afro Introductions (Cupid Media), acteur de rencontre présent sur des marchés africains.** SOURCE (connaissance, non revérifiée dans cette session ; un prix kényan d'environ 2 500 shillings par mois est relayé par un extrait de recherche, marché non comparable au Cameroun).
 - Mécanique : interface légère orientée web, découverte gratuite, messagerie payante.
@@ -668,7 +668,7 @@ Avertissement de comparabilité : aucune app de **rencontres** conçue pour la f
 **Mécanique d'ingénierie complémentaire, empruntée hors rencontre.** SOURCE (secondaire) : Spotify Lite permet de fixer une limite de consommation data ; Pinterest Lite pèse 1,4 Mo sur Android.
 - Résout : l'angoisse du forfait qui fond, qui est un motif de désinstallation à part entière.
 - Coûte : un compteur à tenir côté client.
-- Transposable : oui, sans dépendance nouvelle. Mbolo affiche « Léger en data » sur l'écran d'accueil (VU `public/app.js:449`) sans jamais chiffrer ni laisser régler. Un compteur en mégaoctets et un plafond sont la version aboutie du mode économie existant (C18 niveau 3).
+- Transposable : oui, sans dépendance nouvelle. Odo affiche « Léger en data » sur l'écran d'accueil (VU `public/app.js:449`) sans jamais chiffrer ni laisser régler. Un compteur en mégaoctets et un plafond sont la version aboutie du mode économie existant (C18 niveau 3).
 
 ---
 
@@ -709,7 +709,7 @@ Mécaniques de Muzz ; Afro Introductions ; pratiques sectorielles de blocage san
 
 ### 4.5 Trous documentaires assumés
 
-Il n'existe, dans ce qui a été consulté, **aucune donnée chiffrée fiable sur le marché camerounais de la rencontre en ligne**, aucun repère de consentement à payer local, et aucune source locale sur la sécurité des femmes dans l'espace public à Yaoundé. La conséquence est une consigne, pas un regret : Mbolo doit produire ses propres chiffres pendant la bêta plutôt qu'en emprunter. C'est précisément ce que mesure le critère C22.
+Il n'existe, dans ce qui a été consulté, **aucune donnée chiffrée fiable sur le marché camerounais de la rencontre en ligne**, aucun repère de consentement à payer local, et aucune source locale sur la sécurité des femmes dans l'espace public à Yaoundé. La conséquence est une consigne, pas un regret : Odo doit produire ses propres chiffres pendant la bêta plutôt qu'en emprunter. C'est précisément ce que mesure le critère C22.
 
 ---
 

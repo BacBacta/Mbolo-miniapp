@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'mbolo-jauge-'));
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'odo-jauge-'));
 process.env.DATA_DIR = DATA_DIR;
 process.env.BOT_TOKEN = '';
 process.env.ALLOW_DEV_AUTH = 'true';

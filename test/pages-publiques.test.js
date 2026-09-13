@@ -20,7 +20,7 @@ const portLibre = () => new Promise((resolve) => {
 });
 
 const PORT = await portLibre();
-const APP_NAME = 'Mbolo-test-pages';
+const APP_NAME = 'Odo-test-pages';
 const serveur = spawn(process.execPath, ['server/index.js'], {
   stdio: 'ignore',
   env: {

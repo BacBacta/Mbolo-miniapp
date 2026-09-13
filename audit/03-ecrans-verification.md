@@ -64,7 +64,7 @@ ce qui est dit à chaque fois.
 VU `public/app.js:533-567`. Titre « Vérifie que c'est bien toi », carte-geste tirée au sort, entrée
 fichier `capture="user"`, aperçu, bouton principal « Envoyer pour vérification ».
 
-| Critère | Ce que fait la concurrence | Ce que fait Mbolo | Écart | Gravité |
+| Critère | Ce que fait la concurrence | Ce que fait Odo | Écart | Gravité |
 |---|---|---|---|---|
 | C04 preuve de vivant | SOURCE (consultée) : Tinder Face Check, vidéo-selfie, vivacité automatisée, décision en secondes, média supprimé, empreinte non réversible conservée. Limite : promesse et moyens non comparables à une bêta fermée | MESURÉ : image de 22 o acceptée, geste tiré parmi 4, rejouable 30 fois en 36 ms, jamais expiré, jamais contrôlé | La vivacité n'est vérifiée nulle part, ni par machine, ni en pratique par un humain dans la configuration livrée | 4 |
 | C05 ce que le badge promet | SOURCE (secondaire) : le secteur reconnaît qu'un badge n'atteste ni identité légale, ni âge, ni intentions ; Muzz et Bumble affichent ce que couvre leur vérification | VU `public/app.js:219` (pastille « Vérifié »), `:245-248` (jauge « Confiance n/3 ») : aucune explication, aucun tap, aucune limite énoncée | Le badge est affirmé et jamais expliqué | 3 |
@@ -178,7 +178,7 @@ Fichiers : `public/app.js`. **0,5 j.**
 VU `public/app.js:569-584`. Animation, frise en trois étapes, deux boutons : « Actualiser » et
 « Fermer ». Sondage `GET /api/me` toutes les 5 secondes.
 
-| Critère | Ce que fait la concurrence | Ce que fait Mbolo | Écart | Gravité |
+| Critère | Ce que fait la concurrence | Ce que fait Odo | Écart | Gravité |
 |---|---|---|---|---|
 | C01 gestion de l'attente | SOURCE (consultée) : les grandes apps montrent de la valeur avant d'exiger la vérification complète ; chez Tinder la décision est automatisée et rendue en secondes. Limite : promesse de vivier non comparable | MESURÉ (navigateur) : onglets masqués, deux boutons, aucun contenu, aucun compteur de personnes vérifiées dans la ville | L'attente est expliquée mais vide, et le délai annoncé n'est adossé à rien | 3 |
 | C19 résilience | SOURCE (connaissance) : file locale, indicateur d'état, écran hors ligne utile | MESURÉ : appuyer sur « Actualiser » ne change **rien** dans le DOM, n'affiche aucun toast, en ligne comme hors ligne ; VU `public/app.js:934` : le `catch` est vide | Bouton actif qui ne fait rien de perceptible : ancrage 0 de C19 | 3 |
@@ -256,7 +256,7 @@ compter les échecs de notification. Fichiers : `public/app.js`, `server/bot.js`
 Le modérateur n'a aucun écran dans l'app. Son poste de travail est une conversation Telegram.
 Tout ce qui suit est MESURÉ avec un faux Telegram (`moderation.mjs`), sauf mention contraire.
 
-| Critère | Ce que fait la concurrence | Ce que fait Mbolo | Écart | Gravité |
+| Critère | Ce que fait la concurrence | Ce que fait Odo | Écart | Gravité |
 |---|---|---|---|---|
 | C04 décision | SOURCE (consultée) : décision automatisée rendue en secondes, comparaison au visage des photos du profil | 4 messages séparés par inscription, photos avant le selfie, aucun lien entre eux | Le modérateur ne peut pas comparer ce qu'il doit comparer | 3 |
 | C06 barrière au retour | SOURCE (consultée) : empreinte non réversible, refus automatique en cas de doublon. Limite : donnée biométrique, base légale camerounaise non tranchée | VU `server/store.js:51-61` : aucun champ `banned` ; VU `server/bot.js:94-96` : le refus invite explicitement à recommencer | Aucun état de sanction, donc aucune barrière | 4 |
@@ -398,7 +398,7 @@ C22 = 1 · C23 = 1. Chaque note repose uniquement sur du VU ou du MESURÉ cité 
 
 ---
 
-## 6. Ce que Mbolo fait mieux que la concurrence sur ce lot
+## 6. Ce que Odo fait mieux que la concurrence sur ce lot
 
 1. **La porte est réellement fermée.** MESURÉ : tant que le compte n'est pas `approved`, `/discover`,
    `/profiles`, `/likes`, `/matches` et `/photos` répondent `403 NOT_VERIFIED` (VU
