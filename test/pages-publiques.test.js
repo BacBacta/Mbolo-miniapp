@@ -20,7 +20,7 @@ const portLibre = () => new Promise((resolve) => {
 });
 
 const PORT = await portLibre();
-const APP_NAME = 'Mbolo-test-pages';
+const APP_NAME = 'Odo-test-pages';
 const serveur = spawn(process.execPath, ['server/index.js'], {
   stdio: 'ignore',
   env: {
@@ -71,7 +71,7 @@ test('le nom de l\'app est injecté, jamais le gabarit', async () => {
   // Le nom n'est écrit en dur nulle part (règle 12) : le fichier source, lui, ne le contient pas.
   for (const f of ['confidentialite.html', 'conditions.html']) {
     const source = fs.readFileSync(path.join('server', 'legal', f), 'utf8');
-    assert.ok(!/\bMbolo\b/.test(source), `${f} ne doit pas écrire le nom de l'app en dur`);
+    assert.ok(!/\bOdo\b/.test(source), `${f} ne doit pas écrire le nom de l'app en dur`);
   }
 });
 

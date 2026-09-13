@@ -24,7 +24,7 @@ const urlHebergeur = () =>
 export const config = {
   root,
   // Nom affiché partout (app, bot, notifications). Modifiable sans toucher au code.
-  appName: (process.env.APP_NAME || 'Mbolo').trim(),
+  appName: (process.env.APP_NAME || 'Odo').trim(),
   // DATA_DIR permet de placer les données sur un volume persistant (hébergeur) ou dans un dossier de test
   // Rendu absolu : res.sendFile() refuse un chemin relatif, et les photos ne partaient donc plus
   // dès qu'on donnait un DATA_DIR relatif (« ./data »), sans que rien d'autre ne le laisse voir.
@@ -111,7 +111,7 @@ export const VENUES_DEMO = [
 // Les lieux partenaires, et pourquoi la liste est vide.
 //
 // Un lieu n'entre ici qu'après un accord signé avec l'établissement. L'app annonce son nom, son
-// quartier et son avantage (« -10 % avec Mbolo ») à quelqu'un qui va s'y rendre : si le café n'a
+// quartier et son avantage (« -10 % avec Odo ») à quelqu'un qui va s'y rendre : si le café n'a
 // rien signé, c'est un mensonge fait à un membre, et un problème avec le café. Une app dont la
 // promesse centrale est « des personnes réelles, pas d'arnaque » ne peut pas ouvrir là-dessus.
 //

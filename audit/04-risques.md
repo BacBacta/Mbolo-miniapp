@@ -1,4 +1,4 @@
-# Mbolo — les huit risques, notés
+# Odo — les huit risques, notés
 
 Phase 4 de l'audit. Ce fichier ne réexplique pas les écrans : il regroupe les constats par **mécanisme
 d'échec**, arbitre les doublons, et attribue une note de 0 à 3 par risque.
@@ -79,7 +79,7 @@ les profils du moment » — et n'offre aucun levier pour élargir quoi que ce s
 
 SOURCE (consultée, `00-benchmark.md` C07) : le standard est de ne jamais afficher d'écran vide, et
 d'élargir progressivement les critères en l'annonçant. **Limite de comparabilité déterminante** :
-les apps comparées ont un vivier installé ; Mbolo démarre à zéro en bêta fermée. La densité n'est
+les apps comparées ont un vivier installé ; Odo démarre à zéro en bêta fermée. La densité n'est
 pas un problème d'interface, c'est un problème d'offre. Ce qui se compare, et ce que la grille note,
 c'est la **gestion honnête du vide** — et sur ce point l'écart est entier : aucun compteur de
 personnes vérifiées dans la ville n'est jamais affiché nulle part (MESURÉ, `grep` : aucune route ne
@@ -209,7 +209,7 @@ toujours (VU `server/routes.js:336`).
 |---|---|---|---|
 | RELATION-22 | VU | **4** (arbitré) | `public/app.js:659` et `:987` invitent à parler du profil ; `:235` : `promptQ`/`promptA` ne sont rendus que par `profileCard()`, jamais appelé depuis la discussion |
 | RELATION-06 | MESURÉ | 4 | `checkMessage` bloque « tu es prête ? », « Tu es prête pour samedi ? », « Je prends le taxi jusqu'à Mvog-Mbi, ça me coûte 300 F », « J'ai plus de crédit sur ma ligne », « Les frais de scolarité sont chers cette année », « Mon oncle m'a dépanné avec sa voiture » — six sur six reproduites. Mécanisme VU `server/antiscam.js:25` (`\bpret(e\|er)?\b` après suppression des accents) |
-| RELATION-08 | VU | 3 | `server/antiscam.js:46` : « Les demandes et offres d'argent sont bloquées sur Mbolo. » — n'indique ni la catégorie ni la correction ; `public/app.js:1072` ajoute une consigne pour `MONEY_BLOCKED` seulement |
+| RELATION-08 | VU | 3 | `server/antiscam.js:46` : « Les demandes et offres d'argent sont bloquées sur Odo. » — n'indique ni la catégorie ni la correction ; `public/app.js:1072` ajoute une consigne pour `MONEY_BLOCKED` seulement |
 | RELATION-24 | VU | 2 | `server/store.js:163-172` : le match ne porte ni statut ni expiration ; `server/routes.js:336` : sans message, le tri retombe sur `createdAt` |
 | DECOUVERTE-14 | MESURÉ | 3 | `SEED_DEMO=true` : un seul « J'aime » sur Carine (`demo: true`, jauge 3/3) crée un match immédiat. VU `server/routes.js:304` : le profil de démonstration like en retour |
 
@@ -330,7 +330,7 @@ des réseaux d'arnaque sentimentale, en nommant le Cameroun. **Enseignement sûr
 l'adversaire est organisé et local, et il passe la vérification par selfie avec son propre visage —
 ce qui rend la détection de doublons de visage (P1-1) plus utile que le durcissement du selfie.
 
-**Ce que Mbolo fait mieux que le marché, et qu'il ne faut pas casser** (VU, vérifié par la passe
+**Ce que Odo fait mieux que le marché, et qu'il ne faut pas casser** (VU, vérifié par la passe
 adverse) : le pseudo et le numéro Telegram ne sortent jamais (`server/routes.js:29-54`, liste blanche
 explicite) ; aucune position GPS n'est demandée (`:230`, le quartier déclaré tient lieu de proximité) ;
 l'activité est arrondie en tranches (`:19-26`, `:239`) ; le lieu public n'est pas suggéré mais imposé
@@ -375,7 +375,7 @@ un écran filtré par l'âge où la personne n'est pas (MESURÉ, VU `server/rout
 
 | id | marque | grav. | preuve |
 |---|---|---|---|
-| INSCRIPTION-04 | MESURÉ | 4 | écran d'échec : 0 bouton, 0 lien, 0 élément cliquable, barre de boutons masquée ; `curl /api/me` sans en-tête → `401 "Ouvre Mbolo depuis Telegram."`, mot pour mot le titre de l'écran. VU `public/app.js:1274-1283` contre `:136-144` (`renderError` sait déjà proposer « Réessayer ») |
+| INSCRIPTION-04 | MESURÉ | 4 | écran d'échec : 0 bouton, 0 lien, 0 élément cliquable, barre de boutons masquée ; `curl /api/me` sans en-tête → `401 "Ouvre Odo depuis Telegram."`, mot pour mot le titre de l'écran. VU `public/app.js:1274-1283` contre `:136-144` (`renderError` sait déjà proposer « Réessayer ») |
 | INSCRIPTION-01 | VU | **2** (affaibli) | `server/bot.js:108` : `reply_markup` conditionnel à `config.webAppUrl` ; `:27` idem pour les notifications. **Gravité 4 non tenable** : `server/config.js:10-11` dérive l'adresse de `RENDER_EXTERNAL_URL` ou `FLY_APP_NAME`, et le README dit de laisser `WEBAPP_URL` vide chez Render. Sur les deux hébergeurs décrits, le bouton existe |
 | VERIFICATION-19 | VU | 3 | `public/app.js:574` affirme que le bot préviendra ; `server/routes.js:82` calcule `notificationsAvailable = !!config.botToken` ; MESURÉ, l'écran `pending` ne lit jamais ce champ |
 | VERIFICATION-04 | MESURÉ | 3 | écran d'attente : `#topbar` masqué, 0 élément cliquable dans `#app`, deux boutons hors contenu (« Fermer » et « Actualiser », 160 x 50 chacun) |
@@ -386,7 +386,7 @@ un écran filtré par l'âge où la personne n'est pas (MESURÉ, VU `server/rout
 | id | marque | grav. | preuve |
 |---|---|---|---|
 | INSCRIPTION-23 | MESURÉ | 3 | après les trois étapes sans enregistrer : `localStorage {}`, profil serveur `null` ; après rechargement, retour à l'étape 1 |
-| INSCRIPTION-13 | MESURÉ | 3 | âge vide → « Mbolo est réservé aux 18 ans et plus. » (VU `public/app.js:854`, `Number('')` vaut 0) ; âge 120 → même message (MESURÉ, 400 `AGE_INVALID`), sur un écran où le champ n'existe plus |
+| INSCRIPTION-13 | MESURÉ | 3 | âge vide → « Odo est réservé aux 18 ans et plus. » (VU `public/app.js:854`, `Number('')` vaut 0) ; âge 120 → même message (MESURÉ, 400 `AGE_INVALID`), sur un écran où le champ n'existe plus |
 | INSCRIPTION-14 | VU | 2 | `server/routes.js:91-97` : six champs obligatoires — un de plus que l'ancrage C02 niveau 2 — sans phrase de justification par champ |
 | INSCRIPTION-25 | VU | 2 | `public/app.js:268-272` : `showError` écrit dans `<p id="form-error">` sans focus, sans mise en évidence du champ, sans défilement ; aucun `<form>`, donc la touche de validation du clavier Android ne fait rien |
 | INSCRIPTION-21 | VU | 2 (affaibli) | `public/app.js:1234` et `:1167` appellent `SCREENS.profile()`, qui remplace tout le contenu à `:523`. **La perte de focus est certaine ; la fermeture du clavier Android n'a jamais été observée sur un appareil** — test qui trancherait : curseur dans « Ta réponse », appui sur la croix d'un emplacement photo, observation du clavier |
@@ -430,12 +430,12 @@ un écran filtré par l'âge où la personne n'est pas (MESURÉ, VU `server/rout
 
 SOURCE (consultée, `00-benchmark.md` C09) : Hinge accorde 8 likes gratuits par jour avec une
 réinitialisation à heure locale connue. **Limite** : chez eux la limite est un levier de monétisation,
-chez Mbolo elle sert la qualité du vivier ; la comparaison porte sur la **mise en scène**, pas sur la
+chez Odo elle sert la qualité du vivier ; la comparaison porte sur la **mise en scène**, pas sur la
 finalité. SOURCE (consultée, C17) : les conditions développeurs de Telegram interdisent explicitement
-de harceler les utilisateurs avec des messages non sollicités — ce que Mbolo respecte, et qui limite
+de harceler les utilisateurs avec des messages non sollicités — ce que Odo respecte, et qui limite
 par construction les leviers de retour disponibles.
 
-**Ce que Mbolo fait mieux** (VU) : parcourir ne coûte rien, seule une décision compte
+**Ce que Odo fait mieux** (VU) : parcourir ne coûte rien, seule une décision compte
 (`server/routes.js:246-247`) ; les likes reçus sont gratuits et actionnables (`:282-288`), alors que
 SOURCE (grille C10) le feed « Likes You » est le principal produit d'appel payant du marché ; aucune
 notification n'est envoyée à quelqu'un en train de lire (`:378`, `server/store.js:193-197`).
@@ -488,12 +488,12 @@ JS. **Limite** : ces budgets ne sont pas des mesures de terrain camerounais. SOU
 indicatif) : 500 FCFA achètent de l'ordre de 500 à 750 Mo selon l'opérateur — **valeur tirée d'extraits
 de recherche non revérifiés, à ne jamais transformer en objectif**.
 
-**Ce que Mbolo fait mieux** (MESURÉ) : le cache fonctionne réellement — 2 941 o à la deuxième ouverture
+**Ce que Odo fait mieux** (MESURÉ) : le cache fonctionne réellement — 2 941 o à la deuxième ouverture
 contre 125 807 à la première, grâce à une empreinte tirée du contenu et non de l'heure de démarrage
 (VU `server/assets.js:13-17`), ce qui est **sous la barre des 20 Ko du niveau 2 de C18**. Les photos
 sont compressées sur le téléphone avant l'envoi (VU `public/app.js:82-98`) et chargées à la demande
 (`:191`, `:256`, `:373-385`). L'app est rapide même sur processeur lent : welcome → étape 1 en 155 ms
-avec un CPU bridé ×6 (MESURÉ). **Le coût de démarrage n'est pas dans le code de Mbolo, il est dans le
+avec un CPU bridé ×6 (MESURÉ). **Le coût de démarrage n'est pas dans le code de Odo, il est dans le
 script tiers bloquant.**
 
 ### Note : **0 sur 3**
@@ -542,7 +542,7 @@ SOURCE (consultée, `00-benchmark.md` C22) : HEART et le passage Objectifs → S
 à AARRR. SOURCE (secondaire, pages sources inaccessibles, 403 et 429) : repères de rétention du secteur
 des rencontres, J1 autour de 24 à 26 %, J30 autour de 5 à 7 %. **Limite explicite, à respecter** : ces
 valeurs viennent d'apps installées depuis une boutique, sur des marchés non comparables ; elles ne
-doivent jamais servir d'objectif ni de critère de réussite. Comparer Mbolo à lui-même dans le temps.
+doivent jamais servir d'objectif ni de critère de réussite. Comparer Odo à lui-même dans le temps.
 
 ### Note : **1 sur 3**
 

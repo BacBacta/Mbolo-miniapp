@@ -44,8 +44,8 @@ bot.api.config.use(async (prev, method, payload) => {
   }
   return { ok: true, result: true };
 });
-bot.botInfo = { id: 1, is_bot: true, first_name: 'T', username: 'mbolo_bot', can_join_groups: true, can_read_all_group_messages: false, supports_inline_queries: false };
-runtime.botUsername = 'mbolo_bot';
+bot.botInfo = { id: 1, is_bot: true, first_name: 'T', username: 'odo_bot', can_join_groups: true, can_read_all_group_messages: false, supports_inline_queries: false };
+runtime.botUsername = 'odo_bot';
 await setupBot();
 
 const app = express();
@@ -93,7 +93,7 @@ test("demander une invitation n'enregistre personne", async () => {
   await membre('400', 'Awa');
   const r = await call('400', '/me/confiance/invitation', 'POST');
   assert.equal(r.status, 200);
-  assert.match(r.body.lien, /^https:\/\/t\.me\/mbolo_bot\?start=confiance-/);
+  assert.match(r.body.lien, /^https:\/\/t\.me\/odo_bot\?start=confiance-/);
   assert.equal((await store.getUser('400')).confiance, undefined, 'aucune personne de confiance tant que personne n\'a accepté');
 });
 

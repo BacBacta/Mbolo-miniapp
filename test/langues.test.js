@@ -46,8 +46,8 @@ test('la traduction retombe sur le français quand la clé manque', () => {
 });
 
 test('les valeurs sont remplacées dans les deux langues', () => {
-  assert.equal(t('fr', 'Ouvrir {app}', { app: 'Mbolo' }), 'Ouvrir Mbolo');
-  assert.equal(t('en', 'Ouvrir {app}', { app: 'Mbolo' }), 'Open Mbolo');
+  assert.equal(t('fr', 'Ouvrir {app}', { app: 'Odo' }), 'Ouvrir Odo');
+  assert.equal(t('en', 'Ouvrir {app}', { app: 'Odo' }), 'Open Odo');
   assert.equal(t('en', 'Ta photo {n} est validée : les autres la voient maintenant.', { n: 2 }), 'Your photo 2 is approved: others can see it now.');
 });
 

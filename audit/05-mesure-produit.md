@@ -1,4 +1,4 @@
-# Mbolo — plan de mesure produit
+# Odo — plan de mesure produit
 
 Phase 5 de l'audit. Ce fichier ne mesure rien : il dit **ce qu'il faut poser dans le code** pour que
 la bêta fermée produise enfin des chiffres, et **ce que ces chiffres auront le droit de dire**.
@@ -64,7 +64,7 @@ signalée dans le README (loi camerounaise n° 2024/017).
    403 et 429) : repères de rétention du secteur des rencontres, J1 autour de 24 à 26 %, J30 autour de
    5 à 7 %. **Limite de comparabilité** : apps installées depuis une boutique, sur d'autres marchés,
    avec un vivier installé. Ces valeurs servent à situer un ordre de grandeur, **jamais** à fixer une
-   cible ni à déclarer une réussite. Mbolo se compare à lui-même dans le temps.
+   cible ni à déclarer une réussite. Odo se compare à lui-même dans le temps.
 
 ---
 
@@ -359,7 +359,7 @@ trimestrielles. Test qui trancherait : après six mois, vérifier qu'aucune ques
 remonte au-delà. La valeur `0` doit désactiver complètement l'écriture : c'est ce qui rend la
 fonctionnalité refusable par le propriétaire sans toucher au code.
 
-**README**, section « Ce que Mbolo enregistre » :
+**README**, section « Ce que Odo enregistre » :
 
 - les six horodatages d'entonnoir, leur emplacement (objet utilisateur) et le fait qu'ils
   disparaissent avec `DELETE /api/me` ;

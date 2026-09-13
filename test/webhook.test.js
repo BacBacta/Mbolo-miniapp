@@ -18,7 +18,7 @@ const { bot, startBot, poseWebhook, WEBHOOK_RETRY_DELAYS_MS } = await import('..
 // Telegram n'est jamais appelé : on remplace les méthodes utilisées au démarrage
 const appels = { setWebhook: [], getMe: 0 };
 let refusRestants = 0;
-bot.api.getMe = async () => { appels.getMe += 1; return { username: 'mbolo_test_bot' }; };
+bot.api.getMe = async () => { appels.getMe += 1; return { username: 'odo_test_bot' }; };
 bot.api.setChatMenuButton = async () => ({});
 bot.api.setMyCommands = async () => ({});
 bot.api.setWebhook = async (url) => {

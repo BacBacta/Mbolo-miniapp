@@ -29,15 +29,15 @@ MESURÉ, point de vue d'une femme de 24 ans :
 
 ## 1. Écran `discover` (cartes et liste)
 
-### Concurrence, Mbolo, écart
+### Concurrence, Odo, écart
 
-| Sujet | Concurrence (SOURCE, grille §C07-C10, C18, C20) | Mbolo (VU / MESURÉ) | Écart |
+| Sujet | Concurrence (SOURCE, grille §C07-C10, C18, C20) | Odo (VU / MESURÉ) | Écart |
 |---|---|---|---|
 | Vivier vide | Jamais d'écran vide, élargissement annoncé | Écran vide muet, sans levier ni compteur (VU `public/app.js:605-610`) | total |
 | Densité | Vivier installé, pas de compartiment étanche | 15 compartiments étanches, plus le genre pour « sérieux » (VU `server/routes.js:221-227`) | total |
 | Ordre | Appariement stable (Hinge), signaux comportementaux (Tinder) | Réciprocité, quartier, puis **identifiant Telegram croissant** (MESURÉ) | fort |
 | Quota | Hinge : 8 likes/jour, réinitialisation à heure locale connue | 20 balayages/jour, aucune heure annoncée, fuseau du serveur (VU `server/store.js:157-161`) | moyen |
-| Réciprocité | « Likes You » payant chez les leaders | Gratuit et actionnable (VU `server/routes.js:282-288`) | **Mbolo devant** |
+| Réciprocité | « Likes You » payant chez les leaders | Gratuit et actionnable (VU `server/routes.js:282-288`) | **Odo devant** |
 | Coût data | Miniatures serveur, compression | Photo unique servie en taille réelle pour une vignette de 40 px, rien de compressé (MESURÉ) | fort |
 | Accessibilité | WCAG 2.2 AA | 0 cible sous 24 x 24, mais 9 sur 12 sous 44 x 44 et 13 textes sous le seuil en clair (MESURÉ) | moyen |
 
@@ -277,7 +277,7 @@ pendant toute la session. Nielsen 0. Sécurité : aucun. R7.
 
 ## 2. Écran `filters`
 
-| Sujet | Concurrence (SOURCE, grille §C07, C09) | Mbolo (VU) | Écart |
+| Sujet | Concurrence (SOURCE, grille §C07, C09) | Odo (VU) | Écart |
 |---|---|---|---|
 | Leviers | Distance, âge, intention, centres d'intérêt au même endroit | Tranche d'âge seule (VU `server/routes.js:187`) | fort |
 | Ville et intention | Réglables sans refaire le profil | « Ta ville et ton intention viennent de ton profil » (VU `public/app.js:624`), sans lien pour les changer | fort |
@@ -319,7 +319,7 @@ décision du propriétaire, pas de l'audit.
 
 ## 3. Écran `person`
 
-| Sujet | Concurrence (SOURCE, grille §C05, C11, C15) | Mbolo (VU) | Écart |
+| Sujet | Concurrence (SOURCE, grille §C05, C11, C15) | Odo (VU) | Écart |
 |---|---|---|---|
 | Badge | Badge plus explication en un tap, limites énoncées | Pastille « Vérifié » plus jauge 3 barres, sans explication ni limites (VU `public/app.js:219`, `:243-249`) | moyen |
 | Accroche | Hinge : on aime un élément précis, avec commentaire attaché | Like binaire, aucun commentaire (VU `server/routes.js:290-314`) | fort |
@@ -372,7 +372,7 @@ une route de retrait, des tests. **3 à 5 jours.**
 
 ## 4. Écran `match`
 
-| Sujet | Concurrence (SOURCE, grille §C10, C11, C13) | Mbolo (VU) | Écart |
+| Sujet | Concurrence (SOURCE, grille §C10, C11, C13) | Odo (VU) | Écart |
 |---|---|---|---|
 | Premier message | Hinge : le commentaire attaché au like **est** le premier message | Champ vide, rien du profil rappelé (VU `public/app.js:650-665`) | fort |
 | Passage au rendez-vous | Hinge « Direct to Date » : disponibilités partagées dès le match | Deux boutons : « Écrire à X », « Plus tard » (VU `:664`) | fort |
@@ -468,11 +468,11 @@ rappel : 29. Flexibilité et efficacité : 03, 15, 16, 17, 25, 30, 32. Esthétiq
 
 ---
 
-## 6. Ce que Mbolo fait mieux que la concurrence sur ce lot
+## 6. Ce que Odo fait mieux que la concurrence sur ce lot
 
 1. **Les likes reçus sont gratuits et actionnables** — VU `server/routes.js:282-288` : `/likes` est
    ouverte à tout compte vérifié. SOURCE (grille C10) : c'est le principal produit d'appel payant du
-   marché. Mbolo ne verrouille pas le seul signal qui protège d'un vivier vide.
+   marché. Odo ne verrouille pas le seul signal qui protège d'un vivier vide.
 2. **Le like reçu ignore volontairement la tranche d'âge, pour ne pas mener à un écran vide** —
    VU `server/routes.js:276-277` (commentaire explicite) et `test/filters.test.js:51-67` : le choix
    est testé. L'intention est juste ; c'est la cible de la notification qui ne suit pas.

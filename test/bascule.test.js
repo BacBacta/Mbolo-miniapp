@@ -111,7 +111,7 @@ const dbExemple = () => ({
 });
 
 const fichierTemporaire = (contenu) => {
-  const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'mbolo-bascule-'));
+  const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'odo-bascule-'));
   const fichier = path.join(dossier, 'db.json');
   fs.writeFileSync(fichier, JSON.stringify(contenu));
   return fichier;
@@ -245,7 +245,7 @@ test('la base est préparée sous un nom que le serveur ne lit pas', () => {
 // On fait donc tourner le script pour de bon, avec un flyctl de paille qui rejoue ces réponses.
 
 const fauxFlyctl = (orgs, secretsEnPlus = '') => {
-  const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'mbolo-flyctl-'));
+  const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'odo-flyctl-'));
   const trace = path.join(dossier, 'appels.txt');
   fs.writeFileSync(path.join(dossier, 'flyctl'), `#!/bin/sh
 echo "$@" >> ${trace}
