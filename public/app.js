@@ -399,7 +399,7 @@ const activityChip = (p, cls = 'chip') => (ACTIVITY_LABELS()[p.activity] ? `<spa
 function profileCard(p, { own = false, cls = '' } = {}) {
   const hidePhoto = !own && S.dataSaver && !S.revealed[p.id];
   // La jauge vient du serveur avec son dénominateur : la carte ne devine plus combien de
-  // critères existent, et le jour où le garant s'ajoute elle suit sans être retouchée.
+  // critères existent, et le jour où un critère s'ajoute elle suit sans être retouchée.
   const tr = p.trust || { score: 0, total: 0, criteres: [] };
   const score = tr.score;
   // Ce qui est acquis, en clair, sur une ligne : « Selfie vérifié, membre depuis 3 mois »
@@ -1138,8 +1138,8 @@ const SCREENS = {
 
   // La jauge de confiance, expliquée (P1-5). Les critères viennent du serveur, les mêmes que
   // ceux que la carte affiche : un seul endroit décrit ce que la jauge mesure, donc l'explication
-  // ne peut pas raconter autre chose que le score. Le garant n'y est pas — il n'a pas encore de
-  // mécanisme, et annoncer un critère qu'on ne peut pas remplir serait promettre à vide.
+  // ne peut pas raconter autre chose que le score. Le garant n'y est pas et n'y sera pas (P1-6
+  // abandonné) : annoncer un critère qu'on ne peut pas remplir serait promettre à vide.
   jauge() {
     const tr = S.me.publicProfile?.trust || { score: 0, total: 0, criteres: [] };
     const etat = Object.fromEntries((tr.criteres || []).map((c) => [c.cle, c.ok]));

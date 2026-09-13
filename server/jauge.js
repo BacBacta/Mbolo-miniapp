@@ -5,10 +5,13 @@
 // l'avaient. Personne ne pouvait donc dépasser 2 sur 3, et rien ne disait pourquoi. Expliquer une
 // jauge dans cet état (P1-5) aurait été expliquer une déception.
 //
-// La jauge compte donc **les critères ouverts**, et rien d'autre. Le garant rejoindra la liste le
-// jour où P1-6 lui donnera un mécanisme : une ligne à ajouter ici, et le dénominateur suit tout
-// seul — la carte, l'écran d'explication et le score lisent tous cette même liste. Deux endroits
-// qui décrivent la même chose finissent toujours par diverger ; ici il n'y en a qu'un.
+// La jauge compte donc **les critères ouverts**, et rien d'autre. Le garant, lui, ne reviendra pas :
+// P1-6 est abandonné. Nommer un membre comme répondant d'un autre laisse croire à un recours —
+// une personne arnaquée se retournerait vers lui — et cette responsabilité-là, on ne peut pas la
+// tenir. Ajouter un critère reste une ligne dans cette liste le jour où un vrai mécanisme existe :
+// le dénominateur suit tout seul, puisque la carte, l'écran d'explication et le score lisent tous
+// cette même liste. Deux endroits qui décrivent la même chose finissent toujours par diverger ;
+// ici il n'y en a qu'un.
 
 export const CRITERES = [
   {
@@ -28,7 +31,7 @@ export const CRITERES = [
 const ANCIENNETE_MS = 90 * 24 * 3600 * 1000;
 
 // Les profils de démonstration portent leur propre `trust` : on le lit s'il est là, on le calcule
-// sinon. Un critère que la liste ne connaît pas (le garant, aujourd'hui) est simplement ignoré —
+// sinon. Un critère que la liste ne connaît pas (le garant, que les démos portent encore) est ignoré —
 // il ne compte ni au numérateur ni au dénominateur.
 export function calculer(user) {
   const pose = user?.profile?.trust;

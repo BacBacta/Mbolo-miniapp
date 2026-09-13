@@ -3,7 +3,9 @@
 // Elle s'affichait « sur 3 » alors que le troisième critère — le garant — était figé à `false`
 // pour tout compte réel : personne ne pouvait dépasser 2 sur 3, et rien ne disait pourquoi.
 // Expliquer une jauge dans cet état aurait été expliquer une déception. Elle compte donc les
-// critères **ouverts**, et le garant la rejoindra quand P1-6 lui donnera un mécanisme.
+// critères **ouverts**. Le garant ne reviendra pas : P1-6 est abandonné, parce que nommer un
+// membre comme répondant d'un autre laisse croire à un recours qui n'existe pas. Ce test le
+// garde dehors pour de bon, au lieu de le garder dehors en attendant.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -40,7 +42,7 @@ const TROIS_MOIS = 91 * 24 * 3600 * 1000;
 test('la jauge ne compte que les critères ouverts', () => {
   assert.deepEqual(CRITERES.map((c) => c.cle), ['selfie', 'seniority']);
   assert.ok(!CRITERES.some((c) => c.cle === 'guarantor'),
-    "le garant n'a pas encore de mécanisme : il ne doit pas figurer dans une jauge qu'on explique");
+    "le garant est abandonné (P1-6) : il ne doit pas figurer dans une jauge qu'on explique");
 });
 
 test('un compte neuf et vérifié est à 1 sur 2, pas à 1 sur 3', () => {
