@@ -130,3 +130,54 @@ test("la langue se choisit dès l'accueil, avant de créer quoi que ce soit", as
   await actionPrincipale(page).click();
   await expect(titre(page)).not.toHaveText(/Fais-toi connaître/);
 });
+
+// Le selfie doit ouvrir la caméra, pas la galerie. C'est `capture="user"` qui le demande — mais
+// cette indication n'est appliquée qu'à une entrée **rendue** : `hidden`, donc `display: none`,
+// la faisait ignorer par plusieurs WebView Android, dont celle de Telegram qui est notre cible.
+// L'entrée reste donc dans le flux, invisible et large d'un pixel, activée par son label.
+//
+// Ce test garde le balisage ; il ne peut pas garantir le comportement de Telegram, qui reste libre
+// d'ignorer l'indication. Il empêche seulement qu'on reperde l'attribut, ou qu'on remette `hidden`.
+test('le selfie demande la caméra, et son entrée reste rendue pour que ce soit entendu', async ({ page }) => {
+  await ouvrir(page, nouvelIdentifiant());
+  await creerProfil(page, { prenom: 'Ada' });
+  await passerLaJauge(page);
+
+  const selfie = page.locator('input[type=file][name=selfie]');
+  await expect(selfie).toHaveAttribute('capture', 'user');
+  await expect(selfie).toHaveAttribute('accept', 'image/*');
+
+  // Pas `hidden` : styles.css en fait un display:none, et une entrée non rendue perd l'indication.
+  const display = await selfie.evaluate((el) => getComputedStyle(el).display);
+  expect(display, "l'entrée du selfie ne doit pas être display:none").not.toBe('none');
+  // Et elle reste invisible : c'est le label qui se touche, pas elle.
+  const visible = await selfie.evaluate((el) => {
+    const s = getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    return Number(s.opacity) > 0 && r.width > 2 && r.height > 2;
+  });
+  expect(visible, "l'entrée ne doit pas se voir : c'est le label qui se touche").toBe(false);
+});
+
+// Les photos du profil, elles, doivent bien ouvrir la galerie : on choisit parmi ce qu'on a déjà.
+// Leur mettre `capture` forcerait la caméra et rendrait impossible de poser une photo existante.
+test('les photos du profil ne forcent pas la caméra', async ({ page }) => {
+  await ouvrir(page, nouvelIdentifiant());
+  await actionPrincipale(page).click();
+  await expect(titre(page)).toHaveText(/Fais-toi connaître/);
+  await page.locator('input[name=name]').fill('Ada');
+  await page.locator('input[name=age]').fill('24');
+  await page.locator('main button', { hasText: /Femme/ }).first().click();
+  await actionPrincipale(page).click();
+  await expect(titre(page)).toHaveText(/Ce que tu cherches/);
+  await page.locator('main button', { hasText: /Amitié/ }).first().click();
+  await page.locator('input[name=city]').fill('Yaoundé');
+  await actionPrincipale(page).click();
+  await expect(titre(page)).toHaveText(/Ta touche personnelle/);
+
+  const photos = page.locator('input[type=file][name^=photo-]');
+  await expect(photos).toHaveCount(3);
+  for (let i = 0; i < 3; i += 1) {
+    await expect(photos.nth(i)).not.toHaveAttribute('capture', /.*/);
+  }
+});
