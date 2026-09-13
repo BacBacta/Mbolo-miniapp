@@ -40,6 +40,12 @@ function save() {
 export const newId = () => crypto.randomBytes(8).toString('hex');
 const pairKey = (a, b) => [String(a), String(b)].sort().join(':');
 
+// Compteurs de limitation de débit. Voir limiteConsommer plus bas : ils restent en mémoire
+// parce que ce stockage est mono-instance par construction.
+const limites = new Map();
+// La plus longue fenêtre des règles (une heure) : au-delà, une entrée ne dit plus rien.
+const FENETRE_MAX_MS = 3_600_000;
+
 export const store = {
   // ---------- Utilisateurs ----------
   getUser: async (id) => db.users[String(id)] || null,
@@ -214,6 +220,38 @@ export const store = {
   bannis: async () => Object.values(db.users).filter((u) => u.banned),
 
   allUsers: async () => Object.values(db.users),
+
+  // ---------- Limitation de débit ----------
+  // En mémoire, et c'est correct ici : un fichier JSON ne supporte qu'une seule instance, donc il
+  // n'y a personne avec qui partager. Les écrire dans le fichier coûterait une réécriture complète
+  // à chaque message envoyé, pour une exactitude que ce mode n'a pas à garantir. Le stockage
+  // PostgreSQL, lui, peut tourner à plusieurs : il les met en base (voir store.pg.js).
+  //
+  // Conséquence assumée, la même qu'avant ce chantier : les compteurs repartent à zéro au
+  // redémarrage.
+  async limiteConsommer(cle, max, fenetreMs, maintenant = Date.now()) {
+    const gardes = (limites.get(cle) || []).filter((t) => maintenant - t < fenetreMs);
+    if (gardes.length >= max) {
+      limites.set(cle, gardes);
+      return Math.max(1, Math.ceil((fenetreMs - (maintenant - gardes[0])) / 1000));
+    }
+    gardes.push(maintenant);
+    limites.set(cle, gardes);
+    return null;
+  },
+
+  async limitesReinitialiser() { limites.clear(); },
+
+  // Rien à purger qu'un redémarrage ne fasse déjà : la carte ne survit pas au processus. On
+  // enlève quand même les fenêtres mortes, sans quoi elle grossirait d'une entrée par compte et
+  // par action tant que le serveur tourne.
+  async purgerLimites(maintenant = Date.now()) {
+    let n = 0;
+    for (const [cle, horodatages] of limites) {
+      if (!horodatages.length || maintenant - horodatages[horodatages.length - 1] > FENETRE_MAX_MS) { limites.delete(cle); n += 1; }
+    }
+    return n;
+  },
 
   // Lectures en vrac. La découverte a besoin, pour chaque candidat, de savoir s'il est bloqué,
   // si je l'ai déjà balayé et s'il m'a liké. Poser ces trois questions par candidat faisait

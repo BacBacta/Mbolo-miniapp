@@ -1,5 +1,12 @@
 // Limitation de débit par compte : sans elle, un seul compte pouvait envoyer 1 333 messages
 // par seconde et noyer la modération de signalements.
+//
+// Les compteurs vivent désormais dans le stockage, pour que deux instances comptent ensemble.
+// Ce fichier tourne donc deux fois : sur le fichier JSON (compteurs en mémoire, mono-instance)
+// et sur PostgreSQL (compteurs en base) avec npm run test:pg. Les mêmes règles doivent tenir des
+// deux côtés — c'est cette double exécution qui vérifie que le portage n'a rien changé au
+// comportement. Qu'ils soient réellement partagés entre deux processus se prouve ailleurs :
+// test/limites-instances.test.js, qui demande une vraie base.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -31,36 +38,36 @@ const call = async (user, p, method = 'GET', body) => {
 };
 
 test.after(() => server.close());
-test.beforeEach(() => reinitialiser());
+test.beforeEach(async () => reinitialiser());
 
-test('la règle laisse passer le quota puis refuse', () => {
+test('la règle laisse passer le quota puis refuse', async () => {
   const regle = REGLES.signalement;
   const t = 1_000_000;
-  for (let i = 0; i < regle.max; i++) assert.equal(consommer('u1', 'signalement', t), null, `action ${i + 1} permise`);
-  const attente = consommer('u1', 'signalement', t);
+  for (let i = 0; i < regle.max; i++) assert.equal(await consommer('u1', 'signalement', t), null, `action ${i + 1} permise`);
+  const attente = await consommer('u1', 'signalement', t);
   assert.ok(attente > 0, 'la suivante est refusée');
   assert.ok(attente <= regle.fenetreMs / 1000, 'l\'attente ne dépasse pas la fenêtre');
 });
 
-test('la fenêtre glisse : après expiration, le compte repart', () => {
+test('la fenêtre glisse : après expiration, le compte repart', async () => {
   const t = 2_000_000;
-  for (let i = 0; i < REGLES.message.max; i++) consommer('u2', 'message', t);
-  assert.ok(consommer('u2', 'message', t) > 0, 'plein dans la fenêtre');
-  assert.equal(consommer('u2', 'message', t + REGLES.message.fenetreMs + 1), null, 'une fois la fenêtre passée, c\'est permis');
+  for (let i = 0; i < REGLES.message.max; i++) await consommer('u2', 'message', t);
+  assert.ok(await consommer('u2', 'message', t) > 0, 'plein dans la fenêtre');
+  assert.equal(await consommer('u2', 'message', t + REGLES.message.fenetreMs + 1), null, 'une fois la fenêtre passée, c\'est permis');
 });
 
-test('les comptes ne se gênent pas entre eux', () => {
+test('les comptes ne se gênent pas entre eux', async () => {
   const t = 3_000_000;
-  for (let i = 0; i < REGLES.signalement.max; i++) consommer('u3', 'signalement', t);
-  assert.ok(consommer('u3', 'signalement', t) > 0);
-  assert.equal(consommer('u4', 'signalement', t), null, 'un autre compte garde son quota');
+  for (let i = 0; i < REGLES.signalement.max; i++) await consommer('u3', 'signalement', t);
+  assert.ok(await consommer('u3', 'signalement', t) > 0);
+  assert.equal(await consommer('u4', 'signalement', t), null, 'un autre compte garde son quota');
 });
 
-test('les actions ont des compteurs séparés', () => {
+test('les actions ont des compteurs séparés', async () => {
   const t = 4_000_000;
-  for (let i = 0; i < REGLES.signalement.max; i++) consommer('u5', 'signalement', t);
-  assert.ok(consommer('u5', 'signalement', t) > 0);
-  assert.equal(consommer('u5', 'message', t), null, 'écrire reste possible');
+  for (let i = 0; i < REGLES.signalement.max; i++) await consommer('u5', 'signalement', t);
+  assert.ok(await consommer('u5', 'signalement', t) > 0);
+  assert.equal(await consommer('u5', 'message', t), null, 'écrire reste possible');
 });
 
 test('en HTTP, le refus est un 429 avec Retry-After et un message en français', async () => {

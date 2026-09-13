@@ -247,6 +247,47 @@ export const store = {
 
   allUsers: async () => (await q('select * from users')).map(versUser),
 
+  // ---------- Limitation de débit ----------
+  // En base, et c'est tout l'intérêt : ce stockage-ci tourne à plusieurs instances, qui doivent
+  // compter ensemble. Tant que les compteurs vivaient en mémoire, deux machines laissaient passer
+  // le double de ce que les règles annoncent, chacune ignorant l'autre.
+  //
+  // Une transaction, parce que lire-puis-écrire sans verrou est exactement ce qu'on essaie
+  // d'éviter : deux requêtes simultanées liraient la même fenêtre et s'accorderaient toutes les
+  // deux le dernier jeton. L'insertion à vide sert à prendre le verrou même quand la ligne
+  // n'existe pas encore — `do update` est un non-changement qui verrouille la ligne existante.
+  async limiteConsommer(cle, max, fenetreMs, maintenant = Date.now()) {
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      const { rows } = await client.query(
+        `insert into rate_limits (cle, horodatages, fin) values ($1, '{}', 0)
+         on conflict (cle) do update set cle = excluded.cle
+         returning horodatages`, [cle]);
+      const gardes = (rows[0].horodatages || []).map(Number).filter((t) => maintenant - t < fenetreMs);
+      const permis = gardes.length < max;
+      if (permis) gardes.push(maintenant);
+      await client.query('update rate_limits set horodatages = $2, fin = $3 where cle = $1',
+        [cle, gardes, (gardes[gardes.length - 1] || maintenant) + fenetreMs]);
+      await client.query('commit');
+      return permis ? null : Math.max(1, Math.ceil((fenetreMs - (maintenant - gardes[0])) / 1000));
+    } catch (e) {
+      await client.query('rollback');
+      throw e;
+    } finally {
+      client.release();
+    }
+  },
+
+  async limitesReinitialiser() { await q('delete from rate_limits'); },
+
+  // Sans cette purge, la table garderait une ligne par compte et par action pour toujours — y
+  // compris celles de comptes effacés depuis longtemps.
+  async purgerLimites(maintenant = Date.now()) {
+    const { rowCount } = await pool.query('delete from rate_limits where fin < $1', [maintenant]);
+    return rowCount;
+  },
+
   // Lectures en vrac. La découverte a besoin, pour chaque candidat, de savoir s'il est bloqué,
   // si je l'ai déjà balayé et s'il m'a liké. Poser ces trois questions par candidat ferait
   // N allers-retours vers PostgreSQL ; on charge les trois relations une fois, et le filtre

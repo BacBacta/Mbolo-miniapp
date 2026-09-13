@@ -272,7 +272,7 @@ export async function setupBot() {
     const refus = refusDuree(ctx.message.voice?.duration);
     if (refus) return ctx.reply(t(lang, refus.cle, refus.vars));
 
-    const attente = consommer(user.id, 'voix');
+    const attente = await consommer(user.id, 'voix');
     if (attente) return ctx.reply(t(lang, 'Trop de présentations envoyées. Réessaie dans un moment.'));
 
     const dest = path.join(config.uploadsDir, fichierVoix(user.id));

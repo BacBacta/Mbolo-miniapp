@@ -50,7 +50,7 @@ server/
   routes.js     API REST sous /api
   bot.js        Commandes du bot, modération des selfies, notify(), notifyAdmin()
   antiscam.js   checkMessage() : blocage argent (contextuel), liens, numéros, pseudos
-  limites.js    Limitation de débit par compte et par action, en mémoire
+  limites.js    Limitation de débit : les règles, le middleware ; les compteurs sont dans le stockage
   compression.js Compression gzip des fichiers et des réponses d'API
   i18n.js       Langue de chaque personne, dictionnaire des messages du bot
   store.js      Choix du stockage selon DATABASE_URL, et rien d'autre
@@ -58,7 +58,7 @@ server/
   store.pg.js   Stockage PostgreSQL : même interface, transactions, plusieurs instances
   db/migrate.js Lanceur de migrations (verrou consultatif, une transaction par fichier)
   db/migrations/ Migrations SQL, appliquées une fois chacune, jamais modifiées après coup
-                 001-base.sql, 002-events.sql (mesure produit)
+                 001-base.sql, 002-events.sql (mesure produit), 003-limites.sql (compteurs partagés)
   seed.js       Profils de démonstration (SEED_DEMO=true)
   legal/        Pages publiques (confidentialité, conditions) : hors de public/, car le nom de l'app y est injecté
 public/
@@ -71,7 +71,8 @@ public/
   styles.css    Identité « Aura » : surfaces d'encre ou d'os selon data-scheme, aura réservée au match, au badge et au like ; Fraunces pour l'identité, Manrope pour l'interface
 test/
   activity, antiscam, assets, auth, compression,
-  bannissement, checkin, deploiement, filters, geographie, jauge, langues, limites, moderation,
+  bannissement, checkin, deploiement, filters, geographie, jauge, langues, limites,
+  limites-instances (PostgreSQL seulement : deux processus, un seul quota), moderation,
   moderation-session, notifications, pages-publiques, photos, production, profiles,
   rendezvous, securite, stockage, verre, webhook
   (tous rejoués sur PostgreSQL par npm run test:pg)
@@ -159,7 +160,7 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 - Discussion par polling toutes les 4 secondes.
 - L'espace de modération web **lit** (file de vérification, signalements, comptes fermés) ; toutes les **décisions** se prennent dans le groupe Telegram. Si le groupe devient injoignable, plus personne ne peut être vérifié — et plus personne ne peut ouvrir de session web non plus, puisque la liste des administrateurs vient de là. Le serveur le signale au démarrage et les personnes concernées sont invitées à réessayer, mais rien ne prévient l'exploitant en cours de route.
 - **La liste des lieux partenaires est vide**, et c'est voulu : un lieu n'y entre qu'avec un accord signé avec l'établissement, sinon l'app annonce un avantage (« -10 % avec Mbolo ») à quelqu'un qui va se rendre dans un café qui n'a rien promis. Le rendez-vous avec confirmation d'arrivée n'est donc proposé nulle part pour l'instant, et l'app le dit en invitant à convenir d'un lieu public dans la discussion. Tout le mécanisme reste en place : une ligne dans `config.js` le rallume. Les quatre lieux d'exemple ne sortent qu'avec `SEED_DEMO` (`test/production.test.js`).
-- Compteurs de limitation de débit en mémoire : remis à zéro au redémarrage, non partagés entre instances.
+- Compteurs de limitation de débit : partagés entre instances sur PostgreSQL (table `rate_limits`), en mémoire sur le fichier JSON — qui est mono-instance de toute façon. Dans les deux cas ils repartent à zéro au redémarrage sur JSON ; sur PostgreSQL ils survivent.
 - `server/antiscam.js` couvre maintenant tous les pays, avec trois limites connues : les pays à **mobiles à 8 chiffres** (Togo, Gabon) ne sont attrapés que sous la forme `+indicatif` ; un numéro **écrit en toutes lettres** (« six sept sept… ») n'est vu que s'il est annoncé (« mon numéro ») ; et le vocabulaire ne couvre que le **français et l'anglais** — une demande écrite dans une autre langue échappe aux règles de formulation, mais pas à celles des numéros ni des moyens de paiement, qui ne dépendent pas de la langue.
 - Le corpus de non-régression d'`antiscam.js` reste écrit à la main : il fige chaque cas nommé, il ne mesure pas le comportement de vrais utilisateurs. À remplacer par les messages réellement signalés pendant la bêta.
 - La localisation s'arrête au **pays** : le fuseau ne distingue pas Yaoundé de Douala, et l'app ne demande pas le GPS. La ville reste écrite par la personne, avec des suggestions pour 33 pays seulement.
@@ -206,7 +207,7 @@ Ces points ne sont pas des fonctionnalités manquantes mais des choix qui ont vi
 conséquences d'un chantier précédent. Aucun n'a de point de feuille de route attitré, et c'est
 précisément pour cela qu'ils s'oublient.
 
-1. **Les compteurs de limitation de débit sont en mémoire** (`server/limites.js`). Sans conséquence tant qu'une seule machine tourne — mais P0-2 a justement levé la contrainte d'instance unique. À deux machines, chaque garde-fou anti-spam vaut le double dans les faits : 40 messages par minute au lieu de 20, 10 tentatives de vérification par heure au lieu de 5, puisque chaque machine tient son propre compte sans voir celui de l'autre. **Le quota de découverte, lui, n'est pas concerné** : les 20 « j'aime » par jour se comptent en base (`store.swipesToday()`), donc toutes les machines lisent le même nombre. **C'est une incohérence introduite par le passage à PostgreSQL**, pas un manque d'origine. À porter en base, ou dans un Redis, avant d'augmenter le nombre d'instances.
+1. ~~**Les compteurs de limitation de débit sont en mémoire**~~ : fait. Ils vivent maintenant **dans le stockage**, et chaque stockage répond à sa mesure : le fichier JSON garde une carte en mémoire — il est mono-instance par construction, et réécrire le fichier entier à chaque message coûterait cher pour une exactitude dont ce mode n'a pas besoin — tandis que **PostgreSQL les met en base** (table `rate_limits`, migration `003-limites.sql`), dans une transaction : lire puis écrire sans verrou est exactement ce qu'on cherchait à éviter, deux requêtes simultanées s'accorderaient le même dernier jeton. La purge des fenêtres mortes rejoint le balayage des six heures, sans quoi la table garderait une ligne par compte et par action pour toujours. **Le test qui compte** est `test/limites-instances.test.js` : il lance deux vrais processus Node sur la même base et vérifie qu'ils se partagent un seul quota — le reste de la suite passait déjà avant ce chantier et passerait encore si les compteurs repartaient en mémoire demain. Le sabotage y affiche exactement le symptôme de la dette : « 5 + 5 jetons pour une règle qui en autorise 5 ». Si le stockage ne répond pas, le garde-fou **laisse passer** en le journalisant : ce n'est pas une porte d'authentification, et une base injoignable fera échouer la requête deux lignes plus loin.
 2. ~~**Analytique produit**~~ : fait, les quatre lots. Horodatages d'entonnoir, table `events` et sa purge, onze événements, et `npm run chiffres` qui lit l'entonnoir, l'activation, le churn, la métrique phare et les douze métriques d'encadrement. **Ce qui reste n'est pas du code** : la métrique phare est une borne haute tant que les codes des lieux partenaires sont fixes (point 4 ci-dessous), et aucun chiffre n'est rétroactif.
 3. **`allUsers()` charge toute la table** à chaque découverte, y compris sur PostgreSQL : la découverte filtre en mémoire. Tenable pour quelques centaines de comptes. Au-delà, c'est le filtre qu'il faut descendre en SQL — pas le stockage qu'il faut changer.
 4. ~~**Le check-in est falsifiable**~~ : **la moitié devinable est corrigée, la moitié « présence » ne l'est pas.** Ce qui a été trouvé en le corrigeant est pire que ce que ce point décrivait : le code n'était pas seulement déductible de l'identifiant du lieu, **le serveur le donnait au navigateur** — `routes.js` renvoyait l'objet lieu entier, `code` compris, à chaque interrogation de la discussion. Deux autres routes le retiraient, celle-là non. Un code imprévisible n'aurait rien changé tant que l'API le distribuait. Aujourd'hui (`server/lieux.js`) le code est une **empreinte HMAC** du secret serveur et de l'identifiant, les lieux **ne portent plus de champ `code` du tout** (on ne laisse pas fuir ce qu'on ne transporte pas), la comparaison est à temps constant, le check-in est limité à 10 essais par heure, et `VENUE_SECRET` renouvelle tous les codes d'un coup. **Ce qui reste faux** : le code est *fixe* pour un lieu. Il prouve « j'ai vu ce QR », jamais « j'y suis en ce moment » — qui l'a scanné une fois peut le réutiliser des mois plus tard depuis chez lui. Il y faut un **code tournant affiché par le lieu** (prévu avec les lieux en base, P1-10), ou un horaire réel sur le rendez-vous : `slot` est aujourd'hui **du texte libre** (« Samedi, 11 h »), donc aucune fenêtre horaire n'est calculable sans le convertir en horodatage d'abord. Tant que c'est le cas, la métrique phare reste une borne haute et **on ne peut pas facturer un lieu au rendez-vous confirmé** (P2-1).

@@ -727,7 +727,7 @@ api.post('/matches/:id/messages', requireApproved, limiter('message'), async (re
     // Un blocage d'argent est un signal utile pour la modération : c'est ainsi qu'on saura
     // quelles formulations circulent vraiment, et qu'on remplacera mon corpus écrit à la main.
     // Trois alertes par heure et par compte au plus, pour ne pas noyer le groupe.
-    if (check.code === 'MONEY_BLOCKED' && consommer(req.user.id, 'alerteModeration') === null) {
+    if (check.code === 'MONEY_BLOCKED' && (await consommer(req.user.id, 'alerteModeration')) === null) {
       notifyAdmin(`Message bloqué (${check.categorie}) de ${req.user.profile.name} (ID ${req.user.id}) : « ${text.slice(0, 120)} »`, boutonBannir(req.user.id));
     }
     // Le code, et rien d'autre. Pas le texte du message, évidemment — mais pas non plus
