@@ -1,9 +1,8 @@
 # Identité visuelle
 
 Tout ce dossier est **fabriqué**, jamais dessiné à la main. `brand/generer.js` produit les SVG et
-les PNG à partir de trois choses : les couleurs et les proportions de `public/styles.css`, les
-lettres figées dans `brand/traces.js`, et le Chromium de Playwright déjà installé pour les tests de
-bout en bout.
+les PNG à partir de trois choses : les couleurs de `public/styles.css`, les lettres figées dans
+`brand/traces.js`, et le Chromium de Playwright déjà installé pour les tests de bout en bout.
 
 ```powershell
 npm run logo
@@ -16,25 +15,30 @@ que le générateur produit aujourd'hui. Si tu modifies `generer.js` sans relanc
 
 ## L'idée
 
-Le logo est **l'avatar vérifié de l'app elle-même**, à ses proportions exactes.
+Le logo est **l'avatar vérifié de l'app elle-même**. Dans l'app, un avatar est un carré arrondi sur
+le dégradé violet-encre des photos, avec l'initiale en os ; une personne vérifiée y gagne une
+bordure d'aura, le dégradé rose, ambre, violet. Le logo prend ces trois éléments et leur donne de
+la matière, avec le vocabulaire des icônes d'app :
 
-Dans l'app, un avatar est un carré arrondi au rayon de 30 %, sur le dégradé violet-encre des photos,
-avec l'initiale en os quand il n'y a pas de photo. Une personne vérifiée y gagne une bordure fine
-d'aura, le dégradé rose, ambre, violet. C'est tout ce que le logo est : ce carré, cette bordure,
-cette initiale. Il n'invente rien que l'app ne montre déjà.
-
-L'aura n'est jamais posée pleine : nette sur la bordure seulement, et sinon floutée derrière
-l'avatar, comme au match. Ni grain, ni lueur, ni lettre colorée.
+- un **squircle** à courbure continue, comme les icônes d'iOS, pas un rectangle aux coins arrondis ;
+- une **face éclairée par le haut** : dégradé vertical sur les trois tons de photo de l'app, reflet
+  en haut à gauche, liseré de lumière sur l'arête supérieure, ombre intérieure au pied ;
+- un **anneau qui rayonne** : la bordure nette, une lueur qui déborde, un fil de lumière sur son
+  bord intérieur ;
+- une **initiale en léger relief** : dégradé blanc vers os, arête haute éclairée, ombre portée
+  courte ;
+- derrière, **l'encre maillée** : deux nappes de couleur floutées, une grille de points qui
+  s'efface vers les bords, une vignette et un grain fin.
 
 ## Les quatre usages
 
-Une seule construction, et ce qui change est l'anneau, avec le sens que l'app lui donne déjà.
+Une seule construction. Ce qui change est l'anneau, avec le sens que l'app donne à sa couleur.
 
 | Fichier | Anneau | Destination |
 |---|---|---|
-| `avatar-app-512.png` | Aura, la bordure d'une personne vérifiée, avec l'aura floutée derrière comme au match | Photo de profil du bot. Dans @BotFather : `/setuserpic`. Sert aussi d'icône de la mini app |
-| `avatar-moderation-512.png` | Doré, séparé par un liseré : dans l'app c'est l'anneau de « ce qu'on t'accorde », et la modération accorde la vérification | Photo du groupe privé de modération, celui de `ADMIN_CHAT_ID` |
-| `avatar-communaute-512.png` | Os, séparé par un liseré : dans l'app c'est l'anneau des nouveaux matchs | Photo du groupe ouvert aux membres de la bêta |
+| `avatar-app-512.png` | Aura, la bordure d'une personne vérifiée | Photo de profil du bot. Dans @BotFather : `/setuserpic`. Sert aussi d'icône de la mini app |
+| `avatar-moderation-512.png` | Ambre, la couleur de la confiance dans l'app | Photo du groupe privé de modération, celui de `ADMIN_CHAT_ID` |
+| `avatar-communaute-512.png` | Rose vers ambre, la couleur du « J'aime » | Photo du groupe ouvert aux membres de la bêta |
 | `avatar-annonces-512.png` | Aura, sur le thème clair | Photo du canal d'annonces public |
 
 Et autour :
@@ -42,18 +46,20 @@ Et autour :
 | Fichier | Usage |
 |---|---|
 | `presentation-640x360.png` | Image de présentation demandée par @BotFather pour la mini app |
+| `banniere-1600x900.png` | Image de partage, même composition en plus grand (non versionnée, `npm run logo`) |
 | `logo-horizontal-sombre.png`, `logo-horizontal-clair.png` | Verrouillage horizontal, fond transparent ; `-sur-encre` et `-sur-os` sont les mêmes avec leur fond |
-| `marque-*-512.png` | L'avatar seul, fond transparent, pour le poser sur autre chose |
+| `marque-*-512.png` | L'icône seule, fond transparent, pour la poser sur autre chose |
 | `logotype-os.png` | Le nom seul |
 | `svg/monogramme-*.svg` | Le logo en une couleur : tampon, filigrane, gravure |
 | `svg/favicon.svg` | Pour un onglet de navigateur |
 
 Les SVG de `svg/` sont la source : ils se redimensionnent sans perte, pour une impression ou une
-affiche. Les PNG en 1024 et l'affiche en 1280 ne sont pas versionnés, `npm run logo` les refait.
+affiche. Les PNG en 1024, l'affiche en 1280 et la bannière en 1600 ne sont pas versionnés, parce
+que le grain les rend lourds et que `npm run logo` les refait en quelques secondes.
 
 Pour poser une photo de groupe dans Telegram : ouvrir le groupe, toucher son nom, **Modifier**,
-puis l'icône d'appareil photo. Telegram découpe lui-même un cercle dans le carré, et tout le dessin
-tient dans le cercle inscrit, donc rien n'est coupé.
+puis l'icône d'appareil photo. Telegram découpe lui-même un cercle dans le carré, et l'icône avec
+sa lueur tient dans le cercle inscrit, donc rien n'est coupé.
 
 ## Changer le nom
 

@@ -29,8 +29,10 @@ test('les couleurs de la marque sont celles de la feuille de style', () => {
   assert.equal(COULEURS.like, jeton('like'));
   assert.equal(COULEURS.encre, jeton('ink'));
   assert.equal(COULEURS.photoA, jeton('photo-a', ':root[data-scheme="dark"] {'));
+  assert.equal(COULEURS.photoB, jeton('photo-b', ':root[data-scheme="dark"] {'));
   assert.equal(COULEURS.photoC, jeton('photo-c', ':root[data-scheme="dark"] {'));
   assert.equal(COULEURS.photoAClair, jeton('photo-a'));
+  assert.equal(COULEURS.photoBClair, jeton('photo-b'));
   assert.equal(COULEURS.photoCClair, jeton('photo-c'));
   assert.equal(COULEURS.boutonSombre, jeton('button', ':root[data-scheme="dark"] {'));
   assert.equal(COULEURS.os, jeton('on-photo'));
