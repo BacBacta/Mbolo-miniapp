@@ -1,0 +1,4 @@
+# Les PNG en 1024 pèsent près d'un mégaoctet chacun à cause du grain, et npm run logo les refait
+# en quelques secondes. Seuls les 512, les verrouillages et l'image de présentation sont versionnés.
+png/*/avatar-*-1024.png
+png/*/presentation-1280x720.png
