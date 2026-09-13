@@ -23,7 +23,7 @@ APP="${2:-}"
 DB="${3:-${APP}-db}"
 REGION="${4:-ams}"
 FUTUR=DATABASE_URL_FUTURE
-ORG="${FLY_ORG:-personal}"
+ORG=""
 MOTEUR="${MOTEUR:-mpg}"
 
 usage() {
@@ -52,7 +52,20 @@ secret_present() { flyctl secrets list -a "$APP" 2>/dev/null | grep -q "^ *$1 ";
 # identifiant, pas par son nom, et s'attache avec « flyctl mpg attach » ; une base non gérée est
 # une app Fly ordinaire. Seules ces deux fonctions le savent ; le reste du script n'en dépend pas.
 id_mpg() {
-  flyctl mpg list --org "$ORG" --json 2>/dev/null | jq -r --arg n "$DB" '.[]? | select(.name == $n) | .id' | head -1
+  # « mpg list » écrit une phrase en clair quand il n'y a aucune base, --json ou pas. La passer
+  # à jq donne « parse error », qu'on lit alors comme une panne alors qu'il n'y a rien à lire.
+  sortie=$(flyctl mpg list --org "$ORG" --json 2>/dev/null || true)
+  case "$sortie" in
+    '['*|'{'*) printf '%s' "$sortie" | jq -r --arg n "$DB" '.[]? | select(.name == $n) | .id' | head -1 ;;
+    *) : ;;
+  esac
+}
+
+# L'organisation n'est pas devinée : un jeton la connaît ou ne la connaît pas. FLY_ORG l'emporte
+# pour qui en a plusieurs ; sinon on prend celle que le jeton voit.
+resoudre_org() {
+  [ -n "${FLY_ORG:-}" ] && { echo "$FLY_ORG"; return; }
+  flyctl orgs list --json 2>/dev/null | jq -r 'keys[0] // empty' 2>/dev/null || true
 }
 
 creer_la_base() {
@@ -76,13 +89,30 @@ creer_la_base() {
 # journal d'un travail GitHub, que n'importe quel lecteur du dépôt peut ouvrir.
 attacher() {
   case "$MOTEUR" in
-    mpg) flyctl mpg attach "$(id_mpg)" -a "$APP" --variable-name "$FUTUR" ;;
+    mpg)
+      id=$(id_mpg)
+      [ -n "$id" ] || { echo "Base gérée $DB introuvable dans l'organisation $ORG." >&2; return 1; }
+      flyctl mpg attach "$id" -a "$APP" --variable-name "$FUTUR" ;;
     brut) flyctl postgres attach "$DB" -a "$APP" --variable-name "$FUTUR" --yes ;;
   esac
 }
 
 if [ "$ETAPE" = preparer ]; then
   command -v jq >/dev/null 2>&1 || { echo "jq introuvable : apt-get install jq (il sert à lire la liste des bases gérées)." >&2; exit 1; }
+
+  # Le jeton doit voir une organisation, sinon il ne peut ni créer ni attacher de base. Un jeton
+  # de déploiement — celui qui suffit à « flyctl deploy » — n'en voit aucune, et Fly répond alors
+  # « Organization not found » : on croit à un nom mal orthographié, et on cherche des heures.
+  # Ce contrôle passe avant tout, pour échouer sans avoir rien créé.
+  ORG=$(resoudre_org)
+  if [ -z "$ORG" ]; then
+    echo "Ce jeton ne voit aucune organisation Fly : il ne peut ni créer ni attacher de base." >&2
+    echo "C'est le cas d'un jeton de déploiement, limité à une seule app — celui qui suffit à déployer." >&2
+    echo "Crée un jeton d'organisation sur fly.io (Account puis Tokens), et remplace le secret" >&2
+    echo "FLY_API_TOKEN du dépôt par celui-là. Rien n'a été créé ni modifié." >&2
+    exit 1
+  fi
+  echo "Organisation : $ORG"
 
   # Une préparation déjà faite ne se refait pas : le secret est la preuve que la base existe et
   # qu'elle est attachée. Sans ce raccourci, relancer l'étape après une coupure pendant l'import

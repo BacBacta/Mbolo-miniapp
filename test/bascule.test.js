@@ -224,3 +224,59 @@ test('la base est préparée sous un nom que le serveur ne lit pas', () => {
   assert.ok(!config.includes('DATABASE_URL_FUTURE'), 'le serveur ne doit pas connaître ce nom');
   assert.match(script, /--variable-name "\$FUTUR"/, "l'attachement doit poser ce nom-là");
 });
+
+// ---------- Le script en marche, contre un faux flyctl ----------
+//
+// Les deux défauts qui ont fait échouer la première bascule réelle n'étaient visibles ni à la
+// lecture du script ni dans les tests de texte : « mpg list » écrit une phrase en clair quand il
+// n'y a aucune base — même avec --json — et un jeton de déploiement ne voit aucune organisation,
+// ce que Fly annonce par « Organization not found », qu'on lit comme un nom mal orthographié.
+// On fait donc tourner le script pour de bon, avec un flyctl de paille qui rejoue ces réponses.
+
+const fauxFlyctl = (orgs) => {
+  const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'mbolo-flyctl-'));
+  const trace = path.join(dossier, 'appels.txt');
+  fs.writeFileSync(path.join(dossier, 'flyctl'), `#!/bin/sh
+echo "$@" >> ${trace}
+case "$1 $2" in
+  "orgs list") echo '${orgs}' ;;
+  # La vraie réponse de Fly quand l'organisation n'a aucune base gérée : du texte, pas du JSON.
+  "mpg list") echo "No managed postgres clusters found in organization personal" ;;
+  "secrets list") printf ' NAME      | DIGEST | STATUS\n BOT_TOKEN | abc    | Deployed\n' ;;
+  *) : ;;
+esac
+`, { mode: 0o755 });
+  return { dossier, trace };
+};
+
+const preparer = (dossier, env = {}) => lancer('./basculer-postgres.sh', ['preparer', 'mbolo-miniapp', 'mbolo-db', 'ams'], {
+  cwd: RACINE,
+  env: { ...process.env, PATH: `${dossier}:${process.env.PATH}`, FLY_API_TOKEN: 'jeton-de-test', ...env },
+});
+
+// Un jeton de déploiement suffit à `flyctl deploy`, et c'est celui qu'on a sous la main. Il ne
+// peut pas créer de base — mieux vaut le dire avant, que le découvrir à mi-chemin.
+test('un jeton qui ne voit aucune organisation arrête tout, sans rien créer', async () => {
+  const { dossier, trace } = fauxFlyctl('{}');
+  await assert.rejects(() => preparer(dossier), (e) => {
+    assert.equal(e.code, 1);
+    assert.match(e.stderr, /ne voit aucune organisation/);
+    assert.match(e.stderr, /jeton de déploiement/, 'et dire de quel jeton il s\'agit');
+    assert.match(e.stderr, /Rien n'a été créé/, 'et rassurer sur ce qui s\'est passé');
+    return true;
+  });
+  const appels = fs.existsSync(trace) ? fs.readFileSync(trace, 'utf8') : '';
+  assert.ok(!/mpg create/.test(appels), 'aucune base ne doit être créée quand le jeton ne peut pas');
+});
+
+// « mpg list --json » ne renvoie pas toujours du JSON. Le premier jet passait sa phrase à jq, qui
+// répondait « parse error » — lu comme une panne alors qu'il n'y avait simplement aucune base.
+test('une liste de bases vide n\'est pas prise pour une panne', async () => {
+  const { dossier } = fauxFlyctl('{"personal":"Bacta"}');
+  await assert.rejects(() => preparer(dossier), (e) => {
+    assert.ok(!/parse error/.test(e.stderr + e.stdout), `jq ne doit pas s'étrangler :\n${e.stderr}`);
+    assert.match(e.stderr, /Aucune base nommée mbolo-db/, 'il doit conclure qu\'il n\'y en a pas');
+    assert.match(e.stdout, /Organisation : personal/, 'et avoir résolu l\'organisation du jeton');
+    return true;
+  });
+});

@@ -158,6 +158,8 @@ Onglet **Actions** du dépôt, travail **PostgreSQL**, bouton **Run workflow**. 
 
 `FLY_API_TOKEN` doit être un **jeton d'organisation** (fly.io, Account puis Tokens) : un jeton de déploiement limité à une seule app ne peut pas créer de base.
 
+L'étape `preparer` le vérifie **avant de rien créer** : un jeton qui ne voit aucune organisation s'arrête là, avec la marche à suivre. Sans ce contrôle, Fly répond « Organization not found » — qu'on lit comme un nom d'organisation mal orthographié, et qu'on cherche longtemps.
+
 ### En ligne de commande
 
 ```powershell
