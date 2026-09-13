@@ -71,6 +71,22 @@ test('le choix de langue se règle et se relit', async () => {
   assert.equal((await call('5101', '/me')).body.lang, 'en', 'le choix valable est conservé');
 });
 
+// Le mécanisme du pluriel, éprouvé de bout en bout : c'est lui qui décide ce que voit une
+// personne qui lit en russe, et il ne se voit nulle part ailleurs dans la suite.
+// 1, 21 et 31 prennent la première forme ; 2 à 4 la deuxième ; 5 à 20 la troisième.
+test('le pluriel russe choisit la bonne forme selon le nombre', async () => {
+  globalThis.document = { documentElement: {} };
+  const i18n = await import('../public/i18n.js');
+  await i18n.chargerLangue('ru');
+  const dit = (n) => i18n.tn('{n} restant', '{n} restants', n);
+  assert.equal(dit(1), 'осталась 1 анкета');
+  assert.equal(dit(3), 'осталось 3 анкеты');
+  assert.equal(dit(7), 'осталось 7 анкет');
+  assert.equal(dit(21), 'осталась 21 анкета', 'vingt et un revient à la première forme');
+  await i18n.chargerLangue('fr');
+  assert.equal(dit(3), '3 restants', 'et le français reste à deux formes');
+});
+
 test('le bot écrit dans la langue de la personne qui reçoit, pas de celle qui écrit', async () => {
   await creer('5102', 'Ben', 'homme');
   await call('5102', '/me/lang', 'PUT', { lang: 'en' });
@@ -86,15 +102,22 @@ test('le bot écrit dans la langue de la personne qui reçoit, pas de celle qui 
 });
 
 test('chaque langue déclarée a bien un dictionnaire', () => {
-  assert.deepEqual(LANGUES, ['fr', 'en']);
+  assert.deepEqual(LANGUES, ['fr', 'en', 'ru', 'uk']);
   for (const l of LANGUES) assert.equal(typeof t(l, 'Découvrir'), 'string');
 });
 
+// Les dictionnaires du navigateur, chargés une fois pour tous les tests qui suivent. Le français
+// est la langue source : il n'a pas de fichier, et n'entre donc pas dans ces contrôles.
+const AUTRES = ['en', 'ru', 'uk'];
+const DICOS = Object.fromEntries(await Promise.all(
+  AUTRES.map(async (l) => [l, (await import(`../public/i18n/${l}.js`)).default]),
+));
+const formes = (v) => (typeof v === 'string' ? [v] : Object.values(v));
+
 // Le dictionnaire du navigateur est vérifié ici aussi : une clé utilisée dans l'interface et
 // absente du dictionnaire passerait inaperçue jusqu'à ce qu'un anglophone tombe dessus.
-test('toute clé employée par l\'interface a sa traduction anglaise', async () => {
+test('toute clé employée par l\'interface est traduite dans chaque langue', async () => {
   const source = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
-  const en = (await import('../public/i18n/en.js')).default;
   const cles = new Set();
   for (const m of source.matchAll(/\bt\(\s*('((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")/g)) {
     cles.add((m[2] ?? m[3]).replace(/\\'/g, "'").replace(/\\"/g, '"'));
@@ -102,9 +125,50 @@ test('toute clé employée par l\'interface a sa traduction anglaise', async () 
   for (const m of source.matchAll(/\btn\(\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")\s*,\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")/g)) {
     for (const g of [m[1] ?? m[2], m[3] ?? m[4]]) if (g) cles.add(g.replace(/\\'/g, "'").replace(/\\"/g, '"'));
   }
-  const manquantes = [...cles].filter((c) => c && !(c in en));
-  assert.deepEqual(manquantes, [], `clés sans traduction anglaise : ${manquantes.join(' | ')}`);
+  for (const [l, dico] of Object.entries(DICOS)) {
+    const manquantes = [...cles].filter((c) => c && !(c in dico));
+    assert.deepEqual(manquantes, [], `clés sans traduction ${l} : ${manquantes.join(' | ')}`);
+  }
   assert.ok(cles.size > 200, `l'interface est bien traduite en entier (${cles.size} clés)`);
+});
+
+// Une variable perdue à la traduction ne se voit pas : la phrase reste lisible, mais le nombre,
+// le prénom ou la ville n'y sont plus. C'est le genre d'erreur qu'on ne trouve qu'en production,
+// et seulement si quelqu'un lit cette langue-là.
+test('aucune traduction ne perd une variable de la phrase française', () => {
+  const variables = (s) => (s.match(/\{[a-zA-Z]+\}/g) || []).sort();
+  const fautes = [];
+  for (const [l, dico] of Object.entries(DICOS)) {
+    for (const [fr, trad] of Object.entries(dico)) {
+      const attendues = variables(fr);
+      for (const forme of formes(trad)) {
+        if (String(variables(forme)) !== String(attendues)) fautes.push(`${l} | ${fr} → ${forme}`);
+      }
+    }
+  }
+  assert.deepEqual(fautes, [], `variables perdues ou inventées :\n  ${fautes.join('\n  ')}`);
+});
+
+// Le russe et l'ukrainien comptent en quatre formes. Une phrase comptée dont le dictionnaire
+// n'en fournit que trois afficherait, pour certains nombres seulement, le français d'origine.
+test('les phrases comptées couvrent toutes les formes de pluriel de leur langue', async () => {
+  const source = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const pluriels = [...source.matchAll(/\btn\(\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")\s*,\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")/g)]
+    .map((m) => (m[3] ?? m[4]).replace(/\\'/g, "'").replace(/\\"/g, '"'));
+  assert.ok(pluriels.length >= 2, 'la liste des phrases comptées est bien celle qu\'on croit');
+  for (const [l, dico] of Object.entries(DICOS)) {
+    const attendues = new Set();
+    const regle = new Intl.PluralRules(l);
+    for (let n = 0; n <= 120; n++) attendues.add(regle.select(n));
+    for (const cle of pluriels) {
+      const trad = dico[cle];
+      if (attendues.size === 1 || (attendues.size === 2 && attendues.has('one') && attendues.has('other'))) continue;
+      assert.equal(typeof trad, 'object', `${l} : « ${cle} » doit donner ses ${attendues.size} formes de pluriel`);
+      for (const forme of attendues) {
+        assert.equal(typeof trad[forme], 'string', `${l} : « ${cle} » n'a pas de forme « ${forme} »`);
+      }
+    }
+  }
 });
 
 // Le test ci-dessus ne lit que les t('…') littéraux de app.js. Or plusieurs libellés viennent du
@@ -114,7 +178,6 @@ test('toute clé employée par l\'interface a sa traduction anglaise', async () 
 test('les libellés envoyés par le serveur sont traduits, eux aussi', async () => {
   const { INTENTS, GENDERS, COMPAT } = await import('../server/config.js');
   const { CRITERES } = await import('../server/jauge.js');
-  const en = (await import('../public/i18n/en.js')).default;
 
   const libelles = [
     ...Object.values(INTENTS),
@@ -122,8 +185,10 @@ test('les libellés envoyés par le serveur sont traduits, eux aussi', async () 
     ...Object.values(COMPAT).flatMap(({ question, valeurs }) => [question, ...Object.values(valeurs)]),
     ...CRITERES.flatMap(({ titre, quoi, comment }) => [titre, quoi, comment]),
   ];
-  const manquants = libelles.filter((l) => !(l in en));
-  assert.deepEqual(manquants, [], `libellés serveur sans traduction : ${manquants.join(' | ')}`);
+  for (const [langue, dico] of Object.entries(DICOS)) {
+    const manquants = libelles.filter((l) => !(l in dico));
+    assert.deepEqual(manquants, [], `libellés serveur sans traduction ${langue} : ${manquants.join(' | ')}`);
+  }
   assert.ok(libelles.length >= 10, "et la liste est bien celle qu'on croit");
 });
 

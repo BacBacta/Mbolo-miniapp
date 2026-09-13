@@ -334,7 +334,7 @@ Avant un lancement public, vérifie que le nom est libre : marque auprès de l'O
 
 ## Ajouter une langue
 
-L'app parle français et anglais. La langue affichée vient, dans cet ordre : du choix fait dans **Profil → Langue de l'app**, sinon de la langue du Telegram de la personne, sinon du français.
+L'app parle **français, anglais, russe et ukrainien**. La langue affichée vient, dans cet ordre : du choix fait dans **Profil → Langue de l'app**, sinon de la langue du Telegram de la personne, sinon du français.
 
 La clé de traduction **est la phrase française**. Une phrase sans traduction s'affiche donc en français, jamais sous forme d'identifiant : une traduction incomplète reste lisible.
 
@@ -343,9 +343,32 @@ Pour ajouter une langue (exemple : le pidgin, code `pcm`) :
 1. Copie `public/i18n/en.js` vers `public/i18n/pcm.js` et traduis les valeurs. Ne touche pas aux clés, et garde les `{variables}` telles quelles.
 2. Ajoute la langue dans `public/i18n.js` : `pcm: 'Pidgin'` dans `LANGUES`.
 3. Ajoute `'pcm'` à la liste `LANGUES` de `server/i18n.js` et traduis-y le dictionnaire des messages du bot (une vingtaine de phrases).
-4. Lance `npm test` : un test vérifie que chaque langue déclarée a bien un dictionnaire, et qu'aucune phrase de l'interface ne manque à l'appel.
+4. Lance `npm test`. Quatre contrôles s'appliquent à **chaque** langue déclarée, pas seulement à l'anglais : chacune a un dictionnaire, aucune phrase de l'interface ne manque, aucune traduction ne perd une `{variable}` de la phrase française, et les phrases comptées couvrent toutes les formes de pluriel de leur langue.
+
+### Les langues qui comptent autrement
+
+Le français et l'anglais ne distinguent que un et plusieurs. Le russe et l'ukrainien en distinguent **quatre** : un profil, deux profils, cinq profils, puis vingt et un qui revient à la première forme. Deux clés françaises ne peuvent donc pas porter quatre formes russes.
+
+La traduction d'une phrase comptée est alors un **objet** plutôt qu'une chaîne, posé sous la clé du pluriel français, dont les propriétés sont les catégories d'`Intl.PluralRules` :
+
+```js
+'{n} restants': {
+  one: 'осталась {n} анкета',
+  few: 'осталось {n} анкеты',
+  many: 'осталось {n} анкет',
+  other: 'осталось {n} анкеты',
+},
+```
+
+Une chaîne toute simple reste valable, et c'est ce que fait l'anglais. Pour savoir de combien de formes une langue a besoin :
+
+```powershell
+node -e "const r=new Intl.PluralRules('ru');const f=new Set();for(let n=0;n<=120;n++)f.add(r.select(n));console.log([...f])"
+```
 
 Le dictionnaire n'est téléchargé que par les personnes qui lisent dans cette langue : ajouter une langue ne coûte rien aux autres.
+
+> **Traduire l'interface n'étend pas l'anti-arnaque.** `server/antiscam.js` ne connaît le vocabulaire de l'argent qu'en français et en anglais. Les montants, les numéros et les moyens de paiement restent attrapés dans toutes les langues, parce qu'ils n'en dépendent pas ; les tournures, non. Et la modération doit pouvoir lire un fil signalé pour le trancher. Une langue ajoutée invite des gens à écrire là où ces deux garde-fous ne suivent pas encore.
 
 Côté serveur, `notify()` prend une clé et des variables, jamais une phrase toute faite : le bot écrit à chacun dans **sa** langue, pas dans celle de la personne qui a déclenché la notification.
 

@@ -11,7 +11,7 @@ import crypto from 'node:crypto';
 // Les dictionnaires de langue entrent dans l'empreinte : une traduction corrigée doit atteindre
 // les téléphones, comme une correction de code.
 export const ASSET_FILES = ['app.js', 'tg.js', 'ui.js', 'i18n.js', 'styles.css'];
-export const I18N_FILES = ['i18n/en.js'];
+export const I18N_FILES = ['i18n/en.js', 'i18n/ru.js', 'i18n/uk.js'];
 
 export function assetVersion(publicDir) {
   const h = crypto.createHash('sha1');
