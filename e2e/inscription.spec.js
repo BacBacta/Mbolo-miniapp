@@ -85,7 +85,7 @@ function assertRien(envois) {
 
 // La jauge s'affiche sur chaque carte : l'explication doit donc arriver avant la première carte,
 // pas dans un menu que personne n'ouvre. Et elle doit décrire exactement ce que le score compte —
-// le garant n'a pas encore de mécanisme, donc il n'apparaît ni dans le texte, ni au dénominateur.
+// le garant est abandonné (P1-6), donc il n'apparaît ni dans le texte, ni au dénominateur.
 test("la jauge de confiance s'explique à l'inscription, et n'annonce que des critères atteignables", async ({ page }) => {
   await ouvrir(page, nouvelIdentifiant());
   await creerProfil(page, { prenom: 'Ngo' });
