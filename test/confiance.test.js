@@ -23,6 +23,7 @@ process.env.AUTO_APPROVE = 'false';
 
 const express = (await import('express')).default;
 const { config, runtime, venues, VENUES_DEMO } = await import('../server/config.js');
+const { codeDuLieu } = await import('../server/lieux.js');
 venues.push(...VENUES_DEMO);
 const { store } = await import('../server/store.js');
 const { bot, setupBot } = await import('../server/bot.js');
@@ -228,7 +229,7 @@ test("l'arrivée sur place est annoncée à la personne de confiance", async () 
   const m = (await store.matchesOf('470'))[0];
   const d = (await store.datesOfMatch(m.id))[0];
   const avant = recus('472').length;
-  const r = await call('470', `/dates/${d.id}/checkin`, 'POST', { code: lieu.code });
+  const r = await call('470', `/dates/${d.id}/checkin`, 'POST', { code: codeDuLieu(lieu.id) });
   assert.equal(r.status, 200);
   await attendre(async () => recus('472').some((x) => x.texte.includes('est bien arrivé')), "l'arrivée");
   assert.ok(recus('472').length > avant);

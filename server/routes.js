@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { config, runtime, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT } from './config.js';
+import { codeValide } from './lieux.js';
 import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
 import { LANGUES, t as tr } from './i18n.js';
 import { store } from './store.js';
@@ -789,7 +790,7 @@ api.get('/venues', requireApproved, async (req, res) => {
     if (autre?.profile?.city) villes.add(cleVille(autre.profile.city));
   }
   const pays = req.user.profile.country || config.defaultCountry;
-  const liste = venues.filter((v) => v.country === pays && villes.has(cleVille(v.city))).map(({ code, ...v }) => v);
+  const liste = venues.filter((v) => v.country === pays && villes.has(cleVille(v.city)));
   // partenairesDansLePays dit au client si le manque est local ou général : « aucun lieu à Kribi »
   // et « aucun lieu partenaire dans ton pays » n'appellent pas le même message.
   res.json({ venues: liste, partenairesDansLePays: venues.some((v) => v.country === pays) });
@@ -869,10 +870,10 @@ api.put('/dates/:id', requireApproved, limiter('rendezvous'), async (req, res) =
       }
     }
   }
-  res.json({ date: { ...maj, arrivals: undefined, proposedBy: undefined, proposedByMe: jePropose, venue: venue && { ...venue, code: undefined } } });
+  res.json({ date: { ...maj, arrivals: undefined, proposedBy: undefined, proposedByMe: jePropose, venue } });
 });
 
-api.post('/dates/:id/checkin', requireApproved, async (req, res) => {
+api.post('/dates/:id/checkin', requireApproved, limiter('checkin'), async (req, res) => {
   const d = await store.getDate(req.params.id);
   const m = d && await store.getMatch(d.matchId);
   if (!d || !m || !m.users.includes(req.user.id)) return fail(res, 404, 'DATE_NOT_FOUND', 'Rendez-vous introuvable.');
@@ -883,7 +884,9 @@ api.post('/dates/:id/checkin', requireApproved, async (req, res) => {
   // Le contrôle du blocage passe avant celui du statut : se protéger prime sur tout le reste.
   if (d.status !== 'accepted') return fail(res, 409, 'DATE_NOT_ACCEPTED', 'Ce rendez-vous doit d\'abord être accepté par les deux personnes.');
   const venue = venues.find((v) => v.id === d.venueId);
-  if (String(req.body?.code || '').trim() !== venue.code) return fail(res, 400, 'WRONG_VENUE', `Ce code ne correspond pas à ${venue.name}. Scanne le code posé sur ta table.`, { venue: venue.name });
+  // Le code attendu se recalcule à partir du secret du serveur : il n'a jamais été envoyé au
+  // navigateur, et ne se déduit pas de l'identifiant du lieu. Comparaison à temps constant.
+  if (!codeValide(venue.id, String(req.body?.code || '').trim())) return fail(res, 400, 'WRONG_VENUE', `Ce code ne correspond pas à ${venue.name}. Scanne le code posé sur ta table.`, { venue: venue.name });
   await store.updateDate(d.id, { arrivals: { ...d.arrivals, [req.user.id]: Date.now() } });
   notify(autreId, '{nom} est bien arrivé(e) à {lieu}.', { nom: req.user.profile.name, lieu: venue.name }, { label: 'Ouvrir la discussion', params: { screen: 'chat', match: m.id } });
   // Arrivée sur place : la personne de confiance le sait aussi. C'est le second des deux moments

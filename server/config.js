@@ -37,6 +37,10 @@ export const config = {
   webAppUrl: (process.env.WEBAPP_URL || urlHebergeur()).replace(/\/$/, ''),
   adminChatId: process.env.ADMIN_CHAT_ID || '',
   adminKey: process.env.ADMIN_KEY || '',
+  // Secret d'où se déduisent les codes des QR posés dans les lieux partenaires (server/lieux.js).
+  // Absent, un secret est tiré au hasard au démarrage : les QR imprimés cessent de marcher, aucun
+  // ne devient devinable. En production avec au moins un lieu, le serveur refuse de démarrer.
+  venueSecret: process.env.VENUE_SECRET || '',
   // Signe les sessions web : pour l'instant celles de la modération, plus tard celles des
   // paiements (section 10.3 du cahier des charges). Un seul secret pour les deux, sans quoi le
   // chantier suivant en traînerait un second à fusionner. Absent, /api/mod refuse en le disant.
@@ -87,8 +91,10 @@ export const config = {
   demoLikeDelayMs: Number(process.env.DEMO_LIKE_DELAY_MS || 60000),
 };
 
-// Lieux publics partenaires. Le champ code est le contenu du QR code posé sur les tables.
-// En production : codes stockés en base et renouvelés régulièrement.
+// Lieux publics partenaires. **Aucun ne porte son code** : il se calcule à partir du secret du
+// serveur (`server/lieux.js`). Un champ `code` ici reviendrait à l'écrire dans Git, et surtout à
+// le laisser recopier par n'importe quelle route qui renvoie un lieu — ce qui est exactement
+// arrivé : la discussion servait l'objet entier, code compris.
 // Informations connues seulement au démarrage (nom d'utilisateur du bot)
 export const runtime = { botUsername: '' };
 
@@ -96,10 +102,10 @@ export const runtime = { botUsername: '' };
 // quoi que ce soit. Ils servent à essayer le parcours de rendez-vous de bout en bout, jamais à
 // envoyer quelqu'un quelque part.
 export const VENUES_DEMO = [
-  { id: 'palmier', name: 'Le Palmier', area: 'Bastos', city: 'Yaoundé', country: 'CM', perk: `-10 % avec ${config.appName}`, code: 'rdv:lieu:palmier' },
-  { id: 'etudiants', name: 'Café des étudiants', area: 'Ngoa-Ekellé', city: 'Yaoundé', country: 'CM', perk: 'Boisson offerte dès 2 consommations', code: 'rdv:lieu:etudiants' },
-  { id: 'lac', name: 'Terrasse du lac', area: 'Centre-ville', city: 'Yaoundé', country: 'CM', perk: `-10 % avec ${config.appName}`, code: 'rdv:lieu:lac' },
-  { id: 'wouri', name: 'Le Wouri Lounge', area: 'Bonapriso', city: 'Douala', country: 'CM', perk: `-10 % avec ${config.appName}`, code: 'rdv:lieu:wouri' },
+  { id: 'palmier', name: 'Le Palmier', area: 'Bastos', city: 'Yaoundé', country: 'CM', perk: `-10 % avec ${config.appName}` },
+  { id: 'etudiants', name: 'Café des étudiants', area: 'Ngoa-Ekellé', city: 'Yaoundé', country: 'CM', perk: 'Boisson offerte dès 2 consommations' },
+  { id: 'lac', name: 'Terrasse du lac', area: 'Centre-ville', city: 'Yaoundé', country: 'CM', perk: `-10 % avec ${config.appName}` },
+  { id: 'wouri', name: 'Le Wouri Lounge', area: 'Bonapriso', city: 'Douala', country: 'CM', perk: `-10 % avec ${config.appName}` },
 ];
 
 // Les lieux partenaires, et pourquoi la liste est vide.
