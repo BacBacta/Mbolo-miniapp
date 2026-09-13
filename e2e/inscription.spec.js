@@ -69,7 +69,7 @@ test('le selfie se relit avant d\'être envoyé, et rien ne part tant qu\'on n\'
 
   await page.locator('input[type=file][name=selfie]').setInputFiles(sonSelfie);
   await expect(page.getByRole('img', { name: /Aperçu du selfie/ })).toBeVisible();
-  await expect(page.locator('main')).toContainText(/Reprendre/);
+  await expect(page.locator('main')).toContainText(/Changer/);
   await page.waitForTimeout(500);
   assertRien(envois);
 
@@ -131,37 +131,35 @@ test("la langue se choisit dès l'accueil, avant de créer quoi que ce soit", as
   await expect(titre(page)).not.toHaveText(/Fais-toi connaître/);
 });
 
-// Le selfie doit ouvrir la caméra, pas la galerie. C'est `capture="user"` qui le demande — mais
-// cette indication n'est appliquée qu'à une entrée **rendue** : `hidden`, donc `display: none`,
-// la faisait ignorer par plusieurs WebView Android, dont celle de Telegram qui est notre cible.
-// L'entrée reste donc dans le flux, invisible et large d'un pixel, activée par son label.
+// Le selfie n'ouvre pas la caméra, et l'app ne le promet plus.
 //
-// Ce test garde le balisage ; il ne peut pas garantir le comportement de Telegram, qui reste libre
-// d'ignorer l'indication. Il empêche seulement qu'on reperde l'attribut, ou qu'on remette `hidden`.
-test('le selfie demande la caméra, et son entrée reste rendue pour que ce soit entendu', async ({ page }) => {
+// `capture="user"` est une indication, et Telegram Android ne la lit pas : sa WebView construit le
+// sélecteur avec `fileChooserParams.createIntent()` sans jamais appeler `isCaptureEnabled()`. La
+// galerie s'ouvrait donc quel que soit le balisage — sur notre cible, un bouton « ouvrir la
+// caméra » était une promesse qu'aucun code de notre côté ne pouvait tenir.
+//
+// Ce test fige les deux moitiés du renoncement : plus d'attribut (on ne garde pas un mécanisme
+// qui ne marche pas là où ça compte), et une consigne qui dit ce qui va vraiment se passer.
+test("le selfie ne promet pas la caméra : c'est la galerie qui s'ouvre", async ({ page }) => {
   await ouvrir(page, nouvelIdentifiant());
   await creerProfil(page, { prenom: 'Ada' });
   await passerLaJauge(page);
 
   const selfie = page.locator('input[type=file][name=selfie]');
-  await expect(selfie).toHaveAttribute('capture', 'user');
   await expect(selfie).toHaveAttribute('accept', 'image/*');
+  const force = await selfie.evaluate((el) => el.hasAttribute('capture'));
+  expect(force, "`capture` ne tient pas sa promesse dans Telegram : on ne le remet pas").toBe(false);
 
-  // Pas `hidden` : styles.css en fait un display:none, et une entrée non rendue perd l'indication.
-  const display = await selfie.evaluate((el) => getComputedStyle(el).display);
-  expect(display, "l'entrée du selfie ne doit pas être display:none").not.toBe('none');
-  // Et elle reste invisible : c'est le label qui se touche, pas elle.
-  const visible = await selfie.evaluate((el) => {
-    const s = getComputedStyle(el);
-    const r = el.getBoundingClientRect();
-    return Number(s.opacity) > 0 && r.width > 2 && r.height > 2;
-  });
-  expect(visible, "l'entrée ne doit pas se voir : c'est le label qui se touche").toBe(false);
+  // Et la consigne dit quoi faire, dans l'ordre où ça se fait.
+  const carte = page.locator('.gesture-card');
+  await expect(carte).toContainText(/puis choisis-le ici/i);
+  await expect(carte).not.toContainText(/caméra/i);
 });
 
-// Les photos du profil, elles, doivent bien ouvrir la galerie : on choisit parmi ce qu'on a déjà.
-// Leur mettre `capture` forcerait la caméra et rendrait impossible de poser une photo existante.
-test('les photos du profil ne forcent pas la caméra', async ({ page }) => {
+// Les photos du profil se choisissent dans la galerie : on pose ce qu'on a déjà. `capture` ne
+// changerait rien dans Telegram — il y est ignoré — mais forcerait la caméra ailleurs (iPhone,
+// navigateur), et empêcherait donc d'y mettre une photo prise l'an dernier.
+test('les photos du profil ne demandent pas la caméra', async ({ page }) => {
   await ouvrir(page, nouvelIdentifiant());
   await actionPrincipale(page).click();
   await expect(titre(page)).toHaveText(/Fais-toi connaître/);
