@@ -160,6 +160,8 @@ Onglet **Actions** du dépôt, travail **PostgreSQL**, bouton **Run workflow**. 
 
 L'étape `preparer` le vérifie **avant de rien créer** : un jeton qui ne voit aucune organisation s'arrête là, avec la marche à suivre. Sans ce contrôle, Fly répond « Organization not found » — qu'on lit comme un nom d'organisation mal orthographié, et qu'on cherche longtemps.
 
+**Le secret `FLY_API_TOKEN` du dépôt ne convient pas forcément** : celui qui suffit à déployer est souvent un jeton limité à une seule app. Plutôt que de l'élargir — il sert à chaque mise en ligne —, ajoute un second secret **`FLY_ORG_TOKEN`** avec le jeton d'organisation : le travail PostgreSQL le prend en priorité, le déploiement garde le sien, et tu peux supprimer `FLY_ORG_TOKEN` une fois la bascule faite.
+
 ### En ligne de commande
 
 ```powershell

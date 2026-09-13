@@ -173,6 +173,17 @@ test('le travail GitHub et la ligne de commande lancent le même script', () => 
   assert.match(travail, /\.\/basculer-postgres\.sh/, 'une seule logique à maintenir, comme pour le déploiement');
 });
 
+// Créer une base demande des droits que le déploiement n'a pas besoin d'avoir. Un second secret
+// permet de ne les donner qu'ici, et de le supprimer une fois la bascule faite — au lieu
+// d'élargir pour toujours le jeton qui sert à chaque mise en ligne.
+test('la bascule prend le jeton d\'organisation s\'il existe, sans forcer à élargir l\'autre', () => {
+  assert.match(travail, /secrets\.FLY_ORG_TOKEN \|\| secrets\.FLY_API_TOKEN/,
+    'le travail doit préférer FLY_ORG_TOKEN, et retomber sur FLY_API_TOKEN');
+  const deploiement = fs.readFileSync(path.join(RACINE, '.github/workflows/deploy-fly.yml'), 'utf8');
+  assert.ok(!deploiement.includes('FLY_ORG_TOKEN'),
+    'le déploiement, lui, garde son jeton limité à l\'app');
+});
+
 // La chaîne de connexion porte le mot de passe de la base. Le journal d'un travail GitHub se lit
 // sans droits particuliers : elle ne doit jamais y arriver, même par une ligne de mise au point.
 test('le script n\'affiche jamais la chaîne de connexion', () => {
