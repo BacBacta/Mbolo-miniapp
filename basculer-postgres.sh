@@ -41,9 +41,24 @@ if [ -z "${FLY_API_TOKEN:-}" ]; then
 fi
 command -v flyctl >/dev/null 2>&1 || { echo "flyctl introuvable : curl -fsSL https://fly.io/install.sh | sh" >&2; exit 1; }
 
+# La machine s'arrête d'elle-même quand personne ne s'en sert (auto_stop_machines dans fly.toml),
+# et « ssh console » ne sait pas entrer dans une machine arrêtée : « has no started VMs ». On la
+# réveille donc comme le ferait un visiteur, par une requête — c'est le mécanisme prévu par l'app
+# (auto_start_machines), pas un contournement.
+reveiller() {
+  for _ in $(seq 1 20); do
+    curl -fsS --max-time 20 "https://$APP.fly.dev/health" >/dev/null 2>&1 && return 0
+    sleep 3
+  done
+  return 1
+}
+
 # Lance une commande sur la machine déployée. Sa sortie revient telle quelle ; le bavardage de
 # flyctl (« Connecting to fdaa:… ») part sur l'erreur standard et n'entre pas dans les résultats.
-sur_la_machine() { flyctl ssh console -a "$APP" -C "$1"; }
+sur_la_machine() {
+  reveiller || { echo "La machine $APP ne répond pas : impossible d'y lancer une commande." >&2; return 1; }
+  flyctl ssh console -a "$APP" -C "$1"
+}
 
 # Un secret encore en attente d'application s'affiche préfixé d'une étoile (« * NOM ... Staged »).
 # Ne pas l'admettre, c'est conclure que l'attachement a échoué alors qu'il a réussi.
