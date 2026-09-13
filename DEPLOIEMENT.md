@@ -167,7 +167,11 @@ $env:FLY_API_TOKEN = "..."
 ./basculer-postgres.sh verifier mbolo-miniapp mbolo-db
 ```
 
-Pour créer la base au passage : `$env:CREER_LA_BASE = "true"` et `$env:MOTEUR = "mpg"`.
+Pour créer la base au passage : `$env:CREER_LA_BASE = "true"` et `$env:MOTEUR = "mpg"`. Le script a besoin de `flyctl` et de `jq` (ce dernier sert à retrouver une base gérée par son nom, les commandes `mpg` prenant un identifiant). Les deux sont déjà là sur le runner GitHub.
+
+`FLY_ORG` change d'organisation si tu n'utilises pas la personnelle.
+
+**Relancer une étape ne coûte rien.** Si l'import est coupé en route, relance `preparer` : la base déjà attachée est reconnue à son secret, et l'import reprend sans rien écraser — jamais une seconde base facturée à côté de la bonne.
 
 ### Ce que l'import emporte
 
