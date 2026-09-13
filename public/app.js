@@ -17,6 +17,8 @@ const S = {
   avatarObserver: null,
   revealed: {},
   photoUrls: {},
+  voixUrls: {},
+  voixEnCours: null,
   dataSaver: false,
   matches: [],
   chat: null,
@@ -150,6 +152,55 @@ async function photoUrl(userId, n = 1) {
   if (!res?.ok) return null;
   S.photoUrls[key] = URL.createObjectURL(await res.blob());
   return S.photoUrls[key];
+}
+
+// Le son n'est cherché qu'au moment où quelqu'un appuie : une présentation de 15 secondes pèse
+// plus qu'un écran entier de texte, et personne ne doit la payer sans l'avoir demandée. C'est
+// aussi pourquoi il n'y a jamais de lecture automatique, économie de data ou pas.
+async function voixUrl(userId) {
+  if (S.voixUrls[userId]) return S.voixUrls[userId];
+  const res = await fetch(`/api/voix/${encodeURIComponent(userId)}`, { headers: authHeaders() }).catch(() => null);
+  if (!res?.ok) return null;
+  S.voixUrls[userId] = URL.createObjectURL(await res.blob());
+  return S.voixUrls[userId];
+}
+
+export const dureeLisible = (s) => `${Math.floor((Number(s) || 0) / 60)}:${String(Math.round((Number(s) || 0) % 60)).padStart(2, '0')}`;
+
+// Un seul son à la fois : deux présentations qui se parlent dessus ne s'entendent ni l'une ni
+// l'autre, et sur un forfait compté la seconde a été payée pour rien.
+function arreterLaVoix() {
+  if (!S.voixEnCours) return;
+  S.voixEnCours.audio.pause();
+  S.voixEnCours = null;
+  document.querySelectorAll('[data-action="voix"]').forEach((b) => b.classList.remove('joue'));
+  peindreBoutonsVoix();
+}
+
+function peindreBoutonsVoix() {
+  document.querySelectorAll('[data-action="voix"]').forEach((b) => {
+    const joue = S.voixEnCours?.id === b.dataset.id;
+    b.classList.toggle('joue', joue);
+    const label = b.querySelector('.voix-label');
+    if (label) label.textContent = joue ? t('Arrêter') : t('Écouter · {duree}', { duree: b.dataset.duree });
+    const ico = b.querySelector('.voix-icone');
+    if (ico) ico.innerHTML = icon(joue ? 'stop' : 'play', 16);
+  });
+}
+
+async function ecouterLaVoix(id) {
+  if (S.voixEnCours?.id === id) return arreterLaVoix();
+  arreterLaVoix();
+  const bouton = document.querySelector(`[data-action="voix"][data-id="${CSS.escape(id)}"]`);
+  bouton?.classList.add('charge');
+  const url = await voixUrl(id);
+  bouton?.classList.remove('charge');
+  if (!url) return toast(t("La présentation n'a pas pu être chargée. Réessaie."));
+  const audio = new Audio(url);
+  audio.addEventListener('ended', arreterLaVoix);
+  S.voixEnCours = { id, audio };
+  peindreBoutonsVoix();
+  audio.play().catch(() => { arreterLaVoix(); toast(t("La lecture n'a pas démarré. Réessaie.")); });
 }
 
 // Réduit les photos avant envoi : moins de data consommée, envoi plus fiable sur réseau lent
@@ -374,6 +425,7 @@ function profileCard(p, { own = false, cls = '' } = {}) {
       </div>
       <div class="card-body">
         <div class="prompt"><span class="q">${esc(libelleQuestion(p.promptQ))}</span><span class="a">${esc(p.promptA)}</span></div>
+        ${p.voix ? `<button type="button" class="btn btn-glass voix" data-action="voix" data-id="${esc(p.id)}" data-duree="${esc(dureeLisible(p.voix.duree))}" aria-label="${t('Écouter la présentation de {nom}', { nom: esc(p.name) })}"><span class="voix-icone">${icon('play', 16)}</span><span class="voix-label">${t('Écouter · {duree}', { duree: dureeLisible(p.voix.duree) })}</span></button>` : ''}
         <div class="facts-line">
           <span>${esc(t(p.intentLabel))}</span>
           ${p.languages ? `<span class="sep"></span><span>${t('Parle {langues}', { langues: esc(p.languages.charAt(0).toLowerCase() + p.languages.slice(1)) })}</span>` : ''}
@@ -1151,6 +1203,11 @@ const SCREENS = {
             <div class="body"><div class="title">${t('Économie de data')}</div><div class="sub">${t('Photos chargées seulement si tu les demandes')}</div></div>
             <input type="checkbox" class="switch" name="dataSaver" ${S.dataSaver ? 'checked' : ''}>
           </label>
+          ${listRow({ iconName: 'mic', title: t('Présentation vocale'),
+            sub: S.me.voix?.status === 'approved' ? t('Validée · {duree} — les autres peuvent l\'écouter', { duree: dureeLisible(S.me.voix.duree) })
+              : S.me.voix?.status === 'pending' ? t('En attente : la modération doit l\'écouter avant les autres')
+                : t('15 secondes pour te présenter, enregistrées dans le bot'),
+            action: 'voix-bot', trailing: `<span class="chev">${icon('share', 18)}</span>` })}
           ${listRow({ iconName: 'shield', title: t('Personne de confiance'),
             sub: S.me.confiance ? t('{prenom} est prévenu quand tu vas à un rendez-vous', { prenom: esc(S.me.confiance.prenom) }) : t("Quelqu'un qui sait où tu es quand tu vas à un rendez-vous"),
             action: 'go', extra: ' data-screen="confiance"' })}
@@ -1572,6 +1629,14 @@ app.addEventListener('click', async (e) => {
       S.form[el.dataset.field] = el.dataset.value;
       pressOnly(el, '[data-action="set"]');
       document.getElementById('form-error').textContent = '';
+      break;
+    case 'voix': tg.haptic('light'); ecouterLaVoix(el.dataset.id); break;
+    // L'enregistrement se fait dans Telegram, pas ici : le micro n'est pas accessible depuis une
+    // mini app sur Android. On ouvre donc la discussion avec le bot, qui explique la marche à suivre.
+    case 'voix-bot':
+      tg.haptic('light');
+      if (S.me?.botUsername) tg.openLink(`https://t.me/${S.me.botUsername}?start=voix`);
+      else toast(t("Le bot n'est pas joignable pour l'instant."));
       break;
     // Afficher une photo depuis une fiche renvoyait sur Découvrir, écran sans carte ni bouton
     case 'reveal':

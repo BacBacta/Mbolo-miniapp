@@ -5,6 +5,7 @@ import { config, runtime, venues, INTENTS, GENDERS } from './config.js';
 import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
 import { LANGUES, t as tr } from './i18n.js';
 import { store } from './store.js';
+import { fichierVoix, voixPublique } from './voix.js';
 import { requireAuth } from './auth.js';
 import { checkMessage } from './antiscam.js';
 import { limiter, consommer } from './limites.js';
@@ -67,6 +68,9 @@ async function publicProfile(user) {
     // Seules les photos validées par la modération sont montrées aux autres
     photos: (await store.photosOf(user)).filter((x) => x.status === 'approved').map((x) => x.n),
     hasPhoto: (await store.photosOf(user)).some((x) => x.status === 'approved'),
+    // La présentation vocale validée, avec sa durée : rien n'est téléchargé tant que personne
+    // n'appuie, et la durée dit à l'avance ce que ça coûtera.
+    voix: voixPublique(user),
     verified: user.verification === 'approved',
     trust: p.trust || { selfie: user.verification === 'approved', guarantor: false, seniority: Date.now() - user.createdAt > 90 * 864e5 },
     demo: !!user.demo,
@@ -390,6 +394,20 @@ api.get('/photos/:userId', requireApproved, async (req, res) => {
   const target = await store.getUser(req.params.userId);
   const first = target && (await store.photosOf(target)).find((x) => x.status === 'approved');
   await servePhoto(req, res, first ? first.n : 1);
+});
+
+// ---------- Présentation vocale (servie uniquement aux membres vérifiés) ----------
+// Même règle que les photos : les autres n'entendent que ce que la modération a validé, et on
+// s'entend soi-même quel que soit l'état — pour se réécouter avant de laisser passer.
+api.get('/voix/:userId', requireApproved, async (req, res) => {
+  const target = await store.getUser(req.params.userId);
+  if (!target || await store.isBlocked(req.user.id, target.id)) return fail(res, 404, 'NO_VOICE', 'Pas de présentation vocale.');
+  const own = target.id === req.user.id;
+  const file = path.join(config.uploadsDir, fichierVoix(target.id));
+  if (!target.voix || (!own && target.voix.status !== 'approved') || !fs.existsSync(file)) {
+    return fail(res, 404, 'NO_VOICE', 'Pas de présentation vocale.');
+  }
+  res.set('Cache-Control', 'private, max-age=3600').type('audio/ogg').sendFile(file);
 });
 
 // ---------- Découverte ----------

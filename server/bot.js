@@ -163,6 +163,16 @@ export async function decideVoice(userId, approved) {
   }
 }
 
+// La consigne d'enregistrement, dite au même endroit qu'on vienne de /voix ou du bouton de
+// l'app : deux textes qui divergent, c'est une promesse qui diverge.
+async function expliquerLaVoix(ctx, lang) {
+  const user = await store.getUser(ctx.from?.id);
+  if (!user?.profile) return ctx.reply(t(lang, "Crée d'abord ton profil dans l'app, puis reviens enregistrer ta présentation."));
+  return ctx.reply(t(lang,
+    "Enregistre une présentation de {max} secondes au plus : appuie sur le micro ici même et parle.\n\nDis qui tu es et ce que tu cherches. Ne donne ni numéro, ni pseudo, ni rendez-vous : la modération l'écoute avant les autres, et la refuserait.\n\nPour la retirer plus tard : /sansvoix.",
+    { max: DUREE_MAX_S }));
+}
+
 export async function decideVerification(userId, approved) {
   const user = await store.getUser(userId);
   if (!user) return;
@@ -219,6 +229,9 @@ export async function setupBot() {
         { reply_markup: new InlineKeyboard().text(t(lang, "J'accepte"), `conf:oui:${membre.id}`).text(t(lang, 'Non merci'), `conf:non:${membre.id}`) },
       );
     }
+    // Lien venu de l'app : « Présentation vocale » y renvoie ici, faute de micro accessible
+    // depuis une mini app. On enchaîne directement sur la consigne d'enregistrement.
+    if (String(ctx.match || '') === 'voix') return expliquerLaVoix(ctx, lang);
     const text = t(lang, "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans jamais te demander d'argent.\n\nRéservé aux 18 ans et plus.", { nom: ctx.from?.first_name || '', app: config.appName });
     const reply_markup = config.webAppUrl ? new InlineKeyboard().webApp(t(lang, 'Ouvrir {app}', { app: config.appName }), appUrl()) : undefined;
     await ctx.reply(text, { reply_markup });
@@ -237,12 +250,8 @@ export async function setupBot() {
   // La personne ne quitte pas un outil qu'elle connaît, et rien ne dépend d'une permission
   // micro que les mini apps Android n'accordent pas.
   bot.command('voix', async (ctx) => {
-    const user = await store.getUser(ctx.from?.id);
-    const lang = langueDe(user || { languageCode: ctx.from?.language_code });
-    if (!user?.profile) return ctx.reply(t(lang, "Crée d'abord ton profil dans l'app, puis reviens enregistrer ta présentation."));
-    await ctx.reply(t(lang,
-      "Enregistre une présentation de {max} secondes au plus : appuie sur le micro ici même et parle.\n\nDis qui tu es et ce que tu cherches. Ne donne ni numéro, ni pseudo, ni rendez-vous : la modération l'écoute avant les autres, et la refuserait.\n\nPour la retirer plus tard : /sansvoix.",
-      { max: DUREE_MAX_S }));
+    const lang = langueDe(await store.getUser(ctx.from?.id) || { languageCode: ctx.from?.language_code });
+    await expliquerLaVoix(ctx, lang);
   });
 
   bot.command('sansvoix', async (ctx) => {

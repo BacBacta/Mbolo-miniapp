@@ -35,6 +35,7 @@ export function refusDuree(secondes) {
   return null;
 }
 
-// Ce que les autres ont le droit de savoir : qu'une présentation existe, rien de plus.
-// Le statut et la date ne sortent que pour la personne elle-même.
-export const voixPublique = (user) => (user?.voix?.status === 'approved' ? true : false);
+// Ce que les autres ont le droit de savoir : qu'une présentation validée existe, et sa durée.
+// La durée n'est pas un détail d'affichage : elle dit à l'avance ce que l'écoute va coûter en
+// data, sur des forfaits comptés. Le statut et la date, eux, ne sortent que pour la personne.
+export const voixPublique = (user) => (user?.voix?.status === 'approved' ? { duree: user.voix.duree || 0 } : null);

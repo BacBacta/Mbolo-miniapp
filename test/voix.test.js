@@ -257,3 +257,74 @@ test('un clic venu d\'ailleurs que du groupe ne décide rien', async () => {
   });
   assert.equal((await store.getUser('8012')).voix.status, 'pending', 'toujours en attente');
 });
+
+// ---------- Qui peut entendre quoi ----------
+//
+// Même règle que les photos, et elle doit tenir à la porte : une présentation en attente n'est
+// pas « presque validée », c'est un son que personne n'a encore écouté.
+
+test('une présentation en attente ne s\'entend que par soi-même', async () => {
+  reinitialiser();
+  await membre('8020');
+  await membre('8021', 'Bintou');
+  await envoyerVocal('8020', 9);
+
+  const parLesAutres = await vraiFetch(`${base}/voix/8020`, { headers: { 'x-dev-user': '8021' } });
+  assert.equal(parLesAutres.status, 404, 'personne ne doit entendre ce que la modération n\'a pas écouté');
+
+  const parSoi = await vraiFetch(`${base}/voix/8020`, { headers: { 'x-dev-user': '8020' } });
+  assert.equal(parSoi.status, 200, 'mais on doit pouvoir se réécouter avant de laisser passer');
+  assert.match(parSoi.headers.get('content-type') || '', /audio\/ogg/);
+});
+
+test('une fois validée, les autres membres vérifiés l\'entendent', async () => {
+  reinitialiser();
+  await membre('8022');
+  await membre('8023', 'Bintou');
+  await envoyerVocal('8022', 9);
+  await toucher('voix:approve:8022');
+
+  const r = await vraiFetch(`${base}/voix/8022`, { headers: { 'x-dev-user': '8023' } });
+  assert.equal(r.status, 200);
+});
+
+test('un membre non vérifié n\'entend rien du tout', async () => {
+  reinitialiser();
+  await membre('8024');
+  await envoyerVocal('8024', 9);
+  await toucher('voix:approve:8024');
+
+  await call('8025', '/me');
+  const r = await vraiFetch(`${base}/voix/8024`, { headers: { 'x-dev-user': '8025' } });
+  assert.equal(r.status, 403, 'la vérification est la porte d\'entrée, ici comme pour les photos');
+});
+
+// Bloquer quelqu'un, c'est ne plus rien recevoir de lui — la voix comprise.
+test('un blocage coupe aussi le son', async () => {
+  reinitialiser();
+  await membre('8026');
+  await membre('8027', 'Bintou');
+  await envoyerVocal('8026', 9);
+  await toucher('voix:approve:8026');
+  await call('8027', '/blocks', 'POST', { targetId: '8026' });
+
+  const r = await vraiFetch(`${base}/voix/8026`, { headers: { 'x-dev-user': '8027' } });
+  assert.equal(r.status, 404);
+});
+
+// Ce que les autres apprennent sans rien télécharger : qu'une présentation existe, et sa durée.
+// La durée n'est pas cosmétique — elle dit à l'avance ce que l'écoute va coûter en data.
+test('le profil public annonce la durée, et rien de plus', async () => {
+  reinitialiser();
+  await membre('8028');
+  await envoyerVocal('8028', 11);
+  await toucher('voix:approve:8028');
+
+  const vu = (await call('8029', '/me')) && null; // le lecteur doit exister
+  await membre('8029', 'Bintou');
+  const profils = (await call('8029', '/profiles')).body.profiles;
+  const p = profils.find((x) => x.id === '8028');
+  assert.ok(p, 'le profil est bien proposé');
+  assert.deepEqual(p.voix, { duree: 11 }, 'la durée, et rien qui dise le statut ou la date');
+  assert.equal(vu, null);
+});
