@@ -23,6 +23,8 @@ APP="${2:-}"
 DB="${3:-${APP}-db}"
 REGION="${4:-ams}"
 FUTUR=DATABASE_URL_FUTURE
+ORG="${FLY_ORG:-personal}"
+MOTEUR="${MOTEUR:-mpg}"
 
 usage() {
   echo "Usage : FLY_API_TOKEN=... ./basculer-postgres.sh <preparer|basculer|verifier> <nom-app> [nom-base] [région]" >&2
@@ -46,46 +48,76 @@ sur_la_machine() { flyctl ssh console -a "$APP" -C "$1"; }
 secret_present() { flyctl secrets list -a "$APP" 2>/dev/null | grep -q "^ *$1 "; }
 
 # ---------------------------------------------------------------- preparer
+# Les deux moteurs ne se pilotent pas pareil. Une base gérée par Fly (« mpg ») se désigne par un
+# identifiant, pas par son nom, et s'attache avec « flyctl mpg attach » ; une base non gérée est
+# une app Fly ordinaire. Seules ces deux fonctions le savent ; le reste du script n'en dépend pas.
+id_mpg() {
+  flyctl mpg list --org "$ORG" --json 2>/dev/null | jq -r --arg n "$DB" '.[]? | select(.name == $n) | .id' | head -1
+}
+
+creer_la_base() {
+  case "$MOTEUR" in
+    mpg)
+      echo "Création d'une base gérée par Fly (sauvegardes et restauration comprises)."
+      flyctl mpg create --name "$DB" --region "$REGION" --org "$ORG" --plan "${PLAN:-Basic}"
+      # On relit la liste plutôt que la sortie de création : c'est l'état réel qui compte.
+      [ -n "$(id_mpg)" ] || { echo "Base créée, mais introuvable dans la liste. Regarde : flyctl mpg list" >&2; exit 1; }
+      ;;
+    brut)
+      echo "Création d'une base non gérée (moins chère, sauvegardes et reprise à ta charge)."
+      flyctl postgres create --name "$DB" --region "$REGION" --org "$ORG" \
+        --vm-size shared-cpu-1x --volume-size 1 --initial-cluster-size 1
+      ;;
+    *) echo "MOTEUR doit valoir mpg ou brut." >&2; exit 1 ;;
+  esac
+}
+
+# La sortie de « attach » contient la chaîne de connexion : elle ne doit jamais atteindre le
+# journal d'un travail GitHub, que n'importe quel lecteur du dépôt peut ouvrir.
+attacher() {
+  case "$MOTEUR" in
+    mpg) flyctl mpg attach "$(id_mpg)" -a "$APP" --variable-name "$FUTUR" ;;
+    brut) flyctl postgres attach "$DB" -a "$APP" --variable-name "$FUTUR" --yes ;;
+  esac
+}
+
 if [ "$ETAPE" = preparer ]; then
-  echo "== La base existe-t-elle ? =="
-  if flyctl status -a "$DB" >/dev/null 2>&1; then
-    echo "Cluster $DB déjà là."
-  elif [ "${CREER_LA_BASE:-}" = "true" ]; then
-    # Créer une base engage une dépense mensuelle et un mode d'exploitation : le choix reste
-    # explicite, jamais un effet de bord de la préparation.
-    case "${MOTEUR:-mpg}" in
-      mpg)
-        echo "Création d'une base gérée par Fly (sauvegardes comprises, assistance Fly)."
-        flyctl mpg create --name "$DB" --region "$REGION" --org personal --plan "${PLAN:-Basic}"
-        echo "Base gérée créée. Note son identifiant : l'attachement se fait avec « flyctl mpg attach »." >&2
-        echo "Relance ensuite cette étape." >&2
-        exit 0
-        ;;
-      brut)
-        echo "Création d'une base non gérée (moins chère, sauvegardes et reprise à ta charge)."
-        flyctl postgres create --name "$DB" --region "$REGION" --org personal \
-          --vm-size shared-cpu-1x --volume-size 1 --initial-cluster-size 1
-        ;;
+  command -v jq >/dev/null 2>&1 || { echo "jq introuvable : apt-get install jq (il sert à lire la liste des bases gérées)." >&2; exit 1; }
+
+  # Une préparation déjà faite ne se refait pas : le secret est la preuve que la base existe et
+  # qu'elle est attachée. Sans ce raccourci, relancer l'étape après une coupure pendant l'import
+  # essaierait de recréer une base — et en ferait une seconde, facturée, à côté de la bonne.
+  if secret_present "$FUTUR"; then
+    echo "== Base déjà préparée =="
+    echo "$FUTUR est posé : la base est là et attachée. On passe à l'import."
+  else
+    echo "== La base existe-t-elle ? =="
+    case "$MOTEUR" in
+      mpg) existe=$([ -n "$(id_mpg)" ] && echo oui || echo non) ;;
+      brut) existe=$(flyctl status -a "$DB" >/dev/null 2>&1 && echo oui || echo non) ;;
       *) echo "MOTEUR doit valoir mpg ou brut." >&2; exit 1 ;;
     esac
-  else
-    echo "Aucun cluster nommé $DB." >&2
-    echo "Relance avec CREER_LA_BASE=true, et MOTEUR=mpg (gérée par Fly, sauvegardes comprises)" >&2
-    echo "ou MOTEUR=brut (moins chère, sauvegardes et reprise à ta charge)." >&2
-    exit 1
-  fi
 
-  echo "== Attacher la base sous un nom que le serveur ignore =="
-  if secret_present "$FUTUR"; then
-    echo "$FUTUR déjà posé, on garde le même."
-  else
-    # La sortie de « attach » contient la chaîne de connexion : elle ne doit pas atteindre le
-    # journal d'un travail GitHub, que n'importe quel lecteur du dépôt peut ouvrir.
-    if ! sortie=$(flyctl postgres attach "$DB" -a "$APP" --variable-name "$FUTUR" --yes 2>&1); then
-      echo "Attachement impossible. Dernière ligne utile :" >&2
+    if [ "$existe" = oui ]; then
+      echo "Base $DB déjà là."
+    elif [ "${CREER_LA_BASE:-}" = "true" ]; then
+      # Créer une base engage une dépense mensuelle et un mode d'exploitation : le choix reste
+      # explicite, jamais un effet de bord de la préparation.
+      creer_la_base
+    else
+      echo "Aucune base nommée $DB (moteur $MOTEUR)." >&2
+      echo "Relance avec CREER_LA_BASE=true, et MOTEUR=mpg (gérée par Fly, sauvegardes comprises)" >&2
+      echo "ou MOTEUR=brut (moins chère, sauvegardes et reprise à ta charge)." >&2
+      exit 1
+    fi
+
+    echo "== Attacher la base sous un nom que le serveur ignore =="
+    if ! sortie=$(attacher 2>&1); then
+      echo "Attachement impossible. Dernières lignes utiles :" >&2
       echo "$sortie" | grep -iv 'postgres://' | tail -3 >&2
       exit 1
     fi
+    secret_present "$FUTUR" || { echo "L'attachement n'a pas posé $FUTUR sur $APP." >&2; exit 1; }
     echo "Base attachée sous $FUTUR. Le serveur ne la lit pas encore."
   fi
 

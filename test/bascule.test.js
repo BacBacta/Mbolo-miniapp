@@ -189,6 +189,32 @@ test('le script n\'affiche jamais la chaîne de connexion', () => {
   assert.match(script, /add-mask/, 'et sous GitHub Actions, elle doit être masquée');
 });
 
+// Les deux moteurs ne se pilotent pas pareil — une base gérée par Fly se désigne par un
+// identifiant et s'attache avec « mpg attach » — mais ils doivent aboutir au même endroit : la
+// base attachée sous le nom que le serveur ignore. Le premier jet créait la base gérée puis
+// s'arrêtait en renvoyant à la ligne de commande : la bascule en deux clics n'existait que pour
+// le moteur non géré.
+test('les deux moteurs attachent sous le nom ignoré, sans étape manuelle', () => {
+  // Les commentaires citent ces commandes eux aussi : on ne lit que le code.
+  const code = script.split('\n').filter((l) => !l.trim().startsWith('#'));
+  for (const commande of ['flyctl mpg attach', 'flyctl postgres attach']) {
+    const ligne = code.find((l) => l.includes(commande));
+    assert.ok(ligne, `le script doit savoir attacher avec « ${commande} »`);
+    assert.match(ligne, /--variable-name "\$FUTUR"/, `${commande} doit poser le nom ignoré`);
+  }
+  assert.ok(!/Relance ensuite cette étape/.test(script), 'aucun moteur ne doit demander de relancer à la main');
+});
+
+// Une coupure pendant l'import laisse la base créée et attachée. Relancer l'étape doit reprendre
+// là où elle s'est arrêtée — surtout pas créer une seconde base, facturée, à côté de la bonne.
+test('relancer la préparation ne crée pas une seconde base', () => {
+  const preparer = script.slice(script.indexOf('if [ "$ETAPE" = preparer ]'), script.indexOf('= basculer ]'));
+  const garde = preparer.indexOf('secret_present "$FUTUR"');
+  const creation = preparer.indexOf('creer_la_base\n');
+  assert.ok(garde >= 0 && creation >= 0, 'la garde et la création doivent être dans l\'étape preparer');
+  assert.ok(garde < creation, 'la garde doit venir avant la création, sinon une relance facture une base de plus');
+});
+
 // Le serveur ne lit que DATABASE_URL. Tant que la base est attachée sous un autre nom, il
 // continue de servir le fichier JSON : c'est ce qui évite la fenêtre où la production tourne
 // sur une base vide. Si ce nom devenait DATABASE_URL, la préparation basculerait toute seule.
