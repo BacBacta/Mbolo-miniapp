@@ -42,7 +42,6 @@ export default {
   'Commence par une question sur son profil. Ton pseudo et ton numéro Telegram restent masqués.': 'Start with a question about their profile. Your Telegram username and number stay hidden.',
   'Complété à {pct} %': '{pct}% complete',
   'Comportement déplacé': 'Inappropriate behaviour',
-  'Confiance {n} sur 3': 'Trust {n} of 3',
   'Connecté avec Telegram, sans mot de passe. Ton pseudo et ton numéro restent cachés aux autres.': 'Signed in with Telegram, no password. Your username and number stay hidden from others.',
   'Conseil : préviens une personne de confiance du lieu et de l\'heure.': 'Tip: tell someone you trust where and when.',
   'Construire quelque chose de durable': 'Build something lasting',
