@@ -122,10 +122,19 @@ test('bouton de test des notifications', async () => {
 
 test('le profil de démo ne répond pas à chaque message envoyé rapidement', async () => {
   await call('7001', '/me');
-  await call('7001', '/me/profile', 'PUT', { name: 'Eve', age: 22, gender: 'femme', intent: 'duo', city: 'Yaoundé', promptA: 'Karaoké le vendredi' });
+  await call('7001', '/me/profile', 'PUT', { name: 'Eve', age: 22, gender: 'femme', intent: 'amitie', city: 'Yaoundé', promptA: 'Karaoké le vendredi' });
   await store.updateUser('7001', { verification: 'approved' });
+  // Certains profils de démonstration ne rendent jamais les « J'aime » (demoLikeBack: false) :
+  // prendre le premier du paquet faisait dépendre ce test de l'ordre de seed.js, qui n'a rien à
+  // voir avec ce qu'il mesure. On aime jusqu'à obtenir un match.
   const d = await call('7001', '/discover');
-  const m = await call('7001', '/swipes', 'POST', { targetId: d.body.profiles[0].id, action: 'like' });
+  let match = null;
+  for (const profil of d.body.profiles) {
+    const r = await call('7001', '/swipes', 'POST', { targetId: profil.id, action: 'like' });
+    if (r.body.match) { match = r.body.match; break; }
+  }
+  assert.ok(match, 'aucun profil de démonstration ne rend les « J\'aime »');
+  const m = { body: { match } };
   for (let i = 0; i < 6; i++) await call('7001', `/matches/${m.body.match.id}/messages`, 'POST', { text: `Message ${i}` });
   await wait(800);
   const r = await call('7001', `/matches/${m.body.match.id}`);

@@ -118,7 +118,14 @@ export const VENUES_DEMO = [
 // démonstration, et n'apparaissent qu'avec SEED_DEMO.
 export const venues = [...(config.seedDemo ? VENUES_DEMO : [])];
 
-export const INTENTS = { amitie: 'Amitié', serieux: 'Relation sérieuse', duo: 'Sortie en duo' };
+export const INTENTS = { amitie: 'Amitié', serieux: 'Relation sérieuse' };
+
+// « Sortie en duo » a été proposée avant d'exister : l'app promettait « rencontrer à quatre, avec
+// un ami » et livrait un match ordinaire, en tête-à-tête. L'option est retirée de l'inscription
+// (P1-7) ; son libellé reste ici pour que les profils qui la portent encore s'affichent avec un
+// mot plutôt qu'avec « undefined », le temps que chacun rouvre l'app. Quand le vrai mode existera,
+// la ligne remonte dans INTENTS.
+export const INTENTS_RETIRES = { duo: 'Sortie en duo' };
 export const GENDERS = { femme: 'Femme', homme: 'Homme' };
 // La ville n'est plus une liste fermée : elle se saisit librement et se compare par clé
 // normalisée. Voir server/geo.js.

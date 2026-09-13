@@ -43,7 +43,8 @@ const app = document.getElementById('app');
 // Nom de l'app injecté par le serveur (variable APP_NAME)
 const APP = document.querySelector('meta[name="app-name"]')?.content || 'Mbolo';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const INTENT_ICONS = { amitie: 'users', serieux: 'heart', duo: 'duo' };
+// L'icône « duo » reste dans ui.js : le mode reviendra, et la retirer ferait du bruit pour rien.
+const INTENT_ICONS = { amitie: 'users', serieux: 'heart' };
 const QUESTIONS = {
   plat: 'Mon plat du dimanche',
   coin: 'Mon coin préféré',
@@ -55,7 +56,7 @@ const QUESTIONS = {
 // Une clé connue se traduit ; un texte libre venu d'un ancien profil s'affiche tel qu'il a été écrit.
 const libelleQuestion = (q) => (QUESTIONS[q] ? t(QUESTIONS[q]) : q || '');
 
-const INTENT_SUBS = () => ({ amitie: t('Élargir ton cercle en ville'), serieux: t('Construire quelque chose de durable'), duo: t('Rencontrer à quatre, avec un ami') });
+const INTENT_SUBS = () => ({ amitie: t('Élargir ton cercle en ville'), serieux: t('Construire quelque chose de durable') });
 
 // ============================================================
 // Appels à l'API
