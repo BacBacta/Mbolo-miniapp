@@ -244,16 +244,19 @@ test('la base est préparée sous un nom que le serveur ne lit pas', () => {
 // ce que Fly annonce par « Organization not found », qu'on lit comme un nom mal orthographié.
 // On fait donc tourner le script pour de bon, avec un flyctl de paille qui rejoue ces réponses.
 
-const fauxFlyctl = (orgs) => {
+const fauxFlyctl = (orgs, secretsEnPlus = '') => {
   const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'mbolo-flyctl-'));
   const trace = path.join(dossier, 'appels.txt');
   fs.writeFileSync(path.join(dossier, 'flyctl'), `#!/bin/sh
 echo "$@" >> ${trace}
+SECRETS_EN_PLUS='${secretsEnPlus}'
 case "$1 $2" in
   "orgs list") echo '${orgs}' ;;
   # La vraie réponse de Fly quand l'organisation n'a aucune base gérée : du texte, pas du JSON.
   "mpg list") echo "No managed postgres clusters found in organization personal" ;;
-  "secrets list") printf ' NAME      | DIGEST | STATUS\n BOT_TOKEN | abc    | Deployed\n' ;;
+  "secrets list") printf ' NAME      | DIGEST | STATUS\n BOT_TOKEN | abc    | Deployed\n%s' "$SECRETS_EN_PLUS" ;;
+  # La machine ne voit rien : c'est exactement le cas d'un secret posé mais pas encore appliqué.
+  "ssh console") : ;;
   *) : ;;
 esac
 `, { mode: 0o755 });
@@ -290,4 +293,35 @@ test('une liste de bases vide n\'est pas prise pour une panne', async () => {
     assert.match(e.stdout, /Organisation : personal/, 'et avoir résolu l\'organisation du jeton');
     return true;
   });
+});
+
+// Fly affiche un secret posé mais pas encore appliqué préfixé d'une étoile, avec le statut
+// « Staged ». Le premier jet ne reconnaissait pas cette forme : après un attachement réussi, il
+// concluait « l'attachement n'a pas posé DATABASE_URL_FUTURE » et s'arrêtait — la base créée,
+// attachée, facturée, et l'import jamais lancé. C'est exactement ce qui est arrivé.
+const STAGED = ' * DATABASE_URL_FUTURE | def | Staged\\n';
+
+test('un secret posé mais pas encore appliqué compte comme posé', async () => {
+  const { dossier, trace } = fauxFlyctl('{"personal":"Bacta"}', STAGED);
+  await assert.rejects(() => preparer(dossier), (e) => {
+    // L'absence du message d'échec ne prouve rien — il faut qu'il ait reconnu la préparation.
+    assert.match(e.stdout, /Base déjà préparée/, `le secret « Staged » doit compter comme posé :\n${e.stdout}`);
+    assert.ok(!/n'a pas posé/.test(e.stderr), "l'attachement ne doit pas être déclaré raté");
+    return true;
+  });
+  const appels = fs.readFileSync(trace, 'utf8');
+  assert.ok(!/postgres create|mpg create/.test(appels), 'et la base ne doit surtout pas être recréée');
+});
+
+// Un secret en attente existe côté Fly, mais la machine tourne encore sans lui : l'import y
+// lirait une variable vide et croirait qu'aucune base ne lui est donnée.
+test('un secret que la machine ne voit pas est appliqué avant l\'import', async () => {
+  const { dossier, trace } = fauxFlyctl('{"personal":"Bacta"}', STAGED);
+  await assert.rejects(() => preparer(dossier), (e) => {
+    assert.match(e.stderr, /ne voit toujours pas/, "et le dire quand le déploiement n'a pas suffi");
+    return true;
+  });
+  const appels = fs.readFileSync(trace, 'utf8');
+  assert.match(appels, /secrets deploy/, 'les secrets en attente doivent être déployés');
+  assert.ok(!/import-json/.test(appels), "et l'import ne doit pas partir sur une variable vide");
 });

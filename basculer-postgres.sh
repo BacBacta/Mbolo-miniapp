@@ -45,7 +45,13 @@ command -v flyctl >/dev/null 2>&1 || { echo "flyctl introuvable : curl -fsSL htt
 # flyctl (« Connecting to fdaa:… ») part sur l'erreur standard et n'entre pas dans les résultats.
 sur_la_machine() { flyctl ssh console -a "$APP" -C "$1"; }
 
-secret_present() { flyctl secrets list -a "$APP" 2>/dev/null | grep -q "^ *$1 "; }
+# Un secret encore en attente d'application s'affiche préfixé d'une étoile (« * NOM ... Staged »).
+# Ne pas l'admettre, c'est conclure que l'attachement a échoué alors qu'il a réussi.
+secret_present() { flyctl secrets list -a "$APP" 2>/dev/null | grep -qE "^ *\\*? *$1 "; }
+
+# Le secret existe côté Fly bien avant que la machine ne le voie. On demande donc à la machine,
+# pas à Fly : c'est elle qui lira la variable au moment de l'import.
+machine_voit() { [ -n "$(sur_la_machine "printenv $1" 2>/dev/null | tr -d '\r' | grep -v '^$' | tail -1)" ]; }
 
 # ---------------------------------------------------------------- preparer
 # Les deux moteurs ne se pilotent pas pareil. Une base gérée par Fly (« mpg ») se désigne par un
@@ -149,6 +155,21 @@ if [ "$ETAPE" = preparer ]; then
     fi
     secret_present "$FUTUR" || { echo "L'attachement n'a pas posé $FUTUR sur $APP." >&2; exit 1; }
     echo "Base attachée sous $FUTUR. Le serveur ne la lit pas encore."
+  fi
+
+  # « attach » pose le secret en attente : il existe côté Fly, mais la machine tourne encore sans
+  # lui. L'import lirait alors une variable vide et croirait qu'aucune base ne lui est donnée.
+  echo "== Le secret est-il appliqué sur la machine ? =="
+  if machine_voit "$FUTUR"; then
+    echo "La machine voit $FUTUR."
+  else
+    echo "$FUTUR est posé mais pas encore appliqué. Déploiement des secrets en attente."
+    flyctl secrets deploy -a "$APP"
+    machine_voit "$FUTUR" || {
+      echo "La machine ne voit toujours pas $FUTUR, l'import lirait une base vide." >&2
+      echo "Regarde : flyctl secrets list -a $APP" >&2
+      exit 1
+    }
   fi
 
   echo "== Reprendre le fichier JSON =="
