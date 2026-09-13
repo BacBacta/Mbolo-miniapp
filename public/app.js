@@ -226,12 +226,16 @@ function compressImage(file, max = 720, quality = 0.8) {
 // ============================================================
 // Navigation
 // ============================================================
-const PARENT = { profile: () => (S.me?.verification === 'approved' ? 'me' : 'welcome'), verify: () => 'profile', match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => 'me' };
+const PARENT = { profile: () => (S.me?.verification === 'approved' ? 'me' : 'welcome'), verify: () => 'profile', match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me' };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
 const TABS = [['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']];
 
 function go(screen, params = {}) {
   if (screen === 'settings') screen = 'me';
+  // L'écran de langue s'ouvre depuis deux endroits très éloignés : l'accueil, avant toute
+  // inscription, et l'onglet Profil. On retient lequel, pour y revenir — et pour que le bouton
+  // retour natif ne renvoie pas vers un onglet qui n'existe pas encore.
+  if (screen === 'langue' && S.screen !== 'langue') S.langueRetour = S.screen;
   clearInterval(S.chatTimer);
   clearInterval(S.pendingTimer);
   clearInterval(S.summaryTimer);
@@ -592,7 +596,9 @@ async function changerLangue(code) {
   await chargerLangue(code);
   buildTabs();
   S.me.lang = code;
-  go('me');
+  // On repart d'où l'on venait. Avant l'inscription c'est l'accueil : l'onglet Profil n'existe
+  // pas encore, et y envoyer quelqu'un qui n'a pas de compte le laissait sur un écran vide.
+  go(S.langueRetour || 'me');
   tg.haptic('select');
   try { await api('/me/lang', { method: 'PUT', body: { lang: code } }); } catch { /* le choix vaut déjà pour cet écran */ }
 }
@@ -658,6 +664,9 @@ const SCREENS = {
     render(`
       <section class="hero">
         <span class="orb orb-1"></span><span class="orb orb-2"></span>
+        <button type="button" class="langue-chip" data-action="go" data-screen="langue" aria-label="${t('Langue')} : ${esc(LANGUES[langue()])}">
+          ${icon('globe', 16)}<span>${esc(LANGUES[langue()])}</span>
+        </button>
         <p class="eyebrow">${name ? t('Salut {nom}', { nom: esc(name) }) : t('Bienvenue')}</p>
         <h1 class="display">${t('Des rencontres vérifiées, face à face.')}</h1>
         <p class="lead">${t("Des personnes réelles, des lieux publics, aucune demande d'argent. {app} est fait pour se rencontrer pour de vrai.", { app: esc(APP) })}</p>
