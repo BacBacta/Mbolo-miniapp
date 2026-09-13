@@ -146,6 +146,10 @@ const purger = async () => {
   // l'appliquer ne vaut rien. À 0, purgerEvenements ne fait rien — et rien n'a été écrit non plus.
   const e = await store.purgerEvenements();
   if (e) console.log(`${e} événement(s) de mesure purgé(s) : au-delà de ${config.eventsRetentionDays} jours.`);
+  // Les compteurs de limitation de débit vivent désormais dans le stockage, pour que deux
+  // instances comptent ensemble. Sans purge, ils y laisseraient une ligne par compte et par
+  // action, pour toujours.
+  await store.purgerLimites();
 };
 await purger();
 setInterval(purger, 6 * 3600 * 1000).unref();
