@@ -793,14 +793,14 @@ const SCREENS = {
       ${S.selfie ? `
         <div class="preview-wrap">
           <img class="preview" src="${S.selfie}" alt="${t('Aperçu du selfie')}">
-          <label class="btn btn-glass btn-sm retake">${icon('refresh', 16)} Reprendre<input type="file" name="selfie" accept="image/*" capture="user" hidden></label>
+          <label class="btn btn-glass btn-sm retake">${icon('refresh', 16)} Reprendre<input type="file" name="selfie" accept="image/*" capture="user" class="capture-input"></label>
         </div>` : `
         <label class="gesture-card pressable">
           <span class="tile tile-lg">${icon('hand', 30)}</span>
           <span class="eyebrow">${t('Geste demandé')}</span>
           <span class="gesture">${esc(S.gesture)}</span>
           <span class="btn btn-primary">${icon('camera', 18)} ${t('Ouvrir la caméra')}</span>
-          <input type="file" name="selfie" accept="image/*" capture="user" hidden>
+          <input type="file" name="selfie" accept="image/*" capture="user" class="capture-input">
         </label>`}
       <div class="list">
         ${listRow({ iconName: 'lock', title: t('Jamais montré aux autres membres') })}
