@@ -776,6 +776,13 @@ const SCREENS = {
     tg.setButtons({ main: step < 2 ? { text: t('Continuer'), onClick: nextStep } : { text: t('Enregistrer'), onClick: saveProfile } });
   },
 
+  // Aucune entrée fichier ne porte `capture` — ni ici, ni pour les photos — et ce n'est pas un
+  // oubli. Telegram Android construit son sélecteur avec `fileChooserParams.createIntent()` et ne
+  // lit jamais `isCaptureEnabled()` : l'indication est reçue puis jetée, la galerie s'ouvre quand
+  // même. Un bouton « ouvrir la caméra » promettait donc ce qu'on ne peut pas tenir sur notre
+  // cible. On demande à la place de prendre le selfie d'abord, puis de le choisir — ce qui est
+  // vrai partout. La vérification ne repose de toute façon pas sur l'appareil qui a pris la photo,
+  // mais sur le geste aléatoire, valable dix minutes et jugé par un humain.
   async verify() {
     const head = `<div class="step-head"><p class="eyebrow">${t('Vérification')}</p><h1>${t("Vérifie que c'est bien toi")}</h1></div>`;
     if (!S.gesture) {
@@ -793,14 +800,15 @@ const SCREENS = {
       ${S.selfie ? `
         <div class="preview-wrap">
           <img class="preview" src="${S.selfie}" alt="${t('Aperçu du selfie')}">
-          <label class="btn btn-glass btn-sm retake">${icon('refresh', 16)} Reprendre<input type="file" name="selfie" accept="image/*" capture="user" class="capture-input"></label>
+          <label class="btn btn-glass btn-sm retake">${icon('refresh', 16)} ${t('Changer')}<input type="file" name="selfie" accept="image/*" hidden></label>
         </div>` : `
         <label class="gesture-card pressable">
           <span class="tile tile-lg">${icon('hand', 30)}</span>
           <span class="eyebrow">${t('Geste demandé')}</span>
           <span class="gesture">${esc(S.gesture)}</span>
-          <span class="btn btn-primary">${icon('camera', 18)} ${t('Ouvrir la caméra')}</span>
-          <input type="file" name="selfie" accept="image/*" capture="user" class="capture-input">
+          <span class="muted small">${t('Prends un selfie avec ce geste, puis choisis-le ici.')}</span>
+          <span class="btn btn-primary">${icon('image', 18)} ${t('Choisir mon selfie')}</span>
+          <input type="file" name="selfie" accept="image/*" hidden>
         </label>`}
       <div class="list">
         ${listRow({ iconName: 'lock', title: t('Jamais montré aux autres membres') })}
