@@ -8,7 +8,9 @@
 // Les autres langues sont chargées à la demande, une seule fois, avec la même empreinte de
 // version que app.js pour qu'un cache ne serve jamais un dictionnaire périmé.
 
-export const LANGUES = { fr: 'Français', en: 'English' };
+// Chaque langue est nommée dans sa propre langue : quelqu'un qui ne lit pas le français doit
+// reconnaître la sienne dans la liste sans avoir à la traduire.
+export const LANGUES = { fr: 'Français', en: 'English', es: 'Español', pt: 'Português', sw: 'Kiswahili' };
 export const LANGUE_SOURCE = 'fr';
 
 const dictionnaires = { fr: {} };
@@ -43,8 +45,9 @@ export function t(cle, vars) {
   return s;
 }
 
-// Pluriel. Les deux langues visées distinguent seulement un et plusieurs ; une langue à
-// pluriels multiples demanderait Intl.PluralRules, qui s'insérerait ici sans rien changer ailleurs.
+// Pluriel. Les cinq langues en place distinguent seulement un et plusieurs — c'est aussi le cas
+// de l'espagnol, du portugais et du swahili. Une langue à pluriels multiples (l'arabe en a six)
+// demanderait Intl.PluralRules, qui s'insérerait ici sans rien changer ailleurs.
 export function tn(un, plusieurs, n, vars) {
   return t(n > 1 ? plusieurs : un, { n, ...vars });
 }
