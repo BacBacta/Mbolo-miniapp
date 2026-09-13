@@ -69,9 +69,15 @@ test('le nom de l\'app est injecté, jamais le gabarit', async () => {
     assert.ok(html.includes(APP_NAME), `${chemin} porte le nom configuré`);
   }
   // Le nom n'est écrit en dur nulle part (règle 12) : le fichier source, lui, ne le contient pas.
+  // Le nom interdit est lu dans .env.example, et pas recopié ici : ce test portait « Mbolo » en
+  // dur, si bien qu'il aurait cessé de garder quoi que ce soit le jour du changement de nom —
+  // il aurait laissé passer le nouveau nom écrit en clair, sans rien dire. Un garde-fou qui
+  // nomme lui-même ce qu'il interdit meurt au premier renommage.
+  const nomProduit = fs.readFileSync('.env.example', 'utf8').match(/^APP_NAME=(.+)$/m)?.[1].trim();
+  assert.ok(nomProduit, '.env.example doit porter APP_NAME : c\'est de là que vient le nom interdit ici');
   for (const f of ['confidentialite.html', 'conditions.html']) {
     const source = fs.readFileSync(path.join('server', 'legal', f), 'utf8');
-    assert.ok(!/\bMbolo\b/.test(source), `${f} ne doit pas écrire le nom de l'app en dur`);
+    assert.ok(!new RegExp(`\\b${nomProduit}\\b`).test(source), `${f} ne doit pas écrire le nom de l'app en dur`);
   }
 });
 

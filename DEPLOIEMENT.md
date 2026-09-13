@@ -1,4 +1,4 @@
-# Mettre Mbolo en ligne
+# Mettre Odo en ligne
 
 Guide pas à pas, du compte vide à l'application que des gens utilisent. Compte une heure la première fois.
 
@@ -74,7 +74,7 @@ Si tu lis `Groupe de modération injoignable`, le message dit quoi corriger — 
 
 ### 4. Dans Telegram
 
-Ouvre ton bot, `/start`, puis **Ouvrir Mbolo**. Crée un profil, envoie un selfie : il doit arriver dans ton groupe de modération avec les boutons **Valider** et **Refuser**.
+Ouvre ton bot, `/start`, puis **Ouvrir Odo**. Crée un profil, envoie un selfie : il doit arriver dans ton groupe de modération avec les boutons **Valider** et **Refuser**.
 
 Tant que tu n'as pas fait ce test, tu ne sais pas si l'inscription fonctionne.
 

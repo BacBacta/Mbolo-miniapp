@@ -161,7 +161,7 @@ test('deployer-fly.sh est syntaxiquement valide', () => {
 
 // ---------- Les lieux partenaires ----------
 //
-// L'app annonce le nom d'un lieu, son quartier et son avantage (« -10 % avec Mbolo ») à quelqu'un
+// L'app annonce le nom d'un lieu, son quartier et son avantage (« -10 % avec Odo ») à quelqu'un
 // qui va s'y rendre. Si l'établissement n'a rien signé, c'est un mensonge fait à un membre et un
 // problème avec le café. La liste part donc vide, et un lieu n'y entre qu'avec un accord réel.
 //

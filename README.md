@@ -1,6 +1,6 @@
-# Mbolo : rencontres vérifiées, face à face
+# Odo : rencontres vérifiées, face à face
 
-**Mbolo** signifie « salut, bienvenue » dans plusieurs langues d'Afrique centrale. C'est le mot qu'on dit en arrivant, au moment où deux personnes se rencontrent pour de vrai : c'est exactement la promesse de l'app. Il est court, se prononce de la même façon en français et en anglais, et se retient du premier coup.
+**Odo** est court, se prononce de la même façon en français et en anglais, et se retient du premier coup. Le nom précédent, **Mbolo**, signifiait « salut, bienvenue » dans plusieurs langues d'Afrique centrale ; si Odo porte à son tour un sens, il reste à l'écrire ici — une étymologie inventée après coup ne tiendrait pas devant quelqu'un qui parle la langue.
 
 > Le nom se change sans toucher au code : variable `APP_NAME` dans `.env` (voir « Changer le nom de l'application »).
 
@@ -29,7 +29,7 @@ Ce dépôt contient tout ce qu'il faut pour la tester sur ton propre téléphone
 | Jauge de confiance | Les pastilles sous chaque prénom disent ce qui est **vérifié**, et un appui explique quoi. Elle ne compte que des critères **ouverts** : le selfie validé par la modération, et l'ancienneté de trois mois. Elle affichait « sur 3 » alors que le troisième, le garant, était figé à *non* pour tout compte réel — une jauge que personne ne pouvait remplir. Le garant ne la rejoindra pas : l'idée est abandonnée, parce que nommer un répondant laisserait croire à un recours qui n'existe pas. Ajouter un critère reste une ligne dans `server/jauge.js` le jour où un vrai mécanisme existe, et le dénominateur suivra : la carte, le score et l'écran d'explication lisent tous la même liste. L'explication s'ouvre une fois juste après le profil, puis reste dans l'onglet Profil |
 | Anti-arnaque | Un mot d'argent ne bloque jamais seul : il faut un moyen de paiement nommé, ou une demande, c'est-à-dire un verbe de transfert ou un besoin accompagné d'un montant ou d'un objet d'argent. « ça me coûte 300 F pour venir » passe, « envoie juste 10k » ne passe pas. Le message de refus nomme ce qui l'a déclenché. **Les règles ne visent plus le seul Cameroun** : 34 familles de moyens de paiement (mobile money africain, transfert de diaspora, portefeuilles, coordonnées bancaires, cartes cadeaux, crypto), 56 devises, et les mêmes tournures en anglais qu'en français. Un **numéro de téléphone est vu quel que soit son indicatif** : forme internationale `+`, ou neuf chiffres d'affilée, les séparateurs recollés et le « O » lu comme un zéro. Les lettres détachées (« e n v o i e 10k ») sont recollées avant comparaison. Bloqué dans les messages, dans le profil et dans le créneau d'un rendez-vous ; liens, numéros et pseudos bloqués tant que l'**échange** n'atteint pas 10 messages de chaque côté, pour qu'un monologue ne débloque rien (`server/antiscam.js`) |
 | Limitation de débit | Par compte et par action : 20 messages et 60 balayages par minute, 5 vérifications, 5 signalements, 12 photos, 6 présentations vocales, 10 rendez-vous et 20 modifications de profil par heure. Le check-in d'arrivée s'y ajoute, à 10 essais par heure. Réponse 429 avec `Retry-After`. **Les compteurs vivent dans le stockage**, pour que deux machines comptent ensemble : en base sur PostgreSQL (table `rate_limits`, une transaction par jeton), en mémoire sur le fichier JSON — qui ne supporte qu'une instance de toute façon, et où réécrire le fichier entier à chaque message coûterait cher pour rien. Si le stockage ne répond pas, la requête passe et c'est journalisé : un garde-fou anti-spam n'est pas une porte d'authentification (`server/limites.js`) |
-| Rendez-vous sûr | **La liste des lieux partenaires part vide, et c'est voulu** : un lieu n'y entre qu'avec un accord signé avec l'établissement — annoncer « -10 % avec Mbolo » à quelqu'un qui va se rendre dans un café qui n'a rien promis serait un mensonge fait à un membre. Au lancement, l'app dit donc partout qu'il n'y a pas encore de lieu partenaire, invite à convenir d'un lieu public dans la discussion, et rappelle de prévenir une personne de confiance. Tout ce qui suit s'allume dès qu'un lieu est ajouté. Une proposition s'**accepte ou se refuse** : la personne invitée répond, celle qui propose peut retirer sa proposition, et une fois le rendez-vous accepté **chacun peut se décommander** — se retirer d'une rencontre ne doit jamais être bloqué. Le bot prévient à chaque changement. **L'arrivée ne se confirme que sur un rendez-vous accepté**, par le scanner QR natif de Telegram : jusqu'ici on pouvait confirmer son arrivée à un rendez-vous que l'autre n'avait jamais accepté. Un seul rendez-vous vivant à la fois par discussion. Un blocage ferme aussi le rendez-vous. Tu sais que l'autre est arrivée, jamais depuis quand |
+| Rendez-vous sûr | **La liste des lieux partenaires part vide, et c'est voulu** : un lieu n'y entre qu'avec un accord signé avec l'établissement — annoncer « -10 % avec Odo » à quelqu'un qui va se rendre dans un café qui n'a rien promis serait un mensonge fait à un membre. Au lancement, l'app dit donc partout qu'il n'y a pas encore de lieu partenaire, invite à convenir d'un lieu public dans la discussion, et rappelle de prévenir une personne de confiance. Tout ce qui suit s'allume dès qu'un lieu est ajouté. Une proposition s'**accepte ou se refuse** : la personne invitée répond, celle qui propose peut retirer sa proposition, et une fois le rendez-vous accepté **chacun peut se décommander** — se retirer d'une rencontre ne doit jamais être bloqué. Le bot prévient à chaque changement. **L'arrivée ne se confirme que sur un rendez-vous accepté**, par le scanner QR natif de Telegram : jusqu'ici on pouvait confirmer son arrivée à un rendez-vous que l'autre n'avait jamais accepté. Un seul rendez-vous vivant à la fois par discussion. Un blocage ferme aussi le rendez-vous. Tu sais que l'autre est arrivée, jamais depuis quand |
 | Se protéger | Trois gestes de gravité croissante, tous sans que la personne soit prévenue : **retirer le match** (la discussion disparaît des deux côtés, définitivement), **bloquer** sans rien signaler, ou **signaler** avec six motifs (argent, chantage, comportement déplacé, usurpation, personne mineure, violence). Jusqu'ici, se débarrasser de quelqu'un passait obligatoirement par une accusation |
 | Fermer un compte | La modération ferme un compte depuis le groupe Telegram, avec le bouton « Fermer ce compte » posé sous chaque signalement et sous chaque message bloqué par l'anti-arnaque. Le compte fermé perd l'accès à l'API (403, avec la marche à suivre), disparaît de la découverte et des listes, et **tous ses matchs sont défaits**. Rouvrir se fait du même endroit : une erreur se répare sans laisser de trace. La marque garde qui a décidé, quand et pourquoi — c'est ce qui permet de reconnaître la personne si elle revient, comme les conditions l'annoncent |
 | Espace de modération | `/moderation` dans le groupe Telegram : le bot envoie **en privé** un lien à usage unique, valable dix minutes, qui ouvre une session web de douze heures (cookie signé, `HttpOnly`, `SameSite=Lax`). Le droit d'entrer, c'est **être administrateur du groupe** — demandé à Telegram (`getChatAdministrators`, cache d'une minute) à la création du lien, à son échange, **et à chaque requête** : quelqu'un qu'on retire des administrateurs perd l'accès dans la minute, pas à l'expiration de sa session. Quatre vues **sans JavaScript ni image** : accueil chiffré, file d'attente de vérification, signalements, comptes fermés. **Jamais un selfie** — il reste au groupe Telegram. Ouvrir un signalement affiche **le fil de la discussion signalée, et elle seule** : ni les autres conversations de la personne, ni celles de qui a signalé. Sans le fil, un signalement se réduit à un motif choisi dans une liste, invérifiable. **Chaque lecture est enregistrée** sur le signalement (qui, quand) et le compte est affiché. Une discussion défaite par un blocage ou une fermeture de compte n'est plus lisible : ses messages sont partis, il n'en existe aucune copie. Sans `WEB_SESSION_SECRET`, cette porte seule répond 503 en disant quoi faire ; le reste de l'app tourne |
@@ -55,7 +55,7 @@ Identité « Aura » : l'app possède ses surfaces — trois niveaux d'encre à 
 
 1. Dans Telegram, ouvre **@BotFather**.
 2. Envoie `/newbot`.
-3. Donne un nom affiché (ex. `Mbolo Test`), puis un nom d'utilisateur finissant par `bot` (ex. `mbolo_test_bot`).
+3. Donne un nom affiché (ex. `Odo Test`), puis un nom d'utilisateur finissant par `bot` (ex. `mbolo_test_bot`).
 4. BotFather te donne un **jeton** du type `123456789:AAH...`. Garde-le secret : quiconque l'a contrôle ton bot.
 
 ## Étape 2 : installer le projet
@@ -94,21 +94,21 @@ Tu dois voir :
 
 ```
 Profils de démonstration chargés : 20
-Mbolo écoute sur le port 3000
+Odo écoute sur le port 3000
 Bot @mbolo_test_bot démarré (interrogation longue)
 ```
 
 Sur ton téléphone :
 
 1. Cherche ton bot dans Telegram et envoie `/start`.
-2. Appuie sur **Ouvrir Mbolo** sous le message (ou sur le bouton **Ouvrir** à côté du champ de saisie).
+2. Appuie sur **Ouvrir Odo** sous le message (ou sur le bouton **Ouvrir** à côté du champ de saisie).
 3. Crée ton profil : choisis **Yaoundé** comme ville pour voir les profils de démonstration.
 4. Prends le selfie avec le geste demandé. Avec `AUTO_APPROVE=true`, il est validé au bout de 3 secondes et le bot t'écrit.
 5. Aime un profil : les profils de démonstration aiment en retour, donc tu obtiens un match.
 6. Écris un message, essaie « envoie-moi 2000 F par MoMo » pour voir le blocage, puis propose un rendez-vous.
 7. **Teste les notifications** :
    - Onglet **Profil** → **Tester les notifications** : le bot t'écrit tout de suite.
-   - Envoie un message à un profil de démo, puis **ferme immédiatement Mbolo** : environ 15 secondes plus tard, le bot te prévient de sa réponse, avec un bouton qui rouvre la bonne discussion.
+   - Envoie un message à un profil de démo, puis **ferme immédiatement Odo** : environ 15 secondes plus tard, le bot te prévient de sa réponse, avec un bouton qui rouvre la bonne discussion.
    - Une minute après la validation de ton selfie, un profil de démo te « like » : le bot t'annonce que tu as plu à quelqu'un, et ce profil apparaît en premier dans Découvrir.
 
 ### Profils de démonstration : qui sert à quoi
@@ -146,7 +146,7 @@ Tout cela fonctionne sur l'app en ligne tant que `SEED_DEMO=true` y est actif. D
 
 1. Mets une valeur à `ADMIN_KEY` **et à `VENUE_SECRET`** dans `.env`, puis redémarre.
 2. Sur ton ordinateur, ouvre `https://TON-ADRESSE/qr/palmier.png?key=TA_CLE`.
-3. Dans la discussion Mbolo sur ton téléphone, appuie sur **Je suis arrivé(e) : scanner le code** et vise l'écran.
+3. Dans la discussion Odo sur ton téléphone, appuie sur **Je suis arrivé(e) : scanner le code** et vise l'écran.
 
 Lieux disponibles : `palmier`, `etudiants`, `lac` (Yaoundé) et `wouri` (Douala). Ils se modifient dans `server/config.js`.
 
@@ -157,12 +157,12 @@ navigateur** : il n'existe que sur le serveur et sur la feuille imprimée.
 
 ## Étape 6 : activer la vraie modération des selfies
 
-1. Crée un groupe Telegram privé « Modération Mbolo » et ajoute ton bot.
+1. Crée un groupe Telegram privé « Modération Odo » et ajoute ton bot.
 2. Envoie `/id` dans le groupe : le bot répond l'identifiant (ex. `-1001234567890`).
 3. Dans `.env` : `ADMIN_CHAT_ID=-1001234567890` et `AUTO_APPROVE=false`. En production, ces deux réglages sont imposés : `AUTO_APPROVE` y est sans effet, et `ADMIN_CHAT_ID` y est obligatoire.
 4. Redémarre. Chaque nouveau selfie arrive dans le groupe avec le geste demandé et deux boutons : **Valider** ou **Refuser**. Le selfie est supprimé du serveur dès la décision. Chaque **photo de profil** arrive de la même façon : validée, elle devient visible ; refusée, elle est supprimée et la personne est prévenue par le bot.
 
-## Étape 7 (facultative) : faire de Mbolo l'app principale du bot
+## Étape 7 (facultative) : faire d'Odo l'app principale du bot
 
 Dans @BotFather : `/mybots` → ton bot → **Bot Settings** → **Configure Mini App** → active-la avec ton `WEBAPP_URL`. Tu obtiens :
 
@@ -192,7 +192,7 @@ nano .env          # colle ton BOT_TOKEN
 
 ```
 Tunnel actif, mini app déjà joignable : https://xxxx.trycloudflare.com
-Mbolo écoute sur le port 3000
+Odo écoute sur le port 3000
 Bot @ton_bot démarré (interrogation longue)
 --- Mini app joignable sur https://xxxx.trycloudflare.com ---
 ```
@@ -261,7 +261,7 @@ Si tu obtiens `000`, c'est le résolveur DNS du téléphone qui bloque, et chang
 2. Sur GitHub : **Settings** → **Secrets and variables** → **Actions** → **New repository secret**. Ajoute `FLY_API_TOKEN`, `BOT_TOKEN` et `ADMIN_CHAT_ID` — ce dernier est l'identifiant du groupe Telegram qui recevra les selfies à valider : crée le groupe, ajoute-y ton bot, envoie `/id` dedans. Sans lui, le déploiement s'arrête avant de construire quoi que ce soit. Facultatif : `ADMIN_KEY` (généré sinon).
 3. Onglet **Actions** → **Déployer sur Fly** → **Run workflow**. Pour une **première installation**, saisis un nom d'app libre (ils sont uniques dans le monde entier) et une région : `ams` Amsterdam, `cdg` Paris, `jnb` Johannesburg, `mad` Madrid — puis reporte ces deux valeurs dans les `default` du workflow, pour n'avoir plus jamais à les retaper.
 4. Au bout de trois à cinq minutes, l'app répond sur `https://<ton-app>.fly.dev`.
-5. Dans Telegram : `/start` → **Ouvrir Mbolo**.
+5. Dans Telegram : `/start` → **Ouvrir Odo**.
 
 Le workflow crée l'app, le volume et les adresses IP publiques s'ils manquent, pose les secrets, puis déploie. Relance-le à chaque fois que tu veux publier une nouvelle version : **pour une mise à jour, laisse les deux champs tels quels** et appuie sur le bouton vert. Un nom d'app qui n'existe pas arrête le script avant toute modification — rien n'est déployé nulle part, mais rien n'est publié non plus.
 
@@ -323,8 +323,9 @@ Pour les modifier, édite les deux fichiers HTML et change la date en haut de pa
 
 ## Changer le nom de l'application
 
-1. Dans `.env`, modifie la ligne `APP_NAME=Mbolo` (ex. `APP_NAME=Imani`).
+1. Dans `.env`, modifie la ligne `APP_NAME=Odo` (ex. `APP_NAME=Imani`).
 2. Redémarre le serveur : le nom change dans l'app, les messages du bot et les notifications.
+2 bis. **Pour la production**, le nom est écrit dans `fly.toml` (`[env] APP_NAME`) : modifie-le là et redéploie. `.env` n'est pas lu par la machine déployée, et le défaut de `server/config.js` ne sert qu'à qui lance le serveur sans rien configurer.
 3. Dans @BotFather : `/mybots` → ton bot → **Edit Bot** → **Edit Name** pour le nom affiché en haut de la mini app, puis **Edit About** et **Edit Description** pour les textes de présentation.
 4. L'identifiant du bot (`@...`) ne se modifie généralement pas : si tu veux un identifiant assorti au nouveau nom, crée un nouveau bot avec `/newbot` et mets son jeton dans `BOT_TOKEN`.
 

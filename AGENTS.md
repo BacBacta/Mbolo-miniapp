@@ -1,4 +1,4 @@
-# Mbolo : instructions pour l'agent de code
+# Odo : instructions pour l'agent de code
 
 Les instructions de ce dépôt vivent dans **[`CLAUDE.md`](CLAUDE.md)**, et nulle part ailleurs.
 Lis-le en entier avant toute modification.

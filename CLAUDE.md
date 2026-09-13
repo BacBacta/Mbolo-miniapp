@@ -1,6 +1,6 @@
-# Mbolo : instructions pour l'agent de code
+# Odo : instructions pour l'agent de code
 
-Tu reprends **Mbolo**, une mini app Telegram de rencontres vérifiées pour l'Afrique francophone, lancée d'abord à Yaoundé (Cameroun). Le prototype fonctionne : il a été testé sur un vrai téléphone Android dans Telegram. Ton rôle est de le faire évoluer vers une bêta fermée, sans casser ce qui marche.
+Tu reprends **Odo**, une mini app Telegram de rencontres vérifiées pour l'Afrique francophone, lancée d'abord à Yaoundé (Cameroun). Le prototype fonctionne : il a été testé sur un vrai téléphone Android dans Telegram. Ton rôle est de le faire évoluer vers une bêta fermée, sans casser ce qui marche.
 
 Lis ce fichier en entier avant toute modification.
 
@@ -27,7 +27,7 @@ Des rencontres entre personnes réelles et vérifiées, dans des lieux publics, 
 - **Interface :** HTML, CSS et JavaScript sans framework ni étape de build, SDK officiel `telegram-web-app.js`.
 - **Stockage :** PostgreSQL si `DATABASE_URL` est défini (`server/store.pg.js`, migrations SQL versionnées), sinon fichier JSON avec écriture atomique (`server/store.json.js`). `server/store.js` choisit ; les deux offrent la même interface, asynchrone.
 - **Tests :** `node --test test/*.test.js` (lancé par `npm test`). La même suite tourne sur PostgreSQL avec `npm run test:pg` (un schéma par fichier de test). Le parcours dans un navigateur est couvert par Playwright (`npm run e2e`, dossier `e2e/`). Les trois passent en CI.
-- **Nom de l'app :** variable `APP_NAME` (par défaut `Mbolo`), injectée dans `index.html` par le serveur.
+- **Nom de l'app :** variable `APP_NAME` (par défaut `Odo`), injectée dans `index.html` par le serveur.
 - **Dépendances :** `express`, `grammy`, `qrcode`, `dotenv`, `pg`. En développement seulement : `@playwright/test`, **épinglé** — sa version décide de la version de Chromium téléchargée. N'en ajoute pas sans justification.
 
 ## 3. Organisation du code
@@ -172,7 +172,7 @@ Contexte du développeur : il travaille sous **Windows avec PowerShell**. Donne 
 - Présence et réponses de démo en mémoire : perdues au redémarrage.
 - Discussion par polling toutes les 4 secondes.
 - L'espace de modération web **lit** (file de vérification, signalements, comptes fermés) ; toutes les **décisions** se prennent dans le groupe Telegram. Si le groupe devient injoignable, plus personne ne peut être vérifié — et plus personne ne peut ouvrir de session web non plus, puisque la liste des administrateurs vient de là. Le serveur le signale au démarrage et les personnes concernées sont invitées à réessayer, mais rien ne prévient l'exploitant en cours de route.
-- **La liste des lieux partenaires est vide**, et c'est voulu : un lieu n'y entre qu'avec un accord signé avec l'établissement, sinon l'app annonce un avantage (« -10 % avec Mbolo ») à quelqu'un qui va se rendre dans un café qui n'a rien promis. Le rendez-vous avec confirmation d'arrivée n'est donc proposé nulle part pour l'instant, et l'app le dit en invitant à convenir d'un lieu public dans la discussion. Tout le mécanisme reste en place : une ligne dans `config.js` le rallume. Les quatre lieux d'exemple ne sortent qu'avec `SEED_DEMO` (`test/production.test.js`).
+- **La liste des lieux partenaires est vide**, et c'est voulu : un lieu n'y entre qu'avec un accord signé avec l'établissement, sinon l'app annonce un avantage (« -10 % avec Odo ») à quelqu'un qui va se rendre dans un café qui n'a rien promis. Le rendez-vous avec confirmation d'arrivée n'est donc proposé nulle part pour l'instant, et l'app le dit en invitant à convenir d'un lieu public dans la discussion. Tout le mécanisme reste en place : une ligne dans `config.js` le rallume. Les quatre lieux d'exemple ne sortent qu'avec `SEED_DEMO` (`test/production.test.js`).
 - Compteurs de limitation de débit : partagés entre instances sur PostgreSQL (table `rate_limits`), en mémoire sur le fichier JSON — qui est mono-instance de toute façon. Dans les deux cas ils repartent à zéro au redémarrage sur JSON ; sur PostgreSQL ils survivent.
 - `server/antiscam.js` couvre maintenant tous les pays, avec trois limites connues : les pays à **mobiles à 8 chiffres** (Togo, Gabon) ne sont attrapés que sous la forme `+indicatif` ; un numéro **écrit en toutes lettres** (« six sept sept… ») n'est vu que s'il est annoncé (« mon numéro ») ; et le vocabulaire ne couvre que le **français et l'anglais** — une demande écrite dans une autre langue échappe aux règles de formulation, mais pas à celles des numéros ni des moyens de paiement, qui ne dépendent pas de la langue.
 - Le corpus de non-régression d'`antiscam.js` reste écrit à la main : il fige chaque cas nommé, il ne mesure pas le comportement de vrais utilisateurs. À remplacer par les messages réellement signalés pendant la bêta.
