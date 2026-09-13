@@ -1,6 +1,6 @@
 # Odo : rencontres vérifiées, face à face
 
-**Odo** (ɔdɔ) veut dire « l'amour » en twi, la langue akan du Ghana. Un proverbe adinkra en tire *Odo Nnyew Fie Kwan* : « l'amour ne perd jamais le chemin de la maison ». Trois lettres, la même prononciation en français et en anglais, et une initiale qui se retient du premier coup.
+**Odo** (ɔdɔ) veut dire « l'amour » en twi, la langue akan du Ghana, et un proverbe adinkra en tire *Odo Nnyew Fie Kwan* : « l'amour ne perd jamais le chemin de la maison ». Le sens est relevé dans un dictionnaire akan, pas inventé après coup. Le nom est court, se prononce de la même façon en français et en anglais, et se retient du premier coup. Le nom précédent, **Mbolo**, signifiait « salut, bienvenue » dans plusieurs langues d'Afrique centrale.
 
 > Le nom se change sans toucher au code : variable `APP_NAME` dans `.env` (voir « Changer le nom de l'application »).
 
@@ -162,7 +162,7 @@ navigateur** : il n'existe que sur le serveur et sur la feuille imprimée.
 3. Dans `.env` : `ADMIN_CHAT_ID=-1001234567890` et `AUTO_APPROVE=false`. En production, ces deux réglages sont imposés : `AUTO_APPROVE` y est sans effet, et `ADMIN_CHAT_ID` y est obligatoire.
 4. Redémarre. Chaque nouveau selfie arrive dans le groupe avec le geste demandé et deux boutons : **Valider** ou **Refuser**. Le selfie est supprimé du serveur dès la décision. Chaque **photo de profil** arrive de la même façon : validée, elle devient visible ; refusée, elle est supprimée et la personne est prévenue par le bot.
 
-## Étape 7 (facultative) : faire de Odo l'app principale du bot
+## Étape 7 (facultative) : faire d'Odo l'app principale du bot
 
 Dans @BotFather : `/mybots` → ton bot → **Bot Settings** → **Configure Mini App** → active-la avec ton `WEBAPP_URL`. Tu obtiens :
 
@@ -323,8 +323,9 @@ Pour les modifier, édite les deux fichiers HTML et change la date en haut de pa
 
 ## Changer le nom de l'application
 
-1. Dans `.env`, modifie la ligne `APP_NAME=Odo` (ex. `APP_NAME=Teriya`).
+1. Dans `.env`, modifie la ligne `APP_NAME=Odo` (ex. `APP_NAME=Imani`).
 2. Redémarre le serveur : le nom change dans l'app, les messages du bot et les notifications.
+2 bis. **Pour la production**, le nom est écrit dans `fly.toml` (`[env] APP_NAME`) : modifie-le là et redéploie. `.env` n'est pas lu par la machine déployée, et le défaut de `server/config.js` ne sert qu'à qui lance le serveur sans rien configurer.
 3. Dans @BotFather : `/mybots` → ton bot → **Edit Bot** → **Edit Name** pour le nom affiché en haut de la mini app, puis **Edit About** et **Edit Description** pour les textes de présentation.
 4. L'identifiant du bot (`@...`) ne se modifie généralement pas : si tu veux un identifiant assorti au nouveau nom, crée un nouveau bot avec `/newbot` et mets son jeton dans `BOT_TOKEN`.
 
