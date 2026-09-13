@@ -378,6 +378,7 @@ const fuseau = () => { try { return Intl.DateTimeFormat().resolvedOptions().time
 // valeur ne suit pas d'un appareil à l'autre — n'a pas de sens pour un abandon de formulaire,
 // qui a lieu sur un seul appareil.
 const ETAPE = 'form_step';
+const JAUGE_VUE = 'jauge_vue';
 const local = (() => { try { return window.localStorage; } catch { return null; } })();
 function noterEtape(n) {
   try { if (Number(local?.getItem(ETAPE) || 0) < n) local.setItem(ETAPE, String(n)); } catch { /* stockage refusé : on ne mesure pas, l'app marche */ }
@@ -397,10 +398,12 @@ const activityChip = (p, cls = 'chip') => (ACTIVITY_LABELS()[p.activity] ? `<spa
 // cls = 'top' (carte manipulable) ou 'next' (carte suivante, en retrait)
 function profileCard(p, { own = false, cls = '' } = {}) {
   const hidePhoto = !own && S.dataSaver && !S.revealed[p.id];
-  const tr = p.trust || {};
-  const score = [tr.selfie, tr.guarantor, tr.seniority].filter(Boolean).length;
-  // Ce qui est acquis, en clair, sur une ligne : « Selfie vérifié, un garant »
-  const acquis = [tr.selfie && t('selfie vérifié'), tr.guarantor && t('un garant'), tr.seniority && t('membre depuis 3 mois')].filter(Boolean);
+  // La jauge vient du serveur avec son dénominateur : la carte ne devine plus combien de
+  // critères existent, et le jour où le garant s'ajoute elle suit sans être retouchée.
+  const tr = p.trust || { score: 0, total: 0, criteres: [] };
+  const score = tr.score;
+  // Ce qui est acquis, en clair, sur une ligne : « Selfie vérifié, membre depuis 3 mois »
+  const acquis = (tr.criteres || []).filter((c) => c.ok).map((c) => t(c.titre).toLowerCase());
   if (acquis.length) acquis[0] = acquis[0].charAt(0).toUpperCase() + acquis[0].slice(1);
   return `
     <article class="card ${cls}">
@@ -432,10 +435,10 @@ function profileCard(p, { own = false, cls = '' } = {}) {
           <span>${esc(t(p.intentLabel))}</span>
           ${p.languages ? `<span class="sep"></span><span>${t('Parle {langues}', { langues: esc(p.languages.charAt(0).toLowerCase() + p.languages.slice(1)) })}</span>` : ''}
         </div>
-        <div class="trust-row" aria-label="${t('Confiance {n} sur 3', { n: score })}">
-          <span class="trust-pips"><span class="${tr.selfie ? 'on' : ''}"></span><span class="${tr.guarantor ? 'on' : ''}"></span><span class="${tr.seniority ? 'on' : ''}"></span></span>
-          <span class="trust-text"><strong>${t('Confiance {n} sur 3', { n: score })}</strong>${acquis.length ? ` · ${acquis.join(', ')}` : ` · ${t("Aucune vérification pour l'instant")}`}</span>
-        </div>
+        <button type="button" class="trust-row" data-action="go" data-screen="jauge" aria-label="${t('Confiance {n} sur {total}', { n: score, total: tr.total })}">
+          <span class="trust-pips">${(tr.criteres || []).map((c) => `<span class="${c.ok ? 'on' : ''}"></span>`).join('')}</span>
+          <span class="trust-text"><strong>${t('Confiance {n} sur {total}', { n: score, total: tr.total })}</strong>${acquis.length ? ` · ${acquis.join(', ')}` : ` · ${t("Aucune vérification pour l'instant")}`}</span>
+        </button>
       </div>
     </article>`;
 }
@@ -1133,6 +1136,33 @@ const SCREENS = {
     tg.setButtons(c ? null : { main: { text: t('Envoyer une invitation'), onClick: inviterConfiance } });
   },
 
+  // La jauge de confiance, expliquée (P1-5). Les critères viennent du serveur, les mêmes que
+  // ceux que la carte affiche : un seul endroit décrit ce que la jauge mesure, donc l'explication
+  // ne peut pas raconter autre chose que le score. Le garant n'y est pas — il n'a pas encore de
+  // mécanisme, et annoncer un critère qu'on ne peut pas remplir serait promettre à vide.
+  jauge() {
+    const tr = S.me.publicProfile?.trust || { score: 0, total: 0, criteres: [] };
+    const etat = Object.fromEntries((tr.criteres || []).map((c) => [c.cle, c.ok]));
+    // Où revenir : tant que le compte n'est pas vérifié, la personne est encore dans son
+    // inscription et l'écran suivant est le selfie. Vérifiée, elle vient de l'onglet Profil.
+    const avantVerif = S.me.verification !== 'approved';
+    render(`
+      <div class="step-head"><h1>${t('La jauge de confiance')}</h1>
+        <p class="lead">${t("Sur chaque profil, de petites pastilles disent ce qui a été vérifié. Personne n'est noté : on montre ce qui est prouvé, et rien de plus.")}</p></div>
+      <div class="list">${(S.me.options.criteres || []).map((c) => `
+        <div class="list-row">
+          <span class="tile ${etat[c.cle] ? 'tile-ok' : ''}">${icon(etat[c.cle] ? 'check' : 'shield', 20)}</span>
+          <div class="body">
+            <div class="title">${t(c.titre)}</div>
+            <div class="sub">${t(c.quoi)}</div>
+            <div class="sub">${etat[c.cle] ? t('Tu l\'as.') : t(c.comment)}</div>
+          </div>
+        </div>`).join('')}</div>
+      <p class="fine">${icon('info', 14)}<span>${t("Une jauge pleine ne veut pas dire qu'une personne est sûre. Elle dit ce qui a été vérifié — le reste, c'est ton jugement, et les rendez-vous dans un lieu public.")}</span></p>`);
+    tg.setBack(() => go(avantVerif ? 'verify' : 'me'));
+    tg.setButtons({ main: { text: t('Compris'), onClick: () => go(avantVerif ? 'verify' : 'me') } });
+  },
+
   // Choix de la langue. Par défaut celle de Telegram ; le choix explicite est gardé sur le
   // serveur, pour que le bot écrive lui aussi dans la bonne langue.
   langue() {
@@ -1211,6 +1241,7 @@ const SCREENS = {
             <div class="body"><div class="title">${t('Économie de data')}</div><div class="sub">${t('Photos chargées seulement si tu les demandes')}</div></div>
             <input type="checkbox" class="switch" name="dataSaver" ${S.dataSaver ? 'checked' : ''}>
           </label>
+          ${listRow({ iconName: 'shield', title: t('La jauge de confiance'), sub: t('Ce que les pastilles mesurent, et comment les obtenir'), action: 'go', extra: ' data-screen="jauge"' })}
           ${listRow({ iconName: 'mic', title: t('Présentation vocale'),
             sub: S.me.voix?.status === 'approved' ? t('Validée · {duree} — les autres peuvent l\'écouter', { duree: dureeLisible(S.me.voix.duree) })
               : S.me.voix?.status === 'pending' ? t('En attente : la modération doit l\'écouter avant les autres')
@@ -1319,6 +1350,11 @@ async function saveProfile() {
     if (S.me.verification === 'approved') {
       toast(t('Profil mis à jour'), 'ok');
       go('me');
+    } else if (!local?.getItem(JAUGE_VUE)) {
+      // Une seule fois, à l'inscription : la jauge s'affiche partout, autant dire tout de suite
+      // ce qu'elle mesure. Retenu dans le navigateur — aucune requête de plus.
+      try { local.setItem(JAUGE_VUE, '1'); } catch { /* navigation privée : tant pis, on la remontrera */ }
+      go('jauge');
     } else {
       go('verify');
     }

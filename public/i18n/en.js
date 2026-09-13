@@ -382,6 +382,21 @@ export default {
   'Action inconnue sur ce rendez-vous.': 'Unknown action on this meet-up.',
   'Sections': 'Sections',
   'Parle {langues}': 'Speaks {langues}',
+  'Confiance {n} sur {total}': 'Trust {n} of {total}',
+  'La jauge de confiance': 'The trust gauge',
+  "Sur chaque profil, de petites pastilles disent ce qui a été vérifié. Personne n'est noté : on montre ce qui est prouvé, et rien de plus.": 'On every profile, small dots show what has been checked. No one is rated: we show what is proven, and nothing more.',
+  "Tu l'as.": 'You have it.',
+  "Une jauge pleine ne veut pas dire qu'une personne est sûre. Elle dit ce qui a été vérifié — le reste, c'est ton jugement, et les rendez-vous dans un lieu public.": 'A full gauge does not mean someone is safe. It says what has been checked — the rest is your judgement, and meeting in a public place.',
+  'Compris': 'Got it',
+  'Ce que les pastilles mesurent, et comment les obtenir': 'What the dots measure, and how to get them',
+  // Critères de la jauge : envoyés par le serveur (options.criteres), donc invisibles au test de
+  // complétude — comme les intentions et les genres. Le test des libellés serveur les couvre.
+  'Selfie vérifié': 'Selfie verified',
+  "Un selfie avec un geste tiré au hasard, regardé par une personne de l'équipe.": 'A selfie with a randomly drawn gesture, looked at by someone on the team.',
+  "C'est l'étape juste après ton profil.": 'It is the step right after your profile.',
+  'Membre depuis 3 mois': 'Member for 3 months',
+  "Le temps passé ici. Les comptes d'arnaque durent rarement aussi longtemps.": 'Time spent here. Scam accounts rarely last that long.',
+  'Rien à faire : il vient tout seul.': 'Nothing to do: it comes on its own.',
   // Questions de compatibilité : ces libellés viennent du serveur (options.compat), donc le test
   // de complétude ne peut pas les voir — il ne lit que les t('…') littéraux de l'interface. Comme
   // pour les intentions et les genres, ils s'ajoutent ici à la main.
