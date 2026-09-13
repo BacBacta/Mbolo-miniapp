@@ -41,7 +41,7 @@ const S = {
 
 const app = document.getElementById('app');
 // Nom de l'app injecté par le serveur (variable APP_NAME)
-const APP = document.querySelector('meta[name="app-name"]')?.content || 'Mbolo';
+const APP = document.querySelector('meta[name="app-name"]')?.content || 'Odo';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // L'icône « duo » reste dans ui.js : le mode reviendra, et la retirer ferait du bruit pour rien.
 const INTENT_ICONS = { amitie: 'users', serieux: 'heart' };

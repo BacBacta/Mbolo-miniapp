@@ -6,6 +6,10 @@ primary_region = "cdg"
 [build]
 
 [env]
+  # Le nom affiché dans l'app, les messages du bot et les pages publiques.
+  # Écrit ici plutôt que laissé au défaut de server/config.js : la production ne doit pas
+  # changer de nom parce que quelqu'un a touché à une valeur par défaut.
+  APP_NAME = "Odo"
   PORT = "8080"
   DATA_DIR = "/data"
   NODE_ENV = "production"
