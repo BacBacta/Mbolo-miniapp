@@ -107,6 +107,24 @@ test('toute clé employée par l\'interface a sa traduction anglaise', async () 
   assert.ok(cles.size > 200, `l'interface est bien traduite en entier (${cles.size} clés)`);
 });
 
+// Le test ci-dessus ne lit que les t('…') littéraux de app.js. Or plusieurs libellés viennent du
+// **serveur** — intentions, genres, questions de compatibilité — et traversent t() sous forme de
+// variable : `t(l)`. Ils échappent donc entièrement au contrôle précédent, et la première fois
+// qu'on s'en aperçoit, c'est en voyant du français dans une interface anglaise.
+test('les libellés envoyés par le serveur sont traduits, eux aussi', async () => {
+  const { INTENTS, GENDERS, COMPAT } = await import('../server/config.js');
+  const en = (await import('../public/i18n/en.js')).default;
+
+  const libelles = [
+    ...Object.values(INTENTS),
+    ...Object.values(GENDERS),
+    ...Object.values(COMPAT).flatMap(({ question, valeurs }) => [question, ...Object.values(valeurs)]),
+  ];
+  const manquants = libelles.filter((l) => !(l in en));
+  assert.deepEqual(manquants, [], `libellés serveur sans traduction : ${manquants.join(' | ')}`);
+  assert.ok(libelles.length >= 10, "et la liste est bien celle qu'on croit");
+});
+
 // Une phrase oubliée hors de t() ne se voit pas en français : elle ne se voit qu'en anglais,
 // et seulement par un anglophone. Ce balayage la fait tomber ici, à l'écriture.
 test('aucun texte visible de l\'interface n\'échappe à la traduction', async () => {

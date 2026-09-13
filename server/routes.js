@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
-import { config, runtime, venues, INTENTS, INTENTS_RETIRES, GENDERS } from './config.js';
+import { config, runtime, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT } from './config.js';
 import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
 import { LANGUES, t as tr } from './i18n.js';
 import { store } from './store.js';
@@ -70,6 +70,7 @@ async function publicProfile(user) {
     hasPhoto: (await store.photosOf(user)).some((x) => x.status === 'approved'),
     // La présentation vocale validée, avec sa durée : rien n'est téléchargé tant que personne
     // n'appuie, et la durée dit à l'avance ce que ça coûtera.
+    compat: compatPublique(p),
     voix: voixPublique(user),
     verified: user.verification === 'approved',
     trust: p.trust || { selfie: user.verification === 'approved', guarantor: false, seniority: Date.now() - user.createdAt > 90 * 864e5 },
@@ -80,6 +81,30 @@ async function publicProfile(user) {
     // démonstration sont recréés à chaque démarrage : ils ne sont jamais « nouveaux »
     isNew: !user.demo && Date.now() - user.createdAt < 7 * 86400e3,
   };
+}
+
+// Les réponses de compatibilité, lues dans ce que le navigateur envoie. Facultatives : une
+// réponse absente ne bloque rien. Mais une valeur inconnue est refusée — la liste vient du serveur,
+// donc une valeur hors liste est un bogue du client ou une main extérieure, pas un choix.
+function lireCompat(b) {
+  const compat = {};
+  for (const [champ, { valeurs }] of Object.entries(COMPAT)) {
+    const v = b?.compat?.[champ];
+    if (v === undefined || v === null || v === '') continue;
+    if (!valeurs[v]) return { erreur: champ };
+    compat[champ] = v;
+  }
+  return { compat };
+}
+
+// Ce que les autres en voient. Uniquement en « Relation sérieuse » : ailleurs, ces questions n'ont
+// pas été posées, et afficher le silence de quelqu'un comme une réponse serait faux.
+function compatPublique(p) {
+  if (p.intent !== 'serieux' || !p.compat) return null;
+  const vues = Object.entries(COMPAT)
+    .filter(([champ]) => p.compat[champ])
+    .map(([champ, { question, valeurs }]) => ({ champ, question, reponse: valeurs[p.compat[champ]] }));
+  return vues.length ? vues : null;
 }
 
 function saveJpeg(dataUrl, file) {
@@ -142,7 +167,7 @@ api.get('/me', async (req, res) => {
     // durée. Ce que les autres en sauront est décidé ailleurs (publicProfile).
     voix: u.voix ? { status: u.voix.status, duree: u.voix.duree } : null,
     options: {
-      intents: INTENTS, genders: GENDERS, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
+      intents: INTENTS, genders: GENDERS, compat: COMPAT, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
       defaultCountry: config.defaultCountry,
       // Pays déduit du fuseau envoyé par le navigateur (?tz=). Il n'est ni stocké ni journalisé :
       // il sert à préremplir le menu, puis il est oublié. null si le fuseau est inconnu.
@@ -167,6 +192,8 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
   if (cleVille(city).length < 2) return fail(res, 400, 'CITY_REQUIRED', 'Indique ta ville.');
   const promptA = String(b.promptA || '').trim().slice(0, 120);
   if (promptA.length < 3) return fail(res, 400, 'PROMPT_REQUIRED', 'Réponds à la question pour que les autres te découvrent.');
+  const { compat, erreur } = lireCompat(b);
+  if (erreur) return fail(res, 400, 'COMPAT_INVALID', `Réponse inattendue à « ${COMPAT[erreur].question} ». Choisis dans la liste.`);
   const profileText = [name, b.area, b.promptQ, promptA, b.languages].filter(Boolean).join(' ');
   if (!checkMessage(profileText, 0, 1).ok) return fail(res, 400, 'PROFILE_CONTACT', "Ton profil ne doit contenir ni numéro, ni lien, ni pseudo, ni demande d'argent.");
 
@@ -190,6 +217,9 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
     promptA,
     languages: String(b.languages || '').trim().slice(0, 60),
     hasPhoto,
+    // Rangées seulement en « Relation sérieuse » : changer d'intention ne doit pas laisser derrière
+    // soi des réponses à des questions qu'on ne pose plus.
+    ...(b.intent === 'serieux' && Object.keys(compat).length ? { compat } : {}),
   };
   // Les horodatages d'entonnoir voyagent dans des appels qui existaient déjà : aucune écriture
   // supplémentaire. Ils vivent dans l'objet utilisateur, donc DELETE /api/me les emporte.

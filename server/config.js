@@ -126,6 +126,25 @@ export const INTENTS = { amitie: 'Amitié', serieux: 'Relation sérieuse' };
 // mot plutôt qu'avec « undefined », le temps que chacun rouvre l'app. Quand le vrai mode existera,
 // la ligne remonte dans INTENTS.
 export const INTENTS_RETIRES = { duo: 'Sortie en duo' };
+
+// Questions de compatibilité (P1-4), posées uniquement en « Relation sérieuse » : c'est là qu'elles
+// veulent dire quelque chose, et nulle part ailleurs. Facultatives — ne pas répondre est une
+// réponse, et une liste fermée vaut mieux qu'un champ libre qu'il faudrait ensuite interpréter.
+//
+// La religion n'est volontairement pas ici. Le raisonnement de MATCH_POLICY sur l'orientation vaut
+// pour elle : une colonne interrogeable, croisée avec la ville et le quartier déjà stockés, est
+// une liste de ciblage en cas de fuite ou de réquisition. Qui veut le dire peut l'écrire dans sa
+// réponse libre, avec ses mots — c'est du texte, pas un facteur de tri.
+export const COMPAT = {
+  mariage: {
+    question: 'Le mariage, pour toi ?',
+    valeurs: { oui: "C'est mon projet", peutetre: 'Peut-être, un jour', non: 'Ce n\'est pas mon projet' },
+  },
+  enfants: {
+    question: 'Des enfants ?',
+    valeurs: { oui: "J'en veux", deja: "J'en ai déjà", peutetre: 'Peut-être', non: "Je n'en veux pas" },
+  },
+};
 export const GENDERS = { femme: 'Femme', homme: 'Homme' };
 // La ville n'est plus une liste fermée : elle se saisit librement et se compare par clé
 // normalisée. Voir server/geo.js.

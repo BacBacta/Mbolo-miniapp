@@ -357,6 +357,15 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .card-photo[data-action="photo-nav"] { cursor: pointer; }
 .card-photo .reveal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 
+/* Compatibilité : posée sous la réponse libre, en petits blocs question-réponse. Jamais une
+   couleur à elle : ce sont des faits déclarés, pas des signaux à mettre en avant. */
+.card-body .compat { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.card-body .chip-compat { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 10px; line-height: 1.25; }
+.card-body .chip-compat .q { font-size: 11px; opacity: .65; }
+.card-body .chip-compat .a { font-weight: 600; }
+/* Les réponses de compatibilité tiennent sur plusieurs lignes quand elles sont longues */
+.seg-wrap { flex-wrap: wrap; }
+
 /* Présentation vocale : un bouton posé dans le corps de la carte, jamais sur la photo — il se
    touche pendant qu'on lit, pas pendant qu'on balaie. Rien n'est téléchargé avant l'appui. */
 .card-body .voix { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 7px 14px; border-radius: 999px; background: var(--bg3); color: var(--text); border: 1px solid var(--line); }
