@@ -41,6 +41,7 @@ server/
   session.js    Cookie web signé (WEB_SESSION_SECRET), sans dépendance ni table
   moderation.js Espace de modération : lien à usage unique, droit = admin du groupe, écran sans JS
   confiance.js  Personne de confiance : invitation, accord explicite, retrait des deux côtés
+  bascule.js    Ce que la bascule PostgreSQL doit retrouver : comptage par clé, fonction pure
   mesure.js     Pose les événements : garde-fou anti-texte, ralentis, semaine ISO des cohortes
   chiffres.js   Lit les chiffres : fonction pure, exclusions en amont, avertissements
   routes.js     API REST sous /api
@@ -70,14 +71,16 @@ test/
   bannissement, deploiement, filters, geographie, langues, limites, moderation,
   moderation-session, notifications, pages-publiques, photos, production, profiles,
   rendezvous, securite, stockage, verre, webhook
-  (179 tests, tous rejoués sur PostgreSQL par npm run test:pg)
+  (tous rejoués sur PostgreSQL par npm run test:pg)
 e2e/
   aides.js       Gestes partagés : ouvrir, créer un profil, se faire vérifier
   inscription, discussion, mesure, pages-publiques, verre (18 tests Playwright, npm run e2e)
 scripts/
   chiffres.js    npm run chiffres : entonnoir et contre-métriques, --json pour la machine
   import-json.js Reprise d'un db.json existant vers PostgreSQL, événements compris
+  etat-stockage.js Compare fichier et base table par table ; sort en erreur si la base en porte moins
   test-pg.js     La suite complète sur PostgreSQL, un schéma par fichier de test
+basculer-postgres.sh  Bascule vers PostgreSQL en deux temps : preparer, basculer, verifier
 DEPLOIEMENT.md  Guide pas à pas de mise en ligne : secrets, contrôles, PostgreSQL, pannes
 audit/
   Dossier d'audit du parcours : benchmark, mesures, constats, risques, plan
@@ -168,7 +171,7 @@ L'ordre est contraignant : chaque tâche suppose les précédentes terminées.
 
 ### P0 : indispensable avant une bêta fermée
 1. ~~**Intégration continue GitHub Actions**~~ : fait, `.github/workflows/ci.yml` lance `npm ci`, `npm test` et `npm audit` sur chaque pull request et chaque poussée vers `main`, en Node 20 et 22.
-2. ~~**Migration vers PostgreSQL**~~ : fait. `DATABASE_URL` bascule le stockage vers `server/store.pg.js`, les migrations SQL de `server/db/migrations/` s'appliquent à l'import du module, et `scripts/import-json.js` reprend un `db.json` existant sans doublon. La suite complète passe sur les deux stockages, en CI comme en local (`npm run test:pg`).
+2. ~~**Migration vers PostgreSQL**~~ : fait côté code. `DATABASE_URL` bascule le stockage vers `server/store.pg.js`, les migrations SQL de `server/db/migrations/` s'appliquent à l'import du module, et `scripts/import-json.js` reprend un `db.json` existant sans doublon. La suite complète passe sur les deux stockages, en CI comme en local (`npm run test:pg`). **La bascule de la production est outillée** (`basculer-postgres.sh`, travail GitHub « PostgreSQL ») : la base est attachée sous un nom que le serveur ignore, importée, vérifiée par `scripts/etat-stockage.js`, et renommée seulement ensuite — sans la fenêtre où la production tournerait sur une base vide. **Reste à la lancer** : créer la base demande un jeton d'organisation Fly, donc le propriétaire.
 3. ~~**Limitation des requêtes** par utilisateur~~ : fait pour messages, balayages, signalements, vérification, photos, rendez-vous et profil (`server/limites.js`, sans dépendance). Reste à couvrir : les paiements, quand ils existeront.
 4. ~~**Accepter ou refuser un rendez-vous**~~ : fait, `PUT /api/dates/:id` avec les quatre statuts, notification à chaque changement, check-in réservé aux rendez-vous acceptés, un seul rendez-vous vivant par discussion, et l'identifiant Telegram de qui propose ne sort plus du serveur (`test/rendezvous.test.js`).
 5. ~~**Défaire un match**~~ : fait, `DELETE /api/matches/:id`, sans notification, avec blocage sans accusation et six motifs de signalement.

@@ -1,0 +1,200 @@
+// La bascule vers PostgreSQL : le contrôle qui dit si elle peut avoir lieu.
+//
+// L'import écrit « 0 importé(s) sur 5 » au milieu d'une page de texte quand il rate une table.
+// Personne ne le lit ce jour-là, et ça ne se remarque qu'une fois le fichier effacé. D'où un
+// contrôle qui refuse de dire que tout va bien : `scripts/etat-stockage.js`, appelé trois fois
+// par `basculer-postgres.sh`, et qui sort en 1 dès qu'une table porte moins que le fichier.
+//
+// Le piège de ce contrôle est de crier au loup : deux tables se dédoublonnent à l'écriture, donc
+// PostgreSQL porte légitimement moins de lignes que db.json n'en contient. Un contrôle qui
+// s'affole là-dessus ferait renoncer à une bascule qui allait bien — c'est la moitié des tests
+// ci-dessous.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
+import { TABLES, attendu, comparer } from '../server/bascule.js';
+
+const lancer = promisify(execFile);
+const RACINE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const URL_BASE = process.env.DATABASE_URL || '';
+
+// ---------- Ce que le fichier contient vraiment ----------
+
+test('chaque table est comptée là où elle est rangée dans le fichier', () => {
+  const n = attendu({
+    users: { 1: { id: '1' }, 2: { id: '2' } },
+    swipes: [{ from: '1', to: '2', action: 'like' }],
+    matches: { m1: { id: 'm1' } },
+    // Les messages sont rangés par match dans le fichier, à plat dans la base.
+    messages: { m1: [{ id: 'a' }, { id: 'b' }], m2: [{ id: 'c' }] },
+    blocks: [{ from: '2', to: '1' }],
+    reports: [{ id: 'r1' }],
+    dates: { d1: { id: 'd1' } },
+    events: [{ id: 'e1' }, { id: 'e2' }],
+  });
+  assert.deepEqual(n, { users: 2, swipes: 1, matches: 1, messages: 3, blocks: 1, reports: 1, dates: 1, events: 2 });
+});
+
+test('un fichier vide ne compte rien, et ne manque rien', () => {
+  assert.deepEqual(attendu({}), { users: 0, swipes: 0, matches: 0, messages: 0, blocks: 0, reports: 0, dates: 0, events: 0 });
+  assert.equal(comparer(attendu({}), {}).manquantes.length, 0);
+});
+
+// Le faux positif que ce contrôle doit éviter : `insert ... on conflict (from_id, to_id) do
+// nothing` n'écrit qu'une ligne pour deux balayages de la même paire. Compter les lignes du
+// fichier annoncerait une perte, et ferait annuler une bascule réussie.
+test('deux balayages de la même paire ne comptent que pour un', () => {
+  const n = attendu({
+    swipes: [
+      { from: '1', to: '2', action: 'pass', at: 1 },
+      { from: '1', to: '2', action: 'like', at: 2 },
+      { from: '2', to: '1', action: 'like', at: 3 },
+    ],
+    blocks: [{ from: '1', to: '2', at: 1 }, { from: '1', to: '2', at: 2 }],
+  });
+  assert.equal(n.swipes, 2, 'deux paires distinctes, quatre écritures dans le fichier');
+  assert.equal(n.blocks, 1);
+});
+
+test('un même identifiant écrit deux fois ne compte que pour un', () => {
+  const n = attendu({
+    reports: [{ id: 'r1' }, { id: 'r1' }],
+    events: [{ id: 'e1' }, { id: 'e1' }, { id: 'e2' }],
+    messages: { m1: [{ id: 'a' }, { id: 'a' }] },
+  });
+  assert.deepEqual([n.reports, n.events, n.messages], [1, 2, 1]);
+});
+
+// ---------- Ce que la comparaison conclut ----------
+
+test('une base qui porte autant que le fichier ne manque de rien', () => {
+  const a = { users: 3, swipes: 2, matches: 1, messages: 5, blocks: 0, reports: 1, dates: 1, events: 9 };
+  assert.equal(comparer(a, { ...a }).manquantes.length, 0);
+});
+
+// L'app continue de servir pendant l'import : des comptes et des messages s'ajoutent entre
+// l'écriture du fichier et le contrôle. Plus que le fichier est normal ; moins ne l'est jamais.
+test('une base qui a pris de l\'avance ne fait pas échouer le contrôle', () => {
+  const a = { users: 3, messages: 5 };
+  const { manquantes } = comparer(a, { users: 4, messages: 12 });
+  assert.equal(manquantes.length, 0);
+});
+
+test('une table incomplète est nommée, avec ce qui lui manque', () => {
+  const { lignes, manquantes } = comparer({ users: 3, events: 9 }, { users: 3, events: 0 });
+  assert.equal(manquantes.length, 1);
+  assert.equal(manquantes[0].table, 'events');
+  assert.equal(manquantes[0].json - manquantes[0].pg, 9);
+  assert.equal(lignes.length, TABLES.length, 'toutes les tables sont montrées, pas seulement les fautives');
+});
+
+// ---------- Le contrôle en vrai, contre une base ----------
+
+const schema = `bascule_test_${Date.now().toString(36)}`;
+const environnement = { ...process.env, DATABASE_URL: URL_BASE, DATABASE_SCHEMA: schema, BOT_TOKEN: '' };
+const sansBase = URL_BASE ? false : 'aucune base PostgreSQL (lance npm run test:pg)';
+
+const dbExemple = () => ({
+  users: { 900: { id: '900', createdAt: 1757000000000, profile: { name: 'Awa' } } },
+  swipes: [{ from: '900', to: '901', action: 'like', at: 1 }],
+  matches: {},
+  messages: {},
+  blocks: [],
+  reports: [],
+  dates: {},
+  events: [{ id: 'e1', u: '900', k: 'app_opened', at: 2 }, { id: 'e2', k: 'deck_empty', at: 3 }],
+});
+
+const fichierTemporaire = (contenu) => {
+  const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'mbolo-bascule-'));
+  const fichier = path.join(dossier, 'db.json');
+  fs.writeFileSync(fichier, JSON.stringify(contenu));
+  return fichier;
+};
+
+test('après un import complet, le contrôle laisse passer', { skip: sansBase }, async () => {
+  const fichier = fichierTemporaire(dbExemple());
+  await lancer('node', ['scripts/import-json.js', fichier], { cwd: RACINE, env: environnement });
+
+  const { stdout } = await lancer('node', ['scripts/etat-stockage.js', fichier], { cwd: RACINE, env: environnement });
+  assert.match(stdout, /porte tout ce que/, 'il doit le dire, pas seulement sortir en 0');
+  assert.match(stdout, /events\s+2\s+2/, 'et montrer les chiffres des deux côtés');
+});
+
+// Le cas qui justifie tout ce fichier : un import qui a laissé une table derrière lui.
+// On simule le pire — les événements, seule donnée que personne ne peut reconstituer.
+test('une table restée vide arrête la bascule', { skip: sansBase }, async () => {
+  const fichier = fichierTemporaire(dbExemple());
+  await lancer('node', ['scripts/import-json.js', fichier, '--force'], { cwd: RACINE, env: environnement });
+
+  const pg = await import('pg');
+  const pool = new pg.default.Pool({ connectionString: URL_BASE, options: `-c search_path=${schema}` });
+  await pool.query('delete from events');
+  await pool.end();
+
+  await assert.rejects(
+    () => lancer('node', ['scripts/etat-stockage.js', fichier], { cwd: RACINE, env: environnement }),
+    (e) => {
+      assert.equal(e.code, 1, 'il doit sortir en 1 : c\'est ce qui arrête basculer-postgres.sh');
+      assert.match(e.stderr, /events \(2 de moins\)/, 'et nommer la table, avec ce qui lui manque');
+      assert.match(e.stderr, /--force/, 'et dire quoi faire');
+      return true;
+    },
+  );
+});
+
+test('sans DATABASE_URL, le contrôle ne fait pas semblant de vérifier', { skip: sansBase }, async () => {
+  const fichier = fichierTemporaire(dbExemple());
+  await assert.rejects(
+    () => lancer('node', ['scripts/etat-stockage.js', fichier], { cwd: RACINE, env: { ...environnement, DATABASE_URL: '' } }),
+    (e) => e.code === 2 && /DATABASE_URL manquant/.test(e.stderr),
+  );
+});
+
+// ---------- Le script de bascule, et ce qu'il promet ----------
+
+const script = fs.readFileSync(path.join(RACINE, 'basculer-postgres.sh'), 'utf8');
+const guide = fs.readFileSync(path.join(RACINE, 'DEPLOIEMENT.md'), 'utf8');
+const travail = fs.readFileSync(path.join(RACINE, '.github/workflows/postgres.yml'), 'utf8');
+
+test('les trois étapes du script sont celles que le guide documente', () => {
+  for (const etape of ['preparer', 'basculer', 'verifier']) {
+    assert.match(script, new RegExp(`\\b${etape}\\b`), `le script doit connaître l'étape ${etape}`);
+    assert.ok(guide.includes(`basculer-postgres.sh ${etape}`), `le guide doit montrer l'étape ${etape}`);
+  }
+});
+
+test('le travail GitHub et la ligne de commande lancent le même script', () => {
+  assert.match(travail, /\.\/basculer-postgres\.sh/, 'une seule logique à maintenir, comme pour le déploiement');
+});
+
+// La chaîne de connexion porte le mot de passe de la base. Le journal d'un travail GitHub se lit
+// sans droits particuliers : elle ne doit jamais y arriver, même par une ligne de mise au point.
+test('le script n\'affiche jamais la chaîne de connexion', () => {
+  const lignes = script.split('\n').filter((l) => !l.trim().startsWith('#'));
+  for (const ligne of lignes) {
+    // Ce qui compte est ce qui part vers la sortie, pas ce que la ligne teste avant :
+    // `[ -n "$URL" ] || echo "..."` ne montre rien. On ne lit donc que l'après-echo.
+    const affiche = ligne.split(/\b(?:echo|printf)\b/).slice(1).join(' ');
+    if (/\$(URL|\{URL)/.test(affiche)) {
+      // Seule exception : la consigne qui demande justement à GitHub de la masquer.
+      assert.match(ligne, /add-mask/, `cette ligne afficherait la chaîne de connexion : ${ligne.trim()}`);
+    }
+  }
+  assert.match(script, /add-mask/, 'et sous GitHub Actions, elle doit être masquée');
+});
+
+// Le serveur ne lit que DATABASE_URL. Tant que la base est attachée sous un autre nom, il
+// continue de servir le fichier JSON : c'est ce qui évite la fenêtre où la production tourne
+// sur une base vide. Si ce nom devenait DATABASE_URL, la préparation basculerait toute seule.
+test('la base est préparée sous un nom que le serveur ne lit pas', () => {
+  assert.match(script, /FUTUR=DATABASE_URL_FUTURE/);
+  const config = fs.readFileSync(path.join(RACINE, 'server/config.js'), 'utf8');
+  assert.ok(!config.includes('DATABASE_URL_FUTURE'), 'le serveur ne doit pas connaître ce nom');
+  assert.match(script, /--variable-name "\$FUTUR"/, "l'attachement doit poser ce nom-là");
+});

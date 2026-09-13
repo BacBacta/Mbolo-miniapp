@@ -93,8 +93,12 @@ test('le serveur démarre et sert avec le seul contenu de l\'image', async (t) =
   assert.equal((await fetch(`${base}/styles.css`)).status, 200, 'la feuille de style (public/)');
   assert.equal((await fetch(`${base}/confidentialite`)).status, 200, 'les pages publiques (server/legal/)');
 
-  // Et le script d'import doit être là : le guide de déploiement dit de le lancer depuis la machine.
-  assert.ok(fs.existsSync(path.join(app, 'scripts', 'import-json.js')), 'scripts/import-json.js manque dans l\'image');
+  // Et les scripts de bascule doivent être là : le guide dit de les lancer depuis la machine,
+  // et basculer-postgres.sh les appelle par ssh. Absents de l'image, la bascule s'arrête au
+  // milieu — une base attachée, un import qui n'a pas eu lieu.
+  for (const script of ['import-json.js', 'etat-stockage.js']) {
+    assert.ok(fs.existsSync(path.join(app, 'scripts', script)), `scripts/${script} manque dans l'image`);
+  }
 
   // Ce serveur tourne en production sans DATABASE_URL : c'est exactement le cas où un fichier
   // unique sans sauvegarde porte des chiffres qui ne se reconstituent pas. Il démarre — refuser

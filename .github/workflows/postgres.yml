@@ -1,0 +1,64 @@
+# Bascule de la production vers PostgreSQL, depuis l'onglet Actions de GitHub.
+# Pensé pour être lancé depuis un navigateur de téléphone : aucune ligne de commande.
+#
+# Deux lancements, dans cet ordre :
+#   1. « preparer » : crée la base si tu le demandes, l'attache sous un nom que le serveur
+#      ignore, reprend /data/db.json et vérifie que rien ne manque. La production ne bouge pas.
+#   2. « basculer » : refait le contrôle, puis échange les noms. C'est le seul moment où la
+#      production change de stockage, et il dure un redémarrage.
+# « verifier » se lance quand tu veux : il ne fait que lire.
+#
+# FLY_API_TOKEN doit être un jeton d'organisation (fly.io, Account puis Tokens). Le jeton de
+# déploiement d'une seule app ne peut pas créer de base.
+name: PostgreSQL
+
+on:
+  workflow_dispatch:
+    inputs:
+      etape:
+        description: "Étape"
+        required: true
+        type: choice
+        default: verifier
+        options: [verifier, preparer, basculer]
+      app_name:
+        description: "Nom de l'app Fly"
+        required: true
+        default: mbolo-miniapp
+      db_name:
+        description: "Nom du cluster PostgreSQL"
+        required: true
+        default: mbolo-db
+      region:
+        description: "Région (ams Amsterdam, cdg Paris, jnb Johannesburg, mad Madrid)"
+        required: true
+        default: ams
+      creer_la_base:
+        description: "Créer la base si elle n'existe pas (dépense mensuelle)"
+        type: boolean
+        default: false
+      moteur:
+        description: "mpg : gérée par Fly, sauvegardes comprises. brut : moins chère, reprise à ta charge"
+        required: true
+        type: choice
+        default: mpg
+        options: [mpg, brut]
+
+# Deux bascules en même temps écriraient dans la même base : une seule à la fois.
+concurrency: postgres-${{ inputs.app_name }}
+
+jobs:
+  bascule:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: ${{ inputs.etape }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          CREER_LA_BASE: ${{ inputs.creer_la_base }}
+          MOTEUR: ${{ inputs.moteur }}
+        # Même script que pour une bascule à la main : une seule logique à maintenir
+        run: ./basculer-postgres.sh '${{ inputs.etape }}' '${{ inputs.app_name }}' '${{ inputs.db_name }}' '${{ inputs.region }}'
