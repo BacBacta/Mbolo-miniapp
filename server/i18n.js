@@ -5,7 +5,7 @@
 // Même principe que côté navigateur : la clé est la phrase française, une clé manquante retombe
 // sur du français lisible.
 
-export const LANGUES = ['fr', 'en', 'es', 'pt', 'sw'];
+export const LANGUES = ['fr', 'en', 'es', 'pt', 'sw', 'ru', 'uk'];
 export const LANGUE_SOURCE = 'fr';
 
 const EN = {
@@ -207,7 +207,97 @@ const SW = {
   "Ouvrir la discussion": "Fungua mazungumzo",
 };
 
-const DICTIONNAIRES = { fr: {}, en: EN, es: ES, pt: PT, sw: SW };
+const RU = {
+  'Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans jamais te demander d\'argent.\n\nRéservé aux 18 ans et plus.': "Привет, {nom}. {app} знакомит тебя с проверенными людьми твоего города и никогда не просит у тебя денег.\n\nТолько для 18 лет и старше.",
+  'Ouvrir {app}': "Открыть {app}",
+  '{app} ne te demandera jamais d\'argent. Si quelqu\'un le fait, signale-le depuis la discussion dans l\'app.\n\nPour supprimer ton compte : Paramètres dans l\'app, puis « Supprimer mon compte ».': "{app} никогда не попросит у тебя денег. Если кто-то это делает, пожалуйся на него из чата в приложении.\n\nЧтобы удалить аккаунт: Настройки в приложении, затем «Удалить аккаунт».",
+  'Identifiant de cette discussion : {id}': "Идентификатор этого чата: {id}",
+  "{nom} te choisit comme personne de confiance sur {app}.\n\nSi tu acceptes, tu recevras un message quand {nom} part à un rendez-vous, avec le lieu et l'heure, et un autre quand {nom} arrive sur place. Tu ne verras rien d'autre : ni avec qui, ni les discussions.\n\nOn garde ton prénom et ton compte Telegram, rien de plus, et tu peux te retirer quand tu veux avec /retirer.": "{nom} выбирает тебя доверенным человеком в {app}.\n\nЕсли согласишься, ты получишь сообщение, когда {nom} выходит на встречу, с местом и временем, и ещё одно, когда {nom} приходит на место. Больше ты не увидишь ничего: ни с кем, ни переписку.\n\nМы храним твоё имя и аккаунт Telegram, не больше, и ты можешь отказаться в любой момент командой /retirer.",
+  "J'accepte": "Я согласен",
+  'Non merci': "Нет, спасибо",
+  "Cette invitation n'est plus valable. Demande à ton amie ou ton ami de t'en envoyer une autre.": "Это приглашение больше не действует. Попроси подругу или друга прислать новое.",
+  "Cette invitation n'est plus valable.": "Это приглашение больше не действует.",
+  "Choisis quelqu'un d'autre que toi.": "Выбери кого-то другого, не себя.",
+  "Ce compte n'existe plus.": "Этого аккаунта больше нет.",
+  "C'est noté, rien n'a été enregistré.": "Принято, ничего не сохранено.",
+  "C'est fait. Tu seras prévenu quand {nom} part à un rendez-vous. Pour te retirer : /retirer.": "Готово. Тебе сообщат, когда {nom} выходит на встречу. Чтобы отказаться: /retirer.",
+  "{nom} a accepté d'être ta personne de confiance.": "{nom} согласился быть твоим доверенным человеком.",
+  "Personne ne t'a choisi comme personne de confiance.": "Тебя никто не выбрал доверенным человеком.",
+  "{nom} ne souhaite plus être ta personne de confiance. Tu peux en désigner une autre.": "{nom} больше не хочет быть твоим доверенным человеком. Ты можешь выбрать другого.",
+  "C'est fait, tu ne recevras plus rien. Ton prénom et ton compte ont été effacés.": "Готово, ты больше ничего не будешь получать. Твоё имя и твой аккаунт стёрты.",
+  "{nom} ne t'a plus comme personne de confiance. Tu ne recevras plus rien.": "{nom} больше не считает тебя доверенным человеком. Ты больше ничего не будешь получать.",
+  "{nom} te prévient : elle ou il part à un rendez-vous maintenant. Tu es sa personne de confiance.": "{nom} предупреждает: сейчас выходит на встречу. Ты доверенный человек.",
+  '{nom} a un rendez-vous : {lieu}, {creneau}. Tu es sa personne de confiance.': "У {nom} встреча: {lieu}, {creneau}. Ты доверенный человек.",
+  'Ton profil est vérifié. Ton badge est visible, tu peux découvrir des profils.': "Твоя анкета проверена. Значок виден, можно смотреть анкеты.",
+  'Voir des profils': "Смотреть анкеты",
+  "Ta vérification n'a pas abouti : le geste ou le visage n'était pas assez visible. Tu peux réessayer.": "Проверка не прошла: жест или лицо было видно недостаточно хорошо. Можно попробовать снова.",
+  'Réessayer': "Повторить",
+  'Ta photo {n} est validée : les autres la voient maintenant.': "Твоё фото {n} одобрено: теперь его видят другие.",
+  'Voir mon profil': "Моя анкета",
+  "Ta photo {n} a été refusée : visage peu visible, contenu inadapté, ou ce n'est pas toi. Elle est supprimée, tu peux en mettre une autre.": "Твоё фото {n} отклонено: лицо плохо видно, неподходящее содержание, или это не ты. Оно удалено, можно поставить другое.",
+  'Changer de photo': "Заменить фото",
+  'Les notifications {app} fonctionnent. Tu seras prévenu(e) ici des matchs et des messages.': "Уведомления {app} работают. Здесь ты будешь узнавать о мэтчах и сообщениях.",
+  'Nouveau match : {nom} et toi, vous vous plaisez.': "Новый мэтч: вы с {nom} понравились друг другу.",
+  'Écrire': "Написать",
+  "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.": "Ты понравился кому-то в городе {ville}. Открой {app}, чтобы узнать кому.",
+  'Découvrir': "Смотреть",
+  "{nom} t'a écrit : « {extrait} »": "{nom} пишет тебе: «{extrait}»",
+  'Répondre': "Ответить",
+  '{nom} te propose un rendez-vous : {lieu} ({quartier}), {creneau}.': "{nom} предлагает тебе встречу: {lieu} ({quartier}), {creneau}.",
+  'Voir la proposition': "Посмотреть приглашение",
+  '{nom} a accepté le rendez-vous : {lieu}, {creneau}.': "{nom} принял встречу: {lieu}, {creneau}.",
+  '{nom} ne peut pas venir à {lieu}, {creneau}. Tu peux en proposer un autre.': "{nom} не может прийти в {lieu}, {creneau}. Можешь предложить другую встречу.",
+  '{nom} a annulé le rendez-vous de {lieu}, {creneau}.': "{nom} отменил встречу {lieu}, {creneau}.",
+  '{nom} est bien arrivé(e) à {lieu}.': "{nom} на месте: {lieu}.",
+  'Ouvrir la discussion': "Открыть чат",
+};
+
+const UK = {
+  'Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans jamais te demander d\'argent.\n\nRéservé aux 18 ans et plus.': "Привіт, {nom}. {app} знайомить тебе з перевіреними людьми твого міста й ніколи не просить у тебе грошей.\n\nЛише для 18 років і старше.",
+  'Ouvrir {app}': "Відкрити {app}",
+  '{app} ne te demandera jamais d\'argent. Si quelqu\'un le fait, signale-le depuis la discussion dans l\'app.\n\nPour supprimer ton compte : Paramètres dans l\'app, puis « Supprimer mon compte ».': "{app} ніколи не попросить у тебе грошей. Якщо хтось це робить, поскаржся на нього з чату в застосунку.\n\nЩоб видалити акаунт: Налаштування в застосунку, потім «Видалити акаунт».",
+  'Identifiant de cette discussion : {id}': "Ідентифікатор цього чату: {id}",
+  "{nom} te choisit comme personne de confiance sur {app}.\n\nSi tu acceptes, tu recevras un message quand {nom} part à un rendez-vous, avec le lieu et l'heure, et un autre quand {nom} arrive sur place. Tu ne verras rien d'autre : ni avec qui, ni les discussions.\n\nOn garde ton prénom et ton compte Telegram, rien de plus, et tu peux te retirer quand tu veux avec /retirer.": "{nom} обирає тебе довіреною людиною в {app}.\n\nЯкщо погодишся, ти отримаєш повідомлення, коли {nom} виходить на зустріч, з місцем і часом, і ще одне, коли {nom} приходить на місце. Більше ти не побачиш нічого: ні з ким, ні листування.\n\nМи зберігаємо твоє ім'я та акаунт Telegram, не більше, і ти можеш відмовитися будь-коли командою /retirer.",
+  "J'accepte": "Я погоджуюся",
+  'Non merci': "Ні, дякую",
+  "Cette invitation n'est plus valable. Demande à ton amie ou ton ami de t'en envoyer une autre.": "Це запрошення більше не дійсне. Попроси подругу або друга надіслати нове.",
+  "Cette invitation n'est plus valable.": "Це запрошення більше не дійсне.",
+  "Choisis quelqu'un d'autre que toi.": "Обери когось іншого, не себе.",
+  "Ce compte n'existe plus.": "Цього акаунта більше немає.",
+  "C'est noté, rien n'a été enregistré.": "Прийнято, нічого не збережено.",
+  "C'est fait. Tu seras prévenu quand {nom} part à un rendez-vous. Pour te retirer : /retirer.": "Готово. Тобі повідомлять, коли {nom} виходить на зустріч. Щоб відмовитися: /retirer.",
+  "{nom} a accepté d'être ta personne de confiance.": "{nom} погодився бути твоєю довіреною людиною.",
+  "Personne ne t'a choisi comme personne de confiance.": "Тебе ніхто не обрав довіреною людиною.",
+  "{nom} ne souhaite plus être ta personne de confiance. Tu peux en désigner une autre.": "{nom} більше не хоче бути твоєю довіреною людиною. Ти можеш обрати іншу.",
+  "C'est fait, tu ne recevras plus rien. Ton prénom et ton compte ont été effacés.": "Готово, ти більше нічого не отримуватимеш. Твоє ім'я і твій акаунт стерто.",
+  "{nom} ne t'a plus comme personne de confiance. Tu ne recevras plus rien.": "{nom} більше не має тебе як довірену людину. Ти більше нічого не отримуватимеш.",
+  "{nom} te prévient : elle ou il part à un rendez-vous maintenant. Tu es sa personne de confiance.": "{nom} попереджає: зараз виходить на зустріч. Ти довірена людина.",
+  '{nom} a un rendez-vous : {lieu}, {creneau}. Tu es sa personne de confiance.': "У {nom} зустріч: {lieu}, {creneau}. Ти довірена людина.",
+  'Ton profil est vérifié. Ton badge est visible, tu peux découvrir des profils.': "Твою анкету перевірено. Значок видно, можна дивитися анкети.",
+  'Voir des profils': "Дивитися анкети",
+  "Ta vérification n'a pas abouti : le geste ou le visage n'était pas assez visible. Tu peux réessayer.": "Перевірка не пройшла: жест або обличчя було видно недостатньо добре. Можна спробувати знову.",
+  'Réessayer': "Повторити",
+  'Ta photo {n} est validée : les autres la voient maintenant.': "Твоє фото {n} схвалено: тепер його бачать інші.",
+  'Voir mon profil': "Моя анкета",
+  "Ta photo {n} a été refusée : visage peu visible, contenu inadapté, ou ce n'est pas toi. Elle est supprimée, tu peux en mettre une autre.": "Твоє фото {n} відхилено: обличчя погано видно, невідповідний вміст, або це не ти. Його видалено, можна поставити інше.",
+  'Changer de photo': "Замінити фото",
+  'Les notifications {app} fonctionnent. Tu seras prévenu(e) ici des matchs et des messages.': "Сповіщення {app} працюють. Тут ти дізнаватимешся про метчі й повідомлення.",
+  'Nouveau match : {nom} et toi, vous vous plaisez.': "Новий метч: ви з {nom} сподобалися одне одному.",
+  'Écrire': "Написати",
+  "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.": "Ти сподобався комусь у місті {ville}. Відкрий {app}, щоб дізнатися кому.",
+  'Découvrir': "Дивитися",
+  "{nom} t'a écrit : « {extrait} »": "{nom} пише тобі: «{extrait}»",
+  'Répondre': "Відповісти",
+  '{nom} te propose un rendez-vous : {lieu} ({quartier}), {creneau}.': "{nom} пропонує тобі зустріч: {lieu} ({quartier}), {creneau}.",
+  'Voir la proposition': "Переглянути запрошення",
+  '{nom} a accepté le rendez-vous : {lieu}, {creneau}.': "{nom} прийняв зустріч: {lieu}, {creneau}.",
+  '{nom} ne peut pas venir à {lieu}, {creneau}. Tu peux en proposer un autre.': "{nom} не може прийти в {lieu}, {creneau}. Можеш запропонувати іншу зустріч.",
+  '{nom} a annulé le rendez-vous de {lieu}, {creneau}.': "{nom} скасував зустріч {lieu}, {creneau}.",
+  '{nom} est bien arrivé(e) à {lieu}.': "{nom} на місці: {lieu}.",
+  'Ouvrir la discussion': "Відкрити чат",
+};
+
+const DICTIONNAIRES = { fr: {}, en: EN, es: ES, pt: PT, sw: SW, ru: RU, uk: UK };
 
 // Langue d'une personne : son choix explicite, sinon celle de son Telegram, sinon le français.
 export function langueDe(user) {

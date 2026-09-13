@@ -205,3 +205,85 @@ test('aucun texte visible de l\'interface n\'échappe à la traduction', async (
   });
   assert.deepEqual(oublis, [], `texte non traduit dans public/app.js :\n  ${oublis.join('\n  ')}`);
 });
+
+// Le russe et l'ukrainien ont trois formes plurielles, et la règle ne porte pas sur la taille
+// du nombre mais sur ses deux derniers chiffres. Le découpage du français — « un » d'un côté,
+// « plus grand que un » de l'autre — s'y trompe une fois sur deux : 21 y repasse au singulier,
+// 0 y prend la troisième forme. Ce test fige les trois catégories et les deux charnières.
+// public/i18n.js est un module de navigateur : chargerLangue pose la langue sur <html> et,
+// pour le cyrillique, ajoute la feuille de style de la police de titrage. On lui donne donc
+// la plus petite surface de DOM qui lui suffit, plutôt que d'assouplir le module pour les tests.
+function fauxDocument() {
+  const head = [];
+  globalThis.document = {
+    documentElement: { lang: '' },
+    head: { append: (n) => head.push(n) },
+    getElementById: (id) => head.find((n) => n.id === id) || null,
+    createElement: () => ({}),
+  };
+  return head;
+}
+
+test('le pluriel suit la règle de la langue, pas celle du français', async () => {
+  fauxDocument();
+  const { chargerLangue, tn } = await import('../public/i18n.js');
+
+  // Le français : deux formes, et 0 reste au singulier.
+  await chargerLangue('fr');
+  assert.equal(tn('{n} restant', '{n} restants', 1), '1 restant');
+  assert.equal(tn('{n} restant', '{n} restants', 3), '3 restants');
+
+  for (const [code, attendu] of [
+    ['ru', { 1: 'остался 1', 2: 'осталось 2', 5: 'осталось 5', 21: 'остался 21', 0: 'осталось 0' }],
+    ['uk', { 1: 'залишився 1', 2: 'залишилося 2', 5: 'залишилося 5', 21: 'залишився 21', 0: 'залишилося 0' }],
+  ]) {
+    await chargerLangue(code);
+    for (const [n, phrase] of Object.entries(attendu)) {
+      assert.equal(tn('{n} restant', '{n} restants', Number(n)), phrase,
+        `${code} : ${n} doit donner « ${phrase} »`);
+    }
+  }
+  await chargerLangue('fr');
+});
+
+// Les deux clés françaises d'un pluriel pointent vers le même objet dans le dictionnaire.
+// Si elles se dédoublaient, l'une des deux pourrait être corrigée sans l'autre, et le texte
+// changerait selon le nombre — un bug qu'aucun test de complétude ne verrait, puisque les
+// deux clés seraient bien présentes.
+test('les deux clés d\'un pluriel partagent le même objet', async () => {
+  const PAIRES = [
+    ['{n} restant', '{n} restants'],
+    ["{n} profil de ta zone est en dehors de la tranche que tu as choisie. Tu peux l'élargir.",
+     "{n} profils de ta zone sont en dehors de la tranche que tu as choisie. Tu peux l'élargir."],
+  ];
+  for (const code of ['ru', 'uk']) {
+    const dico = (await import(`../public/i18n/${code}.js`)).default;
+    for (const [un, plusieurs] of PAIRES) {
+      assert.equal(typeof dico[un], 'object', `${code} : « ${un} » doit porter les formes plurielles`);
+      assert.equal(dico[un], dico[plusieurs],
+        `${code} : « ${un} » et « ${plusieurs} » doivent être le même objet, sinon ils divergeront`);
+    }
+  }
+});
+
+// Fraunces n'a pas de glyphes cyrilliques : sans police de secours, les titres russes et
+// ukrainiens tomberaient sur Georgia. Elle est donc chargée — mais seulement pour ces deux
+// langues. La règle 15 est là-dedans : qui lit en français, en anglais ou en swahili ne doit
+// pas payer de la data pour une police dont il ne verra jamais un caractère.
+test('la police cyrillique ne se charge que pour les langues qui en ont besoin', async () => {
+  const head = fauxDocument();
+  const { chargerLangue } = await import('../public/i18n.js');
+
+  for (const code of ['fr', 'en', 'es', 'pt', 'sw']) {
+    await chargerLangue(code);
+    assert.equal(head.length, 0, `${code} ne doit télécharger aucune police en plus`);
+  }
+
+  await chargerLangue('ru');
+  assert.equal(head.length, 1, 'le russe charge la police de titrage cyrillique');
+  assert.match(head[0].href, /Playfair\+Display/);
+
+  await chargerLangue('uk');
+  assert.equal(head.length, 1, "l'ukrainien réutilise la même : une seule fois, pas une par langue");
+  await chargerLangue('fr');
+});

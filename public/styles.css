@@ -120,6 +120,13 @@
   --glass-photo: rgb(var(--ink-rgb) / .84);
 }
 
+/* Fraunces n'a pas de glyphes cyrilliques. Sans cette règle, chaque titre en russe et en
+   ukrainien tomberait sur Georgia : une autre police, un autre dessin, au moment précis où
+   l'app cherche à se faire reconnaître — et le contraste avec Manrope, qui couvre le
+   cyrillique, rendrait la rupture visible dans la même phrase. Playfair Display tient le même
+   rôle de sérif de titrage. public/i18n.js ne la télécharge que pour ces deux langues. */
+:lang(ru), :lang(uk) { --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif; }
+
 /* ------------------------------------------------------------ Base */
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
