@@ -1,0 +1,69 @@
+# Sauvegarde quotidienne de la base, depuis l'onglet Actions ou toute seule chaque nuit.
+#
+# Pourquoi passer par la machine Fly plutôt que se connecter directement à la base : un PostgreSQL
+# Fly non géré vit sur le réseau privé de l'organisation et n'est pas joignable depuis l'internet
+# public. Un runner GitHub ne peut donc pas l'atteindre. C'est la machine déployée qui lance la
+# copie — le même chemin que la bascule, et le même que l'import.
+#
+# Ce que GitHub garde : le fichier **chiffré**, et rien d'autre. Le secret qui l'ouvre vit dans les
+# secrets Fly et chez le propriétaire, jamais ici. Un accès à ce dépôt donne donc un bloc illisible.
+#
+# Ce que la sauvegarde ne contient pas : les photos et les selfies, qui sont des fichiers du volume.
+name: Sauvegarde
+
+on:
+  schedule:
+    # 02 h 30 UTC, soit 03 h 30 à Yaoundé : l'heure où l'app est la plus calme.
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: "Nom de l'app Fly"
+        required: true
+        default: mbolo-miniapp
+      garder:
+        description: "Combien de sauvegardes garder sur le volume"
+        required: true
+        default: '14'
+
+# Deux sauvegardes en même temps écriraient dans le même dossier : une seule à la fois.
+concurrency: sauvegarde-${{ inputs.app_name || 'mbolo-miniapp' }}
+
+jobs:
+  sauvegarder:
+    runs-on: ubuntu-latest
+    env:
+      APP: ${{ inputs.app_name || 'mbolo-miniapp' }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # La machine s'arrête quand personne ne s'en sert : une requête la réveille avant qu'on
+      # tente d'y ouvrir une session, sinon flyctl répond « has no started VMs ».
+      - name: Réveiller la machine
+        run: |
+          curl -fsS --max-time 60 "https://$APP.fly.dev/health" >/dev/null || true
+          sleep 5
+
+      - name: Écrire la sauvegarde sur le volume
+        run: |
+          flyctl ssh console -a "$APP" -C \
+            "node scripts/sauvegarde.js /data/sauvegardes --garder ${{ inputs.garder || '14' }}" | tee sortie.txt
+          grep -q "Sauvegarde écrite" sortie.txt
+
+      # La copie doit quitter la machine : une sauvegarde posée à côté de la base disparaît avec
+      # le volume qui les porte toutes les deux.
+      - name: Ramener la plus récente
+        run: |
+          NOM=$(flyctl ssh console -a "$APP" -C "sh -c 'ls -1 /data/sauvegardes/*.sauvegarde | tail -1'" | tr -d '\r' | grep '\.sauvegarde$' | tail -1)
+          test -n "$NOM"
+          flyctl ssh sftp get "$NOM" ./sauvegarde.bin -a "$APP"
+          test -s ./sauvegarde.bin
+          echo "JOUR=$(date -u +%Y-%m-%d)" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sauvegarde-${{ env.JOUR }}
+          path: sauvegarde.bin
+          # Au-delà, GitHub les supprime seul. Les copies du volume, elles, remontent plus loin.
+          retention-days: 90

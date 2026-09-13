@@ -43,6 +43,7 @@ server/
   confiance.js  Personne de confiance : invitation, accord explicite, retrait des deux côtés
   jauge.js      Jauge de confiance : la liste des critères ouverts, et le calcul du score
   lieux.js      Le code d'un lieu : empreinte du secret serveur, jamais servie au client
+  sauvegarde.js Sauvegarde chiffrée : ce qu'elle emporte, ce qu'elle laisse, et pourquoi pas pg_dump
   voix.js       Présentation vocale : durées, nom de fichier, ce qui est public, et pourquoi ça vit dans le bot
   bascule.js    Ce que la bascule PostgreSQL doit retrouver : comptage par clé, fonction pure
   mesure.js     Pose les événements : garde-fou anti-texte, ralentis, semaine ISO des cohortes
@@ -73,6 +74,7 @@ public/
 test/
   activity, antiscam, assets, auth, compression,
   bannissement, checkin, deploiement, filters, geographie, instructions, jauge, langues, limites,
+  sauvegarde (aller-retour complet sur PostgreSQL : copier, effacer, remettre, comparer),
   limites-instances (PostgreSQL seulement : deux processus, un seul quota), moderation,
   moderation-session, notifications, pages-publiques, photos, production, profiles,
   rendezvous, securite, stockage, verre, webhook
@@ -84,6 +86,8 @@ scripts/
   chiffres.js    npm run chiffres : entonnoir et contre-métriques, --json pour la machine
   import-json.js Reprise d'un db.json existant vers PostgreSQL, événements compris
   etat-stockage.js Compare fichier et base table par table ; sort en erreur si la base en porte moins
+  sauvegarde.js  Copie chiffrée de la base, avec rotation ; se lance depuis la machine déployée
+  restaurer.js   Remet une sauvegarde ; refuse une base non vide sans --ecraser, et recompte après
   test-pg.js     La suite complète sur PostgreSQL, un schéma par fichier de test
 basculer-postgres.sh  Bascule vers PostgreSQL en deux temps : preparer, basculer, verifier
 DEPLOIEMENT.md  Guide pas à pas de mise en ligne : secrets, contrôles, PostgreSQL, pannes
@@ -106,6 +110,7 @@ audit/
 | Notifications bot | Match, message (limité à une par discussion toutes les 2 min), « tu as plu à quelqu'un » (une par jour), test depuis l'onglet Profil, bouton qui rouvre le bon écran (`?screen=chat&match=`) |
 | Présentation vocale | 15 secondes, facultative, **enregistrée dans le bot** (`/voix`) parce que `getUserMedia` est inutilisable dans les mini apps sur Android — et parce que l'opus de Telegram arrive déjà compressé, donc sans transcodage sur une machine de 256 Mo. **Écoutée par la modération avant d'être entendue par quiconque** : `antiscam.js` ne lit que du texte, rien n'empêche de dire un numéro à haute voix, et c'est la seule barrière de ce canal. La durée est annoncée d'avance et rien n'est téléchargé avant l'appui, pour que personne ne paie de la data sans le savoir. Retrait des deux côtés (`/sansvoix` ou l'app). `GET /api/voix/:userId` suit les règles des photos (`server/voix.js`) |
 | Anti-arnaque | Argent bloqué (texte normalisé contre les contournements : points, lettres détachées, « O » pour zéro), contacts bloqués avant 10 messages, profil et créneau de rendez-vous sans contact ni argent. **International** : 34 familles de moyens de paiement, 56 devises, vocabulaire français et anglais, numéros de n'importe quel indicatif (E.164 ou neuf chiffres). Deux paliers de moyens : inconditionnels, et ambigus (`om`, `visa`, `wave`, `wise`) qui ne bloquent pas seuls mais tiennent le rôle d'objet d'argent |
+| Sauvegardes | `server/sauvegarde.js` : copie **chiffrée** (AES-256-GCM, clé dérivée de `BACKUP_SECRET` par scrypt) des tables de `bascule.js`, écrite par `scripts/sauvegarde.js` depuis la machine déployée — la base Fly non gérée n'est pas joignable depuis un runner GitHub. **Pas de `pg_dump`** : l'image est un alpine sans client PostgreSQL, et l'ajouter coupleraient les versions. Travail **Sauvegarde** chaque nuit, rotation à 14 sur le volume, la plus récente ramenée dans les artefacts GitHub (chiffrée : le secret n'y est pas). `scripts/restaurer.js` refuse une base non vide sans `--ecraser`, écrit dans une transaction et **recompte depuis la base** avant de dire « Restauré et vérifié ». **Sans `BACKUP_SECRET`, rien ne s'écrit** — pas de copie en clair. **Les photos et les selfies n'y sont pas** : fichiers du volume. Un test refuse qu'une table apparaisse en base sans être rangée dans `TABLES` ou dans `HORS_SAUVEGARDE` avec sa raison — c'est l'oubli qui avait laissé les événements hors de l'import |
 | Code d'un lieu | `server/lieux.js` : le contenu du QR est une **empreinte HMAC** de `VENUE_SECRET` et de l'identifiant du lieu. Il ne se déduit pas de l'identifiant, n'est pas dans Git, et **aucun lieu ne porte de champ `code`** — une route ne peut donc plus le recopier dans une réponse, ce qui est exactement ce qui arrivait. Comparaison à temps constant, 10 essais par heure. `VENUE_SECRET` absent : secret tiré au hasard au démarrage (les QR imprimés cessent de marcher, aucun ne devient devinable) ; en production **avec au moins un lieu**, le serveur refuse de démarrer. **Le code reste fixe** : il prouve « j'ai vu ce QR », pas « j'y suis » |
 | Rendez-vous | **Disponible seulement là où un lieu partenaire existe, et la liste part vide** : au lancement, l'app invite à convenir d'un lieu public dans la discussion. Là où un lieu existe : proposition, puis **accepter, refuser ou annuler** : statuts `proposed`, `accepted`, `declined`, `cancelled`, notification du bot à chaque changement. L'invité accepte ou refuse ; celui qui propose annule sa proposition ; une fois accepté, chacun peut se décommander. **Le check-in par `showScanQrPopup` n'est possible que sur un rendez-vous accepté.** Un seul rendez-vous vivant par discussion. `PUT /api/dates/:id` |
 | Sécurité | Signaler et bloquer, guide anti-chantage, suppression complète du compte. **Fermer un compte** depuis le groupe de modération (bouton sous chaque signalement et chaque message bloqué) : accès refusé avec la marche à suivre, disparition de la découverte, matchs défaits, réouverture possible du même endroit. La marque (`banned`) garde qui, quand et pourquoi — les conditions promettent qu'un compte fermé pour arnaque ne se recrée pas |

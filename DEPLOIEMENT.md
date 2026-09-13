@@ -220,6 +220,75 @@ Attention : en production sur un fichier JSON.
 ---
 
 
+## Sauvegarder, et savoir restaurer
+
+Le PostgreSQL de la production est **non géré** : personne ne sauvegarde à ta place. Les instantanés
+de volume de Fly protègent d'un disque qui lâche — pas d'une table effacée, pas d'une migration
+ratée, pas d'un `delete` sans `where`. Et ce que la base porte ne se reconstitue pas : des comptes,
+des discussions, et des événements de mesure qui ne disent rien rétroactivement.
+
+### Ce qu'il faut poser une fois
+
+```powershell
+flyctl secrets set BACKUP_SECRET="$(openssl rand -hex 32)" --app mbolo-miniapp
+```
+
+**Garde ce secret ailleurs que sur la machine** — un gestionnaire de mots de passe, un papier dans
+un tiroir. Il ouvre les sauvegardes, et lui seul : le perdre, c'est perdre toutes les copies d'un
+coup. Le poser au même endroit que la base, c'est le perdre en même temps qu'elle.
+
+### Ce qui tourne tout seul
+
+Le travail **Sauvegarde** (onglet Actions) part chaque nuit à 02 h 30 UTC, et se lance aussi à la
+main. Il écrit sur le volume, garde les quatorze dernières, et **ramène la plus récente** dans les
+artefacts GitHub pour quatre-vingt-dix jours.
+
+GitHub ne voit que le fichier chiffré : le secret n'y est pas. Une copie qui ne quitte pas la
+machine disparaîtrait avec le volume qui porte aussi la base — c'est pour ça qu'elle en sort.
+
+### À la main, depuis la machine
+
+```powershell
+flyctl ssh console -a mbolo-miniapp -C "node scripts/sauvegarde.js /data/sauvegardes"
+```
+
+Tu dois lire `Sauvegarde écrite` suivi du compte de lignes, table par table. Si la commande annonce
+que la base est vide alors qu'elle ne l'est pas, arrête-toi : ne laisse pas la rotation effacer une
+bonne copie pour en garder quatorze mauvaises.
+
+### Restaurer
+
+**Ne restaure jamais par-dessus une base vivante sans l'avoir décidé.** Le script refuse tout seul
+si la base porte déjà des lignes, et te dit combien : c'est le chiffre que tu t'apprêtes à écraser.
+
+```powershell
+# 1. Récupère une sauvegarde : l'artefact GitHub, ou depuis le volume
+flyctl ssh sftp get /data/sauvegardes/mbolo-2026-09-13T02-30-00-000Z.sauvegarde -a mbolo-miniapp
+
+# 2. Remets-la
+flyctl ssh console -a mbolo-miniapp -C "node scripts/restaurer.js /data/sauvegardes/<fichier>"
+```
+
+Tu dois lire `Restauré et vérifié` suivi du total : le script recompte **depuis la base** après
+avoir écrit, et refuse cette phrase si un seul compte ne correspond pas. Il écrit tout dans une transaction : ou tout revient, ou rien ne bouge.
+
+### Ce que la sauvegarde ne contient pas
+
+**Les photos et les selfies.** Ce sont des fichiers de `/data/uploads`, qui ne traversent jamais la
+base. Restaurer rend les comptes, les discussions et les rendez-vous ; les images, il faut copier le
+volume pour les avoir :
+
+```powershell
+flyctl ssh sftp get /data/uploads -a mbolo-miniapp
+```
+
+### Éprouve-la avant d'en avoir besoin
+
+Une sauvegarde qu'on n'a jamais restaurée n'est pas une sauvegarde. `test/sauvegarde.test.js` fait
+l'aller-retour complet à chaque `npm run test:pg` — copie, effacement, remise, comparaison ligne à
+ligne. Refais-le une fois à la main sur une base d'essai avant d'ouvrir à de vraies personnes : le
+jour où tu en auras besoin, tu ne voudras pas découvrir la procédure.
+
 ## Quand quelque chose ne va pas
 
 | Symptôme | Cause probable | Quoi faire |

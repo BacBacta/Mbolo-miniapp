@@ -512,7 +512,7 @@ Aucune de ces trois choses ne peut être faite depuis le code.
 
 - [ ] **Quelqu'un qui regarde le groupe de modération chaque jour.** Depuis que la validation automatique n'existe plus en production, **personne ne s'inscrit tant qu'un humain n'a pas tranché** : c'est désormais le goulot d'étranglement de l'inscription.
 - [x] ~~**Passer à PostgreSQL**~~ : fait le 13 septembre 2026. La production tourne sur `mbolo-pg` (Fly non géré), les 58 lignes du fichier JSON ont été importées — événements de mesure compris — et vérifiées par `scripts/etat-stockage.js` avant que la base ne prenne son nom définitif.
-- [ ] **Mettre en place des sauvegardes.** C'est la moitié qui reste, et elle compte plus que l'autre : une base non gérée ne sauvegarde rien d'elle-même au-delà des instantanés de volume de l'hébergeur, qui protègent d'une panne de disque mais pas d'une suppression ni d'une migration ratée. Un `pg_dump` régulier, déposé ailleurs que sur la même machine. **Avant de dépasser quelques centaines de comptes, et obligatoirement avant tout paiement.** La marche à suivre est dans [`DEPLOIEMENT.md`](DEPLOIEMENT.md).
+- [ ] **Poser `BACKUP_SECRET` pour allumer les sauvegardes.** Le mécanisme est en place — travail **Sauvegarde** chaque nuit, copie chiffrée sur le volume et dans les artefacts GitHub, restauration éprouvée par `test/sauvegarde.test.js` à chaque `npm run test:pg`. Il ne manque que le secret, et **rien ne se sauvegarde tant qu'il n'est pas posé** : `flyctl secrets set BACKUP_SECRET="$(openssl rand -hex 32)"`. **Garde-le ailleurs que sur la machine** — il ouvre les copies, et lui seul. Marche à suivre complète, restauration comprise, dans [`DEPLOIEMENT.md`](DEPLOIEMENT.md).
 
 ### Entretien du dépôt
 
@@ -537,6 +537,7 @@ mbolo-miniapp/
 │   ├── antiscam.js   Filtre des demandes d'argent et partages de contact
 │   ├── jauge.js      Jauge de confiance : la liste des critères, et rien qu'elle
 │   ├── lieux.js      Le code d'un lieu : empreinte du secret serveur, jamais servie au client
+│   ├── sauvegarde.js Sauvegarde chiffrée de la base : ce qu'elle emporte, ce qu'elle laisse
 │   ├── limites.js    Limitation de débit : les règles ; les compteurs sont dans le stockage
 │   ├── store.js      Choix du stockage selon DATABASE_URL
 │   ├── store.json.js Stockage dans un fichier JSON (défaut, une seule instance)
