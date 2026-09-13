@@ -36,3 +36,24 @@ test('les deux fichiers ne décrivent pas la même chose deux fois', () => {
   const reprises = sections.filter((s) => agents.includes(s));
   assert.deepEqual(reprises, [], `AGENTS.md reprend des sections de CLAUDE.md : ${reprises.join(', ')}`);
 });
+
+// L'arborescence de la section 3 est une liste de fichiers, et une liste de fichiers se périme.
+// `server/assets.js` y a manqué pendant un jour sans que rien ne le signale : un agent qui lisait
+// CLAUDE.md pour savoir où vit le versionnement des fichiers statiques ne trouvait rien.
+//
+// Ce test ne juge pas les descriptions — seulement que la liste et le dossier disent les mêmes
+// noms. C'est tout ce qu'une machine peut vérifier ici, et c'est ce qui se périme le plus vite.
+test("l'arborescence de CLAUDE.md nomme exactement les fichiers de server/", () => {
+  const claude = lire('CLAUDE.md');
+  // Le bloc entre « server/ » et « public/ » dans le pavé de la section 3.
+  const bloc = claude.split(/^server\/$/m)[1]?.split(/^public\/$/m)[0];
+  assert.ok(bloc, 'la section 3 doit contenir un bloc server/ suivi d\'un bloc public/');
+
+  const listes = [...bloc.matchAll(/^ {2}([a-z0-9.]+\.js)/gm)].map((m) => m[1]).sort();
+  const reels = fs.readdirSync(path.join(racine, 'server')).filter((f) => f.endsWith('.js')).sort();
+
+  const oublies = reels.filter((f) => !listes.includes(f));
+  const fantomes = listes.filter((f) => !reels.includes(f));
+  assert.deepEqual(oublies, [], `présents dans server/ mais absents de CLAUDE.md : ${oublies.join(', ')}`);
+  assert.deepEqual(fantomes, [], `annoncés par CLAUDE.md mais absents de server/ : ${fantomes.join(', ')}`);
+});
