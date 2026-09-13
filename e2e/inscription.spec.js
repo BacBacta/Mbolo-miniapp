@@ -2,7 +2,7 @@
 // C'est le chemin sans lequel rien d'autre n'existe. Les tests unitaires vérifient chaque règle
 // isolément ; ici on vérifie qu'elles s'enchaînent dans un vrai navigateur.
 import { test, expect } from '@playwright/test';
-import { ouvrir, creerProfil, seFaireVerifier, actionPrincipale, titre, onglet, nouvelIdentifiant, sonSelfie } from './aides.js';
+import { ouvrir, creerProfil, seFaireVerifier, passerLaJauge, actionPrincipale, titre, onglet, nouvelIdentifiant, sonSelfie } from './aides.js';
 
 test("de l'accueil à la découverte, sans jamais rester bloqué", async ({ page }) => {
   await ouvrir(page, nouvelIdentifiant());
@@ -50,7 +50,7 @@ test('un âge de moins de 18 ans est refusé', async ({ page }) => {
 test('avant la vérification, la découverte reste fermée', async ({ page }) => {
   await ouvrir(page, nouvelIdentifiant());
   await creerProfil(page, { prenom: 'Bana' });
-  await expect(titre(page)).toHaveText(/Vérifie que c'est bien toi/);
+  await passerLaJauge(page);
   // Le geste demandé est affiché : il est tiré au hasard, donc on vérifie qu'il y en a un.
   await expect(page.locator('main')).toContainText(/GESTE DEMANDÉ/i);
   // Les onglets existent dans la page mais restent masqués : c'est leur visibilité qui compte.
@@ -62,6 +62,7 @@ test('avant la vérification, la découverte reste fermée', async ({ page }) =>
 test('le selfie se relit avant d\'être envoyé, et rien ne part tant qu\'on n\'a pas décidé', async ({ page }) => {
   await ouvrir(page, nouvelIdentifiant());
   await creerProfil(page, { prenom: 'Carine' });
+  await passerLaJauge(page);
 
   const envois = [];
   page.on('request', (r) => { if (r.url().endsWith('/api/me/verification')) envois.push(r.method()); });
@@ -81,3 +82,25 @@ test('le selfie se relit avant d\'être envoyé, et rien ne part tant qu\'on n\'
 function assertRien(envois) {
   expect(envois, 'aucun selfie ne doit partir avant le clic sur Envoyer').toEqual([]);
 }
+
+// La jauge s'affiche sur chaque carte : l'explication doit donc arriver avant la première carte,
+// pas dans un menu que personne n'ouvre. Et elle doit décrire exactement ce que le score compte —
+// le garant n'a pas encore de mécanisme, donc il n'apparaît ni dans le texte, ni au dénominateur.
+test("la jauge de confiance s'explique à l'inscription, et n'annonce que des critères atteignables", async ({ page }) => {
+  await ouvrir(page, nouvelIdentifiant());
+  await creerProfil(page, { prenom: 'Ngo' });
+
+  await expect(titre(page)).toHaveText(/La jauge de confiance/);
+  await expect(page.locator('main')).toContainText(/Selfie vérifié/);
+  await expect(page.locator('main')).toContainText(/Membre depuis 3 mois/);
+  await expect(page.locator('main')).not.toContainText(/garant/i);
+
+  await actionPrincipale(page).click();
+  await expect(titre(page)).toHaveText(/Vérifie que c'est bien toi/);
+  await seFaireVerifier(page);
+
+  // Vérifiée : un critère sur les deux ouverts, et la carte le dit avec le même dénominateur.
+  await onglet(page, /Profil/).click();
+  await expect(page.locator('main')).toContainText(/Confiance 1 sur 2/);
+  await expect(page.locator('main')).not.toContainText(/sur 3/);
+});

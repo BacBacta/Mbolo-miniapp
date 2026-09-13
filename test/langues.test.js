@@ -113,12 +113,14 @@ test('toute clé employée par l\'interface a sa traduction anglaise', async () 
 // qu'on s'en aperçoit, c'est en voyant du français dans une interface anglaise.
 test('les libellés envoyés par le serveur sont traduits, eux aussi', async () => {
   const { INTENTS, GENDERS, COMPAT } = await import('../server/config.js');
+  const { CRITERES } = await import('../server/jauge.js');
   const en = (await import('../public/i18n/en.js')).default;
 
   const libelles = [
     ...Object.values(INTENTS),
     ...Object.values(GENDERS),
     ...Object.values(COMPAT).flatMap(({ question, valeurs }) => [question, ...Object.values(valeurs)]),
+    ...CRITERES.flatMap(({ titre, quoi, comment }) => [titre, quoi, comment]),
   ];
   const manquants = libelles.filter((l) => !(l in en));
   assert.deepEqual(manquants, [], `libellés serveur sans traduction : ${manquants.join(' | ')}`);

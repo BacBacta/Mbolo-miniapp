@@ -6,6 +6,7 @@ import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_C
 import { LANGUES, t as tr } from './i18n.js';
 import { store } from './store.js';
 import { fichierVoix, voixPublique } from './voix.js';
+import { CRITERES, calculer as calculerJauge } from './jauge.js';
 import { requireAuth } from './auth.js';
 import { checkMessage } from './antiscam.js';
 import { limiter, consommer } from './limites.js';
@@ -73,7 +74,9 @@ async function publicProfile(user) {
     compat: compatPublique(p),
     voix: voixPublique(user),
     verified: user.verification === 'approved',
-    trust: p.trust || { selfie: user.verification === 'approved', guarantor: false, seniority: Date.now() - user.createdAt > 90 * 864e5 },
+    // La jauge compte les critères ouverts, et eux seuls : voir server/jauge.js. Le dénominateur
+    // voyage avec le score, pour que la carte n'ait pas à le deviner.
+    trust: calculerJauge(user),
     demo: !!user.demo,
     // Les profils de démonstration répondent en quelques secondes : « aujourd'hui » est cohérent
     activity: user.demo ? 'today' : activityBucket(user.lastActiveAt),
@@ -167,7 +170,7 @@ api.get('/me', async (req, res) => {
     // durée. Ce que les autres en sauront est décidé ailleurs (publicProfile).
     voix: u.voix ? { status: u.voix.status, duree: u.voix.duree } : null,
     options: {
-      intents: INTENTS, genders: GENDERS, compat: COMPAT, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
+      intents: INTENTS, genders: GENDERS, compat: COMPAT, criteres: CRITERES, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
       defaultCountry: config.defaultCountry,
       // Pays déduit du fuseau envoyé par le navigateur (?tz=). Il n'est ni stocké ni journalisé :
       // il sert à préremplir le menu, puis il est oublié. null si le fuseau est inconnu.

@@ -49,10 +49,20 @@ export async function creerProfil(page, { prenom, age = '24', genre = /Femme/, i
   await actionPrincipale(page).click();
 }
 
+// L'explication de la jauge de confiance s'ouvre une fois, juste après l'enregistrement du
+// profil (P1-5). « Une fois » se retient dans le navigateur : un deuxième compte créé dans le
+// même onglet ne la reverra pas. D'où le passage tolérant — le test qui vérifie qu'elle
+// s'affiche, lui, est dans inscription.spec.js et n'a rien de tolérant.
+export async function passerLaJauge(page) {
+  await expect(titre(page)).toHaveText(/La jauge de confiance|Vérifie que c'est bien toi/);
+  if (/jauge/i.test((await titre(page).textContent()) || '')) await actionPrincipale(page).click();
+  await expect(titre(page)).toHaveText(/Vérifie que c'est bien toi/);
+}
+
 // Envoie le selfie de vérification. AUTO_APPROVE le valide tout seul après quelques secondes ;
 // en production ce réglage n'existe pas, c'est un humain qui tranche.
 export async function seFaireVerifier(page) {
-  await expect(titre(page)).toHaveText(/Vérifie que c'est bien toi/);
+  await passerLaJauge(page);
   // Choisir la photo ne l'envoie pas : l'aperçu s'affiche d'abord, et on peut reprendre.
   await page.locator('input[type=file][name=selfie]').setInputFiles(sonSelfie);
   await actionPrincipale(page).click();
