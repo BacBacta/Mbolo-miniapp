@@ -667,27 +667,40 @@ async function swipePerson(action) {
 // Écrans
 // ============================================================
 const SCREENS = {
+  // L'accueil est le seul écran où la marque se montre : l'anneau de l'identité (identite/),
+  // en CSS et en jetons, tangent à un second cercle tracé au filet — la rencontre est le point
+  // de contact. Rien n'est téléchargé pour lui : ni image, ni police de plus (règle 15).
+  // Le titre garde son début en clé, coupé après la virgule pour que les derniers mots portent
+  // la couleur ; chaque dictionnaire coupe sa propre phrase au même endroit.
   welcome() {
     const name = tg.telegramUser()?.first_name || S.me?.firstName || '';
-    const prop = (i, t, s, tile = '') => `<div class="prop"><span class="tile ${tile}">${icon(i, 20)}</span><div><div class="t">${t}</div><div class="s">${s}</div></div></div>`;
+    const promesse = (i, texte, classe = '') => `<li class="promesse ${classe}"><span class="pictogramme">${icon(i, 20)}</span><span>${texte}</span></li>`;
     render(`
-      <section class="hero">
-        <span class="orb orb-1"></span><span class="orb orb-2"></span>
-        <button type="button" class="langue-chip" data-action="go" data-screen="langue" aria-label="${t('Langue')} : ${esc(LANGUES[langue()])}">
-          ${icon('globe', 16)}<span>${esc(LANGUES[langue()])}</span>
-        </button>
+      <section class="accueil">
+        <div class="scene" aria-hidden="true">
+          <div class="anneau"><i class="bloom"></i><i class="disque"></i><i class="base"></i><i class="ombre"></i><i class="reflet"></i><i class="lisiere"></i><i class="portee"></i></div>
+          <i class="autre"></i><i class="contact"></i>
+        </div>
+        <header class="accueil-tete">
+          <span class="marque">${esc(APP)}</span>
+          <span class="sep"></span>
+          <button type="button" class="langue-chip" data-action="go" data-screen="langue" aria-label="${t('Langue')} : ${esc(LANGUES[langue()])}">
+            ${icon('globe', 14)}<span>${esc(LANGUES[langue()])}</span>
+          </button>
+        </header>
         <p class="eyebrow">${name ? t('Salut {nom}', { nom: esc(name) }) : t('Bienvenue')}</p>
-        <h1 class="display">${t('Des rencontres vérifiées, face à face.')}</h1>
-        <p class="lead">${t("Des personnes réelles, des lieux publics, aucune demande d'argent. {app} est fait pour se rencontrer pour de vrai.", { app: esc(APP) })}</p>
+        <h1 class="display accueil-h"><span>${t('Des rencontres vérifiées,')}</span> <em>${t('face à face.')}</em></h1>
       </section>
-      <div class="props">
-        ${prop('shield', t('Profils vérifiés par selfie'), t("Chaque membre a prouvé qu'il est une vraie personne"), 'tile-ok')}
-        ${prop('ban', t("Demandes d'argent bloquées"), t('Automatiquement, dans chaque discussion'), 'tile-danger')}
-        ${prop('coffee', t('Premier rendez-vous dans un lieu public'), t('Choisi ensemble, jamais chez quelqu\'un'))}
-        ${prop('wifi', t('Léger en data'), t('Photos chargées seulement si tu le demandes'), 'tile-neutral')}
-      </div>
-      <p class="fine">${icon('lock', 14)}<span>${t('Connecté avec Telegram, sans mot de passe. Ton pseudo et ton numéro restent cachés aux autres.')}</span></p>
-      <p class="fine">${icon('info', 14)}<span>${t("Réservé aux 18 ans et plus. En continuant, tu acceptes les règles de la communauté : respect, aucune demande d'argent, aucun contenu sexuel.")}</span></p>
+      <ul class="promesses">
+        ${promesse('shield', t('Profils vérifiés par selfie'), 'promesse-or')}
+        ${promesse('ban', t("Demandes d'argent bloquées"))}
+        ${promesse('coffee', t('Premier rendez-vous dans un lieu public'))}
+        ${promesse('wifi', t('Léger en data'))}
+      </ul>
+      <footer class="accueil-pied">
+        <p class="fine"><span class="age">18+</span><span>${t("Réservé aux 18 ans et plus. En continuant, tu acceptes les règles de la communauté : respect, aucune demande d'argent, aucun contenu sexuel.")}</span></p>
+        <p class="fine">${icon('lock', 14)}<span>${t('Connecté avec Telegram, sans mot de passe. Ton pseudo et ton numéro restent cachés aux autres.')}</span></p>
+      </footer>
     `);
     tg.setButtons({ main: { text: t('Créer mon profil'), onClick: () => go('profile') } });
   },
