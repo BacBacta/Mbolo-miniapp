@@ -186,8 +186,23 @@ test('les phrases comptées couvrent toutes les formes de pluriel de leur langue
 // Le mécanisme du pluriel, éprouvé de bout en bout : c'est lui qui décide ce que voit une
 // personne qui lit en russe, et il ne se voit nulle part ailleurs dans la suite.
 // 1, 21 et 31 prennent la première forme ; 2 à 4 la deuxième ; 5 à 20 la troisième.
+// public/i18n.js est un module de navigateur : chargerLangue pose la langue sur <html> et, pour
+// le cyrillique, ajoute la feuille de style de la police de titrage. On lui donne la plus petite
+// surface de DOM qui lui suffit, plutôt que d'assouplir le module pour les tests. La fabrique
+// rend la liste des éléments ajoutés à <head> : c'est là que se lit ce qui a été téléchargé.
+function fauxDocument() {
+  const head = [];
+  globalThis.document = {
+    documentElement: {},
+    head: { append: (n) => head.push(n) },
+    getElementById: (id) => head.find((n) => n.id === id) || null,
+    createElement: () => ({}),
+  };
+  return head;
+}
+
 test('le pluriel russe choisit la bonne forme selon le nombre', async () => {
-  globalThis.document = { documentElement: {} };
+  fauxDocument();
   const i18n = await import('../public/i18n.js');
   await i18n.chargerLangue('ru');
   const dit = (n) => i18n.tn('{n} restant', '{n} restants', n);
@@ -262,4 +277,29 @@ test('aucun texte visible de l\'interface n\'échappe à la traduction', async (
     }
   });
   assert.deepEqual(oublis, [], `texte non traduit dans public/app.js :\n  ${oublis.join('\n  ')}`);
+});
+
+// Fraunces est latine : elle n'a pas un seul glyphe cyrillique. Sans police de titrage de
+// secours, tout titre en russe ou en ukrainien tombe sur Georgia pendant que le corps reste en
+// Manrope — deux dessins de lettres dans la même phrase. Playfair Display comble le trou.
+//
+// Mais elle ne doit partir que chez qui la verra. La règle 15 n'est pas une préférence ici :
+// la cible est un forfait data limité, et une police de titrage se paie en dizaines de
+// kilo-octets qu'une personne qui lit en français n'a aucune raison de porter.
+test('la police cyrillique ne part que chez les langues qui en ont besoin', async () => {
+  const head = fauxDocument();
+  const i18n = await import('../public/i18n.js');
+
+  for (const code of ['fr', 'en', 'es', 'pt', 'sw']) {
+    await i18n.chargerLangue(code);
+    assert.equal(head.length, 0, `${code} ne doit télécharger aucune police en plus`);
+  }
+
+  await i18n.chargerLangue('ru');
+  assert.equal(head.length, 1, 'le russe charge la police de titrage cyrillique');
+  assert.match(head[0].href, /Playfair\+Display/);
+
+  await i18n.chargerLangue('uk');
+  assert.equal(head.length, 1, "l'ukrainien réutilise la même : une fois, pas une par langue");
+  await i18n.chargerLangue('fr');
 });

@@ -120,6 +120,12 @@
   --glass-photo: rgb(var(--ink-rgb) / .84);
 }
 
+/* Fraunces est latine. Sans cette règle, un titre en russe ou en ukrainien tombe sur Georgia
+   tandis que le corps reste en Manrope : deux dessins de lettres dans la même phrase, et une
+   ligne de plus, Georgia étant plus large. Playfair Display tient le même rôle et couvre le
+   cyrillique. public/i18n.js ne la télécharge que pour ces deux langues. */
+:lang(ru), :lang(uk) { --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif; }
+
 /* ------------------------------------------------------------ Base */
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
