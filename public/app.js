@@ -235,7 +235,7 @@ function compressImage(file, max = 720, quality = 0.8) {
 // ============================================================
 // Navigation
 // ============================================================
-const PARENT = { profile: () => (S.me?.verification === 'approved' ? 'me' : 'welcome'), verify: () => 'profile', match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me' };
+const PARENT = { profile: () => (S.me?.verification === 'approved' ? 'me' : 'welcome'), verify: () => 'profile', match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
 const TABS = [['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']];
 
@@ -392,6 +392,7 @@ const fuseau = () => { try { return Intl.DateTimeFormat().resolvedOptions().time
 // qui a lieu sur un seul appareil.
 const ETAPE = 'form_step';
 const JAUGE_VUE = 'jauge_vue';
+const VOIX_VUE = 'voix_vue';
 const local = (() => { try { return window.localStorage; } catch { return null; } })();
 function noterEtape(n) {
   try { if (Number(local?.getItem(ETAPE) || 0) < n) local.setItem(ETAPE, String(n)); } catch { /* stockage refusé : on ne mesure pas, l'app marche */ }
@@ -617,7 +618,7 @@ async function saveFilters(values) {
   const zone = S.zoneDraft
     ? { country: form?.zoneCountry?.value || S.zoneDraft.country, city: S.zoneDraft.city === null ? null : (form?.zoneCity?.value ?? S.zoneDraft.city) }
     : undefined;
-  const v = values || { ageMin: Number(form?.ageMin.value), ageMax: Number(form?.ageMax.value), zone };
+  const v = values || { ageMin: Number(form?.ageMin.value), ageMax: Number(form?.ageMax.value), zone, gender: S.genreDraft ?? (S.me.filters?.gender || '') };
   const ok = (n) => Number.isInteger(n) && n >= 18 && n <= 99;
   if (!ok(v.ageMin) || !ok(v.ageMax)) return showError(new Error(t('Indique des âges entre 18 et 99 ans.')));
   if (v.ageMin > v.ageMax) return showError(new Error(t("L'âge minimum doit être inférieur ou égal au maximum.")));
@@ -626,6 +627,7 @@ async function saveFilters(values) {
     const r = await api('/me/filters', { method: 'PUT', body: v });
     S.me.filters = r.filters;
     S.zoneDraft = null;
+    S.genreDraft = null;
     S.profiles = [];
     S.people = [];
     S.venues = [];
@@ -942,7 +944,15 @@ const SCREENS = {
   },
 
   filters() {
-    const f = S.me.filters || { ageMin: 18, ageMax: 99 };
+    const f = { ageMin: 18, ageMax: 99, gender: '', ...(S.me.filters || {}) };
+    if (S.genreDraft != null) f.gender = S.genreDraft;
+    // Le genre recherché ne se règle qu'en Amitié. En « Relation sérieuse », la mise en relation
+    // est déjà décidée (une femme et un homme) : l'écran le dit, au lieu de laisser croire à un
+    // réglage oublié. Laisser choisir y reviendrait à enregistrer l'orientation de chacun, ce que
+    // la règle 5.2 et MATCH_POLICY interdisent — le README en donne la raison, qui tient au
+    // cadre pénal camerounais et au danger d'une telle liste en cas de fuite.
+    const monGenre = S.me.profile?.gender;
+    const amitie = S.me.profile?.intent === 'amitie';
     const z = S.zoneDraft || (S.zoneDraft = { ...zoneDe() });
     const toutLePays = z.city === null;
     // Pays du fuseau : proposé seulement s'il diffère de la zone en cours, sinon le bouton
@@ -966,6 +976,14 @@ const SCREENS = {
           <input name="zoneCity" maxlength="40" value="${esc(z.city || '')}" placeholder="${esc((S.me.options.knownCities[z.country] || [])[0] || t('Ta ville'))}" list="villes-zone" autocomplete="off">
           <datalist id="villes-zone">${(S.me.options.knownCities[z.country] || []).map((v) => `<option value="${esc(v)}"></option>`).join('')}</datalist>
         </label>`}
+        ${amitie ? `
+        <span class="eyebrow">${t('Qui tu cherches')}</span>
+        <div class="seg seg-genre" aria-label="${t('Qui tu cherches')}">
+          <button type="button" data-action="genre" data-genre="" aria-pressed="${!f.gender}">${t('Tout le monde')}</button>
+          ${Object.keys(S.me.options.genders).map((cle) => `
+          <button type="button" data-action="genre" data-genre="${esc(cle)}" aria-pressed="${f.gender === cle}">${cle === 'femme' ? t('Femmes') : t('Hommes')}</button>`).join('')}
+        </div>` : `
+        <p class="fine">${icon('users', 14)}<span>${t('En relation sérieuse, {app} met en relation une femme et un homme : tu vois donc {genre}.', { app: esc(APP), genre: monGenre === 'femme' ? t('des hommes') : t('des femmes') })}</span></p>`}
         <span class="eyebrow">${t("Tranche d'âge")}</span>
         <div class="row">
           <label class="field"><span class="label">${t('De')}</span><input name="ageMin" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMin)}"></label>
@@ -976,7 +994,7 @@ const SCREENS = {
       <p class="fine">${icon('users', 14)}<span>${t('Ta zone ne vaut que pour toi : elle décide de qui tu vois, pas de qui te voit.')}</span></p>
       <p class="fine">${icon('info', 14)}<span>${t('Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.')}</span></p>`);
     document.getElementById('filters-form').addEventListener('submit', (e) => { e.preventDefault(); saveFilters(); });
-    tg.setButtons({ main: { text: t('Enregistrer'), onClick: () => saveFilters() }, secondary: { text: t('Tout voir'), onClick: () => saveFilters({ ageMin: 18, ageMax: 99, zone: { ...zoneDe(), city: null } }) } });
+    tg.setButtons({ main: { text: t('Enregistrer'), onClick: () => saveFilters() }, secondary: { text: t('Tout voir'), onClick: () => saveFilters({ ageMin: 18, ageMax: 99, gender: '', zone: { ...zoneDe(), city: null } }) } });
   },
 
   person({ id }) {
@@ -1198,6 +1216,36 @@ const SCREENS = {
   // ceux que la carte affiche : un seul endroit décrit ce que la jauge mesure, donc l'explication
   // ne peut pas raconter autre chose que le score. Le garant n'y est pas et n'y sera pas (P1-6
   // abandonné) : annoncer un critère qu'on ne peut pas remplir serait promettre à vide.
+  // La présentation vocale, expliquée avant le saut plutôt qu'après.
+  //
+  // L'enregistrement a lieu dans le bot, et pas ici : getUserMedia est inutilisable dans les mini
+  // apps sur Android, qui est notre cible (voir l'en-tête de server/voix.js). Ce saut ne peut pas
+  // disparaître ; ce qui peut disparaître, c'est la surprise. Cet écran dit donc les trois choses
+  // qu'on a besoin de savoir avant de partir : où l'on va, quel geste faire en arrivant, et ce
+  // qu'il ne faut pas dire. Avant, l'app envoyait dans une discussion sans prévenir, depuis la
+  // cinquième ligne d'une liste de réglages.
+  voix() {
+    const v = S.me.voix;
+    const apres = S.voixApresVerif;
+    render(`
+      <div class="step-head"><h1>${t('Ta présentation vocale')}</h1>
+        <p class="lead">${t("Quinze secondes de ta voix sur ta fiche. C'est facultatif, et tu peux la retirer quand tu veux.")}</p></div>
+      ${v ? `<div class="notice ${v.status === 'approved' ? 'notice-ok' : 'notice-info'}">${icon(v.status === 'approved' ? 'check' : 'clock', 18)}<span>${v.status === 'approved'
+        ? t('Validée · {duree}. Les autres peuvent l\'écouter.', { duree: dureeLisible(v.duree) })
+        : t("En attente : la modération l'écoute avant les autres")}</span></div>` : ''}
+      <div class="list"><div class="timeline">
+        <div class="tl"><span class="dot now"></span><div><div class="t">${t('Tu passes dans la discussion avec le bot')}</div><div class="s">${t('Le micro est dans Telegram, pas dans cette app')}</div></div></div>
+        <div class="tl"><span class="dot"></span><div><div class="t">${t('Appuie sur le micro, en bas, et parle')}</div><div class="s">${t('Dis qui tu es et ce que tu cherches, en 15 secondes')}</div></div></div>
+        <div class="tl"><span class="dot"></span><div><div class="t">${t("La modération l'écoute avant les autres")}</div><div class="s">${t('Ne donne ni numéro, ni pseudo, ni rendez-vous')}</div></div></div>
+      </div></div>
+      ${v ? `<div class="danger-zone"><button type="button" class="btn btn-danger btn-block" data-action="voix-retirer">${icon('trash', 18)} ${t('Retirer ma présentation vocale')}</button></div>` : ''}
+    `);
+    tg.setButtons({
+      main: { text: v ? t('Réenregistrer') : t('Enregistrer ma présentation'), onClick: () => ouvrirLeBotVoix() },
+      secondary: { text: apres ? t('Plus tard') : t('Retour'), onClick: () => { S.voixApresVerif = false; go(apres ? 'discover' : 'me'); } },
+    });
+  },
+
   jauge() {
     const tr = S.me.publicProfile?.trust || { score: 0, total: 0, criteres: [] };
     const etat = Object.fromEntries((tr.criteres || []).map((c) => [c.cle, c.ok]));
@@ -1289,6 +1337,13 @@ const SCREENS = {
       <div class="group"><span class="eyebrow">${t('Ce que les autres voient')}</span>
         ${profileCard(pp, { own: true })}
         <p class="fine">${icon('lock', 14)}<span>${t('Ton pseudo et ton numéro Telegram ne sont jamais montrés.')}</span></p>
+      </div>
+      <div class="list">
+        ${listRow({ iconName: 'mic', tile: S.me.voix?.status === 'approved' ? 'tile-ok' : '', title: t('Ta présentation vocale'),
+          sub: S.me.voix?.status === 'approved' ? t('Validée · {duree} — les autres peuvent l\'écouter', { duree: dureeLisible(S.me.voix.duree) })
+            : S.me.voix?.status === 'pending' ? t("En attente : la modération l'écoute avant les autres")
+              : t('15 secondes de ta voix sur ta fiche, en option'),
+          action: 'go', extra: ' data-screen="voix"' })}
       </div>` : `<div class="notice notice-info">${icon('info', 18)}<span>${t("Tu n'as pas encore de profil.")}</span></div>`}
       <div class="group"><span class="eyebrow">${t('Paramètres')}</span>
         <div class="list">
@@ -1300,11 +1355,6 @@ const SCREENS = {
             <input type="checkbox" class="switch" name="dataSaver" ${S.dataSaver ? 'checked' : ''}>
           </label>
           ${listRow({ iconName: 'shield', title: t('La jauge de confiance'), sub: t('Ce que les pastilles mesurent, et comment les obtenir'), action: 'go', extra: ' data-screen="jauge"' })}
-          ${listRow({ iconName: 'mic', title: t('Présentation vocale'),
-            sub: S.me.voix?.status === 'approved' ? t('Validée · {duree} — les autres peuvent l\'écouter', { duree: dureeLisible(S.me.voix.duree) })
-              : S.me.voix?.status === 'pending' ? t('En attente : la modération doit l\'écouter avant les autres')
-                : t('15 secondes pour te présenter, enregistrées dans le bot'),
-            action: 'voix-bot', trailing: `<span class="chev">${icon('share', 18)}</span>` })}
           ${listRow({ iconName: 'shield', title: t('Personne de confiance'),
             sub: S.me.confiance ? t('{prenom} est prévenu quand tu vas à un rendez-vous', { prenom: esc(S.me.confiance.prenom) }) : t("Quelqu'un qui sait où tu es quand tu vas à un rendez-vous"),
             action: 'go', extra: ' data-screen="confiance"' })}
@@ -1444,6 +1494,14 @@ async function refreshStatus() {
     S.me = me;
     if (me.verification === 'approved') {
       tg.haptic('success');
+      // Une seule fois, au moment où le compte vient d'être vérifié : c'est là qu'on a une fiche
+      // à compléter et l'envie de s'en servir. Retenu dans le navigateur, comme la jauge — aucune
+      // requête de plus. Passer outre mène à la découverte, et la fiche garde le lien.
+      if (!me.voix && !local?.getItem(VOIX_VUE)) {
+        try { local.setItem(VOIX_VUE, '1'); } catch { /* navigation privée : on la remontrera */ }
+        S.voixApresVerif = true;
+        return go('voix');
+      }
       go('discover');
     } else if (me.verification === 'rejected') {
       toast(t('Vérification refusée : réessaie avec le visage bien visible.'), 'warn');
@@ -1691,6 +1749,15 @@ async function bloquer() {
   } catch (e) { showError(e); }
 }
 
+// Le saut vers le bot. Le rappel du geste part avant l'ouverture : une fois dans la discussion,
+// c'est Telegram qui a la main et l'app n'affiche plus rien.
+function ouvrirLeBotVoix() {
+  tg.haptic('light');
+  if (!S.me?.botUsername) return toast(t("Le bot n'est pas joignable pour l'instant."));
+  toast(t('Appuie sur le micro, en bas de la discussion'));
+  tg.openLink(`https://t.me/${S.me.botUsername}?start=voix`);
+}
+
 async function retirerMatch() {
   const { matchId } = S.protection || {};
   if (!matchId) return;
@@ -1745,11 +1812,21 @@ app.addEventListener('click', async (e) => {
     case 'voix': tg.haptic('light'); ecouterLaVoix(el.dataset.id); break;
     // L'enregistrement se fait dans Telegram, pas ici : le micro n'est pas accessible depuis une
     // mini app sur Android. On ouvre donc la discussion avec le bot, qui explique la marche à suivre.
-    case 'voix-bot':
+    case 'genre':
       tg.haptic('light');
-      if (S.me?.botUsername) tg.openLink(`https://t.me/${S.me.botUsername}?start=voix`);
-      else toast(t("Le bot n'est pas joignable pour l'instant."));
+      S.genreDraft = el.dataset.genre || '';
+      SCREENS.filters();
       break;
+    case 'voix-retirer': {
+      if (!await tg.confirm(t('Retirer ta présentation vocale ? Les autres ne l\'entendront plus.'))) break;
+      try {
+        await api('/me/voix', { method: 'DELETE' });
+        S.me.voix = null;
+        toast(t('Présentation vocale retirée'), 'ok');
+        SCREENS.voix();
+      } catch (e) { showError(e); }
+      break;
+    }
     // Afficher une photo depuis une fiche renvoyait sur Découvrir, écran sans carte ni bouton
     case 'reveal':
       S.revealed[el.dataset.id] = true;

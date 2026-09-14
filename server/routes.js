@@ -228,7 +228,14 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
   // Les horodatages d'entonnoir voyagent dans des appels qui existaient déjà : aucune écriture
   // supplémentaire. Ils vivent dans l'objet utilisateur, donc DELETE /api/me les emporte.
   // Posé une seule fois : c'est la première fois qu'un profil est enregistré qui compte.
-  await store.updateUser(req.user.id, { profile, profileSavedAt: req.user.profileSavedAt || Date.now() });
+  // Même règle que pour les réponses de compatibilité : un réglage qui ne vaut plus ne doit pas
+  // rester rangé. Quitter l'Amitié efface le genre recherché, plutôt que de le laisser dormir
+  // dans la base pour une intention qui ne le lit pas.
+  const maj = { profile, profileSavedAt: req.user.profileSavedAt || Date.now() };
+  if (b.intent !== 'amitie' && (req.user.filters?.gender || '')) {
+    maj.filters = { ...filtersOf(req.user), gender: '' };
+  }
+  await store.updateUser(req.user.id, maj);
   mesurer('profile_saved', req.user.id);
   res.json({ profile });
 });
@@ -388,10 +395,24 @@ api.delete('/me/photos/:n', async (req, res) => {
 // Chaque personne décide de son propre paquet : si je cherche dans tout le pays et que l'autre ne
 // cherche que sa ville, je la vois sans qu'elle me voie. C'est l'usage de toutes les applications
 // de rencontre, où le rayon de chacun ne s'impose qu'à lui.
-const DEFAULT_FILTERS = { ageMin: 18, ageMax: 99 };
+const DEFAULT_FILTERS = { ageMin: 18, ageMax: 99, gender: '' };
+
 const zoneParDefaut = (u) => ({ country: u.profile?.country || config.defaultCountry, city: u.profile?.city || null });
 const filtersOf = (u) => ({ ...DEFAULT_FILTERS, zone: zoneParDefaut(u), ...(u.filters || {}) });
 const inAgeRange = (me, other) => { const f = filtersOf(me); return other.profile.age >= f.ageMin && other.profile.age <= f.ageMax; };
+// Le genre recherché : « femme », « homme », ou vide pour tout le monde.
+//
+// Il ne vaut **qu'en Amitié**, et c'est tout le raisonnement. En « Relation sérieuse », la mise
+// en relation est déjà décidée par MATCH_POLICY (femme/homme, voir compatible()) : y ajouter un
+// choix reviendrait à laisser quelqu'un demander son propre genre, c'est-à-dire à enregistrer
+// son orientation — exactement ce que la règle 5.2 du projet et MATCH_POLICY interdisent, parce
+// qu'une telle colonne, croisée avec la ville et le quartier déjà stockés, est une liste de
+// ciblage en cas de fuite ou de réquisition (article 347-1 du code pénal camerounais).
+//
+// En Amitié, rien de tel : vouloir se faire des amies plutôt que des amis est un choix de
+// confort, pas une orientation. Le champ est donc lu ici, et ignoré partout ailleurs.
+const genreRecherche = (me) => (me.profile?.intent === 'amitie' ? filtersOf(me).gender || '' : '');
+const dansLeGenre = (me, other) => { const g = genreRecherche(me); return !g || other.profile.gender === g; };
 
 // La zone de la personne qui cherche s'applique à son seul paquet.
 function dansLaZone(me, other) {
@@ -419,7 +440,18 @@ api.put('/me/filters', async (req, res) => {
     zone = { country, city: ville };
   }
 
-  const filters = { ageMin, ageMax, zone };
+  // Liste fermée (règle 5.1) : une valeur inventée est refusée, jamais rangée telle quelle.
+  // Et le champ n'est gardé qu'en Amitié : voir genreRecherche(). Quelqu'un qui envoie un genre
+  // en « Relation sérieuse » ne se le voit pas enregistrer — rien à effacer plus tard.
+  let gender = filtersOf(req.user).gender || '';
+  if ('gender' in (req.body || {})) {
+    const g = String(req.body.gender || '');
+    if (g && !GENDERS[g]) return fail(res, 400, 'FILTERS_INVALID', 'Choisis « Femme », « Homme », ou tout le monde.');
+    gender = g;
+  }
+  if (req.user.profile?.intent !== 'amitie') gender = '';
+
+  const filters = { ageMin, ageMax, zone, gender };
   await store.updateUser(req.user.id, { filters });
   res.json({ filters });
 });
@@ -496,7 +528,7 @@ async function relations(me) {
 const joignable = (me, rel, u) => u.id !== me.id && isApproved(u) && !rel.bloque.has(u.id) && compatible(me, u);
 // Candidat : joignable et dans la zone que je cherche. La zone filtre ce que JE vais voir ;
 // un like reçu, lui, m'est adressé et la traverse (voir likersOf).
-const candidat = (me, rel, u) => joignable(me, rel, u) && dansLaZone(me, u);
+const candidat = (me, rel, u) => joignable(me, rel, u) && dansLaZone(me, u) && dansLeGenre(me, u);
 
 // Un écran vide ne dit rien s'il ne dit pas pourquoi. Trois situations très différentes se
 // ressemblaient : personne d'autre n'est vérifié dans ta ville, tu as déjà tout vu, ou ton quota
@@ -771,7 +803,7 @@ onApproved((userId) => {
     // Les balayages déjà échangés se chargent en deux requêtes : le choix du profil reste local.
     const [tous, envoyes, recus] = await Promise.all([store.allUsers(), store.swipesFrom(me.id), store.swipesTo(me.id)]);
     const dejaTranche = new Set([...envoyes.map((s) => s.to), ...recus.map((s) => s.from)]);
-    const demo = tous.find((u) => u.demo && compatible(me, u) && dansLaZone(me, u) && !dejaTranche.has(u.id));
+    const demo = tous.find((u) => u.demo && compatible(me, u) && dansLaZone(me, u) && dansLeGenre(me, u) && !dejaTranche.has(u.id));
     if (!demo) return;
     await store.addSwipe(demo.id, me.id, 'like');
     notify(me.id, "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.", { ville: me.profile.city, app: config.appName }, { label: 'Découvrir', params: { screen: 'matches' } }, 'likes', 24 * 3600 * 1000);

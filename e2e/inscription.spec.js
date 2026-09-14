@@ -2,7 +2,7 @@
 // C'est le chemin sans lequel rien d'autre n'existe. Les tests unitaires vérifient chaque règle
 // isolément ; ici on vérifie qu'elles s'enchaînent dans un vrai navigateur.
 import { test, expect } from '@playwright/test';
-import { ouvrir, creerProfil, seFaireVerifier, passerLaJauge, actionPrincipale, titre, onglet, nouvelIdentifiant, sonSelfie } from './aides.js';
+import { ouvrir, creerProfil, seFaireVerifier, passerLaJauge, actionPrincipale, titre, onglet, nouvelIdentifiant, sonSelfie, passerLaVoix } from './aides.js';
 
 test("de l'accueil à la découverte, sans jamais rester bloqué", async ({ page }) => {
   await ouvrir(page, nouvelIdentifiant());
@@ -75,6 +75,7 @@ test('le selfie se relit avant d\'être envoyé, et rien ne part tant qu\'on n\'
 
   await expect(actionPrincipale(page)).toHaveText(/Envoyer pour vérification/);
   await actionPrincipale(page).click();
+  await passerLaVoix(page);
   await expect(onglet(page, /Découvrir/)).toBeVisible({ timeout: 25_000 });
 });
 

@@ -165,11 +165,14 @@ export async function decideVoice(userId, approved) {
 
 // La consigne d'enregistrement, dite au même endroit qu'on vienne de /voix ou du bouton de
 // l'app : deux textes qui divergent, c'est une promesse qui diverge.
+//
+// Le geste d'abord, la consigne ensuite. Quelqu'un qui arrive ici vient de quitter la mini app :
+// il cherche quoi faire, pas une explication. L'app lui a déjà dit où il allait.
 async function expliquerLaVoix(ctx, lang) {
   const user = await store.getUser(ctx.from?.id);
   if (!user?.profile) return ctx.reply(t(lang, "Crée d'abord ton profil dans l'app, puis reviens enregistrer ta présentation."));
   return ctx.reply(t(lang,
-    "Enregistre une présentation de {max} secondes au plus : appuie sur le micro ici même et parle.\n\nDis qui tu es et ce que tu cherches. Ne donne ni numéro, ni pseudo, ni rendez-vous : la modération l'écoute avant les autres, et la refuserait.\n\nPour la retirer plus tard : /sansvoix.",
+    "Appuie sur le micro, en bas de cette discussion, et parle.\n\n{max} secondes au plus. Dis qui tu es et ce que tu cherches. Ne donne ni numéro, ni pseudo, ni rendez-vous : la modération l'écoute avant les autres, et la refuserait.\n\nPour la retirer plus tard : /sansvoix.",
     { max: DUREE_MAX_S }));
 }
 

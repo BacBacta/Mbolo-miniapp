@@ -40,13 +40,13 @@ test.after(() => server.close());
 test('la tranche d\'âge se règle, se relit, et refuse l\'absurde', async () => {
   await makeUser('7401', 'Aline', 'femme');
   // Par défaut : tous les âges, et la zone est la ville du profil
-  assert.deepEqual((await call('7401', '/me')).body.filters, { ageMin: 18, ageMax: 99, zone: { country: 'CM', city: 'Douala' } }, 'par défaut : tout le monde, dans ma ville');
+  assert.deepEqual((await call('7401', '/me')).body.filters, { ageMin: 18, ageMax: 99, gender: '', zone: { country: 'CM', city: 'Douala' } }, 'par défaut : tout le monde, dans ma ville');
   assert.equal((await call('7401', '/me/filters', 'PUT', { ageMin: 30, ageMax: 25 })).status, 400, 'min > max');
   assert.equal((await call('7401', '/me/filters', 'PUT', { ageMin: 17, ageMax: 25 })).status, 400, 'jamais de mineur');
   assert.equal((await call('7401', '/me/filters', 'PUT', { ageMin: 'x', ageMax: 25 })).status, 400);
   const r = await call('7401', '/me/filters', 'PUT', { ageMin: 24, ageMax: 30 });
   assert.equal(r.status, 200);
-  assert.deepEqual((await call('7401', '/me')).body.filters, { ageMin: 24, ageMax: 30, zone: { country: 'CM', city: 'Douala' } }, "une requête sans zone ne touche pas à la zone");
+  assert.deepEqual((await call('7401', '/me')).body.filters, { ageMin: 24, ageMax: 30, gender: '', zone: { country: 'CM', city: 'Douala' } }, "une requête sans zone ne touche pas à la zone");
 });
 
 test('cartes et liste respectent la tranche ; un like reçu l\'ignore', async () => {
@@ -76,4 +76,73 @@ test('un like reçu disparaît des likes dès que j\'ai répondu', async () => {
   await call('7405', '/swipes', 'POST', { targetId: '7401', action: 'like' });
   await store.block('7401', '7405');
   assert.deepEqual(ids(await call('7401', '/likes')), []);
+});
+
+// ---------- Le genre recherché ----------
+//
+// Il ne vaut qu'en Amitié, et c'est le cœur de ces tests. En « Relation sérieuse », la mise en
+// relation est déjà décidée par MATCH_POLICY (une femme et un homme) : y laisser un choix
+// reviendrait à enregistrer l'orientation de chacun, ce que la règle 5.2 interdit. Le champ n'y
+// est donc ni lu ni rangé — et le sabotage qui le rangerait quand même tombe ici.
+
+const profil = (id, champs) => call(id, '/me/profile', 'PUT', {
+  name: 'X', age: 25, gender: 'femme', intent: 'amitie', city: 'Douala', promptA: 'Le poisson braisé', ...champs,
+});
+
+test('en amitié, le genre recherché se règle et le paquet le suit', async () => {
+  await makeUser('7410', 'Awa', 'femme');
+  await makeUser('7411', 'Bea', 'femme', 26);
+  await makeUser('7412', 'Cyr', 'homme', 26);
+
+  assert.ok(ids(await call('7410', '/discover')).includes('7412'), 'sans filtre, les deux passent');
+
+  const r = await call('7410', '/me/filters', 'PUT', { ageMin: 18, ageMax: 99, gender: 'femme' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.filters.gender, 'femme', 'le choix est rendu tel quel');
+
+  const cartes = ids(await call('7410', '/discover'));
+  assert.ok(cartes.includes('7411'), 'les femmes restent');
+  assert.ok(!cartes.includes('7412'), 'les hommes sortent du paquet');
+  assert.ok(!ids(await call('7410', '/profiles')).includes('7412'), 'et de la liste aussi');
+
+  // Revenir à « tout le monde » est un choix comme un autre : la chaîne vide, pas une absence.
+  await call('7410', '/me/filters', 'PUT', { ageMin: 18, ageMax: 99, gender: '' });
+  assert.ok(ids(await call('7410', '/discover')).includes('7412'), 'tout le monde revient');
+});
+
+test('un genre hors de la liste est refusé, jamais rangé tel quel', async () => {
+  await makeUser('7420', 'Dina', 'femme');
+  const r = await call('7420', '/me/filters', 'PUT', { ageMin: 18, ageMax: 99, gender: 'autre' });
+  assert.equal(r.status, 400, 'liste fermée, comme les réponses de compatibilité (règle 5.1)');
+  assert.equal((await call('7420', '/me')).body.filters.gender, '', 'et rien ne reste derrière');
+});
+
+test("en relation sérieuse, le genre recherché n'est ni lu ni rangé", async () => {
+  await makeUser('7430', 'Eve', 'femme');
+  await profil('7430', { name: 'Eve', intent: 'serieux' });
+
+  // La requête est acceptée — refuser ferait échouer un enregistrement ordinaire des filtres —
+  // mais le genre n'est pas retenu : le serveur ne garde pas une donnée qu'il n'a pas le droit
+  // de lire. Sans quoi une colonne « je cherche des femmes » sur une femme dirait son orientation.
+  const r = await call('7430', '/me/filters', 'PUT', { ageMin: 18, ageMax: 99, gender: 'femme' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.filters.gender, '', "aucune orientation ne s'enregistre ici");
+  assert.equal((await call('7430', '/me')).body.filters.gender, '', 'et rien au rechargement');
+
+  // Et la règle de mise en relation, elle, continue de faire son travail.
+  await makeUser('7431', 'Fara', 'femme', 26);
+  await profil('7431', { name: 'Fara', intent: 'serieux' });
+  assert.ok(!ids(await call('7430', '/discover')).includes('7431'), 'femme et femme ne se voient pas en relation sérieuse');
+});
+
+test("quitter l'amitié efface le genre recherché", async () => {
+  await makeUser('7440', 'Gaby', 'femme');
+  await call('7440', '/me/filters', 'PUT', { ageMin: 18, ageMax: 99, gender: 'homme' });
+  assert.equal((await call('7440', '/me')).body.filters.gender, 'homme');
+
+  // Même règle que pour les réponses de compatibilité (P1-4) : un réglage qui ne s'applique plus
+  // ne reste pas rangé dans la base, où il ressortirait sans avoir été reconfirmé.
+  await profil('7440', { name: 'Gaby', intent: 'serieux' });
+  assert.equal((await call('7440', '/me')).body.filters.gender, '', "le genre part avec l'intention");
+  assert.equal((await call('7440', '/me')).body.filters.ageMin, 18, 'le reste des filtres est intact');
 });
