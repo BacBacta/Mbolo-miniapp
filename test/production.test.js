@@ -292,6 +292,33 @@ test('des empreintes distinctes laissent le déploiement continuer', () => {
   assert.equal(r.status, 0, `rien à signaler :\n${r.stdout}${r.stderr}`);
 });
 
+// Ce que les quatre cas ci-dessus ne voyaient pas : `deployer-fly.sh` pose les secrets juste
+// avant de lire cette liste (`flyctl secrets set --stage`), et flyctl marque d'un « * » tout
+// secret pas encore déployé, d'un « ! » celui qui n'est arrivé que sur une partie des machines.
+// Toutes les lignes que le contrôle voit portent donc un marqueur. Sans le prévoir, il ne
+// reconnaissait plus rien et refusait tout déploiement en disant « je n'ai pas su lire » — le
+// 14 septembre 2026, y compris celui qui remettait la production debout.
+test('les secrets fraîchement posés, marqués « * », restent lisibles', () => {
+  const r = controlerSecrets(LISTE_FLY([
+    '*\tADMIN_KEY\taaaaaaaabbbbbbbb\t1 minute ago',
+    '*\tBOT_TOKEN\teeeeeeeeffffffff\t1 minute ago',
+    '!\tWEB_SESSION_SECRET\t0123456789abcdef\t1 minute ago',
+    'BACKUP_SECRET\tccccccccdddddddd\t1 month ago',
+  ]));
+  assert.equal(r.status, 0, `quatre empreintes distinctes, rien à signaler :\n${r.stdout}${r.stderr}`);
+  assert.match(r.stdout, /4 reconnus/, 'et les quatre comptent, marqueur compris');
+});
+
+test('un partage reste visible sous le marqueur', () => {
+  const r = controlerSecrets(LISTE_FLY([
+    '*\tADMIN_KEY\tc095251a7d8ce235\t1 minute ago',
+    '*\tBOT_TOKEN\teeeeeeeeffffffff\t1 minute ago',
+    '*\tBACKUP_SECRET\tc095251a7d8ce235\t1 minute ago',
+  ]));
+  assert.equal(r.status, 1, 'le marqueur ne doit pas rendre le partage invisible');
+  assert.match(r.stderr, /ADMIN_KEY, BACKUP_SECRET/);
+});
+
 // L'identifiant du groupe de modération n'est pas un secret, et deux variables de confort qui se
 // ressemblent ne mettent personne en danger. Bloquer là-dessus rendrait le contrôle insupportable,
 // et un contrôle insupportable finit contourné.

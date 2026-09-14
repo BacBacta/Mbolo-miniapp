@@ -57,7 +57,13 @@ export function secretsPartagesFly(sortie) {
   const parEmpreinte = new Map();
   const connus = [];
   for (const ligne of String(sortie).split('\n')) {
-    const m = ligne.match(/^\s*([A-Z0-9_]+)\s+([0-9a-f]{8,})\b/);
+    // Le « * » (secret posé, pas encore déployé) et le « ! » (déployé sur une partie des
+    // machines) précèdent le nom dans la liste de flyctl. Les prévoir n'est pas un détail :
+    // le déploiement pose les secrets juste avant de lire cette liste, donc toutes les lignes
+    // qui comptent portent le marqueur. Sans lui, le contrôle ne reconnaît plus rien et refuse
+    // tout déploiement en disant « je n'ai pas su lire » — y compris celui qui remet la
+    // production debout.
+    const m = ligne.match(/^\s*(?:[*!]\s*)?([A-Z0-9_]+)\s+([0-9a-f]{8,})\b/);
     if (!m) continue;
     const [, nom, empreinte] = m;
     if (!SECRETS_DISTINCTS.includes(nom)) continue;
