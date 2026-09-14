@@ -16,13 +16,35 @@ import { config } from './config.js';
 // dans les mêmes expressions : une personne qui lit en anglais peut très bien écrire en français,
 // et une arnaque ne choisit pas la langue de sa cible.
 
-const normalize = (t) =>
-  t
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/0/g, 'o')
-    .replace(/[.\-_*]/g, '');
+// Lettres cyrilliques qui se dessinent comme des latines : « еnvоiе » avec un е et un о russes
+// passait toutes les règles (audit/09-revue-code.md, I15). Ramenées à la lettre latine avant
+// comparaison. Un vrai message en russe devient du charabia latin, et ne ressemble à rien —
+// c'est sans effet : le vocabulaire des règles n'est qu'en français et en anglais.
+const CONFUSABLES = { а: 'a', е: 'e', о: 'o', р: 'p', с: 'c', х: 'x', у: 'y', і: 'i', ѕ: 's', ј: 'j', к: 'k', н: 'h', т: 't', в: 'b', м: 'm', ԁ: 'd', ɡ: 'g' };
+const deconfondre = (s) => s.replace(/[аеорсхуіѕјкнтвмԁɡ]/g, (c) => CONFUSABLES[c]);
+
+// Ce que l'écriture peut déguiser, dans l'ordre :
+//   NFKC ramène les chiffres pleine largeur (５０００) et les lettres stylisées à leur forme simple ;
+//   les caractères invisibles (largeur nulle, sélecteur d'emoji, touche ⃣ des chiffres emoji)
+//   disparaissent — « 5️⃣0️⃣0️⃣0️⃣ » redevient 5000 ;
+//   les accents partent, le zéro devient un o (« m0m0 »), les cyrilliques se déconfondent ;
+//   les points, tirets, tirets bas et étoiles deviennent des espaces, pas rien : « prête-moi »
+//   doit donner « prete moi » et non « pretemoi », qui n'est plus un mot. collerLettres recolle
+//   ensuite « M.o.M.o » et « s e n d » de la même façon.
+const normaliser = (t, { zeroEnO }) =>
+  deconfondre(
+    t
+      .normalize('NFKC')
+      .replace(/[\u200B-\u200F\u2060\uFEFF\u00AD\uFE0F\u20E3]/g, '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/0/g, zeroEnO ? 'o' : '0'),
+  ).replace(/[.\-_*]/g, ' ').replace(/ {2,}/g, ' ');
+const normalize = (t) => normaliser(t, { zeroEnO: true });
+// La même forme, chiffres intacts : c'est là qu'on cherche les montants et les numéros, puisque
+// « 5 000 » n'est pas « 5 ooo ».
+const normalizeChiffres = (t) => normaliser(t, { zeroEnO: false });
 
 // ------------------------------------------------------------------
 // 1. Moyens de paiement et valeurs transférables
@@ -90,13 +112,14 @@ const MOYENS_AMBIGUS = [
 const VERBE_TRANSFERT = new RegExp(
   '\\b(' + [
     // français
-    'envoi?e', 'envoie?s', 'envoyer', 'donne', 'donner', 'transfer(e|er|t)?', 'verse', 'verser',
+    'envoi?e', 'envoie?s', 'envoyer', 'envoyez', 'donne', 'donnes', 'donner', 'donnez', 'transfer(e|er|t)?', 'verse', 'verser',
+    'vire', 'virer', 'virez', 'offre', 'offrir', 'offrez',
     'paie', 'payer', 'paye', 'regle', 'regler', 'achete', 'acheter', 'recharge', 'recharger',
     'rembourse', 'rembourser', 'avance', 'avancer', 'depose', 'deposer', 'crediter', 'credite',
     // anglais
     'send', 'sends', 'sending', 'transfers?', 'transferring', 'wire', 'wired', 'pay', 'pays',
     'paying', 'paid', 'buy', 'buys', 'buying', 'purchase', 'refund', 'reimburse', 'deposit',
-    'top ?up', 'topup', 'forward',
+    'top ?up', 'topup', 'forward', 'gimme', 'dash', 'bless',
   ].join('|') + ')\\b'
 );
 
@@ -115,7 +138,7 @@ const DEPANNAGE_ARGOT = /\b(spot|front|hook) ?me\b|\bhook me up\b/;
 // ------------------------------------------------------------------
 // 4. Expression d'un besoin.
 // ------------------------------------------------------------------
-const BESOIN = /\b(besoin|manque|faut|aide ?(moi|mw|me)|aidez ?moi|help ?(me|mi)?|helep|need|needs|needed|short of|broke|stuck|lack(ing)?|missing)\b/;
+const BESOIN = /\b(besoin|manque|faut|aide ?(moi|mw|me)|aidez ?moi|m ?['’]? ?aider|help ?(me|mi)?|helep|need|needs|needed|short of|broke|stuck|lack(ing)?|missing)\b/;
 
 // ------------------------------------------------------------------
 // 5. Montants : argot local (10k, 50 mille) et devises du monde entier.
@@ -145,7 +168,7 @@ const MONTANT = new RegExp(
 const OBJET_ARGENT = new RegExp(
   '\\b(' + [
     // français
-    'argent', 'sous', 'cash', 'monnaie', 'unites?', 'credit', 'recharge', 'frais', 'caution',
+    'd?argent', 'sous', 'cash', 'monnaie', 'unites?', 'credit', 'recharge', 'frais', 'caution',
     'douane', 'taxe', 'amende', 'facture', 'somme', 'billet', 'virement', 'carte', 'especes?',
     // anglais. Trois mots ont été écartés parce qu'ils se mordaient la queue : « transfer »,
     // « deposit » et « top up » sont déjà des verbes de transfert, donc le mot seul aurait suffi
@@ -167,7 +190,18 @@ const CONTACT = [
   /\bwa\.me\//,
   /@[a-z0-9_]{5,}/i,                                     // pseudo Telegram, et la plupart des e-mails
   /\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b/i,          // adresse e-mail écrite en entier
-  /\b(whatsapp|whats ?app|wassap|watsapp|wsp)\b/,
+  /\b(whatsapp|whats ?app|wassap|watsapp|whatsap|wtsp|wapp|wsp)\b/,
+  // Les abréviations, quand un mot dit qu'il s'agit d'un canal : « je suis sur wa », « mon ig »,
+  // « ton tel ». Seules, elles ont d'autres sens (« tel que toi ») et ne comptent pas.
+  /\b(sur|on|via|par|thru|through) ?(wa|ig|fb|sc|tg|snap|insta|tik ?tok|telegram|signal|wechat)\b/,
+  /\b(mon|ton|my|your|ur|ya) ?(wa|ig|fb|sc|tg|tel|phone|fon|pseudo|handle|number|num|numero|contact|coordonnees|whatsapp|insta|snap)\b/,
+  /\b(mes|tes) ?coordonnees\b/,
+  /\b(text|dm|hmu|inbox|pm|ping) ?me\b/,
+  /\b(appelle|appelez|call) ?(moi|me)? ?(au|at|on)\b/,
+  // Adresses sans schéma, et adresses épelées (« moi at gmail dot com »)
+  /\b[a-z0-9-]{2,}\.(com|net|org|io|me|ly|app|link|page|cm|fr|ng|ke|sn|ci|be|ch|ca|de|uk|us)\b/,
+  /\b(t|telegram) ?\. ?me ?\//,
+  /\b(at|arobase) ?[a-z0-9]+ ?(dot|point) ?(com|net|fr|cm|org)\b/,
   /\b(snap|snapchat|instagram|insta|facebook|messenger|tiktok|twitter|discord|skype|viber|imo|botim|kakao|wechat|weixin|zangi)\b/,
   // « donne-moi ton contact » est la façon courante de demander un numéro en français.
   // En anglais « my contact » désigne aussi une lentille : on s'y limite au numéro et au mail.
@@ -183,10 +217,10 @@ const CONTACT = [
 // une suite de o un numéro de téléphone.
 const oCommeZero = (s) => {
   let out = s;
-  for (let i = 0; i < 4; i += 1) out = out.replace(/(?<=\d)[oO]|[oO](?=\d)/g, '0');
+  for (let i = 0; i < 4; i += 1) out = out.replace(/(?<=\d)[oO]|[oO](?=\d)/g, '0').replace(/(?<=\d)[lI]|[lI](?=\d)/g, '1');
   return out;
 };
-const collerChiffres = (s) => s.replace(/(\d)[\s.\-_()/ ]+(?=\d)/g, '$1');
+const collerChiffres = (s) => s.replace(/(\d)[\s.,\-_()/\u00a0]+(?=\d)/g, '$1');
 // Une date ISO et une heure sont mises de côté avant le recollage : « 2026-09-12 14:30 »
 // donnerait sinon une suite de dix chiffres, et un créneau de rendez-vous — champ libre, passé
 // par le même filtre que les messages — serait refusé comme un numéro de téléphone.
@@ -213,8 +247,11 @@ export function categorieArgent(text) {
   const brut = text.toLowerCase();
   const espace = collerLettres(n);
   if (teste(MOYENS, n, brut, espace)) return 'moyen de paiement';
+  // « 5 000 » et « 5.000 » sont un montant : les chiffres sont recollés avant le test, une date
+  // ou une heure mises de côté d'abord — le même geste que pour les numéros de téléphone.
+  const chiffresColles = collerChiffres(masquerDatesEtHeures(normalizeChiffres(text)));
   // Un moyen ambigu ne bloque pas seul, mais il tient le rôle de l'objet d'argent.
-  const montantOuObjet = teste(MONTANT, n, brut, espace) || teste(OBJET_ARGENT, n, brut, espace) || teste(MOYENS_AMBIGUS, n, brut, espace);
+  const montantOuObjet = teste(MONTANT, n, brut, espace, chiffresColles) || teste(OBJET_ARGENT, n, brut, espace) || teste(MOYENS_AMBIGUS, n, brut, espace);
   if (teste(VERBE_TRANSFERT, n, brut, espace) && montantOuObjet) return 'demande de transfert';
   if (teste(BESOIN, n, brut, espace) && montantOuObjet) return "besoin d'argent";
   if (teste(DEPANNAGE_ARGOT, n, brut, espace)) return 'demande de dépannage';
@@ -235,7 +272,8 @@ export function checkMessage(text, messageCountInMatch, unlockAfter) {
   }
   const n = normalize(text);
   const brut = text.toLowerCase();
-  if (messageCountInMatch < unlockAfter && (teste(CONTACT, brut, n) || teste(NUMERO, formeNumero(brut)))) {
+  // Le numéro se cherche aussi dans la forme normalisée : chiffres pleine largeur, emoji, zéro-largeur.
+  if (messageCountInMatch < unlockAfter && (teste(CONTACT, brut, n, collerLettres(n)) || teste(NUMERO, formeNumero(brut), formeNumero(normalizeChiffres(text))))) {
     return {
       ok: false,
       code: 'CONTACT_TOO_EARLY',
