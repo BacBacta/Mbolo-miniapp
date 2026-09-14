@@ -78,6 +78,52 @@ export async function direATiers(chatId, lang, cle, vars) {
 let approvedHook = null;
 export const onApproved = (fn) => { approvedHook = fn; };
 
+// Qui a le droit de décider : les administrateurs du groupe de modération, demandés à Telegram.
+// Le cache est court exprès : quelqu'un qu'on retire des administrateurs perd l'accès dans la
+// minute. C'est un cache, pas un état — le perdre au redémarrage ne coûte qu'un appel.
+const CACHE_ADMINS_MS = 60 * 1000;
+// Telegram peut tomber. Plutôt que de fermer la modération à la première coupure, on garde la
+// dernière liste connue — mais pas indéfiniment : passé ce délai, ne plus savoir qui est
+// administrateur veut dire ne laisser entrer personne.
+const CACHE_PANNE_MS = 10 * 60 * 1000;
+let cacheAdmins = { at: 0, ids: null };
+
+export function oublierLesAdmins() {
+  cacheAdmins = { at: 0, ids: null };
+}
+
+export async function administrateurs() {
+  if (cacheAdmins.ids && Date.now() - cacheAdmins.at < CACHE_ADMINS_MS) return cacheAdmins.ids;
+  if (!bot || !config.adminChatId) return new Set();
+  try {
+    const membres = await bot.api.getChatAdministrators(config.adminChatId);
+    const ids = new Set(membres.filter((m) => !m.user?.is_bot).map((m) => String(m.user.id)));
+    cacheAdmins = { at: Date.now(), ids };
+    return ids;
+  } catch (e) {
+    console.warn('Administrateurs du groupe de modération illisibles :', e.description || e.message);
+    if (cacheAdmins.ids && Date.now() - cacheAdmins.at < CACHE_PANNE_MS) return cacheAdmins.ids;
+    return new Set();
+  }
+}
+
+export const estAdministrateur = async (userId) => (await administrateurs()).has(String(userId));
+
+// Un bouton de décision (valider, refuser, fermer, rouvrir) n'obéit qu'à un administrateur du
+// groupe, et seulement depuis le groupe. Vérifier le seul chat laissait décider tout membre du
+// groupe (audit/09-revue-code.md, I13) — et ce chat est une valeur que porte la mise à jour.
+async function decisionRefusee(ctx) {
+  if (String(ctx.chat?.id) !== String(config.adminChatId)) {
+    await ctx.answerCallbackQuery({ text: 'Action réservée à la modération.' }).catch(() => {});
+    return true;
+  }
+  if (!(await estAdministrateur(ctx.from?.id))) {
+    await ctx.answerCallbackQuery({ text: 'Action réservée aux administrateurs du groupe.' }).catch(() => {});
+    return true;
+  }
+  return false;
+}
+
 export async function notifyAdmin(text, reply_markup) {
   try {
     if (!bot || !config.adminChatId) return;
@@ -299,7 +345,10 @@ export async function setupBot() {
       return ctx.reply(
         t(lang, "{nom} te choisit comme personne de confiance sur {app}.\n\nSi tu acceptes, tu recevras un message quand {nom} part à un rendez-vous, avec le lieu et l'heure, et un autre quand {nom} arrive sur place. Tu ne verras rien d'autre : ni avec qui, ni les discussions.\n\nOn garde ton prénom et ton compte Telegram, rien de plus, et tu peux te retirer quand tu veux avec /retirer.",
           { nom: prenom, app: config.appName }),
-        { reply_markup: new InlineKeyboard().text(t(lang, "J'accepte"), `conf:oui:${membre.id}`).text(t(lang, 'Non merci'), `conf:non:${membre.id}`) },
+        // Le bouton porte le code, pas l'identifiant du membre : Telegram ne garantit pas qu'une
+        // donnée de bouton corresponde à un bouton existant, et avec l'identifiant n'importe qui
+        // pouvait accepter à la place de qui a reçu le lien (audit/09-revue-code.md, I14).
+        { reply_markup: new InlineKeyboard().text(t(lang, "J'accepte"), `conf:oui:${invitation}`).text(t(lang, 'Non merci'), `conf:non:${invitation}`) },
       );
     }
     // Lien venu de l'app : « Présentation vocale » y renvoie ici, faute de micro accessible
@@ -379,7 +428,7 @@ export async function setupBot() {
   });
 
   bot.callbackQuery(/^voix:(approve|reject):(\d+)$/, async (ctx) => {
-    if (String(ctx.chat?.id) !== String(config.adminChatId)) return ctx.answerCallbackQuery({ text: 'Action réservée à la modération.' });
+    if (await decisionRefusee(ctx)) return;
     const [, action, userId] = ctx.match;
     await decideVoice(userId, action === 'approve');
     // Le vocal est retiré du groupe et remplacé par une ligne de texte : la trace de la décision
@@ -390,7 +439,7 @@ export async function setupBot() {
   });
 
   bot.callbackQuery(/^(approve|reject):(.+)$/, async (ctx) => {
-    if (String(ctx.chat?.id) !== String(config.adminChatId)) return ctx.answerCallbackQuery({ text: 'Action réservée à la modération.' });
+    if (await decisionRefusee(ctx)) return;
     const [, action, userId] = ctx.match;
     await decideVerification(userId, action === 'approve');
     // Le selfie est supprimé du disque ET du groupe : une légende modifiée laissait l'image
@@ -403,7 +452,7 @@ export async function setupBot() {
   // deux décisions au-dessus : le compte fermé perd l'accès à l'API et disparaît de la découverte,
   // ses matchs sont défaits, et la trace dit qui a décidé, quand et pourquoi.
   bot.callbackQuery(/^ban:(\d+)$/, async (ctx) => {
-    if (String(ctx.chat?.id) !== String(config.adminChatId)) return ctx.answerCallbackQuery({ text: 'Action réservée à la modération.' });
+    if (await decisionRefusee(ctx)) return;
     const userId = ctx.match[1];
     const u = await store.banUser(userId, { motif: 'décision de la modération', par: ctx.from.first_name });
     if (!u) return ctx.answerCallbackQuery({ text: 'Ce compte n\'existe plus.' });
@@ -413,7 +462,7 @@ export async function setupBot() {
   });
 
   bot.callbackQuery(/^unban:(\d+)$/, async (ctx) => {
-    if (String(ctx.chat?.id) !== String(config.adminChatId)) return ctx.answerCallbackQuery({ text: 'Action réservée à la modération.' });
+    if (await decisionRefusee(ctx)) return;
     const userId = ctx.match[1];
     const u = await store.unbanUser(userId);
     if (!u) return ctx.answerCallbackQuery({ text: 'Ce compte n\'existe plus.' });
@@ -423,22 +472,22 @@ export async function setupBot() {
   });
 
   bot.callbackQuery(/^photo:(approve|reject):(\d+):([123])$/, async (ctx) => {
-    if (String(ctx.chat?.id) !== String(config.adminChatId)) return ctx.answerCallbackQuery({ text: 'Action réservée à la modération.' });
+    if (await decisionRefusee(ctx)) return;
     const [, action, userId, n] = ctx.match;
     await decidePhoto(userId, Number(n), action === 'approve');
     await effacerEtTracer(ctx, `Photo ${n} ${action === 'approve' ? 'validée' : 'refusée'} par ${ctx.from.first_name} (ID ${userId})`);
     await ctx.answerCallbackQuery({ text: action === 'approve' ? 'Photo validée' : 'Photo refusée' });
   });
 
-  bot.callbackQuery(/^conf:(oui|non):(\d+)$/, async (ctx) => {
-    const [, reponse, membreId] = ctx.match;
-    const membre = await store.getUser(membreId);
+  bot.callbackQuery(/^conf:(oui|non):([A-Za-z0-9_-]{1,40})$/, async (ctx) => {
+    const [, reponse, code] = ctx.match;
     const lang = langueDe({ languageCode: ctx.from?.language_code });
-    if (!membre) return ctx.answerCallbackQuery({ text: t(lang, "Ce compte n'existe plus.") });
-    // Une invitation transférée à plusieurs personnes laisse plusieurs boutons vivants : le
-    // premier qui répond consomme le code, et les autres boutons ne valent plus rien. Sans ce
-    // contrôle, le dernier à toucher remplacerait silencieusement celui qui avait déjà accepté.
-    if (!membre.confianceCode) return ctx.answerCallbackQuery({ text: t(lang, "Cette invitation n'est plus valable.") });
+    // Le code seul retrouve le membre : il est aléatoire, à usage unique et périmable. Une
+    // invitation transférée à plusieurs personnes laisse plusieurs boutons vivants : le premier
+    // qui répond consomme le code, et les autres boutons ne valent plus rien. Un code inconnu
+    // et un compte disparu se répondent pareil, pour ne pas dire qui est inscrit.
+    const membre = await porteurDuCode(code);
+    if (!membre) return ctx.answerCallbackQuery({ text: t(lang, "Cette invitation n'est plus valable.") });
     // Se désigner soi-même ne protège de rien, et ferait croire à un filet qui n'existe pas.
     if (String(ctx.from.id) === String(membre.id)) return ctx.answerCallbackQuery({ text: t(lang, 'Choisis quelqu\'un d\'autre que toi.') });
     if (reponse === 'non') {
@@ -473,8 +522,12 @@ export async function setupBot() {
 // ctx.reply refusé par Telegram (audit/09-revue-code.md, C5). Le webhook journalise donc par le
 // même chemin, et répond 200 : Telegram renverrait sinon la même mise à jour en boucle.
 const signalerErreurDuBot = (err) => console.error('Erreur du bot :', err?.error?.message || err?.message || err);
+export const WEBHOOK_PATH = '/telegram/webhook';
 export function routeWebhook(webhookCallback) {
-  const wh = webhookCallback(bot, 'express', { onTimeout: 'return', timeoutMilliseconds: WEBHOOK_TIMEOUT_MS });
+  // secretToken : grammY compare l'en-tête X-Telegram-Bot-Api-Secret-Token à temps constant et
+  // répond 401 sans rien traiter s'il manque ou diffère. Sans lui, qui connaissait le chemin
+  // forgeait une mise à jour — un bouton « Valider » venu de ADMIN_CHAT_ID, par exemple.
+  const wh = webhookCallback(bot, 'express', { onTimeout: 'return', timeoutMilliseconds: WEBHOOK_TIMEOUT_MS, secretToken: config.webhookSecret });
   return (req, res) => Promise.resolve(wh(req, res)).catch((err) => {
     signalerErreurDuBot(err);
     if (!res.headersSent) res.status(200).end();
@@ -493,7 +546,10 @@ export const WEBHOOK_RETRY_DELAYS_MS = [5e3, 15e3, 30e3, 60e3, 120e3, 300e3];
 export async function poseWebhook(url, { delais = WEBHOOK_RETRY_DELAYS_MS } = {}) {
   for (let essai = 0; ; essai += 1) {
     try {
-      await bot.api.setWebhook(url);
+      // secret_token : Telegram le renvoie dans l'en-tête X-Telegram-Bot-Api-Secret-Token, et
+      // routeWebhook refuse tout appel qui ne le porte pas. C'est lui qui authentifie, pas
+      // l'adresse — qui voyage dans les journaux (audit/09-revue-code.md, C4).
+      await bot.api.setWebhook(url, { secret_token: config.webhookSecret });
       console.log(essai ? `Bot en mode webhook (tentative ${essai + 1})` : 'Bot en mode webhook');
       return true;
     } catch (e) {
@@ -535,7 +591,9 @@ export async function startBot(app, { delais } = {}) {
 
   if (config.useWebhook) {
     const { webhookCallback } = await import('grammy');
-    const secretPath = `/telegram/${config.botToken.split(':')[0]}-${config.adminKey || 'hook'}`;
+    // Plus de secret dans le chemin : ADMIN_KEY y voyageait, donc dans les journaux de requêtes,
+    // et un chemin ne prouve rien. L'authenticité vient de l'en-tête (voir routeWebhook).
+    const secretPath = WEBHOOK_PATH;
     app.use(secretPath, routeWebhook(webhookCallback));
     // Sans await : le serveur répond tout de suite, la reprise se poursuit en arrière-plan
     poseWebhook(`${config.webAppUrl}${secretPath}`, delais ? { delais } : {});

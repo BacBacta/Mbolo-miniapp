@@ -37,6 +37,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
           ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
           WEB_SESSION_SECRET: ${{ secrets.WEB_SESSION_SECRET }}
         # Même script que pour un déploiement à la main : une seule logique à maintenir

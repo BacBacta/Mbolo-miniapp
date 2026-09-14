@@ -30,6 +30,7 @@ const { api } = await import('../server/routes.js');
 const versModeration = [];
 let appels = 0;
 bot.api.config.use(async (prev, method, payload) => {
+  if (method === 'getChatAdministrators') return { ok: true, result: [{ status: 'administrator', user: { id: 42, is_bot: false, first_name: 'Modo' } }] };
   appels += 1;
   if (method === 'sendMessage') {
     versModeration.push({ chatId: String(payload.chat_id), text: payload.text, reply_markup: payload.reply_markup });

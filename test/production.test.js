@@ -486,7 +486,7 @@ test('un WEB_SESSION_SECRET distinct est posé tel quel, et le contrôle lit bie
   assert.equal(r.status, 0, `${r.stdout}${r.stderr}`);
   assert.equal(d.poses().WEB_SESSION_SECRET, 'cle-session-propre');
   assert.ok(!/même valeur/.test(r.stderr), 'rien à signaler');
-  assert.match(r.stdout, /Secrets distincts \(3 reconnus/, 'BOT_TOKEN, ADMIN_KEY et WEB_SESSION_SECRET, lus en JSON');
+  assert.match(r.stdout, /Secrets distincts \(4 reconnus/, 'BOT_TOKEN, ADMIN_KEY, WEBHOOK_SECRET et WEB_SESSION_SECRET, lus en JSON');
   assert.match(d.appels(), /secrets list --json/, 'la liste est demandée en JSON, la forme sûre');
 });
 

@@ -48,6 +48,7 @@ globalThis.fetch = async (url, opts) => {
 const envoyes = [];
 let modérationJoignable = true;
 bot.api.config.use(async (prev, method, payload) => {
+  if (method === 'getChatAdministrators') return { ok: true, result: [{ status: 'administrator', user: { id: 42, is_bot: false, first_name: 'Modo' } }] };
   if (method === 'getFile') return { ok: true, result: { file_id: payload.file_id, file_path: 'voice/file_1.oga' } };
   if (method === 'sendVoice') {
     if (!modérationJoignable) throw new Error('Bad Request: chat not found');

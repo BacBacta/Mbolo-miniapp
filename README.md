@@ -258,7 +258,7 @@ Si tu obtiens `000`, c'est le résolveur DNS du téléphone qui bloque, et chang
 **Depuis un navigateur, sans ligne de commande** — utile depuis un téléphone, où `flyctl` ne s'installe pas :
 
 1. Crée un compte sur https://fly.io, puis un jeton dans **Account** → **Tokens**.
-2. Sur GitHub : **Settings** → **Secrets and variables** → **Actions** → **New repository secret**. Ajoute `FLY_API_TOKEN`, `BOT_TOKEN` et `ADMIN_CHAT_ID` — ce dernier est l'identifiant du groupe Telegram qui recevra les selfies à valider : crée le groupe, ajoute-y ton bot, envoie `/id` dedans. Sans lui, le déploiement s'arrête avant de construire quoi que ce soit. Facultatif : `ADMIN_KEY` (généré sinon).
+2. Sur GitHub : **Settings** → **Secrets and variables** → **Actions** → **New repository secret**. Ajoute `FLY_API_TOKEN`, `BOT_TOKEN` et `ADMIN_CHAT_ID` — ce dernier est l'identifiant du groupe Telegram qui recevra les selfies à valider : crée le groupe, ajoute-y ton bot, envoie `/id` dedans. Sans lui, le déploiement s'arrête avant de construire quoi que ce soit. Facultatifs : `ADMIN_KEY` et `WEBHOOK_SECRET` (générés sinon).
 3. Onglet **Actions** → **Déployer sur Fly** → **Run workflow**. Pour une **première installation**, saisis un nom d'app libre (ils sont uniques dans le monde entier) et une région : `ams` Amsterdam, `cdg` Paris, `jnb` Johannesburg, `mad` Madrid — puis reporte ces deux valeurs dans les `default` du workflow, pour n'avoir plus jamais à les retaper.
 4. Au bout de trois à cinq minutes, l'app répond sur `https://<ton-app>.fly.dev`.
 5. Dans Telegram : `/start` → **Ouvrir Odo**.
@@ -497,6 +497,7 @@ BOT_TOKEN=...
 WEBAPP_URL=https://ton-domaine
 ADMIN_CHAT_ID=...
 ADMIN_KEY=une-longue-cle-aleatoire
+WEBHOOK_SECRET=une-cle-aleatoire-pour-le-webhook
 WEB_SESSION_SECRET=une-autre-longue-cle-aleatoire
 VENUE_SECRET=une-troisieme-longue-cle-aleatoire
 EVENTS_RETENTION_DAYS=180
@@ -508,7 +509,7 @@ ALLOW_DEV_AUTH=false
 
 Avec `USE_WEBHOOK=true`, Telegram envoie les messages du bot directement à ton serveur au lieu que le bot aille les chercher.
 
-**Chaque secret a sa propre valeur.** `BOT_TOKEN`, `ADMIN_KEY`, `WEB_SESSION_SECRET`, `VENUE_SECRET` et `BACKUP_SECRET` ne partagent jamais une chaîne : `ADMIN_KEY` voyage dans des URL — le chemin du webhook Telegram en porte une copie, donc les journaux de requêtes aussi — tandis que `BACKUP_SECRET` ouvre toutes les sauvegardes. Deux contrôles le vérifient : le serveur **refuse de démarrer** en production si deux valeurs se répètent (prévient sans bloquer ailleurs), et le déploiement lit les empreintes de l'hébergeur **avant** de remplacer la machine (`scripts/verifier-secrets.js`) — sinon le premier contrôle ne peut refuser qu'en tombant, ce qui a éteint la production le 14 septembre 2026. Ni l'un ni l'autre n'écrit jamais la valeur : ils nomment les variables. **`BACKUP_SECRET` ne se remplace pas sans avoir gardé l'ancien** ailleurs : les copies déjà écrites ne s'ouvrent qu'avec lui.
+**Chaque secret a sa propre valeur.** `BOT_TOKEN`, `ADMIN_KEY`, `WEBHOOK_SECRET`, `WEB_SESSION_SECRET`, `VENUE_SECRET` et `BACKUP_SECRET` ne partagent jamais une chaîne : `ADMIN_KEY` voyage dans des URL — les QR des lieux, et jusqu'au 14 septembre 2026 le chemin du webhook Telegram, donc les journaux de requêtes — tandis que `BACKUP_SECRET` ouvre toutes les sauvegardes. **Le webhook, lui, n'est plus authentifié par son adresse** : Telegram renvoie `WEBHOOK_SECRET` dans l'en-tête `X-Telegram-Bot-Api-Secret-Token` de chaque appel, et le serveur refuse tout appel qui ne le porte pas — sans quoi qui connaissait le chemin forgeait une mise à jour, un bouton « Valider » compris. Absent, il est tiré au hasard à chaque démarrage et le webhook est reposé avec. Deux contrôles le vérifient : le serveur **refuse de démarrer** en production si deux valeurs se répètent (prévient sans bloquer ailleurs), et le déploiement lit les empreintes de l'hébergeur **avant** de remplacer la machine (`scripts/verifier-secrets.js`) — sinon le premier contrôle ne peut refuser qu'en tombant, ce qui a éteint la production le 14 septembre 2026. Ni l'un ni l'autre n'écrit jamais la valeur : ils nomment les variables. **`BACKUP_SECRET` ne se remplace pas sans avoir gardé l'ancien** ailleurs : les copies déjà écrites ne s'ouvrent qu'avec lui.
 
 **Important sur le stockage** : sans `DATABASE_URL`, les données sont dans `data/db.json` et les photos dans `data/uploads/` (ou dans le dossier indiqué par `DATA_DIR`). Si ton hébergeur efface le disque à chaque redéploiement, tu perds tout. Monte un volume persistant sur `data/`. Avec `DATABASE_URL`, les données vont dans PostgreSQL et seules les photos restent sur le disque : c'est le mode à retenir en production, et il est obligatoire avant tout paiement. Voir la section « Stockage : fichier JSON ou PostgreSQL ».
 

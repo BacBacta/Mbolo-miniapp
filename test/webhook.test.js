@@ -13,7 +13,8 @@ process.env.USE_WEBHOOK = 'true';
 process.env.SEED_DEMO = 'false';
 
 const express = (await import('express')).default;
-const { bot, startBot, poseWebhook, WEBHOOK_RETRY_DELAYS_MS, routeWebhook } = await import('../server/bot.js');
+const { bot, startBot, poseWebhook, WEBHOOK_RETRY_DELAYS_MS, routeWebhook, WEBHOOK_PATH } = await import('../server/bot.js');
+const { config } = await import('../server/config.js');
 
 // Telegram n'est jamais appelé : on remplace les méthodes utilisées au démarrage
 const appels = { setWebhook: [], getMe: 0 };
@@ -21,8 +22,9 @@ let refusRestants = 0;
 bot.api.getMe = async () => { appels.getMe += 1; return { username: 'odo_test_bot' }; };
 bot.api.setChatMenuButton = async () => ({});
 bot.api.setMyCommands = async () => ({});
-bot.api.setWebhook = async (url) => {
+bot.api.setWebhook = async (url, options) => {
   appels.setWebhook.push(url);
+  appels.secret = options?.secret_token;
   if (refusRestants > 0) { refusRestants -= 1; throw new Error('Failed to resolve host: No address associated with hostname'); }
   return true;
 };
@@ -91,7 +93,7 @@ test("un gestionnaire du bot qui jette ne couche pas le serveur, et Telegram re�
   console.error = (...m) => journal.push(m.join(' '));
   try {
     const update = { update_id: 1, message: { message_id: 1, date: 1, chat: { id: 7, type: 'private' }, from: { id: 7, is_bot: false, first_name: 'X' }, text: '/boum', entities: [{ type: 'bot_command', offset: 0, length: 5 }] } };
-    const r = await fetch(`http://localhost:${server.address().port}/hook`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(update) });
+    const r = await fetch(`http://localhost:${server.address().port}/hook`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Telegram-Bot-Api-Secret-Token': config.webhookSecret }, body: JSON.stringify(update) });
     assert.equal(r.status, 200);
     await new Promise((res) => setTimeout(res, 50));
     assert.equal(rejets.length, 0, 'aucune promesse orpheline');
@@ -99,6 +101,38 @@ test("un gestionnaire du bot qui jette ne couche pas le serveur, et Telegram re�
   } finally {
     console.error = vrai;
     process.off('unhandledRejection', ecoute);
+    server.close();
+  }
+});
+
+// Le chemin ne prouve rien : il voyage dans les journaux, et il portait ADMIN_KEY. C'est l'en-tête
+// X-Telegram-Bot-Api-Secret-Token, posé par setWebhook et renvoyé par Telegram à chaque appel, qui
+// authentifie. Sans lui, une mise à jour forgée validait un selfie (audit/09-revue-code.md, C4).
+test("un appel du webhook sans le secret de l'en-tête est refusé, et jamais traité", async () => {
+  assert.ok(config.webhookSecret.length >= 32, 'un secret existe toujours, posé ou tiré au hasard');
+  assert.equal(WEBHOOK_PATH, '/telegram/webhook', 'le chemin ne porte plus de secret : ni ADMIN_KEY, ni l\'identifiant du bot');
+  appels.setWebhook.length = 0; refusRestants = 0;
+  await poseWebhook('https://exemple.test/telegram/webhook', rapide);
+  assert.equal(appels.secret, config.webhookSecret, 'setWebhook pose le même secret que celui que la route exige');
+
+  let traites = 0;
+  bot.command('compte', async () => { traites += 1; });
+  const { webhookCallback } = await import('grammy');
+  const app = express();
+  app.use(express.json());
+  app.use('/hook', routeWebhook(webhookCallback));
+  const server = app.listen(0);
+  try {
+    const update = { update_id: 2, message: { message_id: 2, date: 1, chat: { id: 7, type: 'private' }, from: { id: 7, is_bot: false, first_name: 'X' }, text: '/compte', entities: [{ type: 'bot_command', offset: 0, length: 7 }] } };
+    const envoyer = (headers) => fetch(`http://localhost:${server.address().port}/hook`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(update) });
+    assert.equal((await envoyer({})).status, 401, 'sans en-tête');
+    assert.equal((await envoyer({ 'X-Telegram-Bot-Api-Secret-Token': 'faux' })).status, 401, 'mauvais secret');
+    await new Promise((res) => setTimeout(res, 30));
+    assert.equal(traites, 0, 'rien n\'a été traité');
+    assert.equal((await envoyer({ 'X-Telegram-Bot-Api-Secret-Token': config.webhookSecret })).status, 200, 'bon secret');
+    await new Promise((res) => setTimeout(res, 30));
+    assert.equal(traites, 1);
+  } finally {
     server.close();
   }
 });

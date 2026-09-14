@@ -107,7 +107,7 @@ test('un lien expiré ne s\'ouvre pas', async () => {
   await store.upsertTelegramUser({ id: '500', first_name: 'Modo' });
   const usage = 'usage-perime';
   await store.updateUser('500', { modJeton: usage });
-  const jeton = signer({ id: '500', u: usage }, -1);
+  const jeton = signer({ id: '500', u: usage }, -1, 'lien');
   const r = await aller(`/moderation?jeton=${encodeURIComponent(jeton)}`);
   assert.equal(r.status, 403);
   assert.match(await r.text(), /expiré/);
@@ -167,6 +167,22 @@ test('un cookie malformé répond 401, et le serveur reste debout', async () => 
     process.off('unhandledRejection', ecoute);
   }
   assert.equal((await aller('/api/mod/me')).status, 401, 'toujours vivant');
+});
+
+// Le jeton du lien et le cookie de session avaient la même forme et le même secret : le lien,
+// dix minutes à usage unique, valait comme cookie avant et après avoir été consommé
+// (audit/09-revue-code.md, I1). Chaque jeton porte maintenant son usage.
+test("le jeton du lien ne vaut pas comme cookie de session, ni avant ni après l'échange", async () => {
+  oublierLesAdmins();
+  const lien = await creerLienModeration('500');
+  const jeton = new URL(lien).searchParams.get('jeton');
+  assert.equal((await aller('/api/mod/me', { cookie: `${COOKIE_MODERATION}=${jeton}` })).status, 401, 'avant l\'échange');
+  assert.equal((await aller('/moderation', { cookie: `${COOKIE_MODERATION}=${jeton}` })).status, 401);
+  const r = await aller(`/moderation?jeton=${encodeURIComponent(jeton)}`);
+  assert.equal(r.status, 303, 'le lien lui-même marche toujours');
+  assert.equal((await aller('/api/mod/me', { cookie: `${COOKIE_MODERATION}=${jeton}` })).status, 401, 'après l\'échange');
+  // Et l'inverse : un cookie de session n'ouvre pas la porte du lien.
+  assert.equal((await aller(`/moderation?jeton=${encodeURIComponent(cookieDe(r).split('=')[1])}`)).status, 403);
 });
 
 test('la file de vérification ne montre aucun selfie', async () => {

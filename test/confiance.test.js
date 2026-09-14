@@ -110,7 +110,7 @@ test("ouvrir le lien n'enregistre rien non plus : on explique, puis on demande",
 });
 
 test('elle accepte : c\'est là, et seulement là, qu\'on enregistre', async () => {
-  await toucher('conf:oui:400', '401');
+  await toucher(`conf:oui:${await codeDe('400')}`, '401');
   await attendre(async () => !!(await store.getUser('400')).confiance, "l'accord");
   const c = (await store.getUser('400')).confiance;
   assert.equal(c.id, '401');
@@ -123,8 +123,9 @@ test('elle accepte : c\'est là, et seulement là, qu\'on enregistre', async () 
 test("refuser n'enregistre rien, et consomme le lien", async () => {
   await membre('410', 'Bana');
   await call('410', '/me/confiance/invitation', 'POST');
-  await ouvrirLien(await codeDe('410'), '411');
-  await toucher('conf:non:410', '411');
+  const code = await codeDe('410');
+  await ouvrirLien(code, '411');
+  await toucher(`conf:non:${code}`, '411');
   await attendre(async () => (await store.getUser('410')).confianceCode === null, 'le code consommé');
   assert.ok(!(await store.getUser('410')).confiance, 'rien enregistré');
 });
@@ -138,17 +139,30 @@ test('un lien transféré à plusieurs : le premier qui répond gagne', async ()
   await ouvrirLien(code, '421');
   await ouvrirLien(code, '422'); // le lien a été transféré
 
-  await toucher('conf:oui:420', '421');
+  await toucher(`conf:oui:${code}`, '421');
   await attendre(async () => !!(await store.getUser('420')).confiance, 'le premier accord');
-  await toucher('conf:oui:420', '422');
+  await toucher(`conf:oui:${code}`, '422');
   await new Promise((r) => setTimeout(r, 100));
   assert.equal((await store.getUser('420')).confiance.id, '421', 'le second bouton ne remplace pas le premier en silence');
+});
+
+// Le bouton portait l'identifiant du membre, et le gestionnaire ne comparait jamais le code :
+// pendant les 24 h d'une invitation, n'importe qui pouvait accepter à la place de qui avait reçu
+// le lien (audit/09-revue-code.md, I14).
+test("sans le code, personne ne devient personne de confiance — ni avec l'identifiant, ni avec un code inventé", async () => {
+  await membre('425', 'Chantal');
+  await call('425', '/me/confiance/invitation', 'POST');
+  await toucher('conf:oui:425', '426');
+  await toucher('conf:oui:AAAAAAAAAAAAAAAA', '426');
+  await new Promise((r) => setTimeout(r, 100));
+  assert.ok(!(await store.getUser('425')).confiance, 'rien enregistré');
+  assert.ok((await store.getUser('425')).confianceCode, "et l'invitation reste ouverte pour la bonne personne");
 });
 
 test('on ne peut pas se désigner soi-même', async () => {
   await membre('430', 'Diane');
   await call('430', '/me/confiance/invitation', 'POST');
-  await toucher('conf:oui:430', '430');
+  await toucher(`conf:oui:${await codeDe('430')}`, '430');
   await new Promise((r) => setTimeout(r, 100));
   assert.ok(!(await store.getUser('430')).confiance, "se désigner soi-même ne protège de rien");
 });
@@ -171,8 +185,9 @@ test("prévenir maintenant ne nomme jamais l'autre personne", async () => {
   await membre('450', 'Fanta');
   await membre('451', 'Gaston', 'homme');
   await call('450', '/me/confiance/invitation', 'POST');
-  await ouvrirLien(await codeDe('450'), '452');
-  await toucher('conf:oui:450', '452');
+  const code450 = await codeDe('450');
+  await ouvrirLien(code450, '452');
+  await toucher(`conf:oui:${code450}`, '452');
   await attendre(async () => !!(await store.getUser('450')).confiance, "l'accord");
 
   await call('450', '/swipes', 'POST', { targetId: '451', action: 'like' });
@@ -205,8 +220,9 @@ test('un rendez-vous accepté prévient les deux personnes de confiance, sans di
   await membre('471', 'Kevin', 'homme');
   for (const [membreId, amiId] of [['470', '472'], ['471', '473']]) {
     await call(membreId, '/me/confiance/invitation', 'POST');
-    await ouvrirLien(await codeDe(membreId), amiId);
-    await toucher(`conf:oui:${membreId}`, amiId);
+    const code = await codeDe(membreId);
+    await ouvrirLien(code, amiId);
+    await toucher(`conf:oui:${code}`, amiId);
     await attendre(async () => !!(await store.getUser(membreId)).confiance, `accord de ${amiId}`);
   }
   await call('470', '/swipes', 'POST', { targetId: '471', action: 'like' });
@@ -266,8 +282,9 @@ test("/retirer sans rien à retirer le dit, plutôt que de ne rien faire", async
 test('supprimer son compte emporte la personne de confiance', async () => {
   await membre('480', 'Larissa');
   await call('480', '/me/confiance/invitation', 'POST');
-  await ouvrirLien(await codeDe('480'), '481');
-  await toucher('conf:oui:480', '481');
+  const code480 = await codeDe('480');
+  await ouvrirLien(code480, '481');
+  await toucher(`conf:oui:${code480}`, '481');
   await attendre(async () => !!(await store.getUser('480')).confiance, "l'accord");
 
   await call('480', '/me', 'DELETE');
@@ -277,8 +294,9 @@ test('supprimer son compte emporte la personne de confiance', async () => {
 test("l'identifiant Telegram de la personne de confiance ne sort jamais du serveur", async () => {
   await membre('490', 'Modeste', 'homme');
   await call('490', '/me/confiance/invitation', 'POST');
-  await ouvrirLien(await codeDe('490'), '491');
-  await toucher('conf:oui:490', '491');
+  const code490 = await codeDe('490');
+  await ouvrirLien(code490, '491');
+  await toucher(`conf:oui:${code490}`, '491');
   await attendre(async () => !!(await store.getUser('490')).confiance, "l'accord");
 
   const me = (await call('490', '/me')).body;

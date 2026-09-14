@@ -6,7 +6,7 @@
 #   région  : cdg Paris (défaut), jnb Johannesburg, mad Madrid
 #
 # Secrets lus dans l'environnement : BOT_TOKEN et ADMIN_CHAT_ID (obligatoires),
-# ADMIN_KEY et WEB_SESSION_SECRET (générés s'ils manquent). Aucun n'est écrit sur le disque
+# ADMIN_KEY, WEBHOOK_SECRET et WEB_SESSION_SECRET (générés s'ils manquent). Aucun n'est écrit sur le disque
 # ni affiché.
 set -euo pipefail
 
@@ -81,6 +81,7 @@ echo "== Secrets =="
 # le reposer à chaque fois déconnecterait la modération à chaque mise en ligne.
 set -- BOT_TOKEN="$BOT_TOKEN" \
   ADMIN_KEY="${ADMIN_KEY:-$(head -c 32 /dev/urandom | base64 | tr -d '/+=')}" \
+  WEBHOOK_SECRET="${WEBHOOK_SECRET:-$(head -c 32 /dev/urandom | base64 | tr -d '/+=')}" \
   ADMIN_CHAT_ID="$ADMIN_CHAT_ID"
 if [ -n "${WEB_SESSION_SECRET:-}" ] && { [ "$WEB_SESSION_SECRET" = "${ADMIN_KEY:-}" ] || [ "$WEB_SESSION_SECRET" = "$BOT_TOKEN" ]; }; then
   # Le 14 septembre 2026, le secret WEB_SESSION_SECRET du dépôt GitHub portait la valeur
