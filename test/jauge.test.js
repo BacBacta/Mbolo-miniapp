@@ -52,8 +52,10 @@ test('un compte neuf et vérifié est à 1 sur 2, pas à 1 sur 3', () => {
 });
 
 test('le temps qui passe allume la seconde pastille tout seul', () => {
-  const veille = calculer({ verification: 'approved', createdAt: Date.now() - TROIS_MOIS + 86400e3 });
-  assert.equal(veille.score, 1, 'la veille des trois mois, pas encore');
+  // Deux jours avant, pas un : « la veille » tombait à 90 jours pile, et la milliseconde écoulée
+  // entre les deux Date.now() faisait basculer le critère — un test rouge une fois sur dix en CI.
+  const veille = calculer({ verification: 'approved', createdAt: Date.now() - TROIS_MOIS + 2 * 86400e3 });
+  assert.equal(veille.score, 1, 'l\'avant-veille des trois mois, pas encore');
   const apres = calculer({ verification: 'approved', createdAt: Date.now() - TROIS_MOIS });
   assert.equal(apres.score, 2);
 });

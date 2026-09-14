@@ -101,7 +101,8 @@ test("être la personne de confiance de quelqu'un ne survit pas non plus, et le 
   assert.equal((await store.getUser('s5')).confiance.id, 's6');
   telegram.messages.length = 0;
   assert.equal((await call('s6', '/me', 'DELETE')).status, 200);
-  assert.equal((await store.getUser('s5')).confiance, null, "Estelle n'a plus de personne de confiance fantôme");
+  // null sur le fichier, clé absente sur PostgreSQL (data - 'confiance') : les deux disent la même chose.
+  assert.ok(!(await store.getUser('s5')).confiance, "Estelle n'a plus de personne de confiance fantôme");
   await respirer();
   const avis = telegram.messages.find((m) => m.chatId === 's5');
   assert.ok(avis, 'Estelle est prévenue');
