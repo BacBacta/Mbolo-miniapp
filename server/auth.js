@@ -57,6 +57,19 @@ function refuserSiBanni(req, res) {
   return true;
 }
 
+// Qui parle, sans créer de compte. requireAuth fait un upsert à chaque requête — c'est ce qui
+// recréait une ligne juste après DELETE /api/me, quand l'app signalait sa fermeture
+// (audit/09-revue-code.md, I3). Rend l'identifiant, ou null.
+export function identiteSansCreer(req) {
+  const header = req.get('authorization') || '';
+  if (header.startsWith('tma ')) {
+    const result = validateInitData(header.slice(4), config.botToken);
+    return result.ok ? String(result.user.id) : null;
+  }
+  if (config.allowDevAuth && req.get('x-dev-user')) return String(req.get('x-dev-user'));
+  return null;
+}
+
 export async function requireAuth(req, res, next) {
   const header = req.get('authorization') || '';
   if (header.startsWith('tma ')) {

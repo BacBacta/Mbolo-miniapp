@@ -218,10 +218,13 @@ export async function sendSelfieToModeration(userId) {
   const file = path.join(config.uploadsDir, `${userId}-selfie.jpg`);
   if (!bot || !config.adminChatId || !fs.existsSync(file)) return false;
   const keyboard = new InlineKeyboard().text('Valider', `approve:${userId}`).text('Refuser', `reject:${userId}`);
-  await bot.api.sendPhoto(config.adminChatId, new InputFile(file), {
+  const envoye = await bot.api.sendPhoto(config.adminChatId, new InputFile(file), {
     caption: `Vérification de ${user.profile?.name || user.firstName}, ${user.profile?.age || '?'} ans\nGeste demandé : ${user.pendingGesture || 'deux doigts levés'}\nID : ${userId}`,
     reply_markup: keyboard,
   });
+  // Le numéro du message est gardé : sans lui, un selfie purgé du disque restait dans le groupe,
+  // bouton « Valider » compris (audit/09-revue-code.md, I5).
+  if (envoye?.message_id) await store.updateUser(userId, { verifMessageId: envoye.message_id });
   return true;
 }
 
@@ -294,11 +297,14 @@ async function expliquerLaVoix(ctx, lang) {
 
 export async function decideVerification(userId, approved) {
   const user = await store.getUser(userId);
-  if (!user) return;
+  if (!user) return { ok: false, raison: 'INCONNU' };
+  // Seul un selfie en attente se tranche. Sans ce contrôle, le bouton d'un vieux message — selfie
+  // purgé depuis, ou déjà tranché — validait le compte sur un selfie que personne n'avait vu.
+  if (user.verification !== 'pending') return { ok: false, raison: 'PAS_EN_ATTENTE' };
   // Le délai de modération n'existait nulle part : verificationSentAt donne le départ, celui-ci
   // l'arrivée. C'est le chiffre qui manque le plus à l'équipe (audit/05-mesure-produit.md).
   const decideA = Date.now();
-  await store.updateUser(userId, { verification: approved ? 'approved' : 'rejected', pendingGesture: null, verifDecidedAt: decideA });
+  await store.updateUser(userId, { verification: approved ? 'approved' : 'rejected', pendingGesture: null, verifDecidedAt: decideA, verifMessageId: null });
   // auto est obligatoire : pendant une période où AUTO_APPROVE valait true, la décision tombe
   // trois secondes après l'envoi. Sans ce champ, la médiane du délai de modération vaudrait
   // trois secondes et l'équipe croirait son goulot d'étranglement résolu.
@@ -314,6 +320,22 @@ export async function decideVerification(userId, approved) {
     await notify(userId, 'Ton profil est vérifié. Ton badge est visible, tu peux découvrir des profils.', null, { label: 'Voir des profils', params: { screen: 'discover' } });
   } else {
     await notify(userId, "Ta vérification n'a pas abouti : le geste ou le visage n'était pas assez visible. Tu peux réessayer.", null, { label: 'Réessayer', params: { screen: 'verify' } });
+  }
+  return { ok: true };
+}
+
+// Retire du groupe un selfie qu'aucune décision ne retirera : purgé après sept jours, ou compte
+// supprimé. La photo part, une ligne de texte reste. Si Telegram refuse la suppression, la légende
+// est remplacée et les boutons disparaissent avec elle — c'est le bouton qui était dangereux.
+export async function retirerSelfieDuGroupe(messageId, trace) {
+  if (!bot || !config.adminChatId || !messageId) return false;
+  try {
+    await bot.api.deleteMessage(config.adminChatId, messageId);
+    await bot.api.sendMessage(config.adminChatId, trace).catch(() => {});
+    return true;
+  } catch {
+    await bot.api.editMessageCaption(config.adminChatId, messageId, { caption: trace }).catch(() => {});
+    return false;
   }
 }
 
@@ -441,7 +463,13 @@ export async function setupBot() {
   bot.callbackQuery(/^(approve|reject):(.+)$/, async (ctx) => {
     if (await decisionRefusee(ctx)) return;
     const [, action, userId] = ctx.match;
-    await decideVerification(userId, action === 'approve');
+    const decision = await decideVerification(userId, action === 'approve');
+    if (!decision.ok) {
+      // Un bouton resté vivant sous un selfie qui n'est plus en attente : on l'enlève, sans rien
+      // changer au compte. Le selfie visé n'est peut-être plus celui que la personne a envoyé.
+      await effacerEtTracer(ctx, `Ce selfie n'était plus en attente (déjà tranché, expiré ou compte supprimé) : rien n'a été changé (ID ${userId}).`);
+      return ctx.answerCallbackQuery({ text: 'Déjà tranché ou expiré : rien n\'a changé.' });
+    }
     // Le selfie est supprimé du disque ET du groupe : une légende modifiée laissait l'image
     // visible indéfiniment dans Telegram, ce que la promesse faite à la personne exclut.
     await effacerEtTracer(ctx, `Vérification ${action === 'approve' ? 'validée' : 'refusée'} par ${ctx.from.first_name} (ID ${userId})`);

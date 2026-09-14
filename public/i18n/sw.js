@@ -275,6 +275,7 @@ export default {
   'Tester les notifications': 'Jaribu arifa',
   'Toi : ': 'Wewe: ',
   'Ton compte et tes données ont été supprimés.': 'Akaunti yako na data yako vimefutwa.',
+  'Pour recommencer, ferme {app} et rouvre-le depuis le bot.': 'Ili kuanza upya, funga {app} na uifungue tena kutoka kwa boti.',
   'Ton profil': 'Wasifu wako',
   'Ton profil est déjà vérifié.': 'Wasifu wako tayari umethibitishwa.',
   'Ton profil ne doit contenir ni numéro, ni lien, ni pseudo, ni demande d\'argent.': 'Wasifu wako haupaswi kuwa na namba, kiungo, jina la mtumiaji wala ombi la pesa.',

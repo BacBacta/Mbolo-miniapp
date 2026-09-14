@@ -275,6 +275,7 @@ export default {
   'Tester les notifications': 'Probar las notificaciones',
   'Toi : ': 'Tú: ',
   'Ton compte et tes données ont été supprimés.': 'Tu cuenta y tus datos han sido eliminados.',
+  'Pour recommencer, ferme {app} et rouvre-le depuis le bot.': 'Para volver a empezar, cierra {app} y vuelve a abrirlo desde el bot.',
   'Ton profil': 'Tu perfil',
   'Ton profil est déjà vérifié.': 'Tu perfil ya está verificado.',
   'Ton profil ne doit contenir ni numéro, ni lien, ni pseudo, ni demande d\'argent.': 'Tu perfil no debe contener ni número, ni enlace, ni usuario, ni petición de dinero.',

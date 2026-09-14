@@ -93,13 +93,15 @@ test/
   limites-instances (PostgreSQL seulement : deux processus, un seul quota), moderation,
   moderation-session, notifications, pages-publiques, photos, production, profiles,
   match-policy (le seul fichier qui lève MATCH_POLICY : ce que la personne choisit alors),
-  rendezvous, securite, stockage, verre, webhook
+  rendezvous, securite, stockage,
+  suppression (le compte ne revient pas par le signal de fermeture ; signalements, personne de
+  confiance et selfie du groupe partent avec lui), verre, webhook
   (tous rejoués sur PostgreSQL par npm run test:pg)
 e2e/
   aides.js       Gestes partagés : ouvrir, créer un profil, se faire vérifier
-  inscription, discussion, mesure, pages-publiques, verre,
+  inscription, discussion, mesure, pages-publiques, suppression (plus aucune requête après), verre,
   voix-et-filtres (genre recherché à l'écran, et la présentation vocale proposée à la vérification)
-  (26 tests Playwright, npm run e2e)
+  (27 tests Playwright, npm run e2e)
 scripts/
   chiffres.js    npm run chiffres : entonnoir et contre-métriques, --json pour la machine
   import-json.js Reprise d'un db.json existant vers PostgreSQL, événements compris

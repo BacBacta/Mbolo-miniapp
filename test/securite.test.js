@@ -193,12 +193,12 @@ test('un selfie que personne n\'a tranché est purgé, et le compte peut recomme
   assert.ok(fs.existsSync(fichier), 'le selfie est bien sur le disque');
 
   // Rien ne se passe tant que le délai n'est pas dépassé
-  assert.equal(await store.purgerVerificationsOubliees(7 * 86400 * 1000), 0);
+  assert.equal((await store.purgerVerificationsOubliees(7 * 86400 * 1000)).length, 0);
   assert.ok(fs.existsSync(fichier), 'le selfie est conservé pendant le délai');
 
   // Une fois le délai dépassé, il disparaît et le compte repart de zéro
   await store.updateUser('8401', { verificationSentAt: Date.now() - 8 * 86400 * 1000 });
-  assert.equal(await store.purgerVerificationsOubliees(7 * 86400 * 1000), 1);
+  assert.equal((await store.purgerVerificationsOubliees(7 * 86400 * 1000)).length, 1);
   assert.equal(fs.existsSync(fichier), false, 'le selfie est supprimé');
   const u = await store.getUser('8401');
   assert.equal(u.verification, 'none', 'la personne peut recommencer');
