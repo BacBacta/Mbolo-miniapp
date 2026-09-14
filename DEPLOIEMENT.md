@@ -36,6 +36,8 @@ Sur GitHub : **Settings** → **Secrets and variables** → **Actions** → **Ne
 | `BOT_TOKEN` | oui | Donné par BotFather |
 | `ADMIN_CHAT_ID` | oui | L'identifiant de ton groupe de modération |
 | `ADMIN_KEY` | non | Protège les QR codes des lieux. Généré au hasard si absent |
+
+**Chaque secret doit avoir sa propre valeur.** Le serveur refuse de démarrer en production si deux d'entre eux portent la même chaîne, et dit lesquels. La raison : `ADMIN_KEY` voyage dans des URL — le chemin du webhook Telegram en porte une copie, donc chaque message reçu la promène dans les journaux de requêtes — alors que `BACKUP_SECRET` ouvre les sauvegardes, c'est-à-dire tous les profils et tous les messages. Partagée, une adresse aperçue dans un journal suffirait à tout déchiffrer. **Et `BACKUP_SECRET` ne se remplace jamais sans avoir gardé l'ancien ailleurs** : les copies déjà écrites ne s'ouvrent qu'avec lui.
 | `WEB_SESSION_SECRET` | non | Signe les sessions de l'espace de modération. Tiré au hasard **au premier déploiement seulement** : le reposer à chaque fois déconnecterait la modération à chaque mise en ligne. Renseigne-le si tu veux le maîtriser, ou pour déployer plusieurs machines qui partagent les mêmes sessions |
 
 ### 2. Le déploiement

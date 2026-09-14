@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import QRCode from 'qrcode';
-import { config, venues } from './config.js';
+import { config, venues, secretsPartages } from './config.js';
 import { codeDuLieu } from './lieux.js';
 import { store, modeStockage, pret } from './store.js';
 import { api } from './routes.js';
@@ -30,6 +30,40 @@ if (config.isProd && !config.adminChatId) {
     "la valeur obtenue dans ADMIN_CHAT_ID (secret de l'hébergeur ou du dépôt).",
   ].join('\n'));
   process.exit(1);
+}
+
+// Deux secrets qui portent la même valeur : la sécurité du plus sensible tombe à celle du plus
+// exposé. Le cas s'est produit ici — ADMIN_KEY, WEB_SESSION_SECRET et BACKUP_SECRET partageaient
+// une chaîne, et ADMIN_KEY voyage dans le chemin du webhook Telegram, donc dans les journaux de
+// requêtes, alors que BACKUP_SECRET déchiffre tous les profils et tous les messages.
+//
+// Hors production, on le dit sans bloquer : un .env de développement recopié à la va-vite ne met
+// personne en danger, et refuser de démarrer ferait perdre du temps sans rien protéger.
+const partages = secretsPartages();
+if (partages.length) {
+  const groupes = partages.map((noms) => `  ${noms.join(', ')}`).join('\n');
+  if (config.isProd) {
+    console.error([
+      `Des secrets partagent la même valeur alors que NODE_ENV vaut production. ${config.appName} ne démarre pas.`,
+      '',
+      groupes,
+      '',
+      "Chacun protège autre chose, et ils ne s'exposent pas de la même façon : ADMIN_KEY voyage",
+      'dans des URL — le chemin du webhook Telegram en porte une copie — tandis que BACKUP_SECRET',
+      'ouvre les sauvegardes, donc tous les profils et tous les messages. Une adresse aperçue dans',
+      'un journal suffirait alors à tout déchiffrer.',
+      '',
+      "Ils n'ont pas non plus la même durée de vie : WEB_SESSION_SECRET peut changer souvent, ça ne",
+      "coûte qu'une reconnexion ; BACKUP_SECRET ne se change jamais sans garder l'ancien, sous",
+      'peine de rendre illisibles toutes les copies déjà écrites.',
+      '',
+      "À faire : donne à chacun sa propre valeur, et garde l'ancienne de BACKUP_SECRET ailleurs",
+      'avant de la remplacer.',
+      'Sous PowerShell : [Convert]::ToHexString((1..32 | %{ Get-Random -Max 256 }))',
+    ].join('\n'));
+    process.exit(1);
+  }
+  console.warn(`Attention : des secrets partagent la même valeur —\n${groupes}\nEn production, le serveur refuserait de démarrer.`);
 }
 
 // Même raisonnement, pour les codes des lieux partenaires. Sans VENUE_SECRET, le secret est tiré

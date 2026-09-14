@@ -189,3 +189,67 @@ test("l'écran d'accueil ne promet pas le QR code à qui n'aura pas de lieu part
   assert.ok(!/QR code/.test(accueil), "ni la confirmation d'arrivée qui va avec");
   assert.match(accueil, /lieu public/, 'ce que l\'app tient vraiment dès le premier jour');
 });
+
+// ---------- Deux secrets ne doivent jamais porter la même valeur ----------
+//
+// C'est arrivé en production : ADMIN_KEY, WEB_SESSION_SECRET et BACKUP_SECRET partageaient une
+// seule chaîne, et personne ne pouvait le voir depuis le code — il a fallu lire la liste des
+// secrets chez l'hébergeur, où trois lignes affichaient la même empreinte.
+//
+// Ce qui rend la coïncidence grave : ADMIN_KEY voyage dans des URL. Le chemin du webhook
+// Telegram en porte une copie (server/bot.js), donc chaque message reçu la promène dans les
+// journaux de requêtes. BACKUP_SECRET, lui, déchiffre les sauvegardes — tous les profils et tous
+// les messages. La sécurité du plus sensible tombait à celle du plus exposé.
+
+test('en production, deux secrets qui partagent une valeur empêchent le démarrage', () => {
+  const r = demarrer({
+    NODE_ENV: 'production', ADMIN_CHAT_ID: '-100',
+    ADMIN_KEY: 'la-meme-chaine', BACKUP_SECRET: 'la-meme-chaine',
+  });
+  assert.equal(r.code, 1, `le serveur devait refuser de démarrer :\n${r.sortie}`);
+  assert.match(r.sortie, /partagent la même valeur/);
+  assert.match(r.sortie, /ADMIN_KEY, BACKUP_SECRET/, 'et nommer lesquels, sinon il faut deviner');
+  assert.ok(!r.sortie.includes('la-meme-chaine'),
+    'la valeur partagée ne doit jamais être écrite : ce message finit dans un journal');
+});
+
+test('trois secrets partagés sont signalés ensemble, pas deux par deux', () => {
+  const r = demarrer({
+    NODE_ENV: 'production', ADMIN_CHAT_ID: '-100',
+    ADMIN_KEY: 'x', WEB_SESSION_SECRET: 'x', BACKUP_SECRET: 'x',
+  });
+  assert.equal(r.code, 1);
+  assert.match(r.sortie, /ADMIN_KEY, WEB_SESSION_SECRET, BACKUP_SECRET/,
+    'le cas réel : un seul groupe qui dit toute la coïncidence');
+});
+
+test('des secrets distincts ne gênent personne', () => {
+  const r = demarrer({
+    NODE_ENV: 'production', ADMIN_CHAT_ID: '-100',
+    ADMIN_KEY: 'a', WEB_SESSION_SECRET: 'b', BACKUP_SECRET: 'c', VENUE_SECRET: 'd',
+  }, 6000);
+  assert.ok(!/partagent la même valeur/.test(r.sortie), `rien à signaler :\n${r.sortie}`);
+});
+
+// Plusieurs secrets absents ne sont pas plusieurs secrets identiques. Ne rien poser est un choix
+// légitime — le serveur tire alors une valeur au hasard, ou éteint la fonction — et bloquer là
+// -dessus rendrait impossible tout déploiement qui n'utilise pas encore les lieux partenaires.
+test('des secrets vides ne comptent pas comme partagés', () => {
+  const r = demarrer({
+    NODE_ENV: 'production', ADMIN_CHAT_ID: '-100',
+    WEB_SESSION_SECRET: '', VENUE_SECRET: '', BACKUP_SECRET: '',
+  }, 6000);
+  assert.ok(!/partagent la même valeur/.test(r.sortie), `trois vides ne sont pas un groupe :\n${r.sortie}`);
+});
+
+// Hors production, on prévient sans bloquer : un .env de développement recopié à la va-vite ne
+// met personne en danger, et refuser de démarrer ferait perdre du temps sans rien protéger.
+test('hors production, le partage est signalé mais n\'empêche pas de développer', () => {
+  const r = demarrer({
+    NODE_ENV: 'development', ADMIN_CHAT_ID: '',
+    ADMIN_KEY: 'pareil', BACKUP_SECRET: 'pareil',
+  }, 6000);
+  assert.match(r.sortie, /Attention : des secrets partagent/);
+  assert.match(r.sortie, /refuserait de démarrer/, 'et dit ce qui se passerait en production');
+  assert.match(r.sortie, /écoute sur le port/, 'mais le serveur démarre quand même');
+});
