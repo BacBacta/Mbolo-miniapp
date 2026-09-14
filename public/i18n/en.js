@@ -227,6 +227,7 @@ export default {
   'Réponds à la question sur toi.': 'Answer the question about yourself.',
   'Réservé aux 18 ans et plus. En continuant, tu acceptes les règles de la communauté : respect, aucune demande d\'argent, aucun contenu sexuel.': 'For ages 18 and over. By continuing you accept the community rules: respect, no money requests, no sexual content.',
   'Salut {nom}': 'Hi {nom}',
+  'Samedi 16 h, café de la fac ?': 'Saturday 4 pm, the campus café?',
   'Samedi, 11 h': 'Saturday, 11 am',
   'Sans rien signaler': 'Without reporting anything',
   'Scanne le code posé sur ta table': 'Scan the code on your table',
