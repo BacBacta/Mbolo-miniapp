@@ -29,7 +29,7 @@
   <p><strong>Ton pseudo Telegram et ton numéro de téléphone ne nous sont jamais transmis</strong>, et ne sont donc jamais montrés aux autres membres.</p>
 
   <h3>Ton profil</h3>
-  <p>Tu saisis toi-même : prénom, âge, genre, intention (amitié, relation sérieuse), pays, ville, quartier, une question et sa réponse, et les langues que tu parles. En « relation sérieuse », deux questions facultatives s'ajoutent : le mariage et les enfants. <strong>Nous ne demandons ni ta religion, ni ton appartenance ethnique, ni ton orientation</strong> — et nous ne les demanderons pas. Ces informations servent à te présenter aux autres membres et à trouver des personnes compatibles.</p>
+  <p>Tu saisis toi-même : prénom, âge, genre, intention (amitié, relation sérieuse), pays, ville, quartier, une question et sa réponse, et les langues que tu parles. En « relation sérieuse », deux questions facultatives s'ajoutent : le mariage et les enfants. <!--SI_GENRE_FERME--><strong>Nous ne demandons ni ta religion, ni ton appartenance ethnique, ni ton orientation</strong> — et nous ne les demanderons pas.<!--/SI_GENRE_FERME--><!--SI_GENRE_OUVERT--><strong>Nous ne demandons ni ta religion, ni ton appartenance ethnique.</strong><!--/SI_GENRE_OUVERT--> Ces informations servent à te présenter aux autres membres et à trouver des personnes compatibles.</p>
   <p>Tu peux ajouter jusqu'à <strong>trois photos</strong>. Chacune est examinée par la modération avant d'être visible. Une photo refusée est supprimée.</p>
 
   <h3>La présentation vocale</h3>
@@ -47,7 +47,7 @@
     <li>Tes <strong>messages</strong>, pour qu'ils s'affichent dans la discussion.</li>
     <li>Tes <strong>blocages et signalements</strong>, pour la sécurité des membres.</li>
     <li>Tes <strong>propositions de rendez-vous</strong> : le lieu, le créneau, et la confirmation d'arrivée si tu scannes le code sur place.</li>
-    <li>Tes <strong>réglages de recherche</strong> : tranche d'âge et zone.</li>
+    <li>Tes <strong>réglages de recherche</strong> : tranche d'âge et zone<!--SI_GENRE_OUVERT-->, et le <strong>genre des personnes que tu veux voir</strong> si tu en choisis un<!--/SI_GENRE_OUVERT-->.</li>
     <li>La <strong>date de ta dernière activité</strong>. Les autres n'en voient qu'une tranche approximative (« actif cette semaine »), jamais l'heure exacte.</li>
     <li>La <strong>date de ton inscription</strong>. Les autres n'en voient qu'un badge « Nouveau » pendant la première semaine, jamais la date.</li>
   </ul>
@@ -63,9 +63,18 @@
   <h3>Ta position</h3>
   <p><strong>L'application ne demande jamais ta position GPS.</strong> Au premier lancement, ton navigateur nous transmet le <strong>fuseau horaire</strong> de ton téléphone pour deviner ton pays et pré-remplir le menu. Ce fuseau <strong>n'est ni enregistré ni journalisé</strong> : il donne un pays, jamais une ville. Ta ville est celle que tu écris, et ton choix l'emporte toujours.</p>
 
-  <h2>Ce qu'on ne collecte pas, et ne collectera pas</h2>
+<!--SI_GENRE_FERME-->  <h2>Ce qu'on ne collecte pas, et ne collectera pas</h2>
   <p>Nous ne collectons <strong>aucune donnée d'orientation sexuelle ni d'appartenance ethnique</strong>. Ce n'est pas un oubli : dans le contexte pénal camerounais, conserver ces informations exposerait des membres à un danger réel en cas de fuite ou de réquisition. L'application est conçue pour ne jamais les demander.</p>
   <p>Nous ne collectons pas non plus de coordonnées bancaires ni de code secret.</p>
+<!--/SI_GENRE_FERME--><!--SI_GENRE_OUVERT-->  <h2>Le genre que tu cherches</h2>
+  <p>Sur cette installation, tu peux dire <strong>quel genre tu veux voir</strong> : tout le monde, des femmes, ou des hommes. Ce réglage est <strong>facultatif</strong> — par défaut, il vaut « tout le monde », et rien n'est alors enregistré à ce sujet.</p>
+  <p>Si tu en choisis un, il faut le savoir : rapproché de ton propre genre et de ton intention, <strong>ce choix indique ton orientation sexuelle</strong>. Nous le conservons pour une seule chose, décider des profils qu'on te montre. Il n'est <strong>jamais montré aux autres membres</strong>, il ne sert ni à te classer ni à te cibler, tu peux revenir à « tout le monde » à tout moment, et il disparaît avec ton compte.</p>
+  <p>Cette possibilité n'est pas ouverte partout : dans un pays où l'orientation expose à des poursuites, l'application est configurée pour ne jamais la demander, et c'est alors le service lui-même qui apparie une femme et un homme.</p>
+
+  <h2>Ce qu'on ne collecte pas, et ne collectera pas</h2>
+  <p>Nous ne collectons <strong>aucune donnée d'appartenance ethnique</strong>, ni religieuse.</p>
+  <p>Nous ne collectons pas non plus de coordonnées bancaires ni de code secret.</p>
+<!--/SI_GENRE_OUVERT-->
 
   <h2>Qui voit quoi</h2>
   <ul>

@@ -20,6 +20,16 @@ primary_region = "cdg"
   # Profils de démonstration : à « true » pour une machine de démonstration, jamais pour de
   # vraies personnes, qui se retrouveraient à écrire à des profils qui n'existent pas.
   SEED_DEMO = "false"
+  # Politique de mise en relation. « open » lève la règle femme/homme en relation sérieuse, et
+  # c'est alors la personne qui dit quel genre elle cherche — sans quoi elle verrait des profils
+  # qu'elle n'a pas demandés. Ce choix est une donnée d'orientation : la page de confidentialité
+  # le dit sous cette politique (server/index.js, selonLaPolitique), il reste facultatif, et
+  # « tout le monde » par défaut n'enregistre rien de personne.
+  #
+  # Le réglage est GLOBAL au serveur, pas par pays : cette instance l'applique à Yaoundé comme à
+  # Bruxelles. Repasser à "romance_opposite" referme le choix, cesse de lire le champ, et rend à
+  # la page de confidentialité sa promesse d'origine. Décision du propriétaire, 14 septembre 2026.
+  MATCH_POLICY = "open"
   # AUTO_APPROVE n'est volontairement pas ici : NODE_ENV vaut production, et la validation
   # automatique des selfies y est éteinte quoi qu'on écrive (server/config.js). La modération
   # passe par ADMIN_CHAT_ID, posé en secret par deployer-fly.sh.

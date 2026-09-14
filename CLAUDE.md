@@ -137,7 +137,7 @@ identite/
 
 ### Sécurité et données
 1. **Ne jamais faire confiance au client.** Toute identité vient de `initData` validé sur le serveur. `initDataUnsafe` sert uniquement à préremplir l'interface.
-2. **Aucune donnée d'orientation sexuelle ni d'ethnie** n'est collectée. Voir `MATCH_POLICY` dans le README : le cadre pénal camerounais rend ces données dangereuses pour les utilisateurs.
+2. **Aucune donnée d'ethnie ni de religion** n'est collectée, jamais. L'**orientation** suit `MATCH_POLICY` (voir README), et un seul endroit tranche, `genreAuChoix()` : sous `romance_opposite`, personne ne choisit son genre recherché en relation sérieuse et rien n'en est enregistré — c'est ce réglage qui protège les membres là où le cadre pénal rend cette donnée dangereuse (article 347-1 au Cameroun, pièges tendus via les applications de rencontre, danger en cas de fuite ou de réquisition). Sous une politique levée, la personne choisit, et ce choix **est** une donnée d'orientation : il reste facultatif, vaut « tout le monde » par défaut, n'est montré à personne, part avec le compte, et **la page de confidentialité le dit** — `selonLaPolitique()` dans `server/index.js` sert la version qui correspond au serveur. **Cette instance tourne sur la politique levée depuis le 14 septembre 2026**, décision du propriétaire pour servir la Belgique ; la refermer est une ligne de `fly.toml`.
 3. **Le selfie de vérification n'est jamais servi aux autres membres** et reste supprimé après la décision de modération.
 4. **Toute nouvelle donnée personnelle** doit être minimale, justifiée, supprimée par `DELETE /api/me`, et signalée dans le README (loi camerounaise n° 2024/017 sur les données personnelles).
 5. **Aucun secret dans le code ni dans Git.** `.env` reste ignoré.
