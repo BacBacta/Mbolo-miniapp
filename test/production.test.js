@@ -292,13 +292,55 @@ test('des empreintes distinctes laissent le déploiement continuer', () => {
   assert.equal(r.status, 0, `rien à signaler :\n${r.stdout}${r.stderr}`);
 });
 
-// Ce que les quatre cas ci-dessus ne voyaient pas : `deployer-fly.sh` pose les secrets juste
-// avant de lire cette liste (`flyctl secrets set --stage`), et flyctl marque d'un « * » tout
-// secret pas encore déployé, d'un « ! » celui qui n'est arrivé que sur une partie des machines.
-// Toutes les lignes que le contrôle voit portent donc un marqueur. Sans le prévoir, il ne
+// Ce que les quatre cas ci-dessus ne voyaient pas : la forme réelle de la liste. flyctl la rend
+// avec tablewriter, bordures éteintes — une espace en tête, des cellules séparées par « | » —
+// et `deployer-fly.sh` pose les secrets juste avant de la lire (`flyctl secrets set --stage`),
+// donc chaque secret posé y porte le marqueur « * » dans la cellule du nom, « ! » pour un
+// déploiement partiel. Le premier jet lisait « NOM  empreinte » séparés d'espaces : il ne
 // reconnaissait plus rien et refusait tout déploiement en disant « je n'ai pas su lire » — le
-// 14 septembre 2026, y compris celui qui remettait la production debout.
-test('les secrets fraîchement posés, marqués « * », restent lisibles', () => {
+// 14 septembre 2026, y compris celui qui remettait la production debout, deux fois de suite.
+const LISTE_FLY_REELLE = (lignes) => [
+  ' NAME               | DIGEST           | STATUS   ',
+  ...lignes.map(([nom, empreinte, statut]) => ` ${nom.padEnd(18)} | ${empreinte.padEnd(16)} | ${statut.padEnd(8)} `),
+  '', '2 secrets staged, 1 partial deployment.',
+].join('\n') + '\n';
+
+test('la liste telle que flyctl la rend, marqueurs compris, reste lisible', () => {
+  const r = controlerSecrets(LISTE_FLY_REELLE([
+    ['* BOT_TOKEN', 'eeeeeeeeffffffff', 'Staged'],
+    ['* ADMIN_KEY', 'aaaaaaaabbbbbbbb', 'Staged'],
+    ['! WEB_SESSION_SECRET', '0123456789abcdef', 'Partial'],
+    ['BACKUP_SECRET', 'ccccccccdddddddd', 'Deployed'],
+    ['ADMIN_CHAT_ID', '7777777788888888', 'Deployed'],
+  ]));
+  assert.equal(r.status, 0, `quatre empreintes distinctes, rien à signaler :\n${r.stdout}${r.stderr}`);
+  assert.match(r.stdout, /4 reconnus/, 'et les quatre comptent, marqueur compris, sans ADMIN_CHAT_ID');
+});
+
+test('un partage reste visible sous le marqueur et entre les barres', () => {
+  const r = controlerSecrets(LISTE_FLY_REELLE([
+    ['* ADMIN_KEY', 'c095251a7d8ce235', 'Staged'],
+    ['* BOT_TOKEN', 'eeeeeeeeffffffff', 'Staged'],
+    ['* BACKUP_SECRET', 'c095251a7d8ce235', 'Staged'],
+  ]));
+  assert.equal(r.status, 1, 'le marqueur ne doit pas rendre le partage invisible');
+  assert.match(r.stderr, /ADMIN_KEY, BACKUP_SECRET/);
+});
+
+// L'alphabet de l'empreinte n'est pas une promesse de l'hébergeur : c'est sa colonne qui la
+// désigne. Une empreinte qui ne serait pas hexadécimale doit compter comme les autres.
+test("l'empreinte est reconnue par sa colonne, pas par son alphabet", () => {
+  const r = controlerSecrets(LISTE_FLY_REELLE([
+    ['* BOT_TOKEN', 'kBOB9mXJhQY=', 'Staged'],
+    ['ADMIN_KEY', 'Zz+/AbCdEf==', 'Deployed'],
+  ]));
+  assert.equal(r.status, 0, `deux empreintes distinctes :\n${r.stderr}`);
+  assert.match(r.stdout, /2 reconnus/);
+});
+
+// Et la forme d'avant, « NOM  empreinte » séparés d'espaces, reste lue : c'est celle des cas
+// ci-dessus, et un jour flyctl peut cesser de dessiner des barres.
+test('les secrets fraîchement posés, marqués « * », restent lisibles sans barres', () => {
   const r = controlerSecrets(LISTE_FLY([
     '*\tADMIN_KEY\taaaaaaaabbbbbbbb\t1 minute ago',
     '*\tBOT_TOKEN\teeeeeeeeffffffff\t1 minute ago',
@@ -306,17 +348,7 @@ test('les secrets fraîchement posés, marqués « * », restent lisibles', () =
     'BACKUP_SECRET\tccccccccdddddddd\t1 month ago',
   ]));
   assert.equal(r.status, 0, `quatre empreintes distinctes, rien à signaler :\n${r.stdout}${r.stderr}`);
-  assert.match(r.stdout, /4 reconnus/, 'et les quatre comptent, marqueur compris');
-});
-
-test('un partage reste visible sous le marqueur', () => {
-  const r = controlerSecrets(LISTE_FLY([
-    '*\tADMIN_KEY\tc095251a7d8ce235\t1 minute ago',
-    '*\tBOT_TOKEN\teeeeeeeeffffffff\t1 minute ago',
-    '*\tBACKUP_SECRET\tc095251a7d8ce235\t1 minute ago',
-  ]));
-  assert.equal(r.status, 1, 'le marqueur ne doit pas rendre le partage invisible');
-  assert.match(r.stderr, /ADMIN_KEY, BACKUP_SECRET/);
+  assert.match(r.stdout, /4 reconnus/);
 });
 
 // L'identifiant du groupe de modération n'est pas un secret, et deux variables de confort qui se
