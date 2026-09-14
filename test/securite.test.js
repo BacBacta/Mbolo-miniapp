@@ -15,6 +15,8 @@ process.env.AUTO_APPROVE = 'false';
 
 const express = (await import('express')).default;
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 const { venues, VENUES_DEMO } = await import('../server/config.js');
@@ -41,8 +43,8 @@ async function creer(id, name, gender) {
   await store.updateUser(id, { verification: 'approved' });
 }
 async function matcher(a, b) {
-  await call(a, '/swipes', 'POST', { targetId: b, action: 'like' });
-  const r = await call(b, '/swipes', 'POST', { targetId: a, action: 'like' });
+  await call(a, '/swipes', 'POST', { targetId: await pid(b), action: 'like' });
+  const r = await call(b, '/swipes', 'POST', { targetId: await pid(a), action: 'like' });
   return r.body.match.id;
 }
 
@@ -57,7 +59,7 @@ test('un compte bloqué ne peut plus déclencher de notification d\'arrivée', a
   assert.equal(d.status, 200);
 
   // Awa signale Éric, ce qui le bloque
-  const s = await call('8201', '/reports', 'POST', { targetId: '8202', reason: 'argent' });
+  const s = await call('8201', '/reports', 'POST', { targetId: await pid('8202'), reason: 'argent' });
   assert.equal(s.status, 200);
 
   const c = await call('8202', `/dates/${d.body.date.id}/checkin`, 'POST', { code: codeDuLieu(lieu.id) });
@@ -163,7 +165,7 @@ test('on peut bloquer sans accuser, et le blocage ferme la discussion', async ()
   const matchId = await matcher('8303', '8304');
 
   const avant = (await store.allUsers()).length;
-  const r = await call('8303', '/blocks', 'POST', { targetId: '8304' });
+  const r = await call('8303', '/blocks', 'POST', { targetId: await pid('8304') });
   assert.equal(r.status, 200);
   assert.equal(await store.isBlocked('8303', '8304'), true);
   assert.equal((await call('8304', `/matches/${matchId}/messages`, 'POST', { text: 'Tu es là ?' })).status, 404, 'plus aucun message ne passe');

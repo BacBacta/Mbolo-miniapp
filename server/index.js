@@ -93,12 +93,31 @@ const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '3mb' }));
 
-// En-têtes de sécurité de base. frame-ancestors autorise l'affichage dans Telegram Web.
+// En-têtes de sécurité. La politique de sécurité de contenu dit d'où chaque chose peut venir :
+// les scripts du serveur et du SDK Telegram, rien en ligne — toute l'interface passe par
+// innerHTML, et le jour où un champ échappe à esc(), un script injecté ne doit rien pouvoir
+// exécuter ni envoyer (audit/09-revue-code.md, I8). Les styles en ligne restent permis : l'app
+// en pose neuf, tous fixes, et un style ne lit pas initData. frame-ancestors autorise Telegram Web.
+export const CSP = [
+  "default-src 'self'",
+  "script-src 'self' https://telegram.org",
+  "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'",
+  'font-src https://fonts.gstatic.com',
+  "img-src 'self' blob: data:",
+  "media-src 'self' blob:",
+  "connect-src 'self'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org",
+].join('; ');
 app.use((req, res, next) => {
   res.set({
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'no-referrer',
-    'Content-Security-Policy': "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org",
+    'Content-Security-Policy': CSP,
+    // Les navigateurs ne doivent plus essayer http : l'hébergeur termine le TLS, l'en-tête, lui,
+    // vient d'ici. Hors production, rien — un cookie ou une page en http local resterait utilisable.
+    ...(config.isProd ? { 'Strict-Transport-Security': 'max-age=15552000' } : {}),
   });
   next();
 });
@@ -163,7 +182,7 @@ for (const [route, fichier] of Object.entries(PAGES_PUBLIQUES)) {
 
 // Les autres fichiers du navigateur sont compressés une fois au démarrage. Sans cela, styles.css
 // partait en 39 651 octets bruts à chaque premier chargement, sur un forfait data compté.
-const FICHIERS_COMPRESSES = { 'styles.css': 'css', 'tg.js': 'js', 'ui.js': 'js', 'i18n.js': 'js', 'i18n/en.js': 'js', 'i18n/ru.js': 'js', 'i18n/uk.js': 'js' };
+const FICHIERS_COMPRESSES = { 'styles.css': 'css', 'tg.js': 'js', 'ui.js': 'js', 'i18n.js': 'js', 'scheme.js': 'js', 'i18n/en.js': 'js', 'i18n/ru.js': 'js', 'i18n/uk.js': 'js' };
 for (const [nom, type] of Object.entries(FICHIERS_COMPRESSES)) {
   const chemin = path.join(config.publicDir, nom);
   if (!fs.existsSync(chemin)) continue;

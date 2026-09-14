@@ -24,6 +24,8 @@ process.env.MATCH_POLICY = 'open';
 
 const express = (await import('express')).default;
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 bot.api.sendMessage = async () => ({});
@@ -54,8 +56,8 @@ test("la règle femme/homme ne s'applique plus", async () => {
   // Sans la règle, tout le monde est compatible : c'est précisément ce qui rend le choix
   // nécessaire, et non plus dangereux à demander.
   const cartes = ids(await call('9001', '/discover'));
-  assert.ok(cartes.includes('9002'), 'deux femmes peuvent se voir');
-  assert.ok(cartes.includes('9003'), 'et les hommes aussi');
+  assert.ok(cartes.includes(await pid('9002')), 'deux femmes peuvent se voir');
+  assert.ok(cartes.includes(await pid('9003')), 'et les hommes aussi');
 });
 
 test("l'app annonce que le genre se choisit, et le range en relation sérieuse", async () => {
@@ -69,7 +71,7 @@ test("l'app annonce que le genre se choisit, et le range en relation sérieuse",
   assert.equal(r.body.filters.gender, 'femme', 'ici, le choix est retenu');
 
   const cartes = ids(await call('9010', '/discover'));
-  assert.ok(cartes.includes('9011') && !cartes.includes('9012'), 'et il trie le paquet');
+  assert.ok(cartes.includes(await pid('9011')) && !cartes.includes(await pid('9012')), 'et il trie le paquet');
 });
 
 test('une valeur hors de la liste reste refusée', async () => {

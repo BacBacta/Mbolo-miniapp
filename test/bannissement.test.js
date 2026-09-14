@@ -21,6 +21,8 @@ process.env.ADMIN_CHAT_ID = '-1001234567890';
 
 const express = (await import('express')).default;
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { config } = await import('../server/config.js');
 const { bot, setupBot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
@@ -106,20 +108,21 @@ test('revenir avec le même compte Telegram ne le ressuscite pas', async () => {
 test('un compte banni disparaît de la découverte et des listes', async () => {
   await creer('8002', 'Bana');
   await creer('8003', 'Cyrille', 'homme');
-  assert.ok((await profilsVusPar('8002')).includes('8003'), 'ils se voient avant');
+  const p8003 = await pid('8003');
+  assert.ok((await profilsVusPar('8002')).includes(p8003), 'ils se voient avant');
 
   await store.banUser('8003', { motif: 'harcèlement', par: '42' });
-  assert.ok(!(await profilsVusPar('8002')).includes('8003'), 'et plus après');
+  assert.ok(!(await profilsVusPar('8002')).includes(p8003), 'et plus après');
 
   const d = await call('8002', '/discover');
-  assert.ok(!d.body.profiles.some((p) => p.id === '8003'), 'ni dans les cartes');
+  assert.ok(!d.body.profiles.some((p) => p.id === p8003), 'ni dans les cartes');
 });
 
 test('ses matchs sont défaits : personne ne reste en discussion avec lui', async () => {
   await creer('8004', 'Diane');
   await creer('8005', 'Éric', 'homme');
-  await call('8004', '/swipes', 'POST', { targetId: '8005', action: 'like' });
-  const m = (await call('8005', '/swipes', 'POST', { targetId: '8004', action: 'like' })).body.match;
+  await call('8004', '/swipes', 'POST', { targetId: await pid('8005'), action: 'like' });
+  const m = (await call('8005', '/swipes', 'POST', { targetId: await pid('8004'), action: 'like' })).body.match;
   assert.ok(m, 'le match existe');
 
   await store.banUser('8005', { motif: 'arnaque', par: '42' });
@@ -167,7 +170,7 @@ test('bannir un compte qui n\'existe pas ne fait rien exploser', async () => {
 test('un signalement arrive dans le groupe avec un bouton pour fermer le compte', async () => {
   await creer('8010', 'Hawa');
   await creer('8011', 'Ibrahim', 'homme');
-  await call('8010', '/reports', 'POST', { targetId: '8011', reason: 'demande argent' });
+  await call('8010', '/reports', 'POST', { targetId: await pid('8011'), reason: 'demande argent' });
 
   const msg = dernier('Signalement');
   assert.ok(msg, 'la modération est prévenue');
@@ -179,8 +182,8 @@ test('un signalement arrive dans le groupe avec un bouton pour fermer le compte'
 test('un message bloqué par l\'anti-arnaque porte le même bouton', async () => {
   await creer('8012', 'Joséphine');
   await creer('8013', 'Kevin', 'homme');
-  await call('8012', '/swipes', 'POST', { targetId: '8013', action: 'like' });
-  const m = (await call('8013', '/swipes', 'POST', { targetId: '8012', action: 'like' })).body.match;
+  await call('8012', '/swipes', 'POST', { targetId: await pid('8013'), action: 'like' });
+  const m = (await call('8013', '/swipes', 'POST', { targetId: await pid('8012'), action: 'like' })).body.match;
   await call('8013', `/matches/${m.id}/messages`, 'POST', { text: 'envoie-moi 5000 f par orange money' });
 
   const msg = dernier('Message bloqué');

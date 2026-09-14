@@ -26,6 +26,8 @@ const { config, runtime, venues, VENUES_DEMO } = await import('../server/config.
 const { codeDuLieu } = await import('../server/lieux.js');
 venues.push(...VENUES_DEMO);
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot, setupBot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 const { PREFIXE, porteurDuCode } = await import('../server/confiance.js');
@@ -190,8 +192,8 @@ test("prévenir maintenant ne nomme jamais l'autre personne", async () => {
   await toucher(`conf:oui:${code450}`, '452');
   await attendre(async () => !!(await store.getUser('450')).confiance, "l'accord");
 
-  await call('450', '/swipes', 'POST', { targetId: '451', action: 'like' });
-  const m = (await call('451', '/swipes', 'POST', { targetId: '450', action: 'like' })).body.match;
+  await call('450', '/swipes', 'POST', { targetId: await pid('451'), action: 'like' });
+  const m = (await call('451', '/swipes', 'POST', { targetId: await pid('450'), action: 'like' })).body.match;
 
   const avant = recus('452').length;
   const r = await call('450', `/matches/${m.id}/prevenir`, 'POST');
@@ -206,8 +208,8 @@ test("prévenir maintenant ne nomme jamais l'autre personne", async () => {
 test("sans personne de confiance, prévenir dit quoi faire plutôt que d'échouer", async () => {
   await membre('460', 'Hawa');
   await membre('461', 'Ibrahim', 'homme');
-  await call('460', '/swipes', 'POST', { targetId: '461', action: 'like' });
-  const m = (await call('461', '/swipes', 'POST', { targetId: '460', action: 'like' })).body.match;
+  await call('460', '/swipes', 'POST', { targetId: await pid('461'), action: 'like' });
+  const m = (await call('461', '/swipes', 'POST', { targetId: await pid('460'), action: 'like' })).body.match;
 
   const r = await call('460', `/matches/${m.id}/prevenir`, 'POST');
   assert.equal(r.status, 409);
@@ -225,8 +227,8 @@ test('un rendez-vous accepté prévient les deux personnes de confiance, sans di
     await toucher(`conf:oui:${code}`, amiId);
     await attendre(async () => !!(await store.getUser(membreId)).confiance, `accord de ${amiId}`);
   }
-  await call('470', '/swipes', 'POST', { targetId: '471', action: 'like' });
-  const m = (await call('471', '/swipes', 'POST', { targetId: '470', action: 'like' })).body.match;
+  await call('470', '/swipes', 'POST', { targetId: await pid('471'), action: 'like' });
+  const m = (await call('471', '/swipes', 'POST', { targetId: await pid('470'), action: 'like' })).body.match;
   const d = (await call('470', `/matches/${m.id}/dates`, 'POST', { venueId: lieu.id, slot: 'samedi 15h' })).body.date;
   await call('471', `/dates/${d.id}`, 'PUT', { status: 'accepted' });
 

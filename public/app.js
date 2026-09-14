@@ -1076,7 +1076,7 @@ const SCREENS = {
             ${avatar(m.other, 'sm')}
             <div class="body">
               <div class="title">${esc(m.other.name)}${m.other.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${m.aQuiDeParler === 'moi' && !m.unread ? `<span class="tour">${t('À toi')}</span>` : ''}</div>
-              <div class="preview">${m.lastMessage ? `${m.lastMessage.from === S.me.id ? t('Toi : ') : ''}${esc(m.lastMessage.text)}` : t('Nouveau match, écris le premier message')}</div>
+              <div class="preview">${m.lastMessage ? `${m.lastMessage.mine ? t('Toi : ') : ''}${esc(m.lastMessage.text)}` : t('Nouveau match, écris le premier message')}</div>
             </div>
             ${m.unread ? `<span class="count-badge">${m.unread}</span>` : `<span class="chev">${icon('chevron-right', 18)}</span>`}
           </button>`).join('')}
@@ -2006,6 +2006,11 @@ window.addEventListener('pagehide', leavePresence);
 // ============================================================
 // Démarrage
 // ============================================================
+// Les polices sont demandées en media="print" pour ne pas bloquer le premier écran, puis
+// basculées en « all » ici. C'était un onload en ligne : la politique de sécurité de contenu
+// n'en veut aucun.
+for (const lien of document.querySelectorAll('link[data-differe]')) lien.media = 'all';
+
 async function boot() {
   tg.init();
   // Le flou d'arrière-plan est coupé si l'appareil le rend mal. Sans await : la décision retenue

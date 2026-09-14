@@ -20,6 +20,8 @@ process.env.AUTO_APPROVE = 'false';
 const express = (await import('express')).default;
 const { config } = await import('../server/config.js');
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot, decideVerification } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 bot.api.config.use(async () => ({ ok: true, result: { message_id: 1 } }));
@@ -136,11 +138,11 @@ test("le profil, le like, le match et le message sont datés une seule fois", as
   await call('710', '/me/profile', 'PUT', { name: 'Carine', age: 26, gender: 'femme', intent: 'amitie', city: 'Yaoundé', promptA: 'Le poisson braisé' });
   assert.equal((await store.getUser('710')).profileSavedAt, p1, "modifier son profil ne redate pas l'entrée");
 
-  await call('710', '/swipes', 'POST', { targetId: '711', action: 'like' });
+  await call('710', '/swipes', 'POST', { targetId: await pid('711'), action: 'like' });
   const l1 = (await store.getUser('710')).firstLikeAt;
   assert.ok(l1, 'le premier like est daté');
 
-  await call('711', '/swipes', 'POST', { targetId: '710', action: 'like' });
+  await call('711', '/swipes', 'POST', { targetId: await pid('710'), action: 'like' });
   const apres = await Promise.all([store.getUser('710'), store.getUser('711')]);
   for (const u of apres) assert.ok(u.firstMatchAt, `${u.id} : le match est daté des deux côtés`);
   assert.equal(apres[0].firstLikeAt, l1, 'et le premier like ne bouge pas');

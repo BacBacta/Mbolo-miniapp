@@ -14,6 +14,8 @@ process.env.AUTO_APPROVE = 'false';
 
 const express = (await import('express')).default;
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 bot.api.sendMessage = async () => ({});
@@ -53,27 +55,27 @@ test('cartes et liste respectent la tranche ; un like reçu l\'ignore', async ()
   await makeUser('7402', 'Paul', 'homme', 27); // dans la tranche
   await makeUser('7403', 'Marc', 'homme', 40); // hors tranche
   await makeUser('7404', 'Jean', 'homme', 45); // hors tranche, mais il m'a liké
-  await call('7404', '/swipes', 'POST', { targetId: '7401', action: 'like' });
+  await call('7404', '/swipes', 'POST', { targetId: await pid('7401'), action: 'like' });
 
   const cartes = ids(await call('7401', '/discover'));
-  assert.ok(cartes.includes('7402') && !cartes.includes('7403') && !cartes.includes('7404'), 'le paquet filtre par âge');
+  assert.ok(cartes.includes(await pid('7402')) && !cartes.includes(await pid('7403')) && !cartes.includes(await pid('7404')), 'le paquet filtre par âge');
   const liste = ids(await call('7401', '/profiles'));
-  assert.ok(liste.includes('7402') && !liste.includes('7403'), 'la liste aussi');
+  assert.ok(liste.includes(await pid('7402')) && !liste.includes(await pid('7403')), 'la liste aussi');
 
   const likes = await call('7401', '/likes');
-  assert.deepEqual(ids(likes), ['7404'], 'Jean, hors tranche, apparaît quand même dans les likes reçus');
+  assert.deepEqual(ids(likes), [await pid('7404')], 'Jean, hors tranche, apparaît quand même dans les likes reçus');
   assert.equal(likes.body.profiles[0].activity, 'week', 'activité rabattue avant le match');
   assert.ok(!JSON.stringify(likes.body).includes('lastActiveAt'));
   assert.equal((await call('7401', '/summary')).body.likes, 1, 'le compteur de l\'onglet compte ce like');
 });
 
 test('un like reçu disparaît des likes dès que j\'ai répondu', async () => {
-  await call('7401', '/swipes', 'POST', { targetId: '7404', action: 'pass' });
+  await call('7401', '/swipes', 'POST', { targetId: await pid('7404'), action: 'pass' });
   assert.deepEqual(ids(await call('7401', '/likes')), [], 'passé : plus en attente');
   assert.equal((await call('7401', '/summary')).body.likes, 0);
   // Bloqué : jamais listé, même s'il a liké
   await makeUser('7405', 'Luc', 'homme', 26);
-  await call('7405', '/swipes', 'POST', { targetId: '7401', action: 'like' });
+  await call('7405', '/swipes', 'POST', { targetId: await pid('7401'), action: 'like' });
   await store.block('7401', '7405');
   assert.deepEqual(ids(await call('7401', '/likes')), []);
 });
@@ -94,20 +96,20 @@ test('en amitié, le genre recherché se règle et le paquet le suit', async () 
   await makeUser('7411', 'Bea', 'femme', 26);
   await makeUser('7412', 'Cyr', 'homme', 26);
 
-  assert.ok(ids(await call('7410', '/discover')).includes('7412'), 'sans filtre, les deux passent');
+  assert.ok(ids(await call('7410', '/discover')).includes(await pid('7412')), 'sans filtre, les deux passent');
 
   const r = await call('7410', '/me/filters', 'PUT', { ageMin: 18, ageMax: 99, gender: 'femme' });
   assert.equal(r.status, 200);
   assert.equal(r.body.filters.gender, 'femme', 'le choix est rendu tel quel');
 
   const cartes = ids(await call('7410', '/discover'));
-  assert.ok(cartes.includes('7411'), 'les femmes restent');
-  assert.ok(!cartes.includes('7412'), 'les hommes sortent du paquet');
-  assert.ok(!ids(await call('7410', '/profiles')).includes('7412'), 'et de la liste aussi');
+  assert.ok(cartes.includes(await pid('7411')), 'les femmes restent');
+  assert.ok(!cartes.includes(await pid('7412')), 'les hommes sortent du paquet');
+  assert.ok(!ids(await call('7410', '/profiles')).includes(await pid('7412')), 'et de la liste aussi');
 
   // Revenir à « tout le monde » est un choix comme un autre : la chaîne vide, pas une absence.
   await call('7410', '/me/filters', 'PUT', { ageMin: 18, ageMax: 99, gender: '' });
-  assert.ok(ids(await call('7410', '/discover')).includes('7412'), 'tout le monde revient');
+  assert.ok(ids(await call('7410', '/discover')).includes(await pid('7412')), 'tout le monde revient');
 });
 
 test('un genre hors de la liste est refusé, jamais rangé tel quel', async () => {
@@ -138,7 +140,7 @@ test("en relation sérieuse, le genre recherché n'est ni lu ni rangé", async (
   // Et la règle de mise en relation, elle, continue de faire son travail.
   await makeUser('7431', 'Fara', 'femme', 26);
   await profil('7431', { name: 'Fara', intent: 'serieux' });
-  assert.ok(!ids(await call('7430', '/discover')).includes('7431'), 'femme et femme ne se voient pas en relation sérieuse');
+  assert.ok(!ids(await call('7430', '/discover')).includes(await pid('7431')), 'femme et femme ne se voient pas en relation sérieuse');
 });
 
 test("quitter l'amitié efface le genre recherché", async () => {

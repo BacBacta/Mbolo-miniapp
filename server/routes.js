@@ -5,7 +5,7 @@ import { config, runtime, genreAuChoix, venues, INTENTS, INTENTS_RETIRES, GENDER
 import { codeValide } from './lieux.js';
 import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
 import { LANGUES, t as tr } from './i18n.js';
-import { store } from './store.js';
+import { store, newId } from './store.js';
 import { fichierVoix, voixPublique } from './voix.js';
 import { CRITERES, calculer as calculerJauge } from './jauge.js';
 import { requireAuth, identiteSansCreer } from './auth.js';
@@ -49,11 +49,26 @@ export function activityBucket(lastActiveAt, now = Date.now()) {
   return ACTIVITY_STEPS.find(([, max]) => age < max)?.[0] || null;
 }
 
-// Profil visible par les autres : aucune donnée Telegram (pseudo, numéro) n'est exposée
+// L'identifiant public d'un membre. L'API ne montre jamais l'identifiant Telegram aux autres :
+// avec lui, n'importe qui ouvre la fiche Telegram de la personne et lui écrit hors de l'app,
+// hors de tout garde-fou — et, numérique, il s'énumère (audit/09-revue-code.md, I6). Les comptes
+// d'avant en reçoivent un ici, au premier passage.
+async function pidDe(user) {
+  if (user.pid) return user.pid;
+  const maj = await store.updateUser(user.id, { pid: newId() });
+  user.pid = maj?.pid || user.pid;
+  return user.pid;
+}
+// Ce que le client renvoie (cible d'un like, d'un blocage, d'un signalement, d'une photo) est un
+// identifiant public, et rien d'autre : un identifiant Telegram n'ouvre aucune porte.
+const FORME_PID = /^[a-f0-9]{16}$/;
+const parIdPublic = async (idPublic) => (typeof idPublic === 'string' && FORME_PID.test(idPublic) ? store.userByPid(idPublic) : null);
+
+// Profil visible par les autres : aucune donnée Telegram (pseudo, numéro, identifiant) n'est exposée
 async function publicProfile(user) {
   const p = user.profile || {};
   return {
-    id: user.id,
+    id: await pidDe(user),
     name: p.name,
     age: p.age,
     intent: p.intent,
@@ -151,7 +166,7 @@ api.get('/me', async (req, res) => {
   const etape = Number(req.query.form_step);
   if (Number.isInteger(etape) && etape >= 1 && etape <= 3) mesurer('form_step', u.id, { step: etape });
   res.json({
-    id: u.id,
+    id: await pidDe(u),
     firstName: u.firstName,
     profile: u.profile,
     verification: u.verification,
@@ -202,7 +217,9 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
   if (promptA.length < 3) return fail(res, 400, 'PROMPT_REQUIRED', 'Réponds à la question pour que les autres te découvrent.');
   const { compat, erreur } = lireCompat(b);
   if (erreur) return fail(res, 400, 'COMPAT_INVALID', `Réponse inattendue à « ${COMPAT[erreur].question} ». Choisis dans la liste.`);
-  const profileText = [name, b.area, b.promptQ, promptA, b.languages].filter(Boolean).join(' ');
+  // La ville aussi : champ libre, chiffres conservés, affiché sur la carte avant tout échange —
+  // « Douala 677 12 34 56 » passait (audit/09-revue-code.md, I7).
+  const profileText = [name, city, b.area, b.promptQ, promptA, b.languages].filter(Boolean).join(' ');
   if (!checkMessage(profileText, 0, 1).ok) return fail(res, 400, 'PROFILE_CONTACT', "Ton profil ne doit contenir ni numéro, ni lien, ni pseudo, ni demande d'argent.");
 
   // Ancien champ « photo » : il alimente l'emplacement 1, avec la même modération. L'interface
@@ -473,9 +490,20 @@ api.put('/me/filters', async (req, res) => {
 
 // ---------- Photos (servies uniquement aux membres vérifiés) ----------
 // Une photo n'est servie aux autres qu'une fois validée ; on voit les siennes quel que soit leur état
+// Une photo ou une voix ne se sert qu'à qui pourrait voir la carte : soi-même, ou une cible
+// vérifiée, non fermée, compatible et non bloquée — ou avec qui l'on est en match. Sans cela, un
+// membre vérifié récupérait par identifiant les photos d'un compte en attente ou fermé, et
+// confirmait qu'une personne précise est inscrite (audit/09-revue-code.md, I6).
+async function cibleVisible(req) {
+  const target = await parIdPublic(req.params.userId);
+  if (!target) return null;
+  if (target.id === req.user.id) return target;
+  const rel = await relations(req.user);
+  return joignable(req.user, rel, target) || (rel.match.has(target.id) && !target.banned) ? target : null;
+}
 async function servePhoto(req, res, n) {
-  const target = await store.getUser(req.params.userId);
-  if (!target || await store.isBlocked(req.user.id, target.id)) return fail(res, 404, 'NO_PHOTO', 'Pas de photo.');
+  const target = await cibleVisible(req);
+  if (!target) return fail(res, 404, 'NO_PHOTO', 'Pas de photo.');
   const own = target.id === req.user.id;
   const photo = (await store.photosOf(target)).find((x) => x.n === n && (own || x.status === 'approved'));
   const file = path.join(config.uploadsDir, `${target.id}-photo-${n}.jpg`);
@@ -485,7 +513,7 @@ async function servePhoto(req, res, n) {
 api.get('/photos/:userId/:n', requireApproved, async (req, res) => await servePhoto(req, res, Number(req.params.n)));
 // Sans numéro : la première photo validée (adresse historique)
 api.get('/photos/:userId', requireApproved, async (req, res) => {
-  const target = await store.getUser(req.params.userId);
+  const target = await cibleVisible(req);
   const first = target && (await store.photosOf(target)).find((x) => x.status === 'approved');
   await servePhoto(req, res, first ? first.n : 1);
 });
@@ -494,8 +522,8 @@ api.get('/photos/:userId', requireApproved, async (req, res) => {
 // Même règle que les photos : les autres n'entendent que ce que la modération a validé, et on
 // s'entend soi-même quel que soit l'état — pour se réécouter avant de laisser passer.
 api.get('/voix/:userId', requireApproved, async (req, res) => {
-  const target = await store.getUser(req.params.userId);
-  if (!target || await store.isBlocked(req.user.id, target.id)) return fail(res, 404, 'NO_VOICE', 'Pas de présentation vocale.');
+  const target = await cibleVisible(req);
+  if (!target) return fail(res, 404, 'NO_VOICE', 'Pas de présentation vocale.');
   const own = target.id === req.user.id;
   const file = path.join(config.uploadsDir, fichierVoix(target.id));
   if (!target.voix || (!own && target.voix.status !== 'approved') || !fs.existsSync(file)) {
@@ -640,7 +668,7 @@ api.get('/likes', requireApproved, async (req, res) => {
 api.post('/swipes', requireApproved, limiter('swipe'), async (req, res) => {
   const me = req.user;
   const { targetId, action } = req.body || {};
-  const target = await store.getUser(targetId);
+  const target = await parIdPublic(targetId);
   if (!target || !['like', 'pass'].includes(action) || target.id === me.id) return fail(res, 400, 'SWIPE_INVALID', 'Action impossible.');
   // La cible passe par le même filtre que la découverte et la liste des likes : vérifiée, pas
   // bloquée dans un sens ni dans l'autre, compatible. Sans lui, un like par identifiant
@@ -706,7 +734,8 @@ api.get('/matches', requireApproved, async (req, res) => {
     return {
       id: m.id,
       other: await publicProfile(other),
-      lastMessage: dernier,
+      // Pas l'auteur : « mine » suffit à l'interface, et l'identifiant ne sort pas.
+      lastMessage: dernier ? { text: dernier.text, at: dernier.at, mine: dernier.from === me.id } : null,
       createdAt: m.createdAt,
       unread: await store.unreadCount(m.id, me.id),
       isNew: !(await store.hasOpened(m.id, me.id)),
@@ -743,7 +772,7 @@ api.get('/matches/:id', requireApproved, async (req, res) => {
   // Renvoyer le profil complet de l'autre personne toutes les quatre secondes coûtait environ
   // 700 Ko par heure de discussion ouverte, sans qu'aucun message n'arrive.
   const premierAppel = !req.query.suivi;
-  const messages = (await store.messagesOf(r.m.id)).filter((x) => x.at > after).map((x) => ({ ...x, mine: x.from === req.user.id }));
+  const messages = (await store.messagesOf(r.m.id)).filter((x) => x.at > after).map(({ from, ...x }) => ({ ...x, mine: from === req.user.id }));
   // L'heure d'arrivée de l'autre personne n'est jamais renvoyée : savoir qu'elle est sur place
   // depuis douze minutes est une information de filature, pas une information de rendez-vous.
   // proposedBy est l'identifiant Telegram de l'autre personne : il ne sort pas non plus, seul
@@ -812,7 +841,7 @@ api.post('/matches/:id/messages', requireApproved, limiter('message'), async (re
       }
     }, config.demoReplyDelayMs);
   }
-  res.json({ message: { ...msg, mine: true } });
+  res.json({ message: { ...msg, from: undefined, mine: true } });
 });
 
 // ---------- Démo : quelqu'un te « like » pendant ton absence ----------
@@ -973,7 +1002,7 @@ api.delete('/matches/:id', requireApproved, async (req, res) => {
 // signalement, donc par une accusation envoyée à la modération : beaucoup de gens ne le font pas,
 // et restent exposés. Le blocage ferme la discussion, le rendez-vous et le check-in.
 api.post('/blocks', requireApproved, limiter('signalement'), async (req, res) => {
-  const cible = await store.getUser(req.body?.targetId);
+  const cible = await parIdPublic(req.body?.targetId);
   if (!cible || cible.id === req.user.id) return fail(res, 400, 'BLOCK_INVALID', 'Blocage impossible.');
   await store.block(req.user.id, cible.id);
   const m = await store.matchBetween(req.user.id, cible.id);
@@ -998,7 +1027,7 @@ api.post('/matches/:id/prevenir', requireApproved, limiter('rendezvous'), async 
 // ---------- Signalements ----------
 api.post('/reports', requireApproved, limiter('signalement'), async (req, res) => {
   const { targetId, reason, matchId } = req.body || {};
-  const target = await store.getUser(targetId);
+  const target = await parIdPublic(targetId);
   if (!target || target.id === req.user.id) return fail(res, 400, 'REPORT_INVALID', 'Signalement impossible.');
   await store.addReport({ from: req.user.id, targetId: target.id, reason: String(reason || 'autre').slice(0, 60), matchId: matchId || null });
   await store.block(req.user.id, target.id);

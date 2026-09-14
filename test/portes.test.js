@@ -15,6 +15,8 @@ process.env.AUTO_APPROVE = 'false';
 
 const express = (await import('express')).default;
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 
@@ -38,8 +40,8 @@ async function creer(id, name, gender, extra = {}) {
   await store.updateUser(id, { verification: 'approved' });
 }
 async function matcher(a, b) {
-  await call(a, '/swipes', 'POST', { targetId: b, action: 'like' });
-  const r = await call(b, '/swipes', 'POST', { targetId: a, action: 'like' });
+  await call(a, '/swipes', 'POST', { targetId: await pid(b), action: 'like' });
+  const r = await call(b, '/swipes', 'POST', { targetId: await pid(a), action: 'like' });
   assert.ok(r.body.match, JSON.stringify(r.body));
   return r.body.match.id;
 }
@@ -50,18 +52,18 @@ const respirer = (ms = 60) => new Promise((r) => setTimeout(r, ms));
 test("après un blocage, un like ne recrée pas le match et n'envoie rien à la personne qui a bloqué", async () => {
   await creer('p1', 'Fatou', 'femme'); await creer('p2', 'Hervé', 'homme');
   const m = await matcher('p1', 'p2');
-  assert.equal((await call('p1', '/blocks', 'POST', { targetId: 'p2' })).status, 200);
+  assert.equal((await call('p1', '/blocks', 'POST', { targetId: await pid('p2') })).status, 200);
   assert.equal(await store.getMatch(m), null, 'le blocage a défait le match');
   await respirer(); envoyes.length = 0;
 
-  const r = await call('p2', '/swipes', 'POST', { targetId: 'p1', action: 'like' });
+  const r = await call('p2', '/swipes', 'POST', { targetId: await pid('p1'), action: 'like' });
   assert.equal(r.status, 403, JSON.stringify(r.body));
   assert.equal(r.body.code, 'SWIPE_INVALID');
   await respirer();
   assert.equal(await store.matchBetween('p1', 'p2'), null, 'aucun match recréé');
   assert.equal(envoyes.filter((e) => e.id === 'p1').length, 0, 'Fatou ne reçoit rien');
   // Et dans l'autre sens non plus : qui a bloqué ne peut pas non plus liker par identifiant.
-  assert.equal((await call('p1', '/swipes', 'POST', { targetId: 'p2', action: 'like' })).status, 403);
+  assert.equal((await call('p1', '/swipes', 'POST', { targetId: await pid('p2'), action: 'like' })).status, 403);
 });
 
 test("après un match défait, le like de l'autre ne le ressuscite pas", async () => {
@@ -70,7 +72,7 @@ test("après un match défait, le like de l'autre ne le ressuscite pas", async (
   assert.equal((await call('p3', `/matches/${m}`, 'DELETE')).status, 200);
   await respirer(); envoyes.length = 0;
 
-  const r = await call('p4', '/swipes', 'POST', { targetId: 'p3', action: 'like' });
+  const r = await call('p4', '/swipes', 'POST', { targetId: await pid('p3'), action: 'like' });
   assert.equal(r.status, 200, 'Idriss peut toujours dire qu\'il aime : il ne sait pas qu\'on l\'a défait');
   assert.equal(r.body.match, null, 'mais rien ne se refait sans Grâce');
   await respirer();
@@ -79,7 +81,7 @@ test("après un match défait, le like de l'autre ne le ressuscite pas", async (
   const deck = (await call('p3', '/discover')).body.profiles.map((p) => p.id);
   assert.ok(!deck.includes('p4'));
   // Si elle revient vers lui, c'est son choix, et le match se refait.
-  const retour = await call('p3', '/swipes', 'POST', { targetId: 'p4', action: 'like' });
+  const retour = await call('p3', '/swipes', 'POST', { targetId: await pid('p4'), action: 'like' });
   assert.ok(retour.body.match, 'un « passer » peut redevenir un « j\'aime »');
 });
 
@@ -89,17 +91,17 @@ test('un like vers un compte non vérifié, fermé, ou sans profil est refusé �
   await creer('p7', 'Kofi', 'homme'); await store.updateUser('p7', { verification: 'pending' });
   await creer('p8', 'Léon', 'homme'); await store.banUser('p8', { motif: 'test', par: 'test' });
   for (const cible of ['p6', 'p7', 'p8']) {
-    const r = await call('p5', '/swipes', 'POST', { targetId: cible, action: 'like' });
+    const r = await call('p5', '/swipes', 'POST', { targetId: await pid(cible), action: 'like' });
     assert.equal(r.status, 403, `${cible} : ${JSON.stringify(r.body)}`);
   }
-  assert.equal((await call('p5', '/swipes', 'POST', { targetId: 'inconnu', action: 'like' })).status, 400);
+  assert.equal((await call('p5', '/swipes', 'POST', { targetId: await pid('inconnu'), action: 'like' })).status, 400);
 });
 
 test('un second like sur un match existant ne renotifie pas', async () => {
   await creer('p9', 'Mireille', 'femme'); await creer('p10', 'Nicolas', 'homme');
   const m = await matcher('p9', 'p10');
   await respirer(); envoyes.length = 0;
-  const r = await call('p9', '/swipes', 'POST', { targetId: 'p10', action: 'like' });
+  const r = await call('p9', '/swipes', 'POST', { targetId: await pid('p10'), action: 'like' });
   assert.equal(r.status, 200);
   assert.equal(r.body.match.id, m, 'le même match');
   await respirer();

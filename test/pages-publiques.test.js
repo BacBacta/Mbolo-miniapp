@@ -141,6 +141,27 @@ test('les conditions disent les règles qui font bannir', async () => {
 
 // Une page servie en fichier statique montrerait le gabarit au lieu du nom : elles vivent donc
 // hors de public/. Ce test fige la raison, pas seulement l'emplacement.
+// La politique de sécurité de contenu n'autorise aucun script en ligne : toute l'interface passe
+// par innerHTML, et le jour où un champ échappe à esc(), un script injecté ne doit rien pouvoir
+// exécuter ni envoyer (audit/09-revue-code.md, I8). Un « onload » en ligne ou un <script> sans src
+// serait bloqué par le navigateur, donc c'est ici qu'on refuse qu'ils reviennent.
+test("la politique de sécurité de contenu est complète, et rien n'est en ligne", async () => {
+  const r = await fetch(`${base}/`);
+  const csp = r.headers.get('content-security-policy') || '';
+  for (const regle of ["default-src 'self'", "script-src 'self' https://telegram.org", "connect-src 'self'", "base-uri 'none'", 'frame-ancestors']) {
+    assert.ok(csp.includes(regle), `la CSP doit porter « ${regle} » : ${csp}`);
+  }
+  assert.ok(!/script-src[^;]*unsafe-inline/.test(csp), 'aucun script en ligne');
+  for (const chemin of ['/', '/confidentialite', '/conditions', '/moderation']) {
+    const html = await (await fetch(base + chemin)).text();
+    assert.ok(!/<script(?![^>]*\ssrc=)[^>]*>/.test(html), `${chemin} : un <script> sans src`);
+    assert.ok(!/\son[a-z]+=["']/.test(html), `${chemin} : un gestionnaire en ligne (onload, onclick…)`);
+    assert.equal((await fetch(base + chemin)).headers.get('content-security-policy'), csp, `${chemin} porte la même politique`);
+  }
+  // Le script du schéma clair/sombre est bien servi à part.
+  assert.equal((await fetch(`${base}/scheme.js`)).status, 200);
+});
+
 test('les pages ne sont pas servies aussi en fichiers bruts', async () => {
   for (const chemin of ['/legal/confidentialite.html', '/confidentialite.html']) {
     const { html } = await page(chemin);

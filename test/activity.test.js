@@ -14,6 +14,8 @@ process.env.AUTO_APPROVE = 'false';
 
 const express = (await import('express')).default;
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot } = await import('../server/bot.js');
 const { seedDemo } = await import('../server/seed.js');
 const { api, activityBucket } = await import('../server/routes.js');
@@ -61,14 +63,15 @@ test('signe de vie à chaque appel, tranche fine réservée aux matchs, horodata
 
   // Avant le match, Paul ne voit que « cette semaine »
   const d = await call('7002', '/discover');
-  const aline = d.body.profiles.find((p) => p.id === '7001');
+  const p7001 = await pid('7001');
+  const aline = d.body.profiles.find((p) => p.id === p7001);
   assert.ok(aline, 'Aline est proposée à Paul');
   assert.equal(aline.activity, 'week');
   assert.ok(!JSON.stringify(d.body).includes('lastActiveAt'), 'pas d\'horodatage dans la découverte');
 
   // Une fois matchés, la tranche fine apparaît
-  await call('7001', '/swipes', 'POST', { targetId: '7002', action: 'like' });
-  const m = await call('7002', '/swipes', 'POST', { targetId: '7001', action: 'like' });
+  await call('7001', '/swipes', 'POST', { targetId: await pid('7002'), action: 'like' });
+  const m = await call('7002', '/swipes', 'POST', { targetId: await pid('7001'), action: 'like' });
   assert.equal(m.body.match.other.activity, 'recent');
   const list = await call('7002', '/matches');
   assert.equal(list.body.matches[0].other.activity, 'recent');
