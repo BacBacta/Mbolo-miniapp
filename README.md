@@ -507,6 +507,8 @@ ALLOW_DEV_AUTH=false
 
 Avec `USE_WEBHOOK=true`, Telegram envoie les messages du bot directement à ton serveur au lieu que le bot aille les chercher.
 
+**Chaque secret a sa propre valeur.** `BOT_TOKEN`, `ADMIN_KEY`, `WEB_SESSION_SECRET`, `VENUE_SECRET` et `BACKUP_SECRET` ne partagent jamais une chaîne : `ADMIN_KEY` voyage dans des URL — le chemin du webhook Telegram en porte une copie, donc les journaux de requêtes aussi — tandis que `BACKUP_SECRET` ouvre toutes les sauvegardes. Deux contrôles le vérifient : le serveur **refuse de démarrer** en production si deux valeurs se répètent (prévient sans bloquer ailleurs), et le déploiement lit les empreintes de l'hébergeur **avant** de remplacer la machine (`scripts/verifier-secrets.js`) — sinon le premier contrôle ne peut refuser qu'en tombant, ce qui a éteint la production le 14 septembre 2026. Ni l'un ni l'autre n'écrit jamais la valeur : ils nomment les variables. **`BACKUP_SECRET` ne se remplace pas sans avoir gardé l'ancien** ailleurs : les copies déjà écrites ne s'ouvrent qu'avec lui.
+
 **Important sur le stockage** : sans `DATABASE_URL`, les données sont dans `data/db.json` et les photos dans `data/uploads/` (ou dans le dossier indiqué par `DATA_DIR`). Si ton hébergeur efface le disque à chaque redéploiement, tu perds tout. Monte un volume persistant sur `data/`. Avec `DATABASE_URL`, les données vont dans PostgreSQL et seules les photos restent sur le disque : c'est le mode à retenir en production, et il est obligatoire avant tout paiement. Voir la section « Stockage : fichier JSON ou PostgreSQL ».
 
 ---

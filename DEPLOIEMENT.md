@@ -36,9 +36,19 @@ Sur GitHub : **Settings** → **Secrets and variables** → **Actions** → **Ne
 | `BOT_TOKEN` | oui | Donné par BotFather |
 | `ADMIN_CHAT_ID` | oui | L'identifiant de ton groupe de modération |
 | `ADMIN_KEY` | non | Protège les QR codes des lieux. Généré au hasard si absent |
+| `WEB_SESSION_SECRET` | non | Signe les sessions de l'espace de modération. Tiré au hasard **au premier déploiement seulement** : le reposer à chaque fois déconnecterait la modération à chaque mise en ligne. Renseigne-le si tu veux le maîtriser, ou pour déployer plusieurs machines qui partagent les mêmes sessions |
 
 **Chaque secret doit avoir sa propre valeur.** Le serveur refuse de démarrer en production si deux d'entre eux portent la même chaîne, et dit lesquels. La raison : `ADMIN_KEY` voyage dans des URL — le chemin du webhook Telegram en porte une copie, donc chaque message reçu la promène dans les journaux de requêtes — alors que `BACKUP_SECRET` ouvre les sauvegardes, c'est-à-dire tous les profils et tous les messages. Partagée, une adresse aperçue dans un journal suffirait à tout déchiffrer. **Et `BACKUP_SECRET` ne se remplace jamais sans avoir gardé l'ancien ailleurs** : les copies déjà écrites ne s'ouvrent qu'avec lui.
-| `WEB_SESSION_SECRET` | non | Signe les sessions de l'espace de modération. Tiré au hasard **au premier déploiement seulement** : le reposer à chaque fois déconnecterait la modération à chaque mise en ligne. Renseigne-le si tu veux le maîtriser, ou pour déployer plusieurs machines qui partagent les mêmes sessions |
+
+Le partage ne se voit pas depuis le code : il a fallu lire la liste des secrets chez l'hébergeur, où trois lignes affichaient la même empreinte. **Le déploiement la lit donc pour toi**, juste avant de remplacer la machine, et s'arrête sur `Deux secrets portent la même valeur` en nommant lesquels. C'est le même constat que celui du démarrage, une étape plus tôt : sur la machine, le serveur ne sait refuser qu'en tombant — le 14 septembre 2026, ça a coûté dix redémarrages et une production éteinte.
+
+```powershell
+# Voir les empreintes : deux lignes identiques dans la colonne DIGEST, c'est le même secret
+flyctl secrets list -a "ton-app"
+
+# En reposer un au hasard (jamais BACKUP_SECRET sans avoir gardé l'ancien ailleurs)
+flyctl secrets set ADMIN_KEY="$(-join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Max 256) }))" -a "ton-app"
+```
 
 ### 2. Le déploiement
 
@@ -323,6 +333,8 @@ jour où tu en auras besoin, tu ne voudras pas découvrir la procédure.
 | Symptôme | Cause probable | Quoi faire |
 |---|---|---|
 | Le déploiement s'arrête sur `ADMIN_CHAT_ID absent` | Le secret n'est pas posé | Ajoute-le dans les secrets du dépôt |
+| Le déploiement s'arrête sur `Deux secrets portent la même valeur` | Deux secrets ont la même chaîne chez l'hébergeur | Repose-en un au hasard (`flyctl secrets list` montre les empreintes), puis relance. **Jamais `BACKUP_SECRET`** sans avoir gardé l'ancien ailleurs |
+| Le déploiement s'arrête sur `Je n'ai pas su lire la liste des secrets` | `flyctl secrets list` a changé de format | Le contrôle refuse plutôt que d'approuver à l'aveugle. Compare les empreintes toi-même, puis corrige `scripts/verifier-secrets.js` |
 | `/moderation` répond « n'est pas configuré » | `WEB_SESSION_SECRET` manque sur la machine | Pose-le (`flyctl secrets set WEB_SESSION_SECRET=...`) ou relance le déploiement, qui en tire un |
 | `Groupe de modération injoignable` dans le journal | Bot absent du groupe, ou identifiant mal recopié | Rajoute le bot, refais `/id` dans le groupe |
 | `Error: app not found` | Le nom d'app passé au workflow n'existe pas | Vérifie les deux champs de **Run workflow** |

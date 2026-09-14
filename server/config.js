@@ -96,41 +96,12 @@ export const config = {
 // le laisser recopier par n'importe quelle route qui renvoie un lieu — ce qui est exactement
 // arrivé : la discussion servait l'objet entier, code compris.
 // Informations connues seulement au démarrage (nom d'utilisateur du bot)
-// ---------- Des secrets qui ne doivent jamais partager une valeur ----------
-//
-// Poser la même chaîne dans deux variables est indolore à l'écriture, et grave à l'usage : la
-// sécurité du plus sensible tombe à celle du plus exposé.
-//
-// C'est arrivé ici. ADMIN_KEY, WEB_SESSION_SECRET et BACKUP_SECRET portaient la même valeur.
-// Or ADMIN_KEY voyage dans des URL — le chemin du webhook Telegram en contient une copie, donc
-// chaque message reçu la promène dans les journaux de requêtes — tandis que BACKUP_SECRET
-// déchiffre les sauvegardes, c'est-à-dire tous les profils et tous les messages. Une adresse
-// aperçue dans un journal ouvrait la totalité des copies.
-//
-// Second effet, plus sournois : ces clés n'ont pas la même durée de vie. WEB_SESSION_SECRET
-// devrait se changer souvent, ça ne coûte qu'une reconnexion. BACKUP_SECRET ne se change jamais
-// à la légère : chaque copie déjà écrite devient illisible. Soudées, on ne peut plus toucher à
-// l'une sans condamner l'autre.
-//
-// Fonction pure, pour qu'un test puisse lui présenter n'importe quel jeu de variables.
-export const SECRETS_DISTINCTS = ['BOT_TOKEN', 'ADMIN_KEY', 'WEB_SESSION_SECRET', 'VENUE_SECRET', 'BACKUP_SECRET'];
-
-// Rend les groupes de noms qui partagent une valeur. Les variables vides sont ignorées : ne rien
-// poser est un choix légitime (le serveur tire alors un secret au hasard, ou éteint la fonction),
-// et trois variables absentes ne sont pas trois variables identiques.
-export function secretsPartages(env = process.env) {
-  const parValeur = new Map();
-  for (const nom of SECRETS_DISTINCTS) {
-    const v = String(env[nom] ?? '').trim();
-    if (!v) continue;
-    if (!parValeur.has(v)) parValeur.set(v, []);
-    parValeur.get(v).push(nom);
-  }
-  // Jamais la valeur elle-même : ce tableau finit dans un journal.
-  return [...parValeur.values()].filter((noms) => noms.length > 1);
-}
 
 export const runtime = { botUsername: '' };
+
+// La liste des secrets et les deux contrôles qui la lisent vivent dans server/secrets.js,
+// sans aucune dépendance : voir l'en-tête de ce fichier. Réexportés ici, où on les cherche.
+export { SECRETS_DISTINCTS, secretsPartages, secretsPartagesFly } from './secrets.js';
 
 // Lieux d'exemple, pour la démonstration seulement : aucun de ces établissements n'a signé
 // quoi que ce soit. Ils servent à essayer le parcours de rendez-vous de bout en bout, jamais à
