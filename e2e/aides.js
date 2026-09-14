@@ -11,6 +11,7 @@ let compteur = 0;
 export const nouvelIdentifiant = () => `e2e-${Date.now().toString(36)}-${compteur++}`;
 
 export const actionPrincipale = (page) => page.locator('#fallback-bar button.main');
+export const actionSecondaire = (page) => page.locator('#fallback-bar button.secondary');
 export const titre = (page) => page.locator('main h1, main h2').first();
 
 // Le plus petit JPEG valide : le serveur vérifie l'en-tête, pas le contenu de l'image.
@@ -59,6 +60,22 @@ export async function passerLaJauge(page) {
   await expect(titre(page)).toHaveText(/Vérifie que c'est bien toi/);
 }
 
+// La présentation vocale est proposée une seule fois, juste après la vérification : c'est le
+// moment où l'on a une fiche à compléter. « Plus tard » mène à la découverte, et la fiche garde
+// le lien. Comme pour la jauge, le passage est tolérant — un deuxième compte créé dans le même
+// onglet ne la reverra pas — et le test qui vérifie qu'elle s'affiche est dans inscription.spec.js.
+export async function passerLaVoix(page) {
+  const titreVoix = page.locator('main h1', { hasText: /Ta présentation vocale/ });
+  // On attend le premier des deux écrans qui arrive : la proposition, ou la découverte elle-même
+  // si elle a déjà été vue dans cet onglet. Une course, pas un « ou » de locators : les onglets
+  // existent dans le DOM même cachés, et un « ou » choisirait l'élément caché.
+  await Promise.race([
+    titreVoix.waitFor({ state: 'visible', timeout: 25_000 }).catch(() => {}),
+    onglet(page, /Découvrir/).waitFor({ state: 'visible', timeout: 25_000 }).catch(() => {}),
+  ]);
+  if (await titreVoix.isVisible()) await actionSecondaire(page).click();
+}
+
 // Envoie le selfie de vérification. AUTO_APPROVE le valide tout seul après quelques secondes ;
 // en production ce réglage n'existe pas, c'est un humain qui tranche.
 export async function seFaireVerifier(page) {
@@ -66,7 +83,9 @@ export async function seFaireVerifier(page) {
   // Choisir la photo ne l'envoie pas : l'aperçu s'affiche d'abord, et on peut reprendre.
   await page.locator('input[type=file][name=selfie]').setInputFiles(sonSelfie);
   await actionPrincipale(page).click();
-  // La décision automatique tombe au bout de trois secondes : on attend l'écran qui suit.
+  // La décision automatique tombe au bout de trois secondes : la présentation vocale est
+  // proposée juste après, une seule fois.
+  await passerLaVoix(page);
   await expect(onglet(page, /Découvrir/)).toBeVisible({ timeout: 25_000 });
 }
 

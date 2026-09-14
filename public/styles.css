@@ -731,6 +731,10 @@ body.chat-mode main > * { animation: none; }
 
 /* Zone de recherche : une ville ou tout le pays */
 .seg-zone { margin-top: 2px; }
+/* Trois choix au lieu de deux : « Tout le monde » est le plus long des trois, et l'écran le plus
+   étroit de la cible fait 360 px. Un cran de moins en taille, et le libellé tient sans couper. */
+.seg-genre { margin-top: 2px; }
+.seg-genre button { font-size: 13px; padding: 0 4px; }
 
 /* ---------- Pages publiques : confidentialité, conditions ----------
    Servies hors de l'app, parfois hors de Telegram, parfois sans JavaScript : un document, pas un
