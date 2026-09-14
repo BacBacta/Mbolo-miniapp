@@ -3,8 +3,9 @@
    en clair — et ne garde de Telegram que le choix clair ou sombre (<html data-scheme>), que tg.js
    renvoie au cadre Telegram (en-tête, fond, barre du bas) pour que tout soit d'une pièce.
    Une seule chose a le droit d'être colorée : l'aura, un gradient rose-ambre-violet, et seulement
-   quand quelque chose arrive — un match, un badge vérifié, un « J'aime » qu'on appuie. Le reste
-   du temps, la couleur est réservée au « J'aime » (rose) et à la confiance (ambre). */
+   quand quelque chose arrive — un match, un badge vérifié, un « J'aime » qu'on appuie — et sur
+   l'anneau de l'accueil, qui est la marque elle-même. Le reste du temps, la couleur est réservée
+   au « J'aime » (rose) et à la confiance (ambre). */
 
 :root {
   --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
@@ -464,24 +465,112 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .empty p { color: var(--hint); max-width: 32ch; line-height: 1.5; }
 
 /* ------------------------------------------------------------ Accueil */
-.hero { position: relative; display: grid; gap: 12px; padding: 26px 4px 6px; }
-/* Le choix de la langue, sur l'accueil. Il doit se voir avant qu'on lise quoi que ce soit —
-   quelqu'un qui ne comprend pas la page ne cherchera pas un réglage au fond d'un onglet — sans
-   pour autant concurrencer la promesse. D'où un jeton discret, aligné à droite, au-dessus du titre. */
-.langue-chip { justify-self: end; display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 12px; margin: 0; border: 1px solid var(--line); border-radius: 999px;
-  background: var(--bg2); color: var(--hint); font: inherit; font-size: 12.5px; font-weight: 600;
+/* Le seul écran où la marque se montre. L'anneau de l'identité (identite/source) est refait ici
+   en CSS pur, avec les jetons de la feuille : un tore d'aura, ombré en haut à gauche, tangent à un
+   second cercle tracé au filet — l'autre personne — avec une lueur au point de contact. Aucune
+   image ne part chez la personne (règle 15). Les couleurs en dur de l'identité deviennent des
+   mélanges de jetons, pour que l'objet tienne sur l'os comme sur l'encre. */
+.accueil { position: relative; display: grid; gap: 10px; padding-top: 6px; }
+.accueil .scene { position: absolute; left: 0; right: 0; top: 0; height: 204px; pointer-events: none; z-index: 0; }
+.accueil-tete, .accueil .eyebrow, .accueil-h { position: relative; z-index: 1; }
+/* La géométrie est ancrée à droite : quelle que soit la largeur, l'autre cercle reste tangent. */
+.anneau { position: absolute; top: 0; right: -46px; width: 200px; height: 200px; --w: 26px; z-index: 1;
+  --anneau-ombre: color-mix(in srgb, var(--ink) 22%, transparent); }
+:root[data-scheme="dark"] .anneau { --anneau-ombre: color-mix(in srgb, var(--ink) 65%, transparent); }
+.anneau > i { position: absolute; inset: 0; border-radius: 50%; display: block; }
+/* le halo : la lumière de l'anneau se dépose sur la surface */
+.anneau .bloom { background: var(--aura); filter: blur(calc(var(--w) * 1.1)); opacity: .26; transform: scale(1.04); }
+:root[data-scheme="dark"] .anneau .bloom { opacity: .38; }
+/* le disque intérieur : la page elle-même, légèrement bombée, avec l'ombre que l'anneau y porte */
+.anneau .disque { inset: calc(var(--w) - 1px); background: radial-gradient(circle at 42% 34%, var(--bg3) 0%, var(--bg2) 60%);
+  box-shadow: inset calc(var(--w) * .28) calc(var(--w) * .34) calc(var(--w) * .9) var(--anneau-ombre),
+              inset 0 0 calc(var(--w) * 1.6) color-mix(in srgb, var(--gold) 8%, transparent); }
+/* la matière : l'aura, telle quelle, découpée en anneau */
+.anneau .base, .anneau .ombre {
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--w) - .5px), #000 calc(100% - var(--w) + .5px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - var(--w) - .5px), #000 calc(100% - var(--w) + .5px)); }
+.anneau .base { background: var(--aura); }
+/* la lumière : clair en haut à gauche, sombre en bas à droite, sur le seul anneau */
+.anneau .ombre { background: linear-gradient(135deg, color-mix(in srgb, var(--on-photo) 42%, transparent) 0%, color-mix(in srgb, var(--on-photo) 8%, transparent) 34%, transparent 50%, color-mix(in srgb, var(--ink) 55%, transparent) 78%, color-mix(in srgb, var(--ink) 80%, transparent) 100%); mix-blend-mode: soft-light; }
+/* le reflet : une bande le long de la ligne médiane du tore, sur le quart éclairé seulement */
+.anneau .reflet { background: var(--on-photo); opacity: .4; mix-blend-mode: overlay;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--w) * .85), #000 calc(100% - var(--w) * .62), #000 calc(100% - var(--w) * .42), transparent calc(100% - var(--w) * .15)),
+                conic-gradient(from 250deg, transparent 0deg, #000 30deg, #000 70deg, transparent 110deg);
+  -webkit-mask-composite: source-in;
+          mask: radial-gradient(farthest-side, transparent calc(100% - var(--w) * .85), #000 calc(100% - var(--w) * .62), #000 calc(100% - var(--w) * .42), transparent calc(100% - var(--w) * .15)),
+                conic-gradient(from 250deg, transparent 0deg, #000 30deg, #000 70deg, transparent 110deg);
+          mask-composite: intersect; }
+/* la lisière : un filet clair sur le bord extérieur éclairé, un filet sombre sur le bord intérieur */
+.anneau .lisiere { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--on-photo) 18%, transparent), 0 0 0 1px color-mix(in srgb, var(--ink) 35%, transparent);
+  -webkit-mask: linear-gradient(135deg, #000 0%, #000 45%, transparent 75%); mask: linear-gradient(135deg, #000 0%, #000 45%, transparent 75%); }
+/* l'ombre que le tore porte sur la page, du côté opposé à la lumière */
+.anneau .portee { background: var(--anneau-ombre); filter: blur(calc(var(--w) * .8)); transform: translate(calc(var(--w) * .35), calc(var(--w) * .45)) scale(1.02); z-index: -1; }
+/* l'autre personne : un cercle au filet, tangent au premier ; la rencontre est le point de contact */
+.accueil .autre { position: absolute; display: block; width: 116px; height: 116px; right: 149px; top: 83px; border-radius: 50%; z-index: 0;
+  border: 1.5px solid color-mix(in srgb, var(--text) 22%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 4%, transparent), 0 0 60px color-mix(in srgb, var(--gold) 8%, transparent); }
+.accueil .autre::after { content: ''; position: absolute; inset: -1.5px; border-radius: 50%; border: 1.5px solid transparent;
+  border-top-color: color-mix(in srgb, var(--gold) 55%, transparent); border-left-color: color-mix(in srgb, var(--like) 35%, transparent);
+  -webkit-mask: linear-gradient(160deg, #000 0%, #000 35%, transparent 60%); mask: linear-gradient(160deg, #000 0%, #000 35%, transparent 60%); }
+.accueil .contact { position: absolute; display: block; width: 60px; height: 60px; right: 121px; top: 96px; border-radius: 50%; z-index: 2;
+  background: radial-gradient(circle, color-mix(in srgb, var(--gold) 55%, transparent) 0%, color-mix(in srgb, var(--like) 25%, transparent) 30%, transparent 70%); filter: blur(6px); }
+:root[data-scheme="dark"] .accueil .contact { mix-blend-mode: screen; }
+/* Sans flou (navigateur, réglage système ou appareil lent, voir --glass-blur) : le halo devient
+   un simple dégradé radial, l'ombre portée disparaît, la lueur reste nette. Même rendu, moins cher. */
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .anneau .bloom { filter: none; background: radial-gradient(closest-side, color-mix(in srgb, var(--like) 24%, transparent), transparent); transform: scale(1.5); }
+  .anneau .portee { display: none; }
+  .accueil .contact { filter: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .anneau .bloom { filter: none; background: radial-gradient(closest-side, color-mix(in srgb, var(--like) 24%, transparent), transparent); transform: scale(1.5); }
+  .anneau .portee { display: none; }
+  .accueil .contact { filter: none; }
+}
+:root[data-verre="opaque"] .anneau .bloom { filter: none; background: radial-gradient(closest-side, color-mix(in srgb, var(--like) 24%, transparent), transparent); transform: scale(1.5); animation: none; }
+:root[data-verre="opaque"] .anneau .portee { display: none; }
+:root[data-verre="opaque"] .accueil .contact { filter: none; animation: none; }
+/* Le halo respire, la lueur pulse : lentement, et seulement si la personne accepte le mouvement. */
+@media (prefers-reduced-motion: no-preference) {
+  .anneau .bloom { animation: halo 9s ease-in-out infinite alternate; }
+  @keyframes halo { from { transform: scale(1.02) rotate(0deg); } to { transform: scale(1.1) rotate(14deg); } }
+  .accueil .contact { animation: pouls 4s ease-in-out infinite alternate; }
+  @keyframes pouls { from { opacity: .7; transform: scale(.94); } to { opacity: 1; transform: scale(1.1); } }
+}
+
+/* La tête : le nom de l'app, un filet, la langue. Le choix de la langue doit se voir avant qu'on
+   lise quoi que ce soit — quelqu'un qui ne comprend pas la page ne cherchera pas un réglage au
+   fond d'un onglet — sans concurrencer la promesse : un jeton discret, à côté du nom. */
+.accueil-tete { display: flex; align-items: center; gap: 10px; height: 32px; }
+.marque { font-family: var(--font-display); font-size: 22px; line-height: 1; font-variation-settings: 'opsz' 144; letter-spacing: .005em; color: var(--text); }
+.accueil-tete .sep { width: 1px; height: 14px; background: var(--line-strong); }
+.langue-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; margin: 0;
+  border: 1px solid var(--line); border-radius: 999px; background: color-mix(in srgb, var(--bg) 72%, transparent);
+  color: var(--hint); font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .01em; line-height: 1.2;
   cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .langue-chip:active { opacity: .7; }
 .langue-chip svg { flex-shrink: 0; }
-.orb { position: absolute; border-radius: 50%; filter: blur(44px); pointer-events: none; z-index: -1; }
-.orb-1 { width: 300px; height: 300px; right: -120px; top: -140px; background: var(--aura); opacity: .2; }
-:root[data-scheme="dark"] .orb-1 { opacity: .34; }
-.orb-2 { display: none; }
-.props { display: grid; gap: 10px; }
-.prop { display: flex; gap: 12px; align-items: center; padding: 13px 15px; background: var(--bg); border-radius: 20px; border: 1px solid var(--line); box-shadow: var(--shadow-1); }
-.prop .t { font-weight: 600; font-size: 15px; line-height: 1.3; }
-.prop .s { font-size: 13px; color: var(--hint); margin-top: 1px; }
+/* Le titre, sous la scène. Taille optique 144 : c'est le dessin d'affiche de Fraunces, à fort
+   contraste, celui de l'identité. Les derniers mots portent la couleur, en dégradé ambre → rose ;
+   en clair, l'ambre est celui des textes (--warn) et le rose est assombri pour tenir 3:1 sur l'os. */
+.accueil .eyebrow { margin-top: 170px; }
+.accueil-h { font-size: clamp(38px, 11vw, 46px); line-height: .98; letter-spacing: -.025em; font-variation-settings: 'opsz' 144; }
+.accueil-h em { display: block; font-style: normal; padding-bottom: .06em; color: transparent;
+  background-image: linear-gradient(100deg, var(--warn) 0%, color-mix(in srgb, var(--like) 85%, var(--ink)) 100%);
+  -webkit-background-clip: text; background-clip: text; }
+:root[data-scheme="dark"] .accueil-h em { background-image: linear-gradient(100deg, var(--gold) 0%, color-mix(in srgb, var(--gold) 50%, var(--like)) 45%, var(--like) 100%); }
+
+/* Les promesses : quatre lignes au filet, pas quatre cartes. L'or n'est que sur la vérification. */
+.promesses { list-style: none; margin: 4px 0 0; padding: 0; display: grid; }
+.promesse { display: flex; align-items: center; gap: 14px; padding: 12px 4px; border-top: 1px solid var(--line); font-weight: 600; font-size: 15.5px; letter-spacing: -.01em; line-height: 1.3; }
+.promesse:last-child { border-bottom: 1px solid var(--line); }
+.pictogramme { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; background: var(--tint); color: var(--text); }
+.promesse-or .pictogramme { background: color-mix(in srgb, var(--gold) 16%, var(--bg)); color: var(--ok-ink); }
+
+/* Le pied : l'âge en étiquette, les deux mentions en petit, poussées en bas de l'écran. */
+.accueil-pied { display: grid; gap: 10px; margin-top: auto; }
+.accueil-pied .fine { font-size: 12.5px; }
+.age { font-size: 10.5px; font-weight: 800; letter-spacing: .12em; line-height: 1; padding: 4px 6px 3px; border-radius: 5px; border: 1px solid var(--line-strong); color: var(--hint); flex-shrink: 0; margin-top: 1px; }
 
 /* ------------------------------------------------------------ Vérification et attente */
 .gesture-card { display: grid; justify-items: center; gap: 10px; text-align: center; padding: 26px 18px 22px; background: var(--bg); border-radius: 24px; border: 1px solid var(--line); box-shadow: var(--shadow-2); cursor: pointer; }
