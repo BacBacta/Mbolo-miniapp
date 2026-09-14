@@ -91,6 +91,19 @@ fi
 # --stage : posés maintenant, appliqués par le déploiement qui suit, sans redémarrage inutile
 flyctl secrets set --stage -a "$APP" "$@"
 
+echo "== Secrets distincts =="
+# Le serveur refuse déjà de démarrer quand deux secrets portent la même valeur (server/secrets.js),
+# mais il ne peut le faire que sur la machine neuve, une fois l'ancienne remplacée : son seul refus
+# possible est de tomber. Le 14 septembre 2026, ça s'est traduit par dix redémarrages et une
+# production éteinte. Ici, le même fait n'arrête qu'un déploiement.
+#
+# Lu APRÈS la pose des secrets, pour juger les valeurs que la machine recevra et non celles
+# qu'elle quitte. Si l'hébergeur n'affichait pas encore les empreintes fraîches, le contrôle
+# refuserait un déploiement qui corrige justement le partage : un déploiement à relancer, jamais
+# une production éteinte. C'est le sens dans lequel on préfère se tromper.
+command -v node >/dev/null 2>&1 || { echo "node introuvable : le contrôle des secrets ne peut pas tourner." >&2; exit 1; }
+flyctl secrets list -a "$APP" | node scripts/verifier-secrets.js
+
 echo "== Déploiement =="
 # --remote-only : l'image est construite chez Fly, aucun Docker local nécessaire
 flyctl deploy --remote-only -a "$APP"

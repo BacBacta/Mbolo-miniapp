@@ -253,3 +253,107 @@ test('hors production, le partage est signalé mais n\'empêche pas de développ
   assert.match(r.sortie, /refuserait de démarrer/, 'et dit ce qui se passerait en production');
   assert.match(r.sortie, /écoute sur le port/, 'mais le serveur démarre quand même');
 });
+
+// ---------- Le même contrôle, une étape plus tôt ----------
+//
+// Le garde-fou du démarrage a fait son travail, mais au pire endroit : sur la machine neuve,
+// après le basculement, dans une boucle de redémarrage. Refuser en tombant, c'est éteindre la
+// production pour la protéger. `scripts/verifier-secrets.js` lit la même chose dans la liste de
+// l'hébergeur — deux valeurs identiques y donnent deux empreintes identiques — avant que
+// `flyctl deploy` ne remplace quoi que ce soit.
+
+const LISTE_FLY = (lignes) => ['NAME\tDIGEST\tCREATED AT', ...lignes].join('\n') + '\n';
+
+const controlerSecrets = (liste) => spawnSync(process.execPath, ['scripts/verifier-secrets.js'], {
+  input: liste, encoding: 'utf8',
+});
+
+test('deux secrets de même empreinte arrêtent le déploiement', () => {
+  const r = controlerSecrets(LISTE_FLY([
+    'ADMIN_CHAT_ID\t9f1c2d3e4a5b6c7d\t1 month ago',
+    'ADMIN_KEY\tc095251a7d8ce235\t1 month ago',
+    'BOT_TOKEN\t1111111122222222\t1 month ago',
+    'WEB_SESSION_SECRET\tc095251a7d8ce235\t1 month ago',
+  ]));
+  assert.equal(r.status, 1, `le déploiement devait être refusé :\n${r.stdout}${r.stderr}`);
+  assert.match(r.stderr, /ADMIN_KEY, WEB_SESSION_SECRET/, 'et nommer lesquels, sinon il faut deviner');
+  assert.ok(!r.stderr.includes('c095251a7d8ce235'),
+    "l'empreinte n'apprend rien de plus que « ces deux-là sont pareils », et ce message est journalisé");
+  assert.match(r.stderr, /BACKUP_SECRET/, 'et rappeler le seul secret qu\'on ne change pas à la légère');
+});
+
+test('des empreintes distinctes laissent le déploiement continuer', () => {
+  const r = controlerSecrets(LISTE_FLY([
+    'ADMIN_KEY\taaaaaaaabbbbbbbb\t1 month ago',
+    'BACKUP_SECRET\tccccccccdddddddd\t1 month ago',
+    'BOT_TOKEN\teeeeeeeeffffffff\t1 month ago',
+    'WEB_SESSION_SECRET\t0123456789abcdef\t1 month ago',
+  ]));
+  assert.equal(r.status, 0, `rien à signaler :\n${r.stdout}${r.stderr}`);
+});
+
+// L'identifiant du groupe de modération n'est pas un secret, et deux variables de confort qui se
+// ressemblent ne mettent personne en danger. Bloquer là-dessus rendrait le contrôle insupportable,
+// et un contrôle insupportable finit contourné.
+test('les variables hors de la liste ne déclenchent rien', () => {
+  const r = controlerSecrets(LISTE_FLY([
+    'ADMIN_CHAT_ID\t7777777788888888\t1 month ago',
+    'ADMIN_KEY\taaaaaaaabbbbbbbb\t1 month ago',
+    'BOT_TOKEN\teeeeeeeeffffffff\t1 month ago',
+    'DATABASE_URL\t7777777788888888\t1 month ago',
+  ]));
+  assert.equal(r.status, 0, `deux variables ordinaires ne sont pas deux secrets :\n${r.stderr}`);
+});
+
+// Le piège de tout garde-fou qui lit du texte : le jour où la sortie change de forme, il ne
+// comprend plus rien — et ne rien comprendre, ici, revient à tout approuver. Un déploiement pose
+// toujours au moins BOT_TOKEN et ADMIN_KEY : en reconnaître moins de deux veut dire qu'on n'a
+// pas su lire, pas que tout va bien.
+test('une liste illisible refuse au lieu de laisser passer', () => {
+  const r = controlerSecrets('{"secrets": [{"name": "ADMIN_KEY", "digest": "c095251a"}]}\n');
+  assert.equal(r.status, 1, 'un format inconnu ne doit pas valoir approbation');
+  assert.match(r.stderr, /pas su lire/);
+  assert.match(r.stderr, /flyctl secrets list/, 'et dire où regarder');
+});
+
+// L'ordre est tout l'intérêt : après `flyctl deploy`, ce contrôle ne servirait plus à rien
+// puisque la machine serait déjà remplacée — c'est exactement la panne qu'il évite.
+test('le contrôle passe avant le déploiement, pas après', () => {
+  const s = fs.readFileSync('deployer-fly.sh', 'utf8');
+  const controle = s.indexOf('node scripts/verifier-secrets.js');
+  const deploiement = s.indexOf('flyctl deploy');
+  assert.ok(controle > 0, 'deployer-fly.sh doit lancer le contrôle des secrets');
+  assert.ok(deploiement > 0);
+  assert.ok(controle < deploiement,
+    'après le déploiement, la machine est déjà remplacée : le contrôle arriverait trop tard');
+  // Et après la pose des secrets, sinon il juge les valeurs que la machine quitte.
+  assert.ok(s.indexOf('flyctl secrets set --stage') < controle,
+    'les empreintes à juger sont celles que la machine recevra');
+});
+
+// Il tourne sur le runner de déploiement, où `npm ci` n'a pas été lancé : le moindre import de
+// dépendance le ferait échouer sur un module manquant, c'est-à-dire précisément au moment où on
+// compte sur lui. C'est pourquoi la liste vit dans server/secrets.js et non dans config.js.
+test('le contrôle des secrets ne dépend d\'aucun module installé', () => {
+  // On suit la chaîne des imports, et pas seulement la première ligne du script : la version
+  // précédente de ce test acceptait « ../server/config.js » — un chemin relatif, donc réputé sans
+  // danger — alors que config.js charge dotenv. Le sabotage passait sans rien casser, c'est-à-dire
+  // que le test ne testait rien.
+  const vus = new Set();
+  const externes = [];
+  const suivre = (fichier) => {
+    if (vus.has(fichier)) return;
+    vus.add(fichier);
+    const source = fs.readFileSync(fichier, 'utf8');
+    for (const [, spec] of source.matchAll(/(?:from|import)\s+'([^']+)'/g)) {
+      if (spec.startsWith('node:')) continue;
+      if (!spec.startsWith('.')) { externes.push(`${path.basename(fichier)} → ${spec}`); continue; }
+      suivre(path.join(path.dirname(fichier), spec));
+    }
+  };
+  suivre('scripts/verifier-secrets.js');
+  assert.deepEqual(externes, [],
+    'ces modules viennent de node_modules, absent du runner au moment du contrôle');
+  assert.ok(vus.has(path.join('server', 'secrets.js')),
+    'et la liste des secrets reste unique : celle que le serveur lit au démarrage');
+});
