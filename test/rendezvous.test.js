@@ -192,6 +192,22 @@ test('le check-in exige un rendez-vous accepté', async () => {
   const ok = await call('7010', `/dates/${id}/checkin`, 'POST', { code: codeDuLieu(lieu.id) });
   assert.equal(ok.status, 200);
   assert.equal(ok.body.arrived, true);
+  // Une arrivée déjà confirmée ne se reconfirme pas : chaque scan renotifiait tout le monde.
+  const encore = await call('7010', `/dates/${id}/checkin`, 'POST', { code: codeDuLieu(lieu.id) });
+  assert.equal(encore.status, 409);
+  assert.equal(encore.body.code, 'DEJA_ARRIVE');
+});
+
+// Un signalement joignait la discussion que le client désignait, même celle d'un tiers.
+test('un signalement joint la discussion des deux personnes, jamais celle que le client désigne', async () => {
+  await creer('7020', 'Kady', 'femme'); await creer('7021', 'Luc', 'homme'); await creer('7022', 'Manu', 'homme');
+  const avecLuc = await matcher('7020', '7021');
+  await matcher('7020', '7022');
+  const r = await call('7020', '/reports', 'POST', { targetId: await pid('7022'), reason: 'argent', matchId: avecLuc });
+  assert.equal(r.status, 200);
+  const signalement = (await store.reports()).find((x) => x.from === '7020' && x.targetId === '7022');
+  assert.notEqual(signalement.matchId, avecLuc, 'pas la discussion avec Luc');
+  assert.equal(signalement.matchId, (await store.matchBetween('7020', '7022')).id);
 });
 
 test('un rendez-vous annulé ferme aussi le check-in', async () => {

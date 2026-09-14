@@ -651,8 +651,10 @@ api.get('/profiles', requireApproved, async (req, res) => {
 // Ceux qui ont aimé mon profil et attendent ma réponse. Un like est un signal qui m'est adressé :
 // il ignore ma tranche d'âge et ma zone de recherche, sinon « tu as plu à quelqu'un » mènerait
 // parfois à un écran vide.
+// Le genre recherché, lui, s'applique : sous la politique levée c'est une orientation, et une
+// personne réglée sur « femmes » ne doit pas voir des hommes dans « ils t'ont aimée ».
 const likersOf = (me, rel, tous) => tous
-  .filter((u) => joignable(me, rel, u) && rel.maLike.has(u.id) && !rel.monSwipe.has(u.id))
+  .filter((u) => joignable(me, rel, u) && dansLeGenre(me, u) && rel.maLike.has(u.id) && !rel.monSwipe.has(u.id))
   .sort((a, b) => rel.maLike.get(b.id).at - rel.maLike.get(a.id).at);
 
 api.get('/likes', requireApproved, async (req, res) => {
@@ -705,7 +707,7 @@ api.post('/swipes', requireApproved, limiter('swipe'), async (req, res) => {
     // alors que /discover l'applique. La notification envoyait donc parfois vers un écran vide.
     // Sauf si la personne m'a déjà balayé (« passer », ou un match qu'elle a défait) : mon like
     // n'apparaîtra pas dans sa liste, et la prévenir l'enverrait vers un écran vide.
-    if (await store.swipeOf(target.id, me.id)) return res.json({ match: null });
+    if (await store.swipeOf(target.id, me.id) || !dansLeGenre(target, me)) return res.json({ match: null });
     notify(target.id, "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.", { ville: target.profile.city, app: config.appName }, { label: 'Découvrir', params: { screen: 'matches' } }, 'likes', 24 * 3600 * 1000);
   }
   res.json({ match: null });
@@ -894,6 +896,8 @@ api.post('/matches/:id/dates', requireApproved, limiter('rendezvous'), async (re
     return fail(res, 409, 'DATE_EN_COURS', 'Un rendez-vous est déjà en cours. Annule-le avant d\'en proposer un autre.');
   }
   const d = await store.addDate({ matchId: r.m.id, proposedBy: req.user.id, venueId: venue.id, slot, status: 'proposed' });
+  // Sur PostgreSQL, l'index partiel refuse un second rendez-vous vivant né au même instant.
+  if (!d) return fail(res, 409, 'DATE_EXISTS', 'Un rendez-vous est déjà en cours dans cette discussion.');
   notify(r.other.id, '{nom} te propose un rendez-vous : {lieu} ({quartier}), {creneau}.', { nom: req.user.profile.name, lieu: venue.name, quartier: venue.area, creneau: slot }, { label: 'Voir la proposition', params: { screen: 'chat', match: r.m.id } });
   res.json({ date: { ...d, venue: { ...venue, code: undefined } } });
 });
@@ -969,6 +973,11 @@ api.post('/dates/:id/checkin', requireApproved, limiter('checkin'), async (req, 
   // Le contrôle du blocage passe avant celui du statut : se protéger prime sur tout le reste.
   if (d.status !== 'accepted') return fail(res, 409, 'DATE_NOT_ACCEPTED', 'Ce rendez-vous doit d\'abord être accepté par les deux personnes.');
   const venue = venues.find((v) => v.id === d.venueId);
+  // Un lieu disparu de la configuration entre la proposition et l'arrivée : dire, pas tomber.
+  if (!venue) return fail(res, 409, 'VENUE_INCONNU', "Ce lieu n'est plus partenaire. Convenez d'un autre endroit dans la discussion.");
+  // Une arrivée déjà confirmée ne se reconfirme pas : chaque scan renotifiait l'autre personne
+  // et la personne de confiance, jusqu'à dix fois par heure.
+  if (d.arrivals?.[req.user.id]) return fail(res, 409, 'DEJA_ARRIVE', 'Ton arrivée est déjà confirmée.');
   // Le code attendu se recalcule à partir du secret du serveur : il n'a jamais été envoyé au
   // navigateur, et ne se déduit pas de l'identifiant du lieu. Comparaison à temps constant.
   if (!codeValide(venue.id, String(req.body?.code || '').trim())) return fail(res, 400, 'WRONG_VENUE', `Ce code ne correspond pas à ${venue.name}. Scanne le code posé sur ta table.`, { venue: venue.name });
@@ -1026,11 +1035,14 @@ api.post('/matches/:id/prevenir', requireApproved, limiter('rendezvous'), async 
 
 // ---------- Signalements ----------
 api.post('/reports', requireApproved, limiter('signalement'), async (req, res) => {
-  const { targetId, reason, matchId } = req.body || {};
+  const { targetId, reason } = req.body || {};
   const target = await parIdPublic(targetId);
   if (!target || target.id === req.user.id) return fail(res, 400, 'REPORT_INVALID', 'Signalement impossible.');
-  await store.addReport({ from: req.user.id, targetId: target.id, reason: String(reason || 'autre').slice(0, 60), matchId: matchId || null });
+  // La discussion jointe est celle des deux personnes, jamais celle que le client désigne : un
+  // signaleur pouvait rattacher son fil avec un tiers, que la modération aurait ouvert.
+  const motif = String(reason || 'autre').slice(0, 60);
+  await store.addReport({ from: req.user.id, targetId: target.id, reason: motif, matchId: (await store.matchBetween(req.user.id, target.id))?.id || null });
   await store.block(req.user.id, target.id);
-  notifyAdmin(`Signalement : ${target.profile?.name || target.id} (ID ${target.id}), motif « ${reason || 'autre'} ».`, boutonBannir(target.id));
+  notifyAdmin(`Signalement : ${target.profile?.name || target.id} (ID ${target.id}), motif « ${motif} ».`, boutonBannir(target.id));
   res.json({ reported: true });
 });

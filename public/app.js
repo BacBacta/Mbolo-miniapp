@@ -158,6 +158,13 @@ async function api(path, { method = 'GET', body } = {}) {
   return data;
 }
 
+// Les adresses blob: gardent leur image en mémoire tant qu'on ne les révoque pas : sur une longue
+// session, sur un téléphone à 1 Go, ça se voit.
+function oublierLesPhotos() {
+  for (const url of Object.values(S.photoUrls)) URL.revokeObjectURL(url);
+  S.photoUrls = {};
+}
+
 async function photoUrl(userId, n = 1) {
   const key = `${userId}/${n}`;
   if (S.photoUrls[key]) return S.photoUrls[key];
@@ -251,6 +258,7 @@ function go(screen, params = {}) {
   clearInterval(S.chatTimer);
   clearInterval(S.pendingTimer);
   clearInterval(S.summaryTimer);
+  arreterLaVoix();
   S.detachSwipe?.();
   S.detachSwipe = null;
   S.avatarObserver?.disconnect();
@@ -316,6 +324,8 @@ function updateTabBadges() {
 }
 
 async function refreshSummary() {
+  // En arrière-plan, rien : chaque appel charge tout le monde côté serveur (dette n° 3).
+  if (document.hidden) return;
   try {
     const s = await api('/summary');
     const changed = s.unread !== S.summary.unread || s.newMatches !== S.summary.newMatches || s.likes !== S.summary.likes;
@@ -843,6 +853,7 @@ const SCREENS = {
       } catch (e) {
         return renderError(e, () => go('verify'));
       }
+      if (S.screen !== 'verify') return;
     }
     render(`
       ${head}
@@ -1091,13 +1102,19 @@ const SCREENS = {
     if (!id) return go('matches');
     render(`<div class="chat"><div class="chat-head"><span class="sk sk-avatar"></span><div class="body stack" style="gap:8px"><span class="sk sk-line w40"></span><span class="sk sk-line w60"></span></div></div>${skeleton.chat()}</div>`);
     tg.setButtons(null);
+    // Un jeton par ouverture : la réponse d'une discussion quittée entre-temps ne doit pas
+    // remplacer celle qu'on regarde — sinon le message suivant partait à la mauvaise personne
+    // (audit/09-revue-code.md, I9). Vérifier l'écran ne suffisait pas : c'est encore « chat ».
+    const jeton = (S.chatJeton = (S.chatJeton || 0) + 1);
+    const perime = () => S.screen !== 'chat' || jeton !== S.chatJeton;
     try {
-      const data = await api(`/matches/${id}`);
+      const data = await api(`/matches/${encodeURIComponent(id)}`);
+      if (perime()) return;
       S.chat = { id, other: data.other, messages: data.messages, dates: data.dates, unlockAfter: data.unlockAfter, notice: null };
     } catch (e) {
+      if (perime()) return;
       return renderError(e, () => go('chat', { id }));
     }
-    if (S.screen !== 'chat') return;
     renderChat();
     // Le second bouton est celui qui protège vraiment au lancement : les notifications
     // automatiques dépendent d'un rendez-vous accepté dans un lieu partenaire, et il n'y en a
@@ -1106,6 +1123,8 @@ const SCREENS = {
       main: { text: t('Proposer un rendez-vous'), onClick: () => go('date') },
       ...(S.me.confiance ? { secondary: { text: t('Je pars au rendez-vous'), onClick: prevenirConfiance } } : {}),
     });
+    // Jamais deux minuteurs : une réponse tardive en posait un second, orphelin pour toujours.
+    clearInterval(S.chatTimer);
     S.chatTimer = setInterval(pollChat, 4000);
   },
 
@@ -1117,6 +1136,9 @@ const SCREENS = {
         S.venues = r.venues;
         S.partenairesDansLePays = r.partenairesDansLePays;
       } catch (e) { return renderError(e, () => go('date')); }
+      // Revenu à la discussion pendant l'attente : ne pas la remplacer par cet écran — le champ
+      // de saisie serait reconstruit sous les doigts (règle 16).
+      if (S.screen !== 'date') return;
     }
     const d = S.dateDraft;
     const slots = [t("Aujourd'hui, 17 h"), t('Demain, 16 h'), t('Samedi, 11 h'), t('Dimanche, 15 h')];
@@ -1425,7 +1447,7 @@ async function prevenirConfiance() {
   const prenom = S.me.confiance?.prenom || '';
   if (!await tg.confirm(t('Prévenir {prenom} que tu pars à un rendez-vous maintenant ?', { prenom }))) return;
   try {
-    await api(`/matches/${S.chat.id}/prevenir`, { method: 'POST' });
+    await api(`/matches/${encodeURIComponent(S.chat.id)}/prevenir`, { method: 'POST' });
     tg.haptic('success');
     toast(t('{prenom} est prévenu', { prenom }));
   } catch (e) { showError(e); }
@@ -1472,7 +1494,7 @@ async function saveProfile() {
     S.form = null;
     S.formStep = 0;
     S.me = await api(ME());
-    S.photoUrls = {};
+    oublierLesPhotos();
     tg.haptic('success');
     if (S.me.verification === 'approved') {
       toast(t('Profil mis à jour'), 'ok');
@@ -1599,10 +1621,10 @@ function chatBody(c) {
     let prev = null;
     msgs = c.messages.map((m) => {
       let out = '';
-      if (!prev || !isSameDay(prev.at, m.at)) out += `<span class="day">${dayLabel(m.at)}</span>`;
+      if (!prev || !isSameDay(prev.at, m.at)) out += `<span class="day">${dayLabel(m.at, t, langue())}</span>`;
       // Messages groupés : même auteur, moins de trois minutes d'écart
       const cont = prev && prev.mine === m.mine && isSameDay(prev.at, m.at) && m.at - prev.at < 3 * 60000;
-      out += `<div class="bubble ${m.mine ? 'mine' : 'theirs'} ${cont ? 'cont' : 'gap'}">${esc(m.text)}<span class="time">${timeLabel(m.at)}</span></div>`;
+      out += `<div class="bubble ${m.mine ? 'mine' : 'theirs'} ${cont ? 'cont' : 'gap'}">${esc(m.text)}<span class="time">${timeLabel(m.at, langue())}</span></div>`;
       prev = m;
       return out;
     }).join('');
@@ -1659,7 +1681,7 @@ async function pollChat() {
   try {
     // suivi=1 : le serveur sait que le profil de l'autre personne est déjà chargé et ne le
     // renvoie plus. Il ne renvoie les rendez-vous que si l'un d'eux a bougé.
-    const data = await api(`/matches/${S.chat.id}?after=${last}&suivi=1`);
+    const data = await api(`/matches/${encodeURIComponent(S.chat.id)}?after=${last}&suivi=1`);
     const dates = data.dates ?? S.chat.dates;
     const datesChanged = data.dates && JSON.stringify(data.dates) !== JSON.stringify(S.chat.dates);
     if (data.messages.length || datesChanged) {
@@ -1668,7 +1690,15 @@ async function pollChat() {
       updateChat();
       if (data.messages.some((m) => !m.mine)) tg.haptic('light');
     }
-  } catch { /* réseau instable : prochain essai dans 4 secondes */ }
+  } catch (e) {
+    // Match défait par l'autre, ou blocage : l'écran restait ouvert et interrogeait pour rien.
+    if (e.code === 'MATCH_NOT_FOUND' || e.code === 'BLOCKED') {
+      clearInterval(S.chatTimer);
+      toast(e.message);
+      go('matches');
+    }
+    /* sinon, réseau instable : prochain essai dans 4 secondes */
+  }
 }
 
 async function sendMessage(input) {
@@ -1677,7 +1707,7 @@ async function sendMessage(input) {
   const button = input.nextElementSibling;
   button.disabled = true;
   try {
-    const { message } = await api(`/matches/${S.chat.id}/messages`, { method: 'POST', body: { text } });
+    const { message } = await api(`/matches/${encodeURIComponent(S.chat.id)}/messages`, { method: 'POST', body: { text } });
     S.chat.messages.push(message);
     S.chat.notice = null;
     input.value = '';
@@ -1697,7 +1727,7 @@ async function sendDate() {
   if (!d.venueId || !d.slot) return showError(new Error(t('Choisis un lieu et un horaire.')));
   tg.setButtons({ main: { text: t('Envoi'), progress: true } });
   try {
-    await api(`/matches/${S.chat.id}/dates`, { method: 'POST', body: d });
+    await api(`/matches/${encodeURIComponent(S.chat.id)}/dates`, { method: 'POST', body: d });
     S.dateDraft = { venueId: null, slot: null };
     tg.closingConfirmation(false);
     tg.haptic('success');
@@ -1714,7 +1744,7 @@ async function sendDate() {
 async function repondreRdv(id, status) {
   if (status === 'cancelled' && !(await tg.confirm(t('Annuler ce rendez-vous ? La personne en sera prévenue.')))) return;
   try {
-    const r = await api(`/dates/${id}`, { method: 'PUT', body: { status } });
+    const r = await api(`/dates/${encodeURIComponent(id)}`, { method: 'PUT', body: { status } });
     tg.haptic(status === 'accepted' ? 'success' : 'light');
     S.chat.dates = S.chat.dates.map((d) => (d.id === id ? { ...d, ...r.date } : d));
     updateChat();
@@ -1728,7 +1758,7 @@ async function checkin(dateId) {
   const code = await tg.scanQr(t('Scanne le code posé sur ta table'));
   if (!code) return;
   try {
-    const r = await api(`/dates/${dateId}/checkin`, { method: 'POST', body: { code } });
+    const r = await api(`/dates/${encodeURIComponent(dateId)}/checkin`, { method: 'POST', body: { code } });
     tg.haptic('success');
     await tg.alert(`Bien arrivé(e) à ${r.venue.name}. ${r.venue.perk}. ${S.chat.other.name} a été prévenu(e).`);
     go('chat', { id: S.chat.id });
@@ -1789,7 +1819,7 @@ async function retirerMatch() {
   });
   if (reponse !== 'ok') return;
   try {
-    await api(`/matches/${matchId}`, { method: 'DELETE' });
+    await api(`/matches/${encodeURIComponent(matchId)}`, { method: 'DELETE' });
     apresProtection(t('Match retiré.'));
   } catch (e) { showError(e); }
 }
@@ -2046,9 +2076,12 @@ async function boot() {
   const params = tg.launchParams();
   const approved = S.me.verification === 'approved';
   if (!S.me.profile) return go('welcome');
-  if (params.screen === 'verify' || S.me.verification === 'none' || S.me.verification === 'rejected') return go('verify');
+  // Les paramètres de lancement viennent de l'adresse ou de start_param, sans vérification :
+  // un écran de vérification sur un compte vérifié bouclait sur une erreur, et un identifiant de
+  // discussion libre composait un chemin d'API. On ne prend que ce qui a la bonne forme.
+  if ((params.screen === 'verify' && !approved) || S.me.verification === 'none' || S.me.verification === 'rejected') return go('verify');
   if (S.me.verification === 'pending') return go('pending');
-  if (approved && params.screen === 'chat' && params.match) return go('chat', { id: params.match });
+  if (approved && params.screen === 'chat' && /^[a-f0-9]{16}$/.test(params.match || '')) return go('chat', { id: params.match });
   if (approved && params.screen === 'matches') return go('matches');
   if (approved && params.screen === 'me') return go('me');
   go('discover');

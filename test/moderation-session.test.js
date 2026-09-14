@@ -251,6 +251,28 @@ test("la commande /moderation refuse ailleurs que dans le groupe", async () => {
 
 // Le choix assumé : sans secret, le serveur démarre quand même et l'app continue de tourner.
 // Seule cette porte refuse — mais elle refuse en disant quoi faire, pas par un 500 muet.
+// Fermer la session n'effaçait que le cookie du navigateur : un cookie copié valait douze heures.
+test('fermer la session la révoque : le même cookie ne rentre plus', async () => {
+  const { cookie } = await session('500');
+  assert.equal((await aller('/api/mod/me', { cookie })).status, 200);
+  assert.equal((await aller('/api/mod/session', { cookie, method: 'DELETE' })).status, 200);
+  assert.equal((await aller('/api/mod/me', { cookie })).status, 401, 'révoquée côté serveur');
+  assert.equal((await aller('/moderation', { cookie })).status, 401);
+  // Un nouveau lien rouvre une session neuve, et l'ancienne reste morte.
+  const neuve = await session('500');
+  assert.equal((await aller('/api/mod/me', { cookie: neuve.cookie })).status, 200);
+  assert.equal((await aller('/api/mod/me', { cookie })).status, 401);
+});
+
+// Lire puis effacer laissait passer deux requêtes simultanées avec le même lien.
+test("deux requêtes simultanées avec le même lien : une seule passe", async () => {
+  oublierLesAdmins();
+  const lien = await creerLienModeration('500');
+  const jeton = encodeURIComponent(new URL(lien).searchParams.get('jeton'));
+  const reponses = await Promise.all([1, 2, 3].map(() => aller(`/moderation?jeton=${jeton}`)));
+  assert.deepEqual(reponses.map((r) => r.status).sort(), [303, 403, 403]);
+});
+
 test("sans WEB_SESSION_SECRET, la modération refuse en expliquant", async () => {
   const vrai = config.webSessionSecret;
   config.webSessionSecret = '';

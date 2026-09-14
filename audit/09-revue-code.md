@@ -512,9 +512,21 @@ journée et ferment tout ce qui éteint la production.
    dans le texte contrôlé ; politique de sécurité de contenu complète.
 5. ~~**Anti-arnaque**~~ — fait le 14 septembre 2026 (corpus de la revue dans `test/antiscam.test.js`). (I15) : normalisation Unicode, tiret, apostrophe, montants espacés, verbes et
    abréviations manquants — puis le corpus réel.
-6. **Interface et exploitation** (I9, I10, I12, section 3) : jeton de requête sur la discussion,
+6. ~~**Interface et exploitation**~~ — fait le 14 septembre 2026, à cinq exceptions près, listées en dessous. (I9, I10, I12, section 3) : jeton de requête sur la discussion,
    garde sur `date()`, identifiants encodés ; actions épinglées, `permissions:`, entrées validées ;
    restauration à froid ; arrêt propre ; le reste de la section 3 au fil de l'eau.
+
+**Ce qui reste ouvert après les six lots**, et pourquoi :
+- `/health` ne regarde toujours pas le stockage : un 503 ferait redémarrer la machine en boucle
+  pendant une panne de base, ce qui n'aiderait personne. Il reste un signe de vie du processus.
+- `Dockerfile` : `node:22-alpine` n'est pas épinglé par somme de contrôle — elle ne se lit pas
+  depuis cette session. À faire à la main : `docker manifest inspect node:22-alpine`.
+- `reports` et `swipes` ne sont pas purgés : les signalements sont l'historique de la modération,
+  et un « passer » effacé ferait revenir la personne dans le paquet. À décider avec une durée.
+- `marquerSignalementLu` reste sur un `GET` : la trace d'une lecture forcée par un lien piégé est
+  un désagrément, pas une fuite ; un `POST` demanderait du JavaScript sur une page qui n'en a pas.
+- `tg.js:38` garde deux couleurs en dur en repli : le SDK exige un hexadécimal quand aucun jeton
+  n'est encore résolu.
 
 Ce que cette revue ne couvre pas et qu'une autre devra faire : le comportement réel sous charge
 (dette n° 3 mesurée, pas rejouée ici), les dictionnaires traduits sans locuteur natif, et tout ce

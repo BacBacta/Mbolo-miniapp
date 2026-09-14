@@ -357,6 +357,7 @@ export default {
   "Selfie vérifié": "Селфі перевірено",
   "Cette semaine": "Цього тижня",
   "Aujourd'hui": "Сьогодні",
+  "Hier": "Учора",
   "Récemment": "Нещодавно",
   "Retour": "Назад",
   "Aimé": "Вподобано",

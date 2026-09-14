@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import crypto from 'node:crypto';
 import express from 'express';
 import QRCode from 'qrcode';
 import { config, venues, secretsPartages, genreAuChoix } from './config.js';
@@ -91,7 +92,11 @@ if (config.isProd && venues.length && !config.venueSecret) {
 
 const app = express();
 app.disable('x-powered-by');
-app.use(express.json({ limit: '3mb' }));
+// Trois mégaoctets ne servent qu'aux images : le selfie, les photos, et le profil des vieux
+// clients qui joignaient la photo. Partout ailleurs, 64 Ko suffisent — et une requête anonyme
+// ne peut plus faire lire trois mégaoctets par le serveur avant tout contrôle.
+app.use(['/api/me/verification', '/api/me/photos', '/api/me/profile'], express.json({ limit: '3mb' }));
+app.use(express.json({ limit: '64kb' }));
 
 // En-têtes de sécurité. La politique de sécurité de contenu dit d'où chaque chose peut venir :
 // les scripts du serveur et du SDK Telegram, rien en ligne — toute l'interface passe par
@@ -132,7 +137,9 @@ app.use('/api', (req, res) => res.status(404).json({ code: 'NOT_FOUND', message:
 // QR codes à imprimer pour les lieux partenaires : /qr/palmier.png?key=ADMIN_KEY
 app.get('/qr/:venueId.png', async (req, res) => {
   const venue = venues.find((v) => v.id === req.params.venueId);
-  if (!config.adminKey || req.query.key !== config.adminKey || !venue) return res.status(404).end();
+  const cle = String(req.query.key || '');
+  const cleOk = !!config.adminKey && cle.length === config.adminKey.length && crypto.timingSafeEqual(Buffer.from(cle), Buffer.from(config.adminKey));
+  if (!cleOk || !venue) return res.status(404).end();
   res.type('png').send(await QRCode.toBuffer(codeDuLieu(venue.id), { width: 600, margin: 2 }));
 });
 
@@ -200,7 +207,9 @@ app.use(express.static(config.publicDir, {
 app.get('*', renderIndex);
 
 app.use((err, req, res, next) => {
-  console.error(err);
+  // Jamais l'objet entier : sur un JSON malformé, body-parser y attache le corps brut — un
+  // selfie, un message — et le journal de l'hébergeur le garderait.
+  console.error(`${err.type || err.name || 'Erreur'} ${err.status || ''} ${err.message || ''}`.trim(), err.type ? '' : err.stack || '');
   if (err.type === 'entity.too.large') return res.status(413).json({ code: 'TOO_LARGE', message: 'Image trop lourde.' });
   res.status(500).json({ code: 'SERVER_ERROR', message: 'Un problème est survenu. Réessaie dans un instant.' });
 });
@@ -234,11 +243,25 @@ const purgerVraiment = async () => {
   // instances comptent ensemble. Sans purge, ils y laisseraient une ligne par compte et par
   // action, pour toujours.
   await store.purgerLimites();
+  await store.purgerPresence();
 };
 await purger();
 setInterval(purger, 6 * 3600 * 1000).unref();
 
-app.listen(config.port, async () => {
+// Arrêt propre : l'hébergeur arrête la machine dès qu'elle est inactive, et Node sortait aussitôt.
+// Le fichier JSON perdait sa dernière écriture différée, et PostgreSQL gardait des connexions
+// mortes. On ferme le serveur, on vide ce qui attend, on rend les connexions — dix secondes au plus.
+let serveur = null;
+function arreter(signal) {
+  console.log(`${signal} reçu : arrêt propre.`);
+  serveur?.close();
+  Promise.resolve(store.arreter?.()).catch(() => {}).finally(() => process.exit(0));
+  setTimeout(() => process.exit(0), 8000).unref();
+}
+process.on('SIGTERM', () => arreter('SIGTERM'));
+process.on('SIGINT', () => arreter('SIGINT'));
+
+serveur = app.listen(config.port, async () => {
   console.log(`${config.appName} écoute sur le port ${config.port}`);
   // Savoir où vont les données est la première question quand quelque chose ne va pas en production.
   console.log(modeStockage === 'postgres'

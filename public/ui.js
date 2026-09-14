@@ -231,13 +231,15 @@ export function throwCard(card, dir = 1) {
 
 // ---------- Formats de date pour la discussion ----------
 const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-export function dayLabel(ts) {
+// Le traducteur et la langue viennent de l'appelant : ce fichier ne dépend pas d'i18n.js, et une
+// interface en russe datait ses messages en français (règle 10).
+export function dayLabel(ts, tr = (s) => s, lang = 'fr') {
   const d = new Date(ts);
   const now = new Date();
   const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-  if (sameDay(d, now)) return "Aujourd'hui";
-  if (sameDay(d, yesterday)) return 'Hier';
-  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  if (sameDay(d, now)) return tr("Aujourd'hui");
+  if (sameDay(d, yesterday)) return tr('Hier');
+  return d.toLocaleDateString(lang, { weekday: 'long', day: 'numeric', month: 'long' });
 }
-export const timeLabel = (ts) => new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+export const timeLabel = (ts, lang = 'fr') => new Date(ts).toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
 export const isSameDay = (a, b) => sameDay(new Date(a), new Date(b));

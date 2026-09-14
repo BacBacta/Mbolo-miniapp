@@ -33,10 +33,11 @@ export async function creerLienModeration(userId) {
 export async function echangerLeJeton(jeton) {
   const donnees = verifier(jeton, 'lien');
   if (!donnees?.id || !donnees?.u) return { ok: false, raison: 'JETON_INVALIDE' };
+  // Comparé et effacé d'un seul geste, dans le stockage : lire puis écrire laissait passer deux
+  // requêtes simultanées avec le même lien. Même refusé ensuite, un lien a servi.
+  if (!(await store.consommerJetonModeration(donnees.id, donnees.u))) return { ok: false, raison: 'JETON_UTILISE' };
   const user = await store.getUser(donnees.id);
-  if (!user || user.modJeton !== donnees.u) return { ok: false, raison: 'JETON_UTILISE' };
-  // Effacé avant toute autre vérification : même refusé, un lien a servi.
-  await store.updateUser(user.id, { modJeton: null });
+  if (!user) return { ok: false, raison: 'JETON_UTILISE' };
   if (!(await estAdministrateur(user.id))) return { ok: false, raison: 'PAS_ADMIN' };
   return { ok: true, user };
 }
@@ -64,11 +65,24 @@ export async function requireModerateur(req, res, next) {
     effacerCookie(res, COOKIE_MODERATION);
     return res.status(403).json({ code: 'MOD_PAS_ADMIN', message: "Ce compte ne peut pas accéder à l'espace de modération." });
   }
+  // La session porte un numéro que le compte connaît : fermer la session l'efface, et un cookie
+  // copié ne vaut plus rien. Sans lui, « fermer » n'effaçait que le cookie du navigateur.
+  if (!sessionVivante(moi, session)) {
+    effacerCookie(res, COOKIE_MODERATION);
+    return res.status(401).json({ code: 'MOD_SESSION', message: 'Session fermée. Retourne dans le groupe de modération et envoie /moderation.' });
+  }
   req.moderateur = moi;
   next();
 }
 
 // Même enveloppe que l'API : sans elle, un gestionnaire qui rejette arrêtait le processus.
+const sessionVivante = (user, session) => !!session?.s && user.modSession === session.s;
+async function ouvrirSession(res, user) {
+  const s = crypto.randomUUID();
+  await store.updateUser(user.id, { modSession: s });
+  res.cookie(COOKIE_MODERATION, signer({ id: String(user.id), s }, config.modSessionSec, 'session'), optionsCookie(config.modSessionSec));
+}
+
 export const modApi = envelopper(express.Router());
 
 modApi.get('/me', requireModerateur, async (req, res) => {
@@ -112,7 +126,10 @@ modApi.get('/comptes-fermes', requireModerateur, async (req, res) => {
   res.json({ comptes: bannis.map((u) => ({ id: u.id, prenom: u.profile?.name || u.firstName || '', ...u.banned })) });
 });
 
-modApi.delete('/session', (req, res) => {
+modApi.delete('/session', async (req, res) => {
+  // Révoquée côté serveur, pas seulement oubliée côté navigateur.
+  const session = verifier(lireCookie(req, COOKIE_MODERATION), 'session');
+  if (session?.id) await store.updateUser(session.id, { modSession: null });
   effacerCookie(res, COOKIE_MODERATION);
   res.json({ ferme: true });
 });
@@ -133,9 +150,14 @@ export function commandesModeration() {
     if (!config.webAppUrl) {
       return ctx.reply("Le serveur ne connaît pas son adresse publique : renseigne WEBAPP_URL, sinon le lien ne mènerait nulle part.");
     }
-    oublierLesAdmins();
+    // Le cache n'est vidé que si la personne n'y figure pas : quelqu'un vient peut-être d'être
+    // nommé. Le vider à chaque fois laissait n'importe quel membre du groupe forcer un appel à
+    // Telegram, et remettre à zéro la liste de secours en cas de panne.
     if (!(await estAdministrateur(ctx.from.id))) {
-      return ctx.reply(`${ctx.from.first_name}, seuls les administrateurs du groupe peuvent ouvrir l'espace de modération.`);
+      oublierLesAdmins();
+      if (!(await estAdministrateur(ctx.from.id))) {
+        return ctx.reply(`${ctx.from.first_name}, seuls les administrateurs du groupe peuvent ouvrir l'espace de modération.`);
+      }
     }
     const lien = await creerLienModeration(ctx.from.id);
     try {
@@ -301,12 +323,12 @@ async function repondre(assetV, req, res) {
   if (req.query.jeton) {
     const r = await echangerLeJeton(req.query.jeton);
     if (!r.ok) return res.status(403).type('html').send(page(assetV, 'Lien refusé', `<p>${echapper(REFUS[r.raison])}</p>`));
-    res.cookie(COOKIE_MODERATION, signer({ id: String(r.user.id) }, config.modSessionSec, 'session'), optionsCookie(config.modSessionSec));
+    await ouvrirSession(res, r.user);
     return res.redirect(303, '/moderation');
   }
   const session = verifier(lireCookie(req, COOKIE_MODERATION), 'session');
   const moi = session?.id ? await store.getUser(session.id) : null;
-  if (!moi || moi.banned || !(await estAdministrateur(session.id))) {
+  if (!moi || moi.banned || !sessionVivante(moi, session) || !(await estAdministrateur(session.id))) {
     return res.status(401).type('html').send(page(assetV, 'Espace de modération',
       "<p>Pour entrer : va dans le groupe de modération sur Telegram et envoie <code>/moderation</code>. Le bot t'envoie un lien en privé.</p>"));
   }

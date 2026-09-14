@@ -58,6 +58,8 @@ try {
     .sort()
     .slice(0, -garder);
   for (const f of anciennes) fs.unlinkSync(path.join(dossier, f));
+  // Un .partiel laissé par un plantage n'est pas une sauvegarde : il ne doit pas s'accumuler.
+  for (const f of fs.readdirSync(dossier)) if (f.endsWith('.partiel') && f !== path.basename(provisoire)) fs.unlinkSync(path.join(dossier, f));
   if (anciennes.length) console.log(`${anciennes.length} sauvegarde(s) plus ancienne(s) supprimée(s), ${garder} gardée(s).`);
 } finally {
   await pool.end();

@@ -357,6 +357,7 @@ export default {
   'Selfie vérifié': 'Selfie imethibitishwa',
   'Cette semaine': 'Wiki hii',
   'Aujourd\'hui': 'Leo',
+  'Hier': 'Jana',
   'Récemment': 'Hivi karibuni',
   'Retour': 'Rudi',
   'Aimé': 'Umependa',

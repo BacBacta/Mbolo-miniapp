@@ -29,14 +29,34 @@ on:
 # Deux sauvegardes en même temps écriraient dans le même dossier : une seule à la fois.
 concurrency: sauvegarde-${{ inputs.app_name || 'mbolo-miniapp' }}
 
+# Lire le dépôt suffit : l'artefact se dépose sans droit d'écriture sur le code.
+permissions:
+  contents: read
+
 jobs:
   sauvegarder:
     runs-on: ubuntu-latest
     env:
       APP: ${{ inputs.app_name || 'mbolo-miniapp' }}
+      GARDER: ${{ inputs.garder || '14' }}
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
     steps:
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      # Les entrées sont vérifiées avant d'entrer dans une commande exécutée sur la production :
+      # « garder » y était inséré tel quel, en root, sans le moindre contrôle.
+      - name: Vérifier les entrées
+        run: |
+          case "$APP" in ''|*[!a-z0-9-]*) echo "Nom d'app invalide : $APP" >&2; exit 1;; esac
+          case "$GARDER" in ''|*[!0-9]*) echo "« garder » doit être un nombre : $GARDER" >&2; exit 1;; esac
+
+      # flyctl à version fixe, installé par le script officiel : une action tierce suivie sur sa
+      # branche « master » s'exécutait avec tous les secrets du dépôt, et pouvait changer sans
+      # que personne ici ne le voie (audit/09-revue-code.md, I10).
+      - name: Installer flyctl
+        env:
+          FLYCTL_VERSION: '0.4.102'
+        run: |
+          curl -fsSL https://fly.io/install.sh | sh -s "$FLYCTL_VERSION"
+          echo "$HOME/.fly/bin" >> "$GITHUB_PATH"
 
       # La machine s'arrête quand personne ne s'en sert : une requête la réveille avant qu'on
       # tente d'y ouvrir une session, sinon flyctl répond « has no started VMs ».
@@ -48,7 +68,7 @@ jobs:
       - name: Écrire la sauvegarde sur le volume
         run: |
           flyctl ssh console -a "$APP" -C \
-            "node scripts/sauvegarde.js /data/sauvegardes --garder ${{ inputs.garder || '14' }}" | tee sortie.txt
+            "node scripts/sauvegarde.js /data/sauvegardes --garder $GARDER" | tee sortie.txt
           grep -q "Sauvegarde écrite" sortie.txt
           # Le chemin sort de la ligne « Sauvegarde écrite : … » : le contrôle qui suit doit
           # porter sur CE fichier, pas sur le dernier que le dossier contient.

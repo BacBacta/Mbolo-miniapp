@@ -7,6 +7,10 @@ on:
   push:
     branches: [main]
 
+# Lire le dépôt suffit : aucun travail n'écrit sur GitHub.
+permissions:
+  contents: read
+
 jobs:
   tests:
     name: Node ${{ matrix.node }}

@@ -21,6 +21,9 @@ fs.mkdirSync(config.uploadsDir, { recursive: true });
 
 export const pool = new pg.Pool({
   connectionString: config.databaseUrl,
+  // Le nom sous lequel la base voit l'app : scripts/restaurer.js s'en sert pour refuser de
+  // restaurer pendant qu'elle tourne.
+  application_name: 'odo',
   // Fly, Neon et Supabase présentent des certificats que Node ne valide pas seul. La connexion
   // reste chiffrée ; c'est la vérification de l'autorité qui est levée, comme le fait psql par défaut.
   ssl: /\bsslmode=(require|prefer)\b/.test(config.databaseUrl || '') ? { rejectUnauthorized: false } : false,
@@ -118,6 +121,17 @@ export const store = {
     return u.pid ? u : versUser(await fusionner('users', id, { pid: newId() }));
   },
   userByPid: async (pid) => (pid ? versUser(await un(`select * from users where data->>'pid' = $1`, [pid])) : null),
+
+  // À l'arrêt : rendre les connexions, pour que PostgreSQL ne garde pas des sessions mortes.
+  async arreter() { await pool.end().catch(() => {}); },
+
+  // Le jeton du lien de modération, comparé et effacé d'un seul geste : deux requêtes avec le
+  // même lien ne peuvent pas passer toutes les deux.
+  async consommerJetonModeration(id, usage) {
+    if (!usage) return false;
+    const r = await q(`update users set data = data - 'modJeton' where id = $1 and data->>'modJeton' = $2 returning id`, [String(id), String(usage)]);
+    return r.length > 0;
+  },
 
   // createdAt a sa propre colonne : un patch qui la porte la met à jour à part, le reste va
   // dans le jsonb. Sans cela, une date d'inscription réécrite serait silencieusement perdue.
@@ -387,6 +401,7 @@ export const store = {
 
   touchPresence: (userId, matchId) => presence.set(`${userId}:${matchId}`, Date.now()),
   leavePresence: (userId) => { for (const k of presence.keys()) if (k.startsWith(`${userId}:`)) presence.delete(k); },
+  purgerPresence: async (delaiMs = 10 * 60 * 1000) => { const limite = Date.now() - delaiMs; for (const [k, at] of presence) if (at < limite) presence.delete(k); },
   isViewing: (userId, matchId, withinMs = 10000) => Date.now() - (presence.get(`${userId}:${matchId}`) || 0) < withinMs,
 
   // ---------- Activité ----------
@@ -487,7 +502,14 @@ export const store = {
   async addDate(date) {
     const { matchId, ...reste } = date;
     const d = { id: newId(), createdAt: Date.now(), arrivals: {}, ...reste };
-    await q('insert into dates (id, match_id, data) values ($1, $2, $3::jsonb)', [d.id, matchId, JSON.stringify(d)]);
+    try {
+      await q('insert into dates (id, match_id, data) values ($1, $2, $3::jsonb)', [d.id, matchId, JSON.stringify(d)]);
+    } catch (e) {
+      // L'index partiel dates_vivant (migration 005) : un seul rendez-vous vivant par discussion,
+      // même quand les deux personnes proposent au même instant.
+      if (e.code === '23505') return null;
+      throw e;
+    }
     return { ...d, matchId };
   },
 
