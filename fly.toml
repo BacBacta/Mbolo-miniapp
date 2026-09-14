@@ -5,6 +5,12 @@ primary_region = "cdg"
 
 [build]
 
+# Dix secondes entre le signal d'arrêt et la coupure : le serveur ferme proprement (écriture
+# différée du fichier, connexions PostgreSQL rendues) avant que la machine ne s'éteigne.
+kill_timeout = "10s"
+# De la mémoire de secours sur une machine de 256 Mo : un pic ne doit pas tuer le processus.
+swap_size_mb = 256
+
 [env]
   # Le nom affiché dans l'app, les messages du bot et les pages publiques.
   # Écrit ici plutôt que laissé au défaut de server/config.js : la production ne doit pas

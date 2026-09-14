@@ -28,13 +28,32 @@ if (fs.existsSync(file)) {
 const presence = new Map();
 
 let timer = null;
+// Écriture atomique, et durable : le fichier puis le dossier sont synchronisés sur le disque
+// avant le renommage, sans quoi une coupure laissait un db.json vide et le démarrage repartait
+// sur une base vide. Une erreur (disque plein) est dite, jamais lancée depuis un minuteur : elle
+// arrêterait le processus sans que personne l'attrape.
+function ecrireMaintenant() {
+  clearTimeout(timer);
+  timer = null;
+  try {
+    const tmp = `${file}.tmp`;
+    const fd = fs.openSync(tmp, 'w');
+    fs.writeSync(fd, JSON.stringify(db));
+    fs.fsyncSync(fd);
+    fs.closeSync(fd);
+    fs.renameSync(tmp, file);
+    try {
+      const dir = fs.openSync(path.dirname(file), 'r');
+      fs.fsyncSync(dir);
+      fs.closeSync(dir);
+    } catch { /* certains systèmes refusent fsync sur un dossier : le renommage est déjà posé */ }
+  } catch (e) {
+    console.error(`Écriture de ${file} impossible (les données restent en mémoire) : ${e.message}`);
+  }
+}
 function save() {
   clearTimeout(timer);
-  timer = setTimeout(() => {
-    const tmp = `${file}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(db));
-    fs.renameSync(tmp, file);
-  }, 200);
+  timer = setTimeout(ecrireMaintenant, 200);
 }
 
 export const newId = () => crypto.randomBytes(8).toString('hex');
@@ -50,6 +69,18 @@ export const store = {
   // ---------- Utilisateurs ----------
   getUser: async (id) => db.users[String(id)] || null,
   userByPid: async (pid) => (pid ? Object.values(db.users).find((u) => u.pid === pid) || null : null),
+
+  // À l'arrêt : ce qui attendait le minuteur part tout de suite.
+  async arreter() { if (timer) ecrireMaintenant(); },
+
+  // Le jeton du lien de modération, comparé et effacé d'un seul geste.
+  async consommerJetonModeration(id, usage) {
+    const u = db.users[String(id)];
+    if (!u || !usage || u.modJeton !== usage) return false;
+    u.modJeton = null;
+    save();
+    return true;
+  },
 
   async upsertTelegramUser(tgUser) {
     const id = String(tgUser.id);
@@ -332,8 +363,12 @@ export const store = {
   async markRead(matchId, userId) {
     const m = db.matches[matchId];
     if (!m) return;
+    // Le fichier n'est réécrit que si la lecture change quelque chose — un message plus récent
+    // que la dernière lecture. Sinon chaque interrogation, toutes les 4 s, resérialisait tout.
+    const dernier = (db.messages[matchId] || []).at(-1)?.at || 0;
+    const lu = m.readAt?.[String(userId)] || 0;
     m.readAt = { ...(m.readAt || {}), [String(userId)]: Date.now() };
-    save();
+    if (dernier > lu) save();
   },
 
   async unreadCount(matchId, userId) {
@@ -347,6 +382,8 @@ export const store = {
   touchPresence: (userId, matchId) => presence.set(`${userId}:${matchId}`, Date.now()),
 
   leavePresence: (userId) => { for (const k of presence.keys()) if (k.startsWith(`${userId}:`)) presence.delete(k); },
+  // La carte ne rétrécissait que sur /presence/leave : une app fermée sans le dire y restait.
+  purgerPresence: async (delaiMs = 10 * 60 * 1000) => { const limite = Date.now() - delaiMs; for (const [k, at] of presence) if (at < limite) presence.delete(k); },
 
   isViewing: (userId, matchId, withinMs = 10000) => Date.now() - (presence.get(`${userId}:${matchId}`) || 0) < withinMs,
 

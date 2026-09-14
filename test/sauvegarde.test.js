@@ -112,7 +112,9 @@ test('une base effacée redevient elle-même après restauration', { skip: sautS
   assert.equal(compter(await lireTout(pool)).users, 0, 'la base est bien vide avant la restauration');
 
   // La remise, par le vrai script — pas par une copie de sa logique dans le test.
-  const sortie = execFileSync(process.execPath, ['scripts/restaurer.js', fichier], {
+  // Le test garde sa propre connexion ouverte sous le nom de l'app : le script la verrait et
+  // refuserait, c'est bien ce qu'il doit faire en production. Ici on le dit explicitement.
+  const sortie = execFileSync(process.execPath, ['scripts/restaurer.js', fichier, '--meme-si-lapp-tourne'], {
     cwd: racine, encoding: 'utf8',
     env: { ...process.env, BACKUP_SECRET: 'secret-du-test' },
   });
@@ -148,7 +150,7 @@ test('la restauration refuse une base qui porte déjà des lignes', { skip: saut
 
   let refus = null;
   try {
-    execFileSync(process.execPath, ['scripts/restaurer.js', fichier], {
+    execFileSync(process.execPath, ['scripts/restaurer.js', fichier, '--meme-si-lapp-tourne'], {
       cwd: racine, encoding: 'utf8', env: { ...process.env, BACKUP_SECRET: 'secret-du-test' },
     });
   } catch (e) { refus = `${e.stdout}${e.stderr}`; }

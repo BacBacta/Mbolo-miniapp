@@ -24,13 +24,25 @@ on:
 
 concurrency: deploy-fly
 
+# Lire le dépôt suffit : le déploiement parle à Fly, pas à GitHub.
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      # flyctl à version fixe, installé par le script officiel : une action tierce suivie sur sa
+      # branche « master » s'exécutait avec tous les secrets du dépôt, et pouvait changer sans
+      # que personne ici ne le voie (audit/09-revue-code.md, I10).
+      - name: Installer flyctl
+        env:
+          FLYCTL_VERSION: '0.4.102'
+        run: |
+          curl -fsSL https://fly.io/install.sh | sh -s "$FLYCTL_VERSION"
+          echo "$HOME/.fly/bin" >> "$GITHUB_PATH"
 
       - name: Déployer
         env:
@@ -40,8 +52,17 @@ jobs:
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
           ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
           WEB_SESSION_SECRET: ${{ secrets.WEB_SESSION_SECRET }}
+          # Les entrées passent par l'environnement et sont vérifiées : insérées telles quelles
+          # dans une commande, une apostrophe suffisait à y glisser autre chose.
+          APP_NAME: ${{ inputs.app_name }}
+          REGION: ${{ inputs.region }}
         # Même script que pour un déploiement à la main : une seule logique à maintenir
-        run: ./deployer-fly.sh '${{ inputs.app_name }}' '${{ inputs.region }}'
+        run: |
+          case "$APP_NAME" in ''|*[!a-z0-9-]*) echo "Nom d'app invalide : $APP_NAME" >&2; exit 1;; esac
+          case "$REGION" in ''|*[!a-z]*) echo "Région invalide : $REGION" >&2; exit 1;; esac
+          ./deployer-fly.sh "$APP_NAME" "$REGION"
 
       - name: Adresse de l'app
-        run: echo "Mini app disponible sur https://${{ inputs.app_name }}.fly.dev"
+        env:
+          APP_NAME: ${{ inputs.app_name }}
+        run: echo "Mini app disponible sur https://$APP_NAME.fly.dev"

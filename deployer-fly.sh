@@ -38,7 +38,8 @@ fi
 command -v flyctl >/dev/null 2>&1 || { echo "flyctl introuvable : curl -fsSL https://fly.io/install.sh | sh" >&2; exit 1; }
 
 echo "== Compte =="
-flyctl auth whoami
+# Sans afficher l'adresse du compte : elle finirait dans le journal du travail.
+flyctl auth whoami >/dev/null && echo "Jeton Fly accepté."
 
 echo "== Nom et région dans fly.toml =="
 sed -i.bak "s/^app = .*/app = \"$APP\"/; s/^primary_region = .*/primary_region = \"$REGION\"/" fly.toml

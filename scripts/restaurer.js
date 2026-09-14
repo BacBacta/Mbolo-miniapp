@@ -14,6 +14,10 @@ import { TABLES } from '../server/bascule.js';
 const args = process.argv.slice(2);
 const fichier = args.find((a) => !a.startsWith('--'));
 const ecraser = args.includes('--ecraser');
+// Restaurer pendant que l'app écrit : une ligne posée entre-temps entre dans la transaction (clé
+// dupliquée, tout revient) ou est effacée, et le recomptage ment. Le script refuse donc tant
+// qu'une connexion de l'app est ouverte, sauf à le dire explicitement.
+const memeSiLAppTourne = args.includes('--meme-si-lapp-tourne');
 
 if (!fichier) {
   console.error('Usage : node scripts/restaurer.js <fichier.sauvegarde> [--ecraser]');
@@ -46,12 +50,22 @@ try {
   // Tout ou rien : une restauration à moitié faite laisse une base que personne ne sait lire.
   const client = await pool.connect();
   try {
+    if (!memeSiLAppTourne) {
+      const { rows } = await client.query("select count(*)::int as n from pg_stat_activity where datname = current_database() and application_name = 'odo' and pid <> pg_backend_pid()");
+      if (rows[0].n > 0) {
+        console.error(`L'app est connectée à cette base (${rows[0].n} connexion(s)). Arrête-la d'abord : flyctl scale count 0 -a <app>, puis relance ; ou ajoute --meme-si-lapp-tourne en sachant ce que tu fais.`);
+        process.exit(1);
+      }
+    }
     await client.query('begin');
     for (const table of [...TABLES].reverse()) await client.query(`delete from ${nomSur(table)}`);
     for (const table of TABLES) {
       const rows = sauvegarde.tables?.[table] || [];
       if (!rows.length) continue;
       const colonnes = Object.keys(rows[0]);
+      // Les noms viennent du fichier. GCM l'authentifie, mais une ligne de contrôle ne coûte rien.
+      const mauvaise = colonnes.find((c) => !/^[a-z_][a-z0-9_]*$/.test(c));
+      if (mauvaise) throw new Error(`Nom de colonne inattendu dans ${table} : « ${mauvaise} ».`);
       const listeCol = colonnes.map((c) => `"${c}"`).join(', ');
       // Par paquets : une seule requête de dix mille lignes dépasse la limite de paramètres.
       for (let i = 0; i < rows.length; i += 200) {

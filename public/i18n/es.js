@@ -357,6 +357,7 @@ export default {
   'Selfie vérifié': 'Selfi verificado',
   'Cette semaine': 'Esta semana',
   'Aujourd\'hui': 'Hoy',
+  'Hier': 'Ayer',
   'Récemment': 'Hace poco',
   'Retour': 'Atrás',
   'Aimé': 'Me gusta',

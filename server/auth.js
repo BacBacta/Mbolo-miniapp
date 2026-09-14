@@ -66,9 +66,13 @@ export function identiteSansCreer(req) {
     const result = validateInitData(header.slice(4), config.botToken);
     return result.ok ? String(result.user.id) : null;
   }
-  if (config.allowDevAuth && req.get('x-dev-user')) return String(req.get('x-dev-user'));
+  if (config.allowDevAuth && devUserValide(req.get('x-dev-user'))) return String(req.get('x-dev-user'));
   return null;
 }
+
+// L'identifiant de développement finit dans des noms de fichiers (« <id>-selfie.jpg ») : « ../x »
+// écrirait hors du dossier. Inerte en production, borné quand même.
+const devUserValide = (id) => typeof id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(id);
 
 export async function requireAuth(req, res, next) {
   const header = req.get('authorization') || '';
@@ -79,7 +83,7 @@ export async function requireAuth(req, res, next) {
     return refuserSiBanni(req, res) ? undefined : next();
   }
   // Mode développement : tester l'interface dans un navigateur classique
-  if (config.allowDevAuth && req.get('x-dev-user')) {
+  if (config.allowDevAuth && devUserValide(req.get('x-dev-user'))) {
     const id = req.get('x-dev-user');
     req.user = await store.upsertTelegramUser({ id, first_name: 'Testeur', language_code: 'fr' });
     // Rien ne distinguait un compte de test d'un vrai : après coup, ils sont indiscernables en

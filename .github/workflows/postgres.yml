@@ -51,18 +51,39 @@ on:
 # Deux bascules en même temps écriraient dans la même base : une seule à la fois.
 concurrency: postgres-${{ inputs.app_name }}
 
+# Lire le dépôt suffit.
+permissions:
+  contents: read
+
 jobs:
   bascule:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      # flyctl à version fixe, installé par le script officiel : une action tierce suivie sur sa
+      # branche « master » s'exécutait avec tous les secrets du dépôt, et pouvait changer sans
+      # que personne ici ne le voie (audit/09-revue-code.md, I10).
+      - name: Installer flyctl
+        env:
+          FLYCTL_VERSION: '0.4.102'
+        run: |
+          curl -fsSL https://fly.io/install.sh | sh -s "$FLYCTL_VERSION"
+          echo "$HOME/.fly/bin" >> "$GITHUB_PATH"
 
       - name: ${{ inputs.etape }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_ORG_TOKEN || secrets.FLY_API_TOKEN }}
           CREER_LA_BASE: ${{ inputs.creer_la_base }}
           MOTEUR: ${{ inputs.moteur }}
-        # Même script que pour une bascule à la main : une seule logique à maintenir
-        run: ./basculer-postgres.sh '${{ inputs.etape }}' '${{ inputs.app_name }}' '${{ inputs.db_name }}' '${{ inputs.region }}'
+          ETAPE: ${{ inputs.etape }}
+          APP_NAME: ${{ inputs.app_name }}
+          DB_NAME: ${{ inputs.db_name }}
+          REGION: ${{ inputs.region }}
+        # Même script que pour une bascule à la main : une seule logique à maintenir. Les entrées
+        # passent par l'environnement et sont vérifiées avant d'entrer dans une commande.
+        run: |
+          for v in "$ETAPE" "$APP_NAME" "$DB_NAME" "$REGION"; do
+            case "$v" in ''|*[!a-z0-9-]*) echo "Entrée invalide : $v" >&2; exit 1;; esac
+          done
+          ./basculer-postgres.sh "$ETAPE" "$APP_NAME" "$DB_NAME" "$REGION"

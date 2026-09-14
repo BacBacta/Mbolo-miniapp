@@ -362,6 +362,7 @@ export default {
   'Selfie vérifié': 'Selfie verified',
   'Cette semaine': 'This week',
   'Aujourd\'hui': 'Today',
+  'Hier': 'Yesterday',
   'Récemment': 'Recently',
   'Retour': 'Back',
   'Aimé': 'Liked',

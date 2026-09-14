@@ -305,9 +305,19 @@ si la base porte déjà des lignes, et te dit combien : c'est le chiffre que tu 
 # 1. Récupère une sauvegarde : l'artefact GitHub, ou depuis le volume
 flyctl ssh sftp get /data/sauvegardes/mbolo-2026-09-13T02-30-00-000Z.sauvegarde -a mbolo-miniapp
 
-# 2. Remets-la
-flyctl ssh console -a mbolo-miniapp -C "node scripts/restaurer.js /data/sauvegardes/<fichier>"
+# 2. Arrête l'app : restaurer pendant qu'elle écrit fausserait la copie, et le script refuse
+#    tant qu'une de ses connexions est ouverte
+flyctl scale count 0 -a mbolo-miniapp
+
+# 3. Remets-la, depuis une machine éphémère
+flyctl machine run . -a mbolo-miniapp --rm -C "node scripts/restaurer.js /data/sauvegardes/<fichier>"
+
+# 4. Relance l'app
+flyctl scale count 1 -a mbolo-miniapp
 ```
+
+Si tu dois vraiment restaurer app allumée, `--meme-si-lapp-tourne` passe outre le refus — en sachant
+qu'une ligne écrite pendant la restauration peut tout faire revenir en arrière.
 
 Tu dois lire `Restauré et vérifié` suivi du total : le script recompte **depuis la base** après
 avoir écrit, et refuse cette phrase si un seul compte ne correspond pas. Il écrit tout dans une transaction : ou tout revient, ou rien ne bouge.
