@@ -47,7 +47,7 @@ async function publicProfile(user) {
     name: p.name,
     age: p.age,
     intent: p.intent,
-    intentLabel: INTENTS[p.intent] || INTENTS_RETIRES[p.intent] || '',
+    intentLabel: (dansLaListe(INTENTS, p.intent) && INTENTS[p.intent]) || (dansLaListe(INTENTS_RETIRES, p.intent) && INTENTS_RETIRES[p.intent]) || '',
     country: p.country,
     city: p.city,
     area: p.area,
@@ -82,7 +82,7 @@ function lireCompat(b) {
   for (const [champ, { valeurs }] of Object.entries(COMPAT)) {
     const v = b?.compat?.[champ];
     if (v === undefined || v === null || v === '') continue;
-    if (!valeurs[v]) return { erreur: champ };
+    if (!dansLaListe(valeurs, v)) return { erreur: champ };
     compat[champ] = v;
   }
   return { compat };
@@ -94,7 +94,7 @@ function compatPublique(p) {
   if (p.intent !== 'serieux' || !p.compat) return null;
   const vues = Object.entries(COMPAT)
     .filter(([champ]) => p.compat[champ])
-    .map(([champ, { question, valeurs }]) => ({ champ, question, reponse: valeurs[p.compat[champ]] }));
+    .map(([champ, { question, valeurs }]) => ({ champ, question, reponse: dansLaListe(valeurs, p.compat[champ]) ? valeurs[p.compat[champ]] : undefined }));
   return vues.length ? vues : null;
 }
 
@@ -109,6 +109,10 @@ function saveJpeg(dataUrl, file) {
 
 // Un compte banni n'est plus « vérifié » au sens de la découverte : il disparaît des cartes, des
 // listes et des « ont aimé ton profil » d'un coup, parce que tout passe par là.
+// Une liste fermée s'interroge par hasOwn, jamais par LISTE[valeur] : « constructor » est une
+// propriété de tout objet, donc « vraie », et un genre « constructor » s'enregistrait — puis ne
+// valait ni femme ni homme, ce qui contournait la règle femme/homme (audit/09-revue-code.md, I2).
+const dansLaListe = (liste, cle) => typeof cle === 'string' && Object.hasOwn(liste, cle);
 const isApproved = (u) => u.verification === 'approved' && u.profile && !u.banned;
 const requireApproved = (req, res, next) => (isApproved(req.user) ? next() : fail(res, 403, 'NOT_VERIFIED', 'Vérifie ton profil pour accéder à cette fonction.'));
 
@@ -117,7 +121,7 @@ const requireApproved = (req, res, next) => (isApproved(req.user) ? next() : fai
 // de personne. On le ramène vers Amitié à sa prochaine ouverture, et on le lui dit — changer le
 // profil de quelqu'un sans l'en informer serait pire que le laisser en panne.
 async function retirerIntentionDisparue(u) {
-  if (!u.profile || INTENTS[u.profile.intent]) return u;
+  if (!u.profile || dansLaListe(INTENTS, u.profile.intent)) return u;
   const remplacement = 'amitie';
   await store.updateUser(u.id, { profile: { ...u.profile, intent: remplacement } });
   notify(u.id, "L'option « Sortie en duo » n'existe pas encore pour de vrai : elle promettait des rencontres à quatre que {app} ne sait pas encore organiser. Ton profil est passé en « Amitié ». Tu peux choisir autre chose quand tu veux.",
@@ -176,8 +180,8 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
   const age = Number(b.age);
   if (!name) return fail(res, 400, 'NAME_REQUIRED', 'Indique ton prénom.');
   if (!Number.isInteger(age) || age < 18 || age > 99) return fail(res, 400, 'AGE_INVALID', `${config.appName} est réservé aux 18 ans et plus.`);
-  if (!GENDERS[b.gender]) return fail(res, 400, 'GENDER_REQUIRED', 'Indique si tu es une femme ou un homme.');
-  if (!INTENTS[b.intent]) return fail(res, 400, 'INTENT_REQUIRED', 'Choisis ce que tu cherches.');
+  if (!dansLaListe(GENDERS, b.gender)) return fail(res, 400, 'GENDER_REQUIRED', 'Indique si tu es une femme ou un homme.');
+  if (!dansLaListe(INTENTS, b.intent)) return fail(res, 400, 'INTENT_REQUIRED', 'Choisis ce que tu cherches.');
   // Pays : une liste fermée, parce qu'il en existe un nombre fini et que la comparaison doit être
   // exacte. Ville : un champ libre, parce qu'aucune liste ne couvre le monde. Les comptes créés
   // avant l'ouverture internationale n'ont pas de pays : ils gardent celui par défaut.
@@ -442,7 +446,7 @@ api.put('/me/filters', async (req, res) => {
   let gender = filtersOf(req.user).gender || '';
   if ('gender' in (req.body || {})) {
     const g = String(req.body.gender || '');
-    if (g && !GENDERS[g]) return fail(res, 400, 'FILTERS_INVALID', 'Choisis « Femme », « Homme », ou tout le monde.');
+    if (g && !dansLaListe(GENDERS, g)) return fail(res, 400, 'FILTERS_INVALID', 'Choisis « Femme », « Homme », ou tout le monde.');
     gender = g;
   }
   if (!genreDemandable(req.user)) gender = '';
@@ -623,6 +627,15 @@ api.post('/swipes', requireApproved, limiter('swipe'), async (req, res) => {
   const { targetId, action } = req.body || {};
   const target = await store.getUser(targetId);
   if (!target || !['like', 'pass'].includes(action) || target.id === me.id) return fail(res, 400, 'SWIPE_INVALID', 'Action impossible.');
+  // La cible passe par le même filtre que la découverte et la liste des likes : vérifiée, pas
+  // bloquée dans un sens ni dans l'autre, compatible. Sans lui, un like par identifiant
+  // recréait un match après un blocage — avec une notification nominative à la personne qui
+  // avait bloqué — et acceptait un compte fermé, non vérifié ou du mauvais genre en relation
+  // sérieuse (audit/09-revue-code.md, C3).
+  const rel = await relations(me);
+  if (!joignable(me, rel, target)) return fail(res, 403, 'SWIPE_INVALID', "Ce profil n'est pas disponible.");
+  // Déjà en match : rien à refaire, et surtout rien à renotifier.
+  if (rel.match.has(target.id)) return res.json({ match: { id: rel.match.get(target.id).id, other: await publicProfile(target) } });
   if (await store.swipesToday(me.id) >= config.dailyProfiles) {
     mesurer('quota_hit', me.id, { action });
     return fail(res, 429, 'DAILY_LIMIT', "Tu as vu tous tes profils du jour. Reviens demain.");
@@ -647,6 +660,9 @@ api.post('/swipes', requireApproved, limiter('swipe'), async (req, res) => {
     // Like non réciproque : on prévient la personne sans révéler qui (au plus une fois par jour)
     // Écran Messages, pas Découvrir : qui t'a liké apparaît dans /likes, qui ignore le filtre d'âge,
     // alors que /discover l'applique. La notification envoyait donc parfois vers un écran vide.
+    // Sauf si la personne m'a déjà balayé (« passer », ou un match qu'elle a défait) : mon like
+    // n'apparaîtra pas dans sa liste, et la prévenir l'enverrait vers un écran vide.
+    if (await store.swipeOf(target.id, me.id)) return res.json({ match: null });
     notify(target.id, "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.", { ville: target.profile.city, app: config.appName }, { label: 'Découvrir', params: { screen: 'matches' } }, 'likes', 24 * 3600 * 1000);
   }
   res.json({ match: null });
@@ -934,6 +950,13 @@ api.delete('/matches/:id', requireApproved, async (req, res) => {
   const m = await store.getMatch(req.params.id);
   if (!m || !m.users.includes(req.user.id)) return fail(res, 404, 'MATCH_NOT_FOUND', 'Discussion introuvable.');
   await store.removeMatch(m.id);
+  // Mon « j'aime » devient « passer » : les deux likes restaient en base, et l'autre recréait le
+  // match d'un seul like, avec la notification (audit/09-revue-code.md, C3). L'autre ne me revoit
+  // pas dans sa découverte (il m'a déjà balayé), et son like reste : si je reviens vers cette
+  // personne depuis « ils t'ont aimé », c'est mon choix, et le match se refait.
+  const autre = m.users.find((x) => x !== req.user.id);
+  if (await store.swipeOf(req.user.id, autre)) await store.updateSwipe(req.user.id, autre, 'pass');
+  else await store.addSwipe(req.user.id, autre, 'pass');
   res.json({ removed: true });
 });
 

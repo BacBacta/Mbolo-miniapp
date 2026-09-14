@@ -12,53 +12,26 @@ import crypto from 'node:crypto';
 import express from 'express';
 import { config } from './config.js';
 import { store } from './store.js';
-import { bot, appUrl } from './bot.js';
+import { bot, appUrl, estAdministrateur, oublierLesAdmins } from './bot.js';
 import { COOKIE_MODERATION, signer, verifier, lireCookie, optionsCookie, effacerCookie } from './session.js';
 import { envelopper } from './promesses.js';
 
-// Interroger Telegram à chaque requête coûterait un appel réseau par clic. Le cache est court
-// exprès : quelqu'un qu'on retire des administrateurs perd l'accès dans la minute, pas à la fin
-// de sa session. C'est un cache, pas un état — le perdre au redémarrage ne coûte qu'un appel.
-const CACHE_ADMINS_MS = 60 * 1000;
-// Telegram peut tomber. Plutôt que de fermer la modération à la première coupure, on garde la
-// dernière liste connue — mais pas indéfiniment : passé ce délai, ne plus savoir qui est
-// administrateur veut dire ne laisser entrer personne.
-const CACHE_PANNE_MS = 10 * 60 * 1000;
-let cacheAdmins = { at: 0, ids: null };
-
-export function oublierLesAdmins() {
-  cacheAdmins = { at: 0, ids: null };
-}
-
-export async function administrateurs() {
-  if (cacheAdmins.ids && Date.now() - cacheAdmins.at < CACHE_ADMINS_MS) return cacheAdmins.ids;
-  if (!bot || !config.adminChatId) return new Set();
-  try {
-    const membres = await bot.api.getChatAdministrators(config.adminChatId);
-    const ids = new Set(membres.filter((m) => !m.user?.is_bot).map((m) => String(m.user.id)));
-    cacheAdmins = { at: Date.now(), ids };
-    return ids;
-  } catch (e) {
-    console.warn('Administrateurs du groupe de modération illisibles :', e.description || e.message);
-    if (cacheAdmins.ids && Date.now() - cacheAdmins.at < CACHE_PANNE_MS) return cacheAdmins.ids;
-    return new Set();
-  }
-}
-
-export const estAdministrateur = async (userId) => (await administrateurs()).has(String(userId));
+// Le cache des administrateurs vit dans bot.js : les boutons du groupe (Valider, Fermer…) en
+// ont besoin autant que cet espace, et bot.js ne peut pas importer d'ici sans boucle.
+export { administrateurs, oublierLesAdmins, estAdministrateur } from './bot.js';
 
 // Le jeton porte l'identifiant et un numéro tiré au hasard. La signature empêche de le fabriquer,
 // le numéro gardé sur le compte fait qu'il ne sert qu'une fois : on le compare, puis on l'efface.
 export async function creerLienModeration(userId) {
   const usage = crypto.randomUUID();
   await store.updateUser(userId, { modJeton: usage });
-  const jeton = signer({ id: String(userId), u: usage }, config.modLienSec);
+  const jeton = signer({ id: String(userId), u: usage }, config.modLienSec, 'lien');
   return jeton && `${appUrl()}moderation?jeton=${encodeURIComponent(jeton)}`;
 }
 
 // Renvoie { ok: true, user } ou { ok: false, raison } — chaque refus a sa phrase côté appelant.
 export async function echangerLeJeton(jeton) {
-  const donnees = verifier(jeton);
+  const donnees = verifier(jeton, 'lien');
   if (!donnees?.id || !donnees?.u) return { ok: false, raison: 'JETON_INVALIDE' };
   const user = await store.getUser(donnees.id);
   if (!user || user.modJeton !== donnees.u) return { ok: false, raison: 'JETON_UTILISE' };
@@ -78,7 +51,7 @@ export async function requireModerateur(req, res, next) {
       message: "L'espace de modération n'est pas configuré sur ce serveur. Renseigne WEB_SESSION_SECRET, puis redémarre.",
     });
   }
-  const session = verifier(lireCookie(req, COOKIE_MODERATION));
+  const session = verifier(lireCookie(req, COOKIE_MODERATION), 'session');
   if (!session?.id) return res.status(401).json({ code: 'MOD_SESSION', message: 'Session expirée. Retourne dans le groupe de modération et envoie /moderation.' });
   if (!(await estAdministrateur(session.id))) {
     effacerCookie(res, COOKIE_MODERATION);
@@ -328,10 +301,10 @@ async function repondre(assetV, req, res) {
   if (req.query.jeton) {
     const r = await echangerLeJeton(req.query.jeton);
     if (!r.ok) return res.status(403).type('html').send(page(assetV, 'Lien refusé', `<p>${echapper(REFUS[r.raison])}</p>`));
-    res.cookie(COOKIE_MODERATION, signer({ id: String(r.user.id) }, config.modSessionSec), optionsCookie(config.modSessionSec));
+    res.cookie(COOKIE_MODERATION, signer({ id: String(r.user.id) }, config.modSessionSec, 'session'), optionsCookie(config.modSessionSec));
     return res.redirect(303, '/moderation');
   }
-  const session = verifier(lireCookie(req, COOKIE_MODERATION));
+  const session = verifier(lireCookie(req, COOKIE_MODERATION), 'session');
   const moi = session?.id ? await store.getUser(session.id) : null;
   if (!moi || moi.banned || !(await estAdministrateur(session.id))) {
     return res.status(401).type('html').send(page(assetV, 'Espace de modération',

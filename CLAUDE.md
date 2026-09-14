@@ -40,12 +40,13 @@ server/
   auth.js       Validation HMAC de Telegram.WebApp.initData, middleware requireAuth
   session.js    Cookie web signé (WEB_SESSION_SECRET), sans dépendance ni table
   moderation.js Espace de modération : lien à usage unique, droit = admin du groupe, écran sans JS
+                (le cache des administrateurs vit dans bot.js : les boutons du groupe l'exigent aussi)
   confiance.js  Personne de confiance : invitation, accord explicite, retrait des deux côtés
   jauge.js      Jauge de confiance : la liste des critères ouverts, et le calcul du score
   lieux.js      Le code d'un lieu : empreinte du secret serveur, jamais servie au client
   promesses.js  Les promesses que personne n'attend : enveloppe des routeurs, tâches en arrière-plan,
                 filet global — une promesse rejetée sans filet arrêtait le processus
-  secrets.js    Les cinq secrets qui ne partagent jamais une valeur : la liste, et les deux
+  secrets.js    Les six secrets qui ne partagent jamais une valeur : la liste, et les deux
                 contrôles qui la lisent (au démarrage, et avant le déploiement). Sans aucun import
   sauvegarde.js Sauvegarde chiffrée : ce qu'elle emporte, ce qu'elle laisse, et pourquoi pas pg_dump
   voix.js       Présentation vocale : durées, nom de fichier, ce qui est public, et pourquoi ça vit dans le bot
@@ -81,6 +82,8 @@ public/
 test/
   activity, antiscam, assets, auth, compression,
   promesses (un gestionnaire qui rejette répond 500, un cookie malformé ne jette pas),
+  portes (un like par identifiant respecte le blocage et le match défait ; les clés du prototype
+  ne sont ni un genre ni une intention),
   bannissement, checkin, deploiement, filters, geographie,
   identite-bot (le nom affiché du bot suit APP_NAME, et ne se repose pas pour rien),
   instructions, jauge, langues,
@@ -155,11 +158,13 @@ identite/
 
 > **Deux secrets ne portent jamais la même valeur.** La sécurité du plus sensible tombe sinon à
 > celle du plus exposé. C'est arrivé en production le 14 septembre 2026 : `ADMIN_KEY`,
-> `WEB_SESSION_SECRET` et `BACKUP_SECRET` partageaient une chaîne — et `ADMIN_KEY` voyage dans le
+> `WEB_SESSION_SECRET` et `BACKUP_SECRET` partageaient une chaîne — et `ADMIN_KEY` voyageait alors dans le
 > chemin du webhook Telegram, donc dans les journaux de requêtes, tandis que `BACKUP_SECRET`
-> déchiffre tous les profils et tous les messages. Rien dans le code ne pouvait le voir : il a
+> déchiffre tous les profils et tous les messages. (Le webhook a depuis un secret à lui,
+> `WEBHOOK_SECRET`, renvoyé par Telegram dans un en-tête et vérifié à chaque appel : c'est
+> l'en-tête qui authentifie, plus le chemin, qui ne porte plus rien.) Rien dans le code ne pouvait le voir : il a
 > fallu lire la liste des secrets chez l'hébergeur, où trois lignes affichaient la même empreinte.
-> `secretsPartages()` (`server/config.js`, fonction pure) compare maintenant les cinq secrets au
+> `secretsPartages()` (`server/secrets.js`, fonction pure) compare maintenant les six secrets au
 > démarrage : **le serveur refuse de démarrer en production**, prévient sans bloquer ailleurs, et
 > n'écrit jamais la valeur — le message finit dans un journal. Les secrets **vides** ne comptent
 > pas : ne rien poser reste un choix légitime. `test/production.test.js` fige les cinq cas.

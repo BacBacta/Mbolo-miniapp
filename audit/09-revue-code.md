@@ -501,7 +501,7 @@ journée et ferment tout ce qui éteint la production.
    sur chaque notification en arrière-plan ; `lireCookie` qui ne jette pas ; enveloppe de promesses
    sur `modApi` et sur le webhook ; `pool.on('error')` ; `process.on('unhandledRejection')` qui
    journalise. Tests : statut `constructor`, cookie `%`, gestionnaire du bot qui jette.
-2. **Fermer les portes** (C3, C4, I1, I2, I13, I14) : `/swipes` filtré par `joignable` et paires
+2. ~~**Fermer les portes**~~ — fait le 14 septembre 2026 (`test/portes.test.js`, `WEBHOOK_SECRET`). (C3, C4, I1, I2, I13, I14) : `/swipes` filtré par `joignable` et paires
    défaites respectées ; `secret_token` sur le webhook et `ADMIN_KEY` hors des URL ; type dans le
    corps signé des sessions ; `Object.hasOwn` sur toutes les listes fermées ; `estAdministrateur`
    sur les cinq boutons ; code dans le bouton `conf:`.

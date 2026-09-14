@@ -54,7 +54,7 @@ if (partages.length) {
       groupes,
       '',
       "Chacun protège autre chose, et ils ne s'exposent pas de la même façon : ADMIN_KEY voyage",
-      'dans des URL — le chemin du webhook Telegram en porte une copie — tandis que BACKUP_SECRET',
+      'dans des URL — celles des QR des lieux — tandis que BACKUP_SECRET',
       'ouvre les sauvegardes, donc tous les profils et tous les messages. Une adresse aperçue dans',
       'un journal suffirait alors à tout déchiffrer.',
       '',

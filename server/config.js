@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import 'dotenv/config';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,6 +42,12 @@ export const config = {
   // Absent, un secret est tiré au hasard au démarrage : les QR imprimés cessent de marcher, aucun
   // ne devient devinable. En production avec au moins un lieu, le serveur refuse de démarrer.
   venueSecret: process.env.VENUE_SECRET || '',
+  // Ce que Telegram renvoie dans l'en-tête X-Telegram-Bot-Api-Secret-Token de chaque mise à
+  // jour : c'est lui qui prouve qu'un appel du webhook vient de Telegram, pas l'adresse. Absent,
+  // il est tiré au hasard à chaque démarrage — le webhook est reposé à chaque démarrage avec lui,
+  // donc rien n'a besoin de survivre. Posé, il permet de reconnaître les appels dès le premier
+  // démarrage d'une machine neuve, avant que setWebhook ait réussi.
+  webhookSecret: process.env.WEBHOOK_SECRET || crypto.randomBytes(24).toString('hex'),
   // Signe les sessions web : pour l'instant celles de la modération, plus tard celles des
   // paiements (section 10.3 du cahier des charges). Un seul secret pour les deux, sans quoi le
   // chantier suivant en traînerait un second à fusionner. Absent, /api/mod refuse en le disant.

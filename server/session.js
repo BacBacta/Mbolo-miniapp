@@ -15,14 +15,21 @@ export const COOKIE_MODERATION = 'mod_session';
 const b64 = (buf) => Buffer.from(buf).toString('base64url');
 const sceau = (corps) => crypto.createHmac('sha256', config.webSessionSecret).update(corps).digest();
 
+// Chaque jeton dit à quoi il sert (`k`), et n'est accepté que pour cet usage. Sans cela, le lien
+// de modération — dix minutes, à usage unique — passait tel quel dans le cookie de session : même
+// secret, même forme, et rien ne les distinguait (audit/09-revue-code.md, I1).
+const usageValide = (usage) => typeof usage === 'string' && usage.length > 0;
+
 // Sans secret, on ne signe rien : mieux vaut ne rien délivrer que délivrer du non-signé.
-export function signer(donnees, dureeSec) {
+export function signer(donnees, dureeSec, usage) {
+  if (!usageValide(usage)) throw new Error('signer() : dis à quoi sert ce jeton (usage).');
   if (!config.webSessionSecret) return null;
-  const corps = b64(JSON.stringify({ ...donnees, exp: Math.floor(Date.now() / 1000) + dureeSec }));
+  const corps = b64(JSON.stringify({ ...donnees, k: usage, exp: Math.floor(Date.now() / 1000) + dureeSec }));
   return `${corps}.${b64(sceau(corps))}`;
 }
 
-export function verifier(valeur) {
+export function verifier(valeur, usage) {
+  if (!usageValide(usage)) throw new Error('verifier() : dis quel usage tu attends.');
   if (!valeur || !config.webSessionSecret) return null;
   const [corps, signature] = String(valeur).split('.');
   if (!corps || !signature) return null;
@@ -38,6 +45,7 @@ export function verifier(valeur) {
     return null;
   }
   if (!donnees?.exp || donnees.exp * 1000 <= Date.now()) return null;
+  if (donnees.k !== usage) return null;
   return donnees;
 }
 

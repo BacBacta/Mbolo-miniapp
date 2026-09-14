@@ -20,7 +20,7 @@
 // l'une sans condamner l'autre.
 //
 // Fonction pure, pour qu'un test puisse lui présenter n'importe quel jeu de variables.
-export const SECRETS_DISTINCTS = ['BOT_TOKEN', 'ADMIN_KEY', 'WEB_SESSION_SECRET', 'VENUE_SECRET', 'BACKUP_SECRET'];
+export const SECRETS_DISTINCTS = ['BOT_TOKEN', 'ADMIN_KEY', 'WEBHOOK_SECRET', 'WEB_SESSION_SECRET', 'VENUE_SECRET', 'BACKUP_SECRET'];
 
 // Rend les groupes de noms qui partagent une valeur. Les variables vides sont ignorées : ne rien
 // poser est un choix légitime (le serveur tire alors un secret au hasard, ou éteint la fonction),
