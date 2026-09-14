@@ -140,6 +140,10 @@ export const store = {
       }
       await client.query('delete from swipes where from_id = $1 or to_id = $1', [id]);
       await client.query('delete from blocks where from_id = $1 or to_id = $1', [id]);
+      // Les signalements, dans les deux sens, et la place de personne de confiance chez les
+      // autres : les deux survivaient à l'effacement (audit/09-revue-code.md, I4).
+      await client.query(`delete from reports where data->>'from' = $1 or data->>'targetId' = $1`, [id]);
+      await client.query(`update users set data = data - 'confiance' where data->'confiance'->>'id' = $1`, [id]);
       // Sans cette ligne, les événements de mesure survivraient à l'effacement d'un compte, et la
       // promesse « tout part » deviendrait fausse. Les lignes sans identifiant (account_deleted)
       // ne sont pas concernées : elles ne désignent personne.
@@ -158,19 +162,23 @@ export const store = {
 
   // Purge des selfies que la modération n'a jamais tranchés : la promesse est qu'il disparaît
   // après décision ; sans décision, il ne doit pas rester pour autant.
+  // Rend la liste des comptes purgés, avec le numéro du message du groupe : c'est à l'appelant
+  // de retirer la photo de Telegram, le stockage ne parle pas au bot.
   async purgerVerificationsOubliees(delaiMs) {
     const limite = Date.now() - delaiMs;
     const oublies = await q(
-      `select id from users
+      `select id, data->>'verifMessageId' as message from users
        where data->>'verification' = 'pending'
          and coalesce((data->>'verificationSentAt')::bigint, created_at, 0) <= $1`,
       [limite],
     );
-    for (const { id } of oublies) {
+    const purges = [];
+    for (const { id, message } of oublies) {
       supprimerFichiers(id, ['selfie']);
-      await fusionner('users', id, { verification: 'none', pendingGesture: null, pendingGestureAt: null, verificationSentAt: null });
+      await fusionner('users', id, { verification: 'none', pendingGesture: null, pendingGestureAt: null, verificationSentAt: null, verifMessageId: null });
+      purges.push({ id, verifMessageId: message ? Number(message) : null });
     }
-    return oublies.length;
+    return purges;
   },
 
   // ---------- Photos ----------

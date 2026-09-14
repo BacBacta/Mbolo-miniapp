@@ -37,6 +37,7 @@ const EN = {
   "Personne ne t'a choisi comme personne de confiance.": 'Nobody has chosen you as their trusted contact.',
   "{nom} ne souhaite plus être ta personne de confiance. Tu peux en désigner une autre.":
     '{nom} no longer wishes to be your trusted contact. You can choose someone else.',
+  "Ta personne de confiance a supprimé son compte {app}. Tu peux en désigner une autre.": "Your trusted person has deleted their {app} account. You can choose another one.",
   "C'est fait, tu ne recevras plus rien. Ton prénom et ton compte ont été effacés.":
     'Done, you will not receive anything else. Your first name and your account have been erased.',
   "{nom} ne t'a plus comme personne de confiance. Tu ne recevras plus rien.":
@@ -93,6 +94,7 @@ const ES = {
   "{nom} a accepté d'être ta personne de confiance.": "{nom} ha aceptado ser tu persona de confianza.",
   "Personne ne t'a choisi comme personne de confiance.": "Nadie te ha elegido como su persona de confianza.",
   "{nom} ne souhaite plus être ta personne de confiance. Tu peux en désigner une autre.": "{nom} ya no desea ser tu persona de confianza. Puedes elegir a otra.",
+  "Ta personne de confiance a supprimé son compte {app}. Tu peux en désigner une autre.": "Tu persona de confianza ha eliminado su cuenta de {app}. Puedes elegir a otra.",
   "C'est fait, tu ne recevras plus rien. Ton prénom et ton compte ont été effacés.": "Hecho, ya no recibirás nada más. Tu nombre y tu cuenta han sido borrados.",
   "{nom} ne t'a plus comme personne de confiance. Tu ne recevras plus rien.": "{nom} ya no te tiene como persona de confianza. No recibirás nada más.",
   "{nom} te prévient : elle ou il part à un rendez-vous maintenant. Tu es sa personne de confiance.": "{nom} te avisa: sale hacia una cita ahora. Eres su persona de confianza.",
@@ -138,6 +140,7 @@ const PT = {
   "{nom} a accepté d'être ta personne de confiance.": "{nom} aceitou ser a tua pessoa de confiança.",
   "Personne ne t'a choisi comme personne de confiance.": "Ninguém te escolheu como pessoa de confiança.",
   "{nom} ne souhaite plus être ta personne de confiance. Tu peux en désigner une autre.": "{nom} já não quer ser a tua pessoa de confiança. Podes escolher outra.",
+  "Ta personne de confiance a supprimé son compte {app}. Tu peux en désigner une autre.": "A tua pessoa de confiança eliminou a sua conta {app}. Podes escolher outra.",
   "C'est fait, tu ne recevras plus rien. Ton prénom et ton compte ont été effacés.": "Feito, não vais receber mais nada. O teu nome e a tua conta foram apagados.",
   "{nom} ne t'a plus comme personne de confiance. Tu ne recevras plus rien.": "{nom} já não te tem como pessoa de confiança. Não vais receber mais nada.",
   "{nom} te prévient : elle ou il part à un rendez-vous maintenant. Tu es sa personne de confiance.": "{nom} avisa-te: vai sair para um encontro agora. És a pessoa de confiança dela.",
@@ -183,6 +186,7 @@ const SW = {
   "{nom} a accepté d'être ta personne de confiance.": "{nom} amekubali kuwa mtu unayemwamini.",
   "Personne ne t'a choisi comme personne de confiance.": "Hakuna aliyekuchagua uwe mtu anayemwamini.",
   "{nom} ne souhaite plus être ta personne de confiance. Tu peux en désigner une autre.": "{nom} hataki tena kuwa mtu unayemwamini. Unaweza kumchagua mwingine.",
+  "Ta personne de confiance a supprimé son compte {app}. Tu peux en désigner une autre.": "Mtu wako wa kuaminika amefuta akaunti yake ya {app}. Unaweza kuchagua mwingine.",
   "C'est fait, tu ne recevras plus rien. Ton prénom et ton compte ont été effacés.": "Imefanyika, hutapokea kitu tena. Jina lako na akaunti yako vimefutwa.",
   "{nom} ne t'a plus comme personne de confiance. Tu ne recevras plus rien.": "{nom} hakuna tena kama mtu anayemwamini. Hutapokea kitu tena.",
   "{nom} te prévient : elle ou il part à un rendez-vous maintenant. Tu es sa personne de confiance.": "{nom} anakujulisha: anaondoka kwenda kwenye mkutano sasa. Wewe ni mtu anayemwamini.",
@@ -237,6 +241,7 @@ const RU = {
   "Personne ne t'a choisi comme personne de confiance.": 'Никто не выбирал тебя доверенным лицом.',
   "{nom} ne souhaite plus être ta personne de confiance. Tu peux en désigner une autre.":
     '{nom} больше не хочет быть твоим доверенным лицом. Ты можешь выбрать другого человека.',
+  "Ta personne de confiance a supprimé son compte {app}. Tu peux en désigner une autre.": "Твой доверенный человек удалил свой аккаунт {app}. Ты можешь выбрать другого.",
   "C'est fait, tu ne recevras plus rien. Ton prénom et ton compte ont été effacés.":
     'Готово, больше ты ничего не получишь. Твоё имя и твой аккаунт удалены.',
   "{nom} ne t'a plus comme personne de confiance. Tu ne recevras plus rien.":
@@ -301,6 +306,7 @@ const UK = {
   "Personne ne t'a choisi comme personne de confiance.": 'Ніхто не обирав тебе довіреною особою.',
   "{nom} ne souhaite plus être ta personne de confiance. Tu peux en désigner une autre.":
     '{nom} більше не хоче бути твоєю довіреною особою. Ти можеш обрати іншу людину.',
+  "Ta personne de confiance a supprimé son compte {app}. Tu peux en désigner une autre.": "Твоя довірена особа видалила свій акаунт {app}. Ти можеш обрати іншу.",
   "C'est fait, tu ne recevras plus rien. Ton prénom et ton compte ont été effacés.":
     'Готово, більше ти нічого не отримаєш. Твоє імʼя і твій акаунт видалені.',
   "{nom} ne t'a plus comme personne de confiance. Tu ne recevras plus rien.":

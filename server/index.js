@@ -7,7 +7,7 @@ import { config, venues, secretsPartages, genreAuChoix } from './config.js';
 import { codeDuLieu } from './lieux.js';
 import { store, modeStockage, pret } from './store.js';
 import { api } from './routes.js';
-import { setupBot, startBot } from './bot.js';
+import { setupBot, startBot, retirerSelfieDuGroupe } from './bot.js';
 import { modApi, commandesModeration, creerPageModeration } from './moderation.js';
 import { seedDemo } from './seed.js';
 import { assetVersion, versionImports } from './assets.js';
@@ -202,8 +202,11 @@ const purger = async () => {
   }
 };
 const purgerVraiment = async () => {
-  const n = await store.purgerVerificationsOubliees(config.verificationTtlMs);
-  if (n) console.warn(`${n} vérification(s) jamais tranchée(s) purgée(s) : selfies supprimés, comptes remis en attente de vérification.`);
+  const purges = await store.purgerVerificationsOubliees(config.verificationTtlMs);
+  // Le disque ne suffit pas : la photo était aussi dans le groupe, avec un bouton « Valider »
+  // encore vivant (audit/09-revue-code.md, I5).
+  for (const p of purges) await retirerSelfieDuGroupe(p.verifMessageId, `Selfie jamais tranché en ${Math.round(config.verificationTtlMs / 86400000)} jours (ID ${p.id}) : retiré, la personne pourra recommencer.`);
+  if (purges.length) console.warn(`${purges.length} vérification(s) jamais tranchée(s) purgée(s) : selfies supprimés, du disque et du groupe, comptes remis en attente de vérification.`);
   // Même balayage pour les événements de mesure : une durée de conservation qu'on annonce sans
   // l'appliquer ne vaut rien. À 0, purgerEvenements ne fait rien — et rien n'a été écrit non plus.
   const e = await store.purgerEvenements();

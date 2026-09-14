@@ -275,6 +275,7 @@ export default {
   "Tester les notifications": "Перевірити сповіщення",
   "Toi : ": "Ти: ",
   "Ton compte et tes données ont été supprimés.": "Твій акаунт і твої дані видалено.",
+  "Pour recommencer, ferme {app} et rouvre-le depuis le bot.": "Щоб почати заново, закрий {app} і знову відкрий його через бота.",
   "Ton profil": "Твій профіль",
   "Ton profil est déjà vérifié.": "Твій профіль уже перевірено.",
   "Ton profil ne doit contenir ni numéro, ni lien, ni pseudo, ni demande d'argent.": "У твоєму профілі не повинно бути ні номера, ні посилання, ні ніка, ні прохання про гроші.",

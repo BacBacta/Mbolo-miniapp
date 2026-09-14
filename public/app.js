@@ -139,6 +139,9 @@ function messageErreur(data) {
 }
 
 async function api(path, { method = 'GET', body } = {}) {
+  // Après la suppression du compte, plus aucun appel : chaque requête authentifiée recrée une
+  // ligne côté serveur, et c'est ce qui rendait la suppression fausse dans la seconde.
+  if (S.supprime) throw Object.assign(new Error(t('Ton compte et tes données ont été supprimés.')), { code: 'SUPPRIME' });
   const headers = { 'Content-Type': 'application/json', ...authHeaders() };
   const stop = new AbortController();
   const minuteur = setTimeout(() => stop.abort(), DELAI_MAX_MS);
@@ -1253,6 +1256,15 @@ const SCREENS = {
     });
   },
 
+  // Après la suppression : un écran sans aucun appel. Hors de Telegram, close() ne ferme rien,
+  // et rappeler /me aurait recréé le compte qu'on vient d'effacer.
+  supprime() {
+    tg.setButtons(null);
+    render(`
+      <div class="step-head"><h1>${t('Ton compte et tes données ont été supprimés.')}</h1>
+        <p class="lead">${t('Pour recommencer, ferme {app} et rouvre-le depuis le bot.', { app: APP })}</p></div>`);
+  },
+
   jauge() {
     const tr = S.me.publicProfile?.trust || { score: 0, total: 0, criteres: [] };
     const etat = Object.fromEntries((tr.criteres || []).map((c) => [c.cle, c.ok]));
@@ -1919,11 +1931,15 @@ app.addEventListener('click', async (e) => {
       const ok = await tg.confirm(t('Supprimer définitivement ton compte, ton profil, tes matchs et tes messages ?'));
       if (!ok) return;
       try {
+        // Le minuteur de /summary et le signal de fermeture partaient encore après la suppression,
+        // et chacun recréait le compte. Plus rien ne part : ni maintenant, ni à la fermeture.
+        clearInterval(S.summaryTimer);
         await api('/me', { method: 'DELETE' });
+        S.supprime = true;
+        S.me = null;
         await tg.alert(t('Ton compte et tes données ont été supprimés.'));
         tg.close();
-        S.me = await api(ME());
-        go('welcome');
+        go('supprime');
       } catch (err) { showError(err); }
       break;
     }
@@ -1977,7 +1993,7 @@ app.addEventListener('submit', (e) => {
 
 // Quand l'app passe en arrière-plan ou se ferme, on prévient le serveur pour que les notifications partent tout de suite
 function leavePresence() {
-  if (!S.me) return;
+  if (!S.me || S.supprime) return;
   fetch('/api/presence/leave', { method: 'POST', headers: authHeaders(), keepalive: true }).catch(() => {});
 }
 document.addEventListener('visibilitychange', () => {

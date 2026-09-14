@@ -95,6 +95,11 @@ export const store = {
       }
     }
     db.blocks = db.blocks.filter((b) => b.from !== id && b.to !== id);
+    // Les signalements, dans les deux sens : émis, ils portent l'identifiant de qui part ; reçus,
+    // il n'y a plus de compte à trancher. Et la personne de confiance de quelqu'un d'autre : son
+    // identifiant et son prénom restaient chez ce membre (audit/09-revue-code.md, I4).
+    db.reports = db.reports.filter((r) => r.from !== id && r.targetId !== id);
+    for (const u of Object.values(db.users)) if (u.confiance?.id === id) u.confiance = null;
     // Sans cette ligne, les événements de mesure survivraient à l'effacement d'un compte, et la
     // promesse « tout part » deviendrait fausse. Les lignes sans identifiant (account_deleted)
     // ne sont pas concernées : elles ne désignent personne.
@@ -113,23 +118,26 @@ export const store = {
   // est que son selfie disparaît après décision ; sans décision, il ne doit pas rester pour
   // autant. Au-delà du délai, le selfie est supprimé et la vérification revient à zéro : la
   // personne peut recommencer, et rien n'est conservé entre-temps.
+  // Rend la liste des comptes purgés, avec le numéro du message du groupe : c'est à l'appelant
+  // de retirer la photo de Telegram, le stockage ne parle pas au bot.
   async purgerVerificationsOubliees(delaiMs) {
     const limite = Date.now() - delaiMs;
-    let supprimes = 0;
+    const purges = [];
     for (const u of Object.values(db.users)) {
       if (u.verification !== 'pending') continue;
       const envoi = u.verificationSentAt || u.createdAt || 0;
       if (envoi > limite) continue;
       const fichier = path.join(config.uploadsDir, `${u.id}-selfie.jpg`);
       if (fs.existsSync(fichier)) fs.unlinkSync(fichier);
+      purges.push({ id: u.id, verifMessageId: u.verifMessageId || null });
       u.verification = 'none';
       u.pendingGesture = null;
       u.pendingGestureAt = null;
       u.verificationSentAt = null;
-      supprimes += 1;
+      u.verifMessageId = null;
     }
-    if (supprimes) save();
-    return supprimes;
+    if (purges.length) save();
+    return purges;
   },
 
   // ---------- Photos ----------

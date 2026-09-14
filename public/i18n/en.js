@@ -280,6 +280,7 @@ export default {
   'Tester les notifications': 'Test notifications',
   'Toi : ': 'You: ',
   'Ton compte et tes données ont été supprimés.': 'Your account and your data have been deleted.',
+  'Pour recommencer, ferme {app} et rouvre-le depuis le bot.': 'To start again, close {app} and reopen it from the bot.',
   'Ton profil': 'Your profile',
   'Ton profil est déjà vérifié.': 'Your profile is already verified.',
   'Ton profil ne doit contenir ni numéro, ni lien, ni pseudo, ni demande d\'argent.': 'Your profile must contain no phone number, link, username or money request.',

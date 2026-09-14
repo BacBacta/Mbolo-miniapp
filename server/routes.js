@@ -8,16 +8,26 @@ import { LANGUES, t as tr } from './i18n.js';
 import { store } from './store.js';
 import { fichierVoix, voixPublique } from './voix.js';
 import { CRITERES, calculer as calculerJauge } from './jauge.js';
-import { requireAuth } from './auth.js';
+import { requireAuth, identiteSansCreer } from './auth.js';
 import { checkMessage } from './antiscam.js';
 import { limiter, consommer } from './limites.js';
-import { notify, direATiers, notifyAdmin, boutonBannir, sendSelfieToModeration, sendPhotoToModeration, decideVerification, onApproved } from './bot.js';
+import { notify, direATiers, notifyAdmin, boutonBannir, sendSelfieToModeration, sendPhotoToModeration, decideVerification, onApproved, retirerSelfieDuGroupe } from './bot.js';
 import { mesurer, mesurerRalenti, semaineIso, HEURE, CINQ_MINUTES } from './mesure.js';
-import { creerInvitation, retirer, PREFIXE } from './confiance.js';
+import { creerInvitation, retirer, membresQuiMOntChoisi, PREFIXE } from './confiance.js';
 import { envelopper } from './promesses.js';
 import { DEMO_REPLIES } from './seed.js';
 
 export const api = envelopper(express.Router());
+
+// L'app signale sa fermeture : les notifications partent alors sans attendre. Avant requireAuth,
+// et sans créer de compte : ce signal part aussi à la fermeture qui suit DELETE /api/me, et
+// l'upsert de requireAuth recréait alors une ligne (audit/09-revue-code.md, I3).
+api.post('/presence/leave', async (req, res) => {
+  const id = identiteSansCreer(req);
+  if (!id) return res.status(401).json({ code: 'UNAUTHORIZED', message: `Ouvre ${config.appName} depuis Telegram.` });
+  store.leavePresence(id);
+  res.json({ ok: true });
+});
 
 api.use(requireAuth);
 // Chaque appel authentifié vaut signe de vie : l'app interroge /summary toutes les 20 s tant qu'elle est ouverte
@@ -335,7 +345,12 @@ api.delete('/me', async (req, res) => {
   // Avant la suppression : après, createdAt n'existe plus. Aucun identifiant, c'est ce qui lui
   // permet de survivre à l'effacement sans permettre de remonter à la personne.
   await mesurer('account_deleted', null, { c: semaineIso(req.user.createdAt), d: Math.floor((Date.now() - req.user.createdAt) / 86400000) });
+  // Ce que la base ne sait pas défaire : un selfie encore dans le groupe de modération, et les
+  // membres dont cette personne était la personne de confiance — prévenus après, sans son nom.
+  const proteges = await membresQuiMOntChoisi(req.user.id);
+  if (req.user.verification === 'pending') await retirerSelfieDuGroupe(req.user.verifMessageId, `Compte supprimé (ID ${req.user.id}) : selfie retiré, plus rien à trancher.`);
   await store.deleteUser(req.user.id);
+  for (const m of proteges) notify(m.id, 'Ta personne de confiance a supprimé son compte {app}. Tu peux en désigner une autre.', { app: config.appName }, { label: 'Voir mon profil', params: { screen: 'me' } });
   res.json({ deleted: true });
 });
 
@@ -702,12 +717,6 @@ api.get('/matches', requireApproved, async (req, res) => {
   const list = lignes.filter(Boolean)
     .sort((a, b) => (b.lastMessage?.at || b.createdAt) - (a.lastMessage?.at || a.createdAt));
   res.json({ matches: list });
-});
-
-// L'app signale sa fermeture : les notifications partent alors sans attendre
-api.post('/presence/leave', (req, res) => {
-  store.leavePresence(req.user.id);
-  res.json({ ok: true });
 });
 
 // Compteurs pour les onglets (messages non lus, nouveaux matchs)
