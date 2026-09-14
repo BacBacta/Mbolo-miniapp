@@ -137,6 +137,20 @@ identite/
 5. **Aucun secret dans le code ni dans Git.** `.env` reste ignoré.
 6. **Les mineurs sont exclus** : aucune fonction ne doit contourner le contrôle d'âge.
 
+> **Deux secrets ne portent jamais la même valeur.** La sécurité du plus sensible tombe sinon à
+> celle du plus exposé. C'est arrivé en production le 14 septembre 2026 : `ADMIN_KEY`,
+> `WEB_SESSION_SECRET` et `BACKUP_SECRET` partageaient une chaîne — et `ADMIN_KEY` voyage dans le
+> chemin du webhook Telegram, donc dans les journaux de requêtes, tandis que `BACKUP_SECRET`
+> déchiffre tous les profils et tous les messages. Rien dans le code ne pouvait le voir : il a
+> fallu lire la liste des secrets chez l'hébergeur, où trois lignes affichaient la même empreinte.
+> `secretsPartages()` (`server/config.js`, fonction pure) compare maintenant les cinq secrets au
+> démarrage : **le serveur refuse de démarrer en production**, prévient sans bloquer ailleurs, et
+> n'écrit jamais la valeur — le message finit dans un journal. Les secrets **vides** ne comptent
+> pas : ne rien poser reste un choix légitime. `test/production.test.js` fige les cinq cas.
+> Un secret n'a pas non plus la même durée de vie qu'un autre : `WEB_SESSION_SECRET` se change
+> souvent sans conséquence, `BACKUP_SECRET` **jamais sans garder l'ancien** — toute copie déjà
+> écrite deviendrait illisible.
+
 > **Un réglage de confort ne survit pas au déploiement.** `AUTO_APPROVE` et `ALLOW_DEV_AUTH` s'éteignent seuls quand `NODE_ENV=production` (`server/config.js`), et le serveur refuse de démarrer en production sans `ADMIN_CHAT_ID`. Tout nouveau réglage qui affaiblit une promesse de sécurité pour faciliter les tests suit la même règle, et un test le fige (`test/production.test.js`). Les numéros de cette section sont cités ailleurs dans le dépôt : cette consigne reste hors numérotation pour ne pas les décaler.
 
 ### Règles Telegram et paiements
