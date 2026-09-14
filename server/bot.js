@@ -97,6 +97,35 @@ export async function verifierGroupeModeration() {
   }
 }
 
+// Le nom que Telegram affiche en haut de la discussion et sur la fiche du bot.
+//
+// Il ne vient pas d'APP_NAME : il vit chez Telegram, posé une fois à la main dans BotFather.
+// Renommer l'app laissait donc l'ancien nom sur le bot — c'est exactement ce qui est arrivé au
+// passage à Odo, et rien dans le dépôt ne pouvait le voir, puisque la valeur n'y est pas. La
+// règle 12 dit que le nom ne s'écrit nulle part en dur ; ici on va plus loin, c'est le serveur
+// qui l'impose à Telegram, et la dérive ne peut plus revenir.
+//
+// **Seulement s'il diffère** : Telegram limite les changements de nom, et une app qui se
+// renommerait à chaque démarrage finirait par se voir refuser le changement le jour où il compte.
+// Un échec ne couche pas le démarrage — c'est de l'affichage, pas une porte d'inscription.
+export async function alignerLeNom() {
+  if (!bot) return { ok: false, raison: 'PAS_DE_BOT' };
+  try {
+    const actuel = (await bot.api.getMyName()).name;
+    if (actuel === config.appName) return { ok: true, change: false, nom: actuel };
+    await bot.api.setMyName({ name: config.appName });
+    console.log(`Nom du bot aligné sur APP_NAME : « ${actuel} » → « ${config.appName} ».`);
+    return { ok: true, change: true, avant: actuel, nom: config.appName };
+  } catch (e) {
+    const detail = e.description || e.message;
+    console.warn([
+      `Nom du bot non aligné sur APP_NAME (${detail}).`,
+      `Telegram continue d'afficher l'ancien nom. À corriger dans BotFather : /mybots, ton bot, Edit Bot, Edit Name — « ${config.appName} ».`,
+    ].join('\n'));
+    return { ok: false, raison: 'REFUSE', detail };
+  }
+}
+
 export async function sendSelfieToModeration(userId) {
   const user = await store.getUser(userId);
   const file = path.join(config.uploadsDir, `${userId}-selfie.jpg`);
@@ -434,6 +463,10 @@ export async function startBot(app, { delais } = {}) {
   // Un groupe injoignable ferme l'inscription à tout le monde : autant l'apprendre maintenant.
   // On ne s'arrête pas pour autant — une panne passagère de Telegram ne doit pas coucher l'app.
   await verifierGroupeModeration();
+
+  // Le nom affiché : posé par le serveur, pour qu'un renommage de l'app ne laisse pas l'ancien
+  // nom sur le bot. Comme les commandes ci-dessous, un échec ne bloque pas le démarrage.
+  await alignerLeNom();
 
   // Purement cosmétique : un échec ici ne doit pas empêcher la pose du webhook
   await bot.api.setMyCommands([

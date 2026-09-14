@@ -51,7 +51,8 @@ server/
   mesure.js     Pose les événements : garde-fou anti-texte, ralentis, semaine ISO des cohortes
   chiffres.js   Lit les chiffres : fonction pure, exclusions en amont, avertissements
   routes.js     API REST sous /api
-  bot.js        Commandes du bot, modération des selfies, notify(), notifyAdmin()
+  bot.js        Commandes du bot, modération des selfies, notify(), notifyAdmin(),
+                alignerLeNom() : le nom affiché du bot suit APP_NAME, posé au démarrage
   antiscam.js   checkMessage() : blocage argent (contextuel), liens, numéros, pseudos
   limites.js    Limitation de débit : les règles, le middleware ; les compteurs sont dans le stockage
   assets.js     Version des fichiers envoyés au navigateur, tirée du contenu et non du démarrage
@@ -77,7 +78,9 @@ public/
   styles.css    Identité « Aura » : surfaces d'encre ou d'os selon data-scheme, aura réservée au match, au badge et au like ; Fraunces pour l'identité, Manrope pour l'interface
 test/
   activity, antiscam, assets, auth, compression,
-  bannissement, checkin, deploiement, filters, geographie, instructions, jauge, langues, limites,
+  bannissement, checkin, deploiement, filters, geographie,
+  identite-bot (le nom affiché du bot suit APP_NAME, et ne se repose pas pour rien),
+  instructions, jauge, langues, limites,
   sauvegarde (aller-retour complet sur PostgreSQL : copier, effacer, remettre, comparer),
   limites-instances (PostgreSQL seulement : deux processus, un seul quota), moderation,
   moderation-session, notifications, pages-publiques, photos, production, profiles,
@@ -175,7 +178,7 @@ identite/
 ### Interface
 10. **Le français est la langue source**, tutoiement, phrases courtes, casse de phrase (pas de Majuscules À Chaque Mot), sans « s'il vous plaît », sans point d'exclamation dans les messages système. Le texte s'écrit en français **dans** l'appel de traduction : `t('Envoyer la proposition')` côté interface, `notify(id, 'Écrire', …)` côté bot. La clé de traduction **est la phrase française** : une phrase non traduite s'affiche en français, jamais sous forme d'identifiant. Toute phrase ajoutée à l'interface doit aussi être ajoutée à `public/i18n/en.js` — un test le vérifie.
 11. **Les erreurs disent ce qui se passe et quoi faire** : « Ce code ne correspond pas à Le Palmier. Scanne le code posé sur ta table. »
-12. **Le nom de l'app n'est jamais écrit en dur** : `config.appName` côté serveur, constante `APP` côté interface (injectée par le serveur depuis `APP_NAME`).
+12. **Le nom de l'app n'est jamais écrit en dur** : `config.appName` côté serveur, constante `APP` côté interface (injectée par le serveur depuis `APP_NAME`). **Le nom affiché du bot, lui, vit chez Telegram** — pas dans le dépôt — donc un renommage ne le suivait pas : le bot est resté « Mbolo » après le passage à Odo, et rien dans le code ne pouvait le voir. `alignerLeNom()` le pose au démarrage depuis `APP_NAME`, et seulement s'il diffère (Telegram limite les renommages). Les textes **About** et **Description**, eux, ont une version par langue et restent à la main dans BotFather (`identite/textes-botfather.md`).
 13. **Toute action principale passe par `tg.setButtons()`**, toute navigation arrière par `tg.setBack()`. N'appelle jamais `window.Telegram.WebApp` en dehors de `public/tg.js`.
 14. **L'app possède ses surfaces, Telegram décide du schéma.** Les couleurs viennent des jetons de `styles.css` (`--bg`, `--bg2`, `--bg3`, `--text`, `--button`…), déclinés en clair et en sombre par `<html data-scheme>` que `tg.js` règle d'après `colorScheme` ; `tg.js` renvoie ensuite la surface de la page au cadre Telegram (`setHeaderColor`, `setBackgroundColor`, `setBottomBarColor`) et la couleur d'action au bouton natif. Jamais de couleur en dur dans un composant : un jeton, ou `color-mix` d'un jeton. **L'aura (`--aura`) n'apparaît qu'au match, sur l'anneau d'un avatar vérifié et sur le stamp du like** — l'accueil n'y ajoute rien : sa scène de deux cartes n'emploie que ces deux moments-là ; le rose (`--like`) et l'ambre (`--gold`) sont les seules autres couleurs au repos. L'app doit rester lisible dans les deux schémas (contraste AA mesuré).
 15. **Pensé pour la data et le réseau** : pas de bibliothèque front lourde, images compressées, états de chargement et d'erreur réseau sur chaque écran.
