@@ -805,7 +805,11 @@ const SCREENS = {
       <label class="field"><span class="label">${t('Une question sur toi')}</span>
         <span class="select-wrap"><select name="promptQ">${Object.entries(QUESTIONS).map(([k, l]) => `<option value="${k}" ${k === f.promptQ ? 'selected' : ''}>${esc(t(l))}</option>`).join('')}</select>${icon('chevron-down', 18)}</span>
       </label>
-      <label class="field"><span class="label">${t('Ta réponse')}</span><input name="promptA" maxlength="120" value="${esc(f.promptA)}" placeholder="${t('Le ndolé plantain de ma tante')}"></label>
+      <!-- Pas de suggestion sous ce champ : elle répondait à « Mon plat du dimanche », retirée des
+           questions (#74), et s'affichait donc sous « Mon coin préféré » ou « Je supporte » sans
+           rapport avec ce qui était demandé. Une suggestion par question serait juste ; une
+           suggestion qui ne suit pas la question est pire que pas de suggestion. -->
+      <label class="field"><span class="label">${t('Ta réponse')}</span><input name="promptA" maxlength="120" value="${esc(f.promptA)}"></label>
       <label class="field"><span class="label">${t('Langues parlées')} <span class="opt">${t('facultatif')}</span></span><input name="languages" maxlength="60" value="${esc(f.languages)}" placeholder="${t('Français, anglais, ewondo')}"></label>
       <p class="fine">${icon('ban', 14)}<span>${t('Ni numéro, ni pseudo, ni lien dans ton profil : ils seraient refusés.')}</span></p>`,
     ];
