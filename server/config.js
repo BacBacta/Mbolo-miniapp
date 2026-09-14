@@ -66,6 +66,14 @@ export const config = {
   seedDemo: bool(process.env.SEED_DEMO, false),
   allowDevAuth: bool(process.env.ALLOW_DEV_AUTH, false) && process.env.NODE_ENV !== 'production',
   useWebhook: bool(process.env.USE_WEBHOOK, false),
+  // Politique de mise en relation pour « Relation sérieuse ». Voir README, section Juridique.
+  //
+  //   romance_opposite (défaut) : femme et homme seulement. Personne ne choisit, donc l'app ne
+  //     collecte aucune donnée d'orientation — c'est ce qui protège les membres au Cameroun,
+  //     où l'article 347-1 du code pénal en fait une donnée dangereuse à détenir.
+  //   toute autre valeur : la règle est levée, et c'est alors la personne qui dit qui elle
+  //     cherche. Ce choix devient une donnée d'orientation : il ne s'ouvre que pour un
+  //     déploiement où un juriste local l'a validé, et il est global au serveur, pas par pays.
   matchPolicy: process.env.MATCH_POLICY || 'romance_opposite',
   // Pays proposé par défaut à l'inscription. L'app est ouverte à tous les pays : ce réglage
   // ne fait que pré-remplir le menu, il n'en exclut aucun.
@@ -96,6 +104,14 @@ export const config = {
 // le laisser recopier par n'importe quelle route qui renvoie un lieu — ce qui est exactement
 // arrivé : la discussion servait l'objet entier, code compris.
 // Informations connues seulement au démarrage (nom d'utilisateur du bot)
+
+// Qui choisit le genre recherché en « Relation sérieuse » : la politique, ou la personne.
+//
+// Sous romance_opposite, c'est la politique, et l'app n'a rien à demander : l'écran des filtres
+// dit la règle. Sous toute autre valeur, la règle n'existe plus — sans choix, quelqu'un qui
+// cherche une femme verrait aussi des hommes — donc la personne doit pouvoir le dire, et ce
+// qu'elle dit est une donnée d'orientation, à déclarer comme telle là où c'est déployé.
+export const genreAuChoix = () => config.matchPolicy !== 'romance_opposite';
 
 export const runtime = { botUsername: '' };
 

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
-import { config, runtime, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT } from './config.js';
+import { config, runtime, genreAuChoix, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT } from './config.js';
 import { codeValide } from './lieux.js';
 import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
 import { LANGUES, t as tr } from './i18n.js';
@@ -172,6 +172,9 @@ api.get('/me', async (req, res) => {
     voix: u.voix ? { status: u.voix.status, duree: u.voix.duree } : null,
     options: {
       intents: INTENTS, genders: GENDERS, compat: COMPAT, criteres: CRITERES, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
+      // Qui choisit le genre recherché en « Relation sérieuse » : la politique du serveur, ou la
+      // personne. L'écran des filtres montre un réglage ou la règle selon ce seul drapeau.
+      genreAuChoix: genreAuChoix(),
       defaultCountry: config.defaultCountry,
       // Pays déduit du fuseau envoyé par le navigateur (?tz=). Il n'est ni stocké ni journalisé :
       // il sert à préremplir le menu, puis il est oublié. null si le fuseau est inconnu.
@@ -232,7 +235,7 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
   // rester rangé. Quitter l'Amitié efface le genre recherché, plutôt que de le laisser dormir
   // dans la base pour une intention qui ne le lit pas.
   const maj = { profile, profileSavedAt: req.user.profileSavedAt || Date.now() };
-  if (b.intent !== 'amitie' && (req.user.filters?.gender || '')) {
+  if (!genreDemandable({ profile }) && (req.user.filters?.gender || '')) {
     maj.filters = { ...filtersOf(req.user), gender: '' };
   }
   await store.updateUser(req.user.id, maj);
@@ -402,16 +405,22 @@ const filtersOf = (u) => ({ ...DEFAULT_FILTERS, zone: zoneParDefaut(u), ...(u.fi
 const inAgeRange = (me, other) => { const f = filtersOf(me); return other.profile.age >= f.ageMin && other.profile.age <= f.ageMax; };
 // Le genre recherché : « femme », « homme », ou vide pour tout le monde.
 //
-// Il ne vaut **qu'en Amitié**, et c'est tout le raisonnement. En « Relation sérieuse », la mise
-// en relation est déjà décidée par MATCH_POLICY (femme/homme, voir compatible()) : y ajouter un
-// choix reviendrait à laisser quelqu'un demander son propre genre, c'est-à-dire à enregistrer
-// son orientation — exactement ce que la règle 5.2 du projet et MATCH_POLICY interdisent, parce
-// qu'une telle colonne, croisée avec la ville et le quartier déjà stockés, est une liste de
-// ciblage en cas de fuite ou de réquisition (article 347-1 du code pénal camerounais).
+// Deux cas où la personne choisit, et un où elle ne choisit pas.
 //
-// En Amitié, rien de tel : vouloir se faire des amies plutôt que des amis est un choix de
-// confort, pas une orientation. Le champ est donc lu ici, et ignoré partout ailleurs.
-const genreRecherche = (me) => (me.profile?.intent === 'amitie' ? filtersOf(me).gender || '' : '');
+// **En Amitié**, toujours : vouloir se faire des amies plutôt que des amis est un choix de
+// confort, pas une orientation, et aucune règle de mise en relation ne s'y applique.
+//
+// **En « Relation sérieuse », cela dépend de MATCH_POLICY** — et c'est le seul endroit du code
+// où cette donnée se décide. Sous `romance_opposite`, la mise en relation est déjà femme/homme
+// (voir compatible()) : laisser quelqu'un demander son propre genre reviendrait à enregistrer
+// son orientation, ce que la règle 5.2 interdit, parce qu'une telle colonne croisée avec la
+// ville et le quartier déjà stockés est une liste de ciblage en cas de fuite ou de réquisition
+// (article 347-1 du code pénal camerounais). Sous toute autre valeur, la règle n'existe plus :
+// sans choix, quelqu'un qui cherche une femme verrait aussi des hommes. La personne doit donc
+// pouvoir le dire — et ce qu'elle dit devient une donnée d'orientation, dans un déploiement où
+// un juriste local a validé qu'on peut la détenir.
+const genreDemandable = (u) => u.profile?.intent === 'amitie' || genreAuChoix();
+const genreRecherche = (me) => (genreDemandable(me) ? filtersOf(me).gender || '' : '');
 const dansLeGenre = (me, other) => { const g = genreRecherche(me); return !g || other.profile.gender === g; };
 
 // La zone de la personne qui cherche s'applique à son seul paquet.
@@ -449,7 +458,7 @@ api.put('/me/filters', async (req, res) => {
     if (g && !GENDERS[g]) return fail(res, 400, 'FILTERS_INVALID', 'Choisis « Femme », « Homme », ou tout le monde.');
     gender = g;
   }
-  if (req.user.profile?.intent !== 'amitie') gender = '';
+  if (!genreDemandable(req.user)) gender = '';
 
   const filters = { ageMin, ageMax, zone, gender };
   await store.updateUser(req.user.id, { filters });

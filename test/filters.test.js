@@ -117,6 +117,12 @@ test('un genre hors de la liste est refusé, jamais rangé tel quel', async () =
   assert.equal((await call('7420', '/me')).body.filters.gender, '', 'et rien ne reste derrière');
 });
 
+test('sous la politique par défaut, l\'app annonce que le genre ne se choisit pas', async () => {
+  await makeUser('7425', 'Coco', 'femme');
+  assert.equal((await call('7425', '/me')).body.options.genreAuChoix, false,
+    "c'est ce drapeau qui fait afficher la règle plutôt qu'un réglage : faux ici, vrai sous une politique levée (test/match-policy.test.js)");
+});
+
 test("en relation sérieuse, le genre recherché n'est ni lu ni rangé", async () => {
   await makeUser('7430', 'Eve', 'femme');
   await profil('7430', { name: 'Eve', intent: 'serieux' });
