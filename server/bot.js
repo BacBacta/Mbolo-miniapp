@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Bot, InlineKeyboard, InputFile } from 'grammy';
 import { config, runtime } from './config.js';
-import { t, langueDe } from './i18n.js';
+import { t, langueDe, LANGUES } from './i18n.js';
 import { store } from './store.js';
 import { mesurer } from './mesure.js';
 import { PREFIXE, porteurDuCode, accepter, refuser, retirer, membresQuiMOntChoisi } from './confiance.js';
@@ -99,33 +99,55 @@ export async function verifierGroupeModeration() {
 
 // Le nom que Telegram affiche en haut de la discussion et sur la fiche du bot.
 //
-// Il ne vient pas d'APP_NAME : il vit chez Telegram, posé une fois à la main dans BotFather.
-// Renommer l'app laissait donc l'ancien nom sur le bot — c'est exactement ce qui est arrivé au
-// passage à Odo, et rien dans le dépôt ne pouvait le voir, puisque la valeur n'y est pas. La
-// règle 12 dit que le nom ne s'écrit nulle part en dur ; ici on va plus loin, c'est le serveur
-// qui l'impose à Telegram, et la dérive ne peut plus revenir.
+// Il ne vient pas d'APP_NAME : il vit chez Telegram, posé à la main dans BotFather. Renommer
+// l'app laissait donc l'ancien nom sur le bot — c'est ce qui est arrivé au passage à Odo, et rien
+// dans le dépôt ne pouvait le voir, puisque la valeur n'y est pas. La règle 12 dit que le nom ne
+// s'écrit nulle part en dur ; ici c'est le serveur qui l'impose à Telegram.
 //
-// **Seulement s'il diffère** : Telegram limite les changements de nom, et une app qui se
+// **Et il n'y a pas un nom, il y en a huit.** Telegram garde un nom par défaut, plus un nom
+// dédié par langue, et le nom dédié masque le défaut pour qui lit dans cette langue-là. Le guide
+// BotFather du dépôt demande justement d'ajouter chaque langue. Aligner le seul défaut ne se
+// voyait donc pas : la fiche publique affichait bien « Odo » pendant qu'un téléphone en français
+// continuait d'afficher l'ancien nom. On retire les noms dédiés au lieu d'en poser sept : un
+// seul nom pour tout le monde, celui du défaut, et une langue de plus demain n'aura rien à
+// rattraper. Une chaîne vide, c'est ce que l'API appelle « retirer le nom dédié ».
+//
+// **Seulement là où ça diffère** : Telegram limite les changements de nom, et une app qui se
 // renommerait à chaque démarrage finirait par se voir refuser le changement le jour où il compte.
-// Un échec ne couche pas le démarrage — c'est de l'affichage, pas une porte d'inscription.
+// Lire ne coûte rien, écrire est rare. Un échec ne couche pas le démarrage — c'est de
+// l'affichage, pas une porte d'inscription.
 export async function alignerLeNom() {
   if (!bot) return { ok: false, raison: 'PAS_DE_BOT' };
+  const nomVoulu = config.appName;
+  const change = [];
   try {
-    const actuel = (await bot.api.getMyName()).name;
-    if (actuel === config.appName) return { ok: true, change: false, nom: actuel };
-    // Le nom se passe en argument, pas dans un objet : grammY attend setMyName(nom). Passer
-    // { name } envoyait un objet là où Telegram attend une chaîne, et le nom restait l'ancien
-    // — sans que rien ne le montre, puisque l'échec ne fait qu'un avertissement dans le journal.
-    await bot.api.setMyName(config.appName);
-    console.log(`Nom du bot aligné sur APP_NAME : « ${actuel} » → « ${config.appName} ».`);
-    return { ok: true, change: true, avant: actuel, nom: config.appName };
+    // Le nom que voit qui n'a pas de nom dédié dans sa langue.
+    const defaut = (await bot.api.getMyName()).name;
+    if (defaut !== nomVoulu) {
+      // Le nom se passe en argument, pas dans un objet : grammY attend setMyName(nom).
+      await bot.api.setMyName(nomVoulu);
+      change.push({ langue: 'défaut', avant: defaut });
+    }
+    // Les noms dédiés. getMyName rend le nom dédié s'il existe, sinon le défaut : une valeur qui
+    // diffère prouve donc qu'un nom dédié masque le défaut, et c'est lui qu'on retire.
+    for (const langue of LANGUES) {
+      const dedie = (await bot.api.getMyName({ language_code: langue })).name;
+      if (dedie === nomVoulu) continue;
+      await bot.api.setMyName('', { language_code: langue });
+      change.push({ langue, avant: dedie });
+    }
+    if (change.length) {
+      console.log(`Nom du bot aligné sur APP_NAME (« ${nomVoulu} ») : ${change.map((c) => `${c.langue} était « ${c.avant} »`).join(', ')}.`);
+    }
+    return { ok: true, change: change.length > 0, nom: nomVoulu, details: change };
   } catch (e) {
     const detail = e.description || e.message;
     console.warn([
       `Nom du bot non aligné sur APP_NAME (${detail}).`,
-      `Telegram continue d'afficher l'ancien nom. À corriger dans BotFather : /mybots, ton bot, Edit Bot, Edit Name — « ${config.appName} ».`,
+      `Telegram peut continuer d'afficher l'ancien nom, y compris pour une seule langue.`,
+      `À corriger dans BotFather : /mybots, ton bot, Edit Bot, Edit Name — « ${nomVoulu} » —, en vérifiant chaque langue du menu.`,
     ].join('\n'));
-    return { ok: false, raison: 'REFUSE', detail };
+    return { ok: false, raison: 'REFUSE', detail, details: change };
   }
 }
 
