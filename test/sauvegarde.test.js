@@ -12,11 +12,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 
 const URL_BASE = process.env.DATABASE_URL || '';
 const sautSansBase = URL_BASE ? false : 'Aucune base PostgreSQL : npm run test:pg';
 
-const { chiffrer, dechiffrer, lireTout, compter, HORS_SAUVEGARDE } = await import('../server/sauvegarde.js');
+const { chiffrer, dechiffrer, lireTout, compter, HORS_SAUVEGARDE, VERSION } = await import('../server/sauvegarde.js');
 const { TABLES } = await import('../server/bascule.js');
 
 // ---------- Le chiffrement, sans base ----------
@@ -159,4 +160,76 @@ test('la restauration refuse une base qui porte déjà des lignes', { skip: saut
   assert.ok(await store.getUser('5199'), 'aucune ligne n\'a été effacée par un refus');
 
   fs.rmSync(dossier, { recursive: true, force: true });
+});
+
+// ---------- Le contrôle de lisibilité, sans base ----------
+//
+// Les tests ci-dessus prouvent que le mécanisme est juste. Ils ne prouvent rien sur **le fichier
+// réellement écrit en production avec le secret réellement posé sur la machine** : ils emploient
+// un secret de test et une base de test. C'est exactement ce qui manque le jour d'une
+// restauration — et ce jour-là, découvrir que le secret a changé ou n'a jamais été gardé arrive
+// trop tard. scripts/verifier-sauvegarde.js comble ce trou, et la nuit le lance sur la copie
+// qu'il vient d'écrire. Ces tests-ci éprouvent le script lui-même, en vrai processus : son code
+// de sortie est ce que le travail nocturne lit pour décider si la sauvegarde tient.
+
+const lancerVerif = (fichier, secret) => new Promise((resolve) => {
+  const p = spawn(process.execPath, ['scripts/verifier-sauvegarde.js', fichier], {
+    env: { ...process.env, BACKUP_SECRET: secret }, cwd: process.cwd(),
+  });
+  let sortie = '';
+  p.stdout.on('data', (d) => { sortie += d; });
+  p.stderr.on('data', (d) => { sortie += d; });
+  p.on('close', (code) => resolve({ code, sortie }));
+});
+
+const fichierDEssai = async (secret, tables) => {
+  const contenu = {
+    version: VERSION,
+    faiteLe: new Date().toISOString(),
+    tables: { ...Object.fromEntries(TABLES.map((t) => [t, []])), ...tables },
+  };
+  const chemin = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'verif-')), 'essai.sauvegarde');
+  fs.writeFileSync(chemin, Buffer.from(await chiffrer(contenu, secret)));
+  return chemin;
+};
+
+test('le contrôle ouvre la sauvegarde et rend compte de ce qu\'elle porte', async () => {
+  const f = await fichierDEssai('bon-secret', { users: [{ id: '1' }, { id: '2' }], events: [{ id: 9 }] });
+  const { code, sortie } = await lancerVerif(f, 'bon-secret');
+  assert.equal(code, 0, `le contrôle doit réussir :\n${sortie}`);
+  assert.match(sortie, /lisible/);
+  assert.match(sortie, /users 2/);
+  assert.match(sortie, /events 1/, 'chaque table est comptée, pas seulement le total');
+});
+
+test('le contrôle échoue avec un autre secret, et le dit sans ambiguïté', async () => {
+  const f = await fichierDEssai('bon-secret', { users: [{ id: '1' }] });
+  const { code, sortie } = await lancerVerif(f, 'pas-le-bon');
+  assert.equal(code, 1, 'un mauvais secret doit faire échouer le travail, pas passer inaperçu');
+  assert.match(sortie, /ne s'ouvre pas/);
+  assert.ok(!sortie.includes('bon-secret'), 'et le secret ne doit jamais se retrouver dans la sortie');
+});
+
+test('le contrôle refuse un fichier abîmé, plutôt que de le lire de travers', async () => {
+  const f = await fichierDEssai('bon-secret', { users: [{ id: '1' }] });
+  const octets = fs.readFileSync(f);
+  octets[Math.floor(octets.length / 2)] ^= 1; // un seul bit
+  fs.writeFileSync(f, octets);
+  const { code, sortie } = await lancerVerif(f, 'bon-secret');
+  assert.equal(code, 1, 'le chiffrement est authentifié : un bit changé doit se voir');
+  assert.match(sortie, /ne s'ouvre pas/);
+});
+
+test('le contrôle refuse une sauvegarde à qui il manque une table', async () => {
+  // Écrite à la main sans une table : une restauration la laisserait vide en silence.
+  const contenu = {
+    version: VERSION,
+    faiteLe: new Date().toISOString(),
+    tables: Object.fromEntries(TABLES.filter((t) => t !== 'messages').map((t) => [t, []])),
+  };
+  const chemin = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'verif-')), 'trouee.sauvegarde');
+  fs.writeFileSync(chemin, Buffer.from(await chiffrer(contenu, 'bon-secret')));
+  const { code, sortie } = await lancerVerif(chemin, 'bon-secret');
+  assert.equal(code, 1);
+  assert.match(sortie, /messages/, 'et il nomme la table qui manque');
 });

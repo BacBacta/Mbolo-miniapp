@@ -540,7 +540,7 @@ Aucune de ces trois choses ne peut être faite depuis le code.
 
 - [ ] **Quelqu'un qui regarde le groupe de modération chaque jour.** Depuis que la validation automatique n'existe plus en production, **personne ne s'inscrit tant qu'un humain n'a pas tranché** : c'est désormais le goulot d'étranglement de l'inscription.
 - [x] ~~**Passer à PostgreSQL**~~ : fait le 13 septembre 2026. La production tourne sur `mbolo-pg` (Fly non géré), les 58 lignes du fichier JSON ont été importées — événements de mesure compris — et vérifiées par `scripts/etat-stockage.js` avant que la base ne prenne son nom définitif.
-- [ ] **Poser `BACKUP_SECRET` pour allumer les sauvegardes.** Le mécanisme est en place — travail **Sauvegarde** chaque nuit, copie chiffrée sur le volume et dans les artefacts GitHub, restauration éprouvée par `test/sauvegarde.test.js` à chaque `npm run test:pg`. Il ne manque que le secret, et **rien ne se sauvegarde tant qu'il n'est pas posé** : `flyctl secrets set BACKUP_SECRET="$(openssl rand -hex 32)"`. **Garde-le ailleurs que sur la machine** — il ouvre les copies, et lui seul. Marche à suivre complète, restauration comprise, dans [`DEPLOIEMENT.md`](DEPLOIEMENT.md).
+- [x] ~~**Poser `BACKUP_SECRET` pour allumer les sauvegardes**~~ : fait le 14 septembre 2026. La première copie porte 72 lignes — 21 comptes, 5 signalements, 46 événements — chiffrées sur le volume et remontées dans les artefacts GitHub. Le travail **Sauvegarde** tourne chaque nuit à 02 h 30 UTC, avec rotation à 14 sur le volume, et **rouvre la copie qu'il vient d'écrire** (`scripts/verifier-sauvegarde.js`, sur la machine, sans toucher à aucune base) : écrire n'est pas sauvegarder, et le jour où l'on s'en aperçoit ne doit pas être celui de la restauration. **Le secret vit chez le propriétaire et dans les secrets Fly, jamais dans ce dépôt** — sans quoi un accès au dépôt donnerait à la fois les copies et de quoi les ouvrir. **Ne le remplace pas sans avoir retrouvé l'ancien** : toutes les copies chiffrées avec lui deviendraient illisibles. Marche à suivre, restauration comprise, dans [`DEPLOIEMENT.md`](DEPLOIEMENT.md).
 
 ### Entretien du dépôt
 
@@ -566,6 +566,7 @@ mbolo-miniapp/
 │   ├── jauge.js      Jauge de confiance : la liste des critères, et rien qu'elle
 │   ├── lieux.js      Le code d'un lieu : empreinte du secret serveur, jamais servie au client
 │   ├── sauvegarde.js Sauvegarde chiffrée de la base : ce qu'elle emporte, ce qu'elle laisse
+│   │                 (scripts/verifier-sauvegarde.js la rouvre, sans base, pour prouver qu'elle s'ouvre)
 │   ├── limites.js    Limitation de débit : les règles ; les compteurs sont dans le stockage
 │   ├── store.js      Choix du stockage selon DATABASE_URL
 │   ├── store.json.js Stockage dans un fichier JSON (défaut, une seule instance)

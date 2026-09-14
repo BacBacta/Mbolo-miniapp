@@ -50,12 +50,27 @@ jobs:
           flyctl ssh console -a "$APP" -C \
             "node scripts/sauvegarde.js /data/sauvegardes --garder ${{ inputs.garder || '14' }}" | tee sortie.txt
           grep -q "Sauvegarde écrite" sortie.txt
+          # Le chemin sort de la ligne « Sauvegarde écrite : … » : le contrôle qui suit doit
+          # porter sur CE fichier, pas sur le dernier que le dossier contient.
+          sed -n 's/.*Sauvegarde écrite : *//p' sortie.txt | tr -d '\r' | tail -1 > chemin.txt
+          test -s chemin.txt
+
+      # Écrire n'est pas sauvegarder. Tant que personne n'a rouvert le fichier avec le secret
+      # réellement posé sur cette machine, « on a des sauvegardes » reste une hypothèse — et le
+      # jour où on la vérifie pour de bon est le pire jour possible pour la démentir. Le contrôle
+      # tourne donc ici, sur la machine, sur la copie qui vient d'être écrite, et ne touche à
+      # aucune base : il déchiffre, compte, et sort en erreur si quoi que ce soit cloche.
+      - name: Vérifier que la sauvegarde se rouvre
+        run: |
+          flyctl ssh console -a "$APP" -C \
+            "node scripts/verifier-sauvegarde.js $(cat chemin.txt)" | tee controle.txt
+          grep -q "lisible" controle.txt
 
       # La copie doit quitter la machine : une sauvegarde posée à côté de la base disparaît avec
       # le volume qui les porte toutes les deux.
       - name: Ramener la plus récente
         run: |
-          NOM=$(flyctl ssh console -a "$APP" -C "sh -c 'ls -1 /data/sauvegardes/*.sauvegarde | tail -1'" | tr -d '\r' | grep '\.sauvegarde$' | tail -1)
+          NOM=$(cat chemin.txt)
           test -n "$NOM"
           flyctl ssh sftp get "$NOM" ./sauvegarde.bin -a "$APP"
           test -s ./sauvegarde.bin

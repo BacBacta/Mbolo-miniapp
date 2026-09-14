@@ -93,10 +93,13 @@ test('le serveur démarre et sert avec le seul contenu de l\'image', async (t) =
   assert.equal((await fetch(`${base}/styles.css`)).status, 200, 'la feuille de style (public/)');
   assert.equal((await fetch(`${base}/confidentialite`)).status, 200, 'les pages publiques (server/legal/)');
 
-  // Et les scripts de bascule doivent être là : le guide dit de les lancer depuis la machine,
-  // et basculer-postgres.sh les appelle par ssh. Absents de l'image, la bascule s'arrête au
-  // milieu — une base attachée, un import qui n'a pas eu lieu.
-  for (const script of ['import-json.js', 'etat-stockage.js']) {
+  // Et les scripts d'exploitation doivent être là : le guide dit de les lancer depuis la machine,
+  // basculer-postgres.sh les appelle par ssh, et le travail nocturne « Sauvegarde » fait de même.
+  // Absents de l'image, la bascule s'arrête au milieu — une base attachée, un import qui n'a pas
+  // eu lieu — et la sauvegarde échoue à 2 h 30 du matin, là où personne ne regarde. Le contrôle
+  // de lisibilité compte autant que l'écriture : sans lui, on garde des copies sans savoir si
+  // elles s'ouvrent.
+  for (const script of ['import-json.js', 'etat-stockage.js', 'sauvegarde.js', 'restaurer.js', 'verifier-sauvegarde.js']) {
     assert.ok(fs.existsSync(path.join(app, 'scripts', script)), `scripts/${script} manque dans l'image`);
   }
 
