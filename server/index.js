@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import QRCode from 'qrcode';
-import { config, venues, secretsPartages } from './config.js';
+import { config, venues, secretsPartages, genreAuChoix } from './config.js';
 import { codeDuLieu } from './lieux.js';
 import { store, modeStockage, pret } from './store.js';
 import { api } from './routes.js';
@@ -134,9 +134,23 @@ app.get('/app.js', precompresser(appJs, 'js', IMMUTABLE));
 // dans server/legal/ et non dans public/ parce qu'elles portent __APP_NAME__ : servies en
 // fichiers statiques, elles montreraient le gabarit au lieu du nom. Même traitement que
 // l'accueil — nom injecté, empreinte des fichiers, compression une fois au démarrage.
+// Ces pages décrivent ce que le serveur fait, et il ne fait pas la même chose partout : sous la
+// politique par défaut, personne ne dit quel genre il cherche en relation sérieuse, donc rien de
+// l'orientation de personne n'existe ; sous une politique levée, ce choix est demandé, et une
+// page qui promettrait le contraire mentirait. Les deux versions vivent donc dans le fichier,
+// entre marqueurs, et c'est `genreAuChoix()` qui décide laquelle part — jamais les deux.
+const selonLaPolitique = (html) => {
+  const garder = genreAuChoix() ? 'OUVERT' : 'FERME';
+  const jeter = genreAuChoix() ? 'FERME' : 'OUVERT';
+  return html
+    .replaceAll(new RegExp(`<!--SI_GENRE_${jeter}-->[\\s\\S]*?<!--/SI_GENRE_${jeter}-->`, 'g'), '')
+    .replaceAll(`<!--SI_GENRE_${garder}-->`, '')
+    .replaceAll(`<!--/SI_GENRE_${garder}-->`, '');
+};
+
 const PAGES_PUBLIQUES = { '/confidentialite': 'confidentialite.html', '/conditions': 'conditions.html' };
 for (const [route, fichier] of Object.entries(PAGES_PUBLIQUES)) {
-  const source = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'legal', fichier), 'utf8')
+  const source = selonLaPolitique(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'legal', fichier), 'utf8'))
     .replaceAll('__ASSET_V__', assetV)
     .replaceAll('__APP_NAME__', escapeHtml(config.appName));
   app.get(route, precompresser(source, 'html', NO_CACHE));

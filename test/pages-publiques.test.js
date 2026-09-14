@@ -147,3 +147,52 @@ test('les pages ne sont pas servies aussi en fichiers bruts', async () => {
     assert.ok(!html.includes('__APP_NAME__'), `${chemin} ne doit jamais montrer un gabarit`);
   }
 });
+
+// La page ne décrit pas un produit en général : elle décrit ce que **ce serveur** fait. Sous la
+// politique par défaut, il n'apparie que femme et homme et ne demande à personne quel genre il
+// cherche ; sous une politique levée, il le demande, et ce choix indique l'orientation. Une page
+// qui garderait « nous ne collectons aucune donnée d'orientation » dans le second cas mentirait
+// — dans un document que la loi 2024/017 rend opposable. Les deux versions vivent donc dans le
+// fichier, entre marqueurs, et on vérifie ici que la bonne part, entière, et que l'autre ne
+// laisse aucune trace.
+test('la page dit la vérité de la politique sous laquelle le serveur tourne', async () => {
+  const port = await portLibre();
+  const ouvert = spawn(process.execPath, ['server/index.js'], {
+    stdio: 'ignore',
+    env: {
+      ...process.env,
+      DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'rencontres-pages-ouvert-')),
+      BOT_TOKEN: '123456:TEST_TOKEN', WEBAPP_URL: 'https://exemple.test', APP_NAME,
+      SEED_DEMO: 'false', USE_WEBHOOK: 'false', NODE_ENV: 'development',
+      ADMIN_CHAT_ID: '', DATABASE_URL: '', PORT: String(port), MATCH_POLICY: 'open',
+    },
+  });
+  try {
+    let html = '';
+    for (let i = 0; i < 60 && !html; i++) {
+      await new Promise((r) => setTimeout(r, 200));
+      html = await fetch(`http://127.0.0.1:${port}/confidentialite`).then((r) => r.text()).catch(() => '');
+    }
+    assert.ok(html, 'le serveur doit répondre');
+
+    // Ce que la page doit dire quand le choix existe.
+    assert.match(html, /ce choix indique ton orientation sexuelle/i,
+      "la page doit dire ce que le choix révèle, au lieu de le présenter comme un réglage anodin");
+    assert.match(html, /genre des personnes que tu veux voir/i, 'et le compter parmi les données gardées');
+    assert.match(html, /jamais montré aux autres membres/i, 'et dire qui le voit');
+
+    // Et surtout, ce qu'elle ne doit plus dire.
+    assert.ok(!/aucune donnée d'orientation sexuelle/i.test(html),
+      "sous cette politique, la promesse serait fausse : c'est elle qu'on vient de lever");
+
+    // Les marqueurs sont un mécanisme, pas du texte : rien ne doit en arriver au navigateur.
+    assert.ok(!/SI_GENRE/.test(html), 'aucun marqueur ne doit fuir dans la page');
+
+    // Les promesses qui ne dépendent pas de la politique tiennent toujours.
+    for (const motif of [/ethnique/i, /jamais montré aux autres membres/i, /GPS/, /2024\/017/, /18 ans/]) {
+      assert.match(html, motif, `cette promesse ne dépend pas de la politique : ${motif}`);
+    }
+  } finally {
+    ouvert.kill();
+  }
+});
