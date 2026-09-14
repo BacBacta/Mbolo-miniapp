@@ -43,6 +43,8 @@ server/
   confiance.js  Personne de confiance : invitation, accord explicite, retrait des deux côtés
   jauge.js      Jauge de confiance : la liste des critères ouverts, et le calcul du score
   lieux.js      Le code d'un lieu : empreinte du secret serveur, jamais servie au client
+  secrets.js    Les cinq secrets qui ne partagent jamais une valeur : la liste, et les deux
+                contrôles qui la lisent (au démarrage, et avant le déploiement). Sans aucun import
   sauvegarde.js Sauvegarde chiffrée : ce qu'elle emporte, ce qu'elle laisse, et pourquoi pas pg_dump
   voix.js       Présentation vocale : durées, nom de fichier, ce qui est public, et pourquoi ça vit dans le bot
   bascule.js    Ce que la bascule PostgreSQL doit retrouver : comptage par clé, fonction pure
@@ -90,6 +92,7 @@ scripts/
   etat-stockage.js Compare fichier et base table par table ; sort en erreur si la base en porte moins
   sauvegarde.js  Copie chiffrée de la base, avec rotation ; se lance depuis la machine déployée
   verifier-sauvegarde.js  Rouvre une copie et dit ce qu'elle porte ; aucune base, donc sans risque
+  verifier-secrets.js  Lit les empreintes de l'hébergeur et arrête le déploiement si deux se répètent
   restaurer.js   Remet une sauvegarde ; refuse une base non vide sans --ecraser, et recompte après
   test-pg.js     La suite complète sur PostgreSQL, un schéma par fichier de test
 basculer-postgres.sh  Bascule vers PostgreSQL en deux temps : preparer, basculer, verifier
@@ -147,6 +150,14 @@ identite/
 > démarrage : **le serveur refuse de démarrer en production**, prévient sans bloquer ailleurs, et
 > n'écrit jamais la valeur — le message finit dans un journal. Les secrets **vides** ne comptent
 > pas : ne rien poser reste un choix légitime. `test/production.test.js` fige les cinq cas.
+> **Le même constat se lit une étape plus tôt.** Sur la machine, ce garde-fou ne sait refuser
+> qu'en tombant : il s'exécute sur l'instance neuve, une fois l'ancienne remplacée. Le 14 septembre
+> 2026, il a donc protégé la production en l'éteignant — dix redémarrages. `deployer-fly.sh` lit
+> maintenant les empreintes de l'hébergeur (`scripts/verifier-secrets.js`) **après avoir posé les
+> secrets et avant `flyctl deploy`** : deux empreintes identiques arrêtent le travail sans toucher
+> à ce qui tourne. Le contrôle n'importe aucune dépendance — `npm ci` n'a pas tourné sur le runner
+> à ce moment-là, d'où `server/secrets.js` — et refuse une liste qu'il ne sait plus lire, parce
+> qu'un garde-fou qui ne comprend plus rien approuve tout.
 > Un secret n'a pas non plus la même durée de vie qu'un autre : `WEB_SESSION_SECRET` se change
 > souvent sans conséquence, `BACKUP_SECRET` **jamais sans garder l'ancien** — toute copie déjà
 > écrite deviendrait illisible.

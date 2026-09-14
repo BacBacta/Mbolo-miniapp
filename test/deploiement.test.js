@@ -128,6 +128,8 @@ test('les messages que le guide dit de chercher existent dans le code', () => {
     ['Stockage : PostgreSQL', 'server/index.js'],
     ['Attention : en production sur un fichier JSON.', 'server/index.js'],
     ['ADMIN_CHAT_ID absent', 'deployer-fly.sh'],
+    ['Deux secrets portent la même valeur', 'scripts/verifier-secrets.js'],
+    ["Je n'ai pas su lire la liste des secrets", 'scripts/verifier-secrets.js'],
     ['Sauvegarde écrite', 'scripts/sauvegarde.js'],
     ['Restauré et vérifié', 'scripts/restaurer.js'],
   ];
