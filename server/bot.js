@@ -113,7 +113,10 @@ export async function alignerLeNom() {
   try {
     const actuel = (await bot.api.getMyName()).name;
     if (actuel === config.appName) return { ok: true, change: false, nom: actuel };
-    await bot.api.setMyName({ name: config.appName });
+    // Le nom se passe en argument, pas dans un objet : grammY attend setMyName(nom). Passer
+    // { name } envoyait un objet là où Telegram attend une chaîne, et le nom restait l'ancien
+    // — sans que rien ne le montre, puisque l'échec ne fait qu'un avertissement dans le journal.
+    await bot.api.setMyName(config.appName);
     console.log(`Nom du bot aligné sur APP_NAME : « ${actuel} » → « ${config.appName} ».`);
     return { ok: true, change: true, avant: actuel, nom: config.appName };
   } catch (e) {
