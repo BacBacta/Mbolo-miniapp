@@ -950,13 +950,16 @@ const SCREENS = {
   filters() {
     const f = { ageMin: 18, ageMax: 99, gender: '', ...(S.me.filters || {}) };
     if (S.genreDraft != null) f.gender = S.genreDraft;
-    // Le genre recherché ne se règle qu'en Amitié. En « Relation sérieuse », la mise en relation
-    // est déjà décidée (une femme et un homme) : l'écran le dit, au lieu de laisser croire à un
-    // réglage oublié. Laisser choisir y reviendrait à enregistrer l'orientation de chacun, ce que
-    // la règle 5.2 et MATCH_POLICY interdisent — le README en donne la raison, qui tient au
-    // cadre pénal camerounais et au danger d'une telle liste en cas de fuite.
+    // Qui choisit le genre recherché.
+    //
+    // En Amitié, toujours la personne. En « Relation sérieuse », cela dépend de la politique du
+    // serveur, que `options.genreAuChoix` résume : sous la politique par défaut, la mise en
+    // relation est déjà femme/homme et l'écran dit la règle plutôt que d'offrir un réglage —
+    // laisser choisir y reviendrait à enregistrer l'orientation de chacun (règle 5.2). Là où un
+    // déploiement a levé cette politique, la règle n'existe plus et c'est la personne qui dit
+    // qui elle cherche, sans quoi elle verrait des profils qu'elle n'a pas demandés.
     const monGenre = S.me.profile?.gender;
-    const amitie = S.me.profile?.intent === 'amitie';
+    const choisit = S.me.profile?.intent === 'amitie' || S.me.options.genreAuChoix;
     const z = S.zoneDraft || (S.zoneDraft = { ...zoneDe() });
     const toutLePays = z.city === null;
     // Pays du fuseau : proposé seulement s'il diffère de la zone en cours, sinon le bouton
@@ -980,7 +983,7 @@ const SCREENS = {
           <input name="zoneCity" maxlength="40" value="${esc(z.city || '')}" placeholder="${esc((S.me.options.knownCities[z.country] || [])[0] || t('Ta ville'))}" list="villes-zone" autocomplete="off">
           <datalist id="villes-zone">${(S.me.options.knownCities[z.country] || []).map((v) => `<option value="${esc(v)}"></option>`).join('')}</datalist>
         </label>`}
-        ${amitie ? `
+        ${choisit ? `
         <span class="eyebrow">${t('Qui tu cherches')}</span>
         <div class="seg seg-genre" aria-label="${t('Qui tu cherches')}">
           <button type="button" data-action="genre" data-genre="" aria-pressed="${!f.gender}">${t('Tout le monde')}</button>
