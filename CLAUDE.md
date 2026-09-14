@@ -106,7 +106,9 @@ scripts/
 basculer-postgres.sh  Bascule vers PostgreSQL en deux temps : preparer, basculer, verifier
 DEPLOIEMENT.md  Guide pas à pas de mise en ligne : secrets, contrôles, PostgreSQL, pannes
 audit/
-  Dossier d'audit du parcours : benchmark, mesures, constats, risques, plan
+  Dossier d'audit du parcours : benchmark, mesures, constats, risques, plan.
+  09-revue-code.md : revue du code du 14 septembre 2026 — cinq constats critiques, quinze
+  importants, par fichier et ligne, avec l'ordre de correction en six lots. À lire avant la bêta.
 identite/
   Ce que BotFather affiche : photo du bot, image d'accueil, textes des cinq langues.
   Jamais servi au navigateur. `source/` porte les pages HTML, les polices et le script
