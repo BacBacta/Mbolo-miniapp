@@ -43,6 +43,8 @@ server/
   confiance.js  Personne de confiance : invitation, accord explicite, retrait des deux côtés
   jauge.js      Jauge de confiance : la liste des critères ouverts, et le calcul du score
   lieux.js      Le code d'un lieu : empreinte du secret serveur, jamais servie au client
+  promesses.js  Les promesses que personne n'attend : enveloppe des routeurs, tâches en arrière-plan,
+                filet global — une promesse rejetée sans filet arrêtait le processus
   secrets.js    Les cinq secrets qui ne partagent jamais une valeur : la liste, et les deux
                 contrôles qui la lisent (au démarrage, et avant le déploiement). Sans aucun import
   sauvegarde.js Sauvegarde chiffrée : ce qu'elle emporte, ce qu'elle laisse, et pourquoi pas pg_dump
@@ -78,6 +80,7 @@ public/
   styles.css    Identité « Aura » : surfaces d'encre ou d'os selon data-scheme, aura réservée au match, au badge et au like ; Fraunces pour l'identité, Manrope pour l'interface
 test/
   activity, antiscam, assets, auth, compression,
+  promesses (un gestionnaire qui rejette répond 500, un cookie malformé ne jette pas),
   bannissement, checkin, deploiement, filters, geographie,
   identite-bot (le nom affiché du bot suit APP_NAME, et ne se repose pas pour rien),
   instructions, jauge, langues,

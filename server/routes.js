@@ -14,23 +14,10 @@ import { limiter, consommer } from './limites.js';
 import { notify, direATiers, notifyAdmin, boutonBannir, sendSelfieToModeration, sendPhotoToModeration, decideVerification, onApproved } from './bot.js';
 import { mesurer, mesurerRalenti, semaineIso, HEURE, CINQ_MINUTES } from './mesure.js';
 import { creerInvitation, retirer, PREFIXE } from './confiance.js';
+import { envelopper } from './promesses.js';
 import { DEMO_REPLIES } from './seed.js';
 
-export const api = express.Router();
-
-// Express 4 n'attend pas les promesses que rendent les gestionnaires. Depuis que le stockage est
-// asynchrone, une requête qui échoue en base laisserait la promesse rejetée sans personne pour
-// l'attraper : la requête resterait suspendue jusqu'au délai du client, au lieu de renvoyer une
-// erreur. On enveloppe donc chaque gestionnaire une fois pour toutes, à l'enregistrement.
-// Les gestionnaires d'erreur d'Express prennent quatre arguments : ils ne sont pas enveloppés.
-for (const verbe of ['get', 'post', 'put', 'delete', 'patch', 'use', 'all']) {
-  const original = api[verbe].bind(api);
-  api[verbe] = (...args) => original(...args.map((a) => (
-    typeof a === 'function' && a.length < 4
-      ? (req, res, next) => Promise.resolve(a(req, res, next)).catch(next)
-      : a
-  )));
-}
+export const api = envelopper(express.Router());
 
 api.use(requireAuth);
 // Chaque appel authentifié vaut signe de vie : l'app interroge /summary toutes les 20 s tant qu'elle est ouverte
@@ -880,8 +867,11 @@ api.put('/dates/:id', requireApproved, limiter('rendezvous'), async (req, res) =
   if (await store.isBlocked(req.user.id, autreId)) return fail(res, 403, 'BLOCKED', 'Ce rendez-vous est annulé.');
 
   const statut = String(req.body?.status || '');
+  // hasOwn, pas CHANGEMENTS[statut] : « constructor » est une propriété de tout objet, donc
+  // « vraie », et un statut hors liste passait — jusqu'à la notification, qui faisait tomber le
+  // serveur sur un message inexistant (audit/09-revue-code.md, C1).
+  if (!Object.hasOwn(CHANGEMENTS, statut)) return fail(res, 400, 'STATUS_INVALID', 'Action inconnue sur ce rendez-vous.');
   const changement = CHANGEMENTS[statut];
-  if (!changement) return fail(res, 400, 'STATUS_INVALID', 'Action inconnue sur ce rendez-vous.');
   if (!VIVANTS.includes(d.status)) return fail(res, 409, 'DATE_CLOSED', 'Ce rendez-vous est déjà clos.');
 
   const jePropose = d.proposedBy === req.user.id;

@@ -111,6 +111,34 @@ test('la personne invitée refuse ; le rendez-vous est clos, pas effacé', async
   assert.equal(encore.body.code, 'DATE_CLOSED');
 });
 
+// CHANGEMENTS est un objet ordinaire : « constructor » y est une propriété, donc « vraie ». Un
+// statut hors liste passait, la base le gardait, et la notification tombait sur un message
+// inexistant — hors de tout try, ce qui arrêtait le serveur (audit/09-revue-code.md, C1).
+test('un statut hors liste est refusé, le rendez-vous reste intact, rien ne part', async () => {
+  await creer('c1', 'Clara', 'femme'); await creer('c2', 'Cyril', 'homme');
+  const m = await matcher('c1', 'c2');
+  const id = await proposer('c1', m);
+  await oublierLesNotifications(1);
+  const rejets = [];
+  const ecoute = (r) => rejets.push(r);
+  process.on('unhandledRejection', ecoute);
+  try {
+    for (const faux of ['constructor', '__proto__', 'toString', 'hasOwnProperty', '']) {
+      const r = await call('c2', `/dates/${id}`, 'PUT', { status: faux });
+      assert.equal(r.status, 400, `${faux || '(vide)'} : ${JSON.stringify(r.body)}`);
+      assert.equal(r.body.code, 'STATUS_INVALID');
+    }
+    assert.equal(await statut('c2', m, id), 'proposed', 'le rendez-vous n\'a pas bougé');
+    assert.equal((await notifications(0)).length, 0, 'aucune notification');
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(rejets.length, 0, 'aucune promesse orpheline');
+  } finally {
+    process.off('unhandledRejection', ecoute);
+  }
+  // Et la vraie action marche toujours après.
+  assert.equal((await call('c2', `/dates/${id}`, 'PUT', { status: 'accepted' })).status, 200);
+});
+
 test('celle qui propose ne peut pas accepter à la place de l\'autre', async () => {
   await creer('7005', 'Diane', 'femme');
   await creer('7006', 'Franck', 'homme');

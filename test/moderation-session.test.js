@@ -150,6 +150,25 @@ test('un cookie forgé ne passe pas', async () => {
   }
 });
 
+// « % » seul faisait jeter decodeURIComponent dans un gestionnaire sans filet : le processus
+// s'arrêtait, sans compte ni limite de débit (audit/09-revue-code.md, C2).
+test('un cookie malformé répond 401, et le serveur reste debout', async () => {
+  const rejets = [];
+  const ecoute = (r) => rejets.push(r);
+  process.on('unhandledRejection', ecoute);
+  try {
+    for (const valeur of ['%', '%E0%A4%A']) {
+      assert.equal((await aller('/api/mod/me', { cookie: `${COOKIE_MODERATION}=${valeur}` })).status, 401, valeur);
+      assert.equal((await aller('/moderation', { cookie: `${COOKIE_MODERATION}=${valeur}` })).status, 401, valeur);
+    }
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(rejets.length, 0, 'aucune promesse orpheline');
+  } finally {
+    process.off('unhandledRejection', ecoute);
+  }
+  assert.equal((await aller('/api/mod/me')).status, 401, 'toujours vivant');
+});
+
 test('la file de vérification ne montre aucun selfie', async () => {
   await membre('510', 'Awa');
   await store.updateUser('510', { verification: 'pending', verificationSentAt: Date.now(), pendingGesture: 'deux doigts levés' });

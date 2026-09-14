@@ -12,6 +12,11 @@ import { modApi, commandesModeration, creerPageModeration } from './moderation.j
 import { seedDemo } from './seed.js';
 import { assetVersion, versionImports } from './assets.js';
 import { precompresser, compresserJson } from './compression.js';
+import { poserLeFilet } from './promesses.js';
+
+// Avant tout le reste : une promesse rejetée sans filet doit finir dans le journal, pas arrêter
+// l'app pour tout le monde (audit/09-revue-code.md, C1, C2, C5).
+poserLeFilet();
 
 // La vérification par selfie est la première promesse de l'app : « tous les profils sont vérifiés ».
 // Deux réglages peuvent la vider de son sens en production. AUTO_APPROVE valide sans que personne
@@ -188,6 +193,15 @@ commandesModeration();
 // Un selfie qu'aucun modérateur n'a tranché ne doit pas rester sur le disque indéfiniment.
 // Balayage au démarrage puis toutes les six heures.
 const purger = async () => {
+  try {
+    await purgerVraiment();
+  } catch (e) {
+    // Une base injoignable à l'heure du balayage ne doit pas coucher le serveur : on réessaie
+    // dans six heures, et la requête suivante dira si la base est vraiment partie.
+    console.error(`Balayage impossible, prochain essai dans six heures : ${e.message}`);
+  }
+};
+const purgerVraiment = async () => {
   const n = await store.purgerVerificationsOubliees(config.verificationTtlMs);
   if (n) console.warn(`${n} vérification(s) jamais tranchée(s) purgée(s) : selfies supprimés, comptes remis en attente de vérification.`);
   // Même balayage pour les événements de mesure : une durée de conservation qu'on annonce sans

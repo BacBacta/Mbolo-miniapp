@@ -497,7 +497,7 @@ Autant le dire, pour que la prochaine revue ne refasse pas ce travail.
 Six lots, chacun une pull request relisible, dans cet ordre. Les deux premiers tiennent en une
 journée et ferment tout ce qui éteint la production.
 
-1. **Ne plus tomber** (C1, C2, C5, I11 en partie) : `Object.hasOwn` sur `CHANGEMENTS` ; `.catch()`
+1. ~~**Ne plus tomber**~~ — fait le 14 septembre 2026 (`server/promesses.js`, `test/promesses.test.js`). (C1, C2, C5, I11 en partie) : `Object.hasOwn` sur `CHANGEMENTS` ; `.catch()`
    sur chaque notification en arrière-plan ; `lireCookie` qui ne jette pas ; enveloppe de promesses
    sur `modApi` et sur le webhook ; `pool.on('error')` ; `process.on('unhandledRejection')` qui
    journalise. Tests : statut `constructor`, cookie `%`, gestionnaire du bot qui jette.

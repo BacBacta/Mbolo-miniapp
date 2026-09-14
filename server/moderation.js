@@ -14,6 +14,7 @@ import { config } from './config.js';
 import { store } from './store.js';
 import { bot, appUrl } from './bot.js';
 import { COOKIE_MODERATION, signer, verifier, lireCookie, optionsCookie, effacerCookie } from './session.js';
+import { envelopper } from './promesses.js';
 
 // Interroger Telegram à chaque requête coûterait un appel réseau par clic. Le cache est court
 // exprès : quelqu'un qu'on retire des administrateurs perd l'accès dans la minute, pas à la fin
@@ -94,7 +95,8 @@ export async function requireModerateur(req, res, next) {
   next();
 }
 
-export const modApi = express.Router();
+// Même enveloppe que l'API : sans elle, un gestionnaire qui rejette arrêtait le processus.
+export const modApi = envelopper(express.Router());
 
 modApi.get('/me', requireModerateur, async (req, res) => {
   res.json({ id: req.moderateur.id, prenom: req.moderateur.firstName || req.moderateur.profile?.name || '' });
