@@ -233,13 +233,24 @@ export function requestWriteAccess() {
 
 // ---------- Partage et raccourci ----------
 export function share(url, text) {
-  const link = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
-  if (inTelegram) W.openTelegramLink(link);
-  else window.open(link, '_blank');
+  openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`);
+}
+
+// Ouvre un lien Telegram — une discussion, un lien de partage, un lien de démarrage du bot.
+//
+// Ce n'est pas openLink() : celui-là ouvre un navigateur, et un navigateur ouvert sur t.me
+// affiche une page web qui cherche à rouvrir Telegram par-dessus la mini app. Sur Android, ça
+// se voit comme un écran figé, et c'est ce que faisait le bouton « Enregistrer ma présentation ».
+// openTelegramLink(), lui, referme la mini app et ouvre la discussion, ce qui est justement le
+// geste attendu : aller parler au bot.
+export function openTelegramLink(url) {
+  if (inTelegram) W.openTelegramLink(url);
+  else window.open(url, '_blank', 'noopener');
 }
 
 // Ouvre une page du site hors de la mini app : les pages publiques (confidentialité, conditions)
 // doivent rester lisibles sans compte, et sortir de l'app évite d'y bâtir un second navigateur.
+// Pour un lien t.me, c'est openTelegramLink() qu'il faut : voir juste au-dessus.
 export function openLink(url) {
   const absolue = new URL(url, window.location.origin).href;
   if (inTelegram) W.openLink(absolue);
