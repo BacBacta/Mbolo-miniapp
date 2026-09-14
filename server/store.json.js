@@ -49,6 +49,7 @@ const FENETRE_MAX_MS = 3_600_000;
 export const store = {
   // ---------- Utilisateurs ----------
   getUser: async (id) => db.users[String(id)] || null,
+  userByPid: async (pid) => (pid ? Object.values(db.users).find((u) => u.pid === pid) || null : null),
 
   async upsertTelegramUser(tgUser) {
     const id = String(tgUser.id);
@@ -57,10 +58,16 @@ export const store = {
       // Met à jour uniquement ce qui vient de Telegram, sans perdre le reste (geste en attente, profil…)
       existing.firstName = tgUser.first_name || existing.firstName;
       existing.languageCode = tgUser.language_code || existing.languageCode;
+      // Les comptes d'avant l'identifiant public en reçoivent un à leur prochain passage.
+      if (!existing.pid) { existing.pid = newId(); save(); }
       return existing;
     }
     db.users[id] = {
       id,
+      // L'identifiant public : ce que les autres membres voient et renvoient. Aléatoire, sans lien
+      // avec l'identifiant Telegram — qui ouvre une fiche et une discussion hors de l'app
+      // (audit/09-revue-code.md, I6).
+      pid: newId(),
       firstName: tgUser.first_name || 'Toi',
       languageCode: tgUser.language_code || 'fr',
       createdAt: Date.now(),

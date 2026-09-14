@@ -20,6 +20,8 @@ process.env.AUTO_APPROVE = 'false';
 const express = (await import('express')).default;
 const { COMPAT } = await import('../server/config.js');
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { api } = await import('../server/routes.js');
 
 const app = express();
@@ -90,7 +92,8 @@ test('les réponses ne sortent qu\'en « Relation sérieuse »', async () => {
   // opposés : le lecteur doit être un homme pour voir ces profils.
   await membre('9107', { name: 'Blaise', gender: 'homme' });
   const profils = (await call('9107', '/profiles')).body.profiles;
-  const serieux = profils.find((p) => p.id === '9105');
+  const p9105 = await pid('9105');
+  const serieux = profils.find((p) => p.id === p9105);
   assert.ok(serieux, 'le profil sérieux est proposé');
   assert.equal(serieux.compat.length, 2);
   assert.deepEqual(serieux.compat.map((c) => c.champ), ['mariage', 'enfants']);
@@ -100,7 +103,8 @@ test('les réponses ne sortent qu\'en « Relation sérieuse »', async () => {
 test('un profil sans réponse ne montre pas un bloc vide', async () => {
   await membre('9108');
   await membre('9109', { name: 'Blaise', gender: 'homme' });
-  const p = (await call('9109', '/profiles')).body.profiles.find((x) => x.id === '9108');
+  const p9108 = await pid('9108');
+  const p = (await call('9109', '/profiles')).body.profiles.find((x) => x.id === p9108);
   assert.equal(p.compat, null, 'null, pas un tableau vide qui dessinerait une ligne pour rien');
 });
 

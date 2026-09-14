@@ -22,6 +22,8 @@ process.env.WEB_SESSION_SECRET = 'secret-de-test-assez-long';
 const express = (await import('express')).default;
 const { config } = await import('../server/config.js');
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 const { modApi, creerPageModeration, creerLienModeration, oublierLesAdmins, commandesModeration } = await import('../server/moderation.js');
@@ -203,7 +205,7 @@ test('la file de vérification ne montre aucun selfie', async () => {
 test('les signalements arrivent avec les prénoms, pas les identifiants seuls', async () => {
   await membre('511', 'Bana');
   await membre('512', 'Cyrille');
-  await fetch(`${base}/api/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-dev-user': '511' }, body: JSON.stringify({ targetId: '512', reason: 'demande argent' }) });
+  await fetch(`${base}/api/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-dev-user': '511' }, body: JSON.stringify({ targetId: await pid('512'), reason: 'demande argent' }) });
 
   const { cookie } = await session('500');
   const { signalements } = await (await aller('/api/mod/signalements', { cookie })).json();

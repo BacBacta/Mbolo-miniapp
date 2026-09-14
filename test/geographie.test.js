@@ -14,6 +14,8 @@ process.env.AUTO_APPROVE = 'false';
 
 const express = (await import('express')).default;
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 const { cleVille, estPays, nomPays, listePays, villesConnues, paysDuFuseau } = await import('../server/geo.js');
@@ -145,7 +147,7 @@ test('un like reçu de hors zone atteint quand même la personne', async () => {
   // Olivier élargit au pays, voit Nina, et l'aime. Nina ne cherche que sa ville.
   await call('9162', '/me/filters', 'PUT', { ageMin: 18, ageMax: 99, zone: { country: 'BJ', city: null } });
   assert.deepEqual(await vus('9162'), ['Nina']);
-  await call('9162', '/swipes', 'POST', { targetId: '9161', action: 'like' });
+  await call('9162', '/swipes', 'POST', { targetId: await pid('9161'), action: 'like' });
 
   const likes = (await call('9161', '/likes')).body.profiles.map((p) => p.name);
   assert.deepEqual(likes, ['Olivier'], "un signal qui m'est adressé traverse ma zone");
@@ -171,8 +173,8 @@ test('les lieux partenaires suivent le pays et la ville', async () => {
 test('un rendez-vous ne peut pas être proposé dans un lieu d\'un autre pays', async () => {
   await creer('9181', 'Tania', 'femme', 'SN', 'Dakar');
   await creer('9182', 'Ulysse', 'homme', 'SN', 'Dakar');
-  await call('9181', '/swipes', 'POST', { targetId: '9182', action: 'like' });
-  const m = await call('9182', '/swipes', 'POST', { targetId: '9181', action: 'like' });
+  await call('9181', '/swipes', 'POST', { targetId: await pid('9182'), action: 'like' });
+  const m = await call('9182', '/swipes', 'POST', { targetId: await pid('9181'), action: 'like' });
   const matchId = m.body.match.id;
   const r = await call('9181', `/matches/${matchId}/dates`, 'POST', { venueId: 'palmier', slot: 'samedi 15h' });
   assert.equal(r.status, 400, 'Le Palmier est à Yaoundé, pas à Dakar');

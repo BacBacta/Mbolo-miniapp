@@ -507,7 +507,7 @@ journée et ferment tout ce qui éteint la production.
    sur les cinq boutons ; code dans le bouton `conf:`.
 3. ~~**Tenir la promesse de suppression**~~ — fait le 14 septembre 2026 (`test/suppression.test.js`, `e2e/suppression.spec.js`). (I3, I4, I5) : suppression sans recréation, signalements
    et confiance emportés, selfie retiré du groupe, décision refusée hors `pending`.
-4. **Ce qui sort du serveur** (I6, I7, I8) : identifiant public opaque — le plus lourd du lot,
+4. ~~**Ce qui sort du serveur**~~ — fait le 14 septembre 2026 (`test/identifiants.test.js`, `pid`, `CSP`). (I6, I7, I8) : identifiant public opaque — le plus lourd du lot,
    parce qu'il change la forme de l'API ; `/photos` et `/voix` conditionnés à la cible ; ville
    dans le texte contrôlé ; politique de sécurité de contenu complète.
 5. **Anti-arnaque** (I15) : normalisation Unicode, tiret, apostrophe, montants espacés, verbes et

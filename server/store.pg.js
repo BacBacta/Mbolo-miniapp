@@ -94,6 +94,8 @@ export const store = {
   async upsertTelegramUser(tgUser) {
     const id = String(tgUser.id);
     const neuf = {
+      // L'identifiant public, sans lien avec l'identifiant Telegram (audit/09-revue-code.md, I6)
+      pid: newId(),
       firstName: tgUser.first_name || 'Toi',
       languageCode: tgUser.language_code || 'fr',
       profile: null,
@@ -106,13 +108,16 @@ export const store = {
     const venuDeTelegram = {};
     if (tgUser.first_name) venuDeTelegram.firstName = tgUser.first_name;
     if (tgUser.language_code) venuDeTelegram.languageCode = tgUser.language_code;
-    return versUser(await un(
+    const u = versUser(await un(
       `insert into users (id, data, created_at) values ($1, $2::jsonb, $3)
        on conflict (id) do update set data = users.data || $4::jsonb
        returning *`,
       [id, JSON.stringify(neuf), Date.now(), JSON.stringify(venuDeTelegram)],
     ));
+    // Les comptes d'avant l'identifiant public en reçoivent un à leur prochain passage.
+    return u.pid ? u : versUser(await fusionner('users', id, { pid: newId() }));
   },
+  userByPid: async (pid) => (pid ? versUser(await un(`select * from users where data->>'pid' = $1`, [pid])) : null),
 
   // createdAt a sa propre colonne : un patch qui la porte la met à jour à part, le reste va
   // dans le jsonb. Sans cela, une date d'inscription réécrite serait silencieusement perdue.

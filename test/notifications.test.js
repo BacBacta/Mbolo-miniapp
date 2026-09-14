@@ -16,6 +16,8 @@ process.env.DEMO_LIKE_DELAY_MS = '300';
 
 const express = (await import('express')).default;
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot, decideVerification } = await import('../server/bot.js');
 const { seedDemo } = await import('../server/seed.js');
 const { api } = await import('../server/routes.js');
@@ -61,10 +63,10 @@ test('like, match, messages et présence', async () => {
   await makeUser('5001', 'Aline', 'femme');
   await makeUser('5002', 'Paul', 'homme');
 
-  await call('5001', '/swipes', 'POST', { targetId: '5002', action: 'like' });
+  await call('5001', '/swipes', 'POST', { targetId: await pid('5002'), action: 'like' });
   assert.match((await attendue('5002', /Tu as plu à quelqu'un/)).text, /Tu as plu à quelqu'un/);
 
-  const m = await call('5002', '/swipes', 'POST', { targetId: '5001', action: 'like' });
+  const m = await call('5002', '/swipes', 'POST', { targetId: await pid('5001'), action: 'like' });
   assert.ok(m.body.match);
   const annonce = await attendue('5001', /Nouveau match/);
   assert.match(annonce.text, /Nouveau match/);

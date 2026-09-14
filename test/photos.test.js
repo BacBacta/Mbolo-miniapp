@@ -16,6 +16,8 @@ process.env.AUTO_APPROVE = 'false';
 const express = (await import('express')).default;
 const { config } = await import('../server/config.js');
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot, decidePhoto } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 const sent = [];
@@ -39,7 +41,7 @@ async function makeUser(id, name, gender) {
 }
 const JPEG = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==';
 const file = (id, n) => path.join(DATA_DIR, 'uploads', `${id}-photo-${n}.jpg`);
-const photosSeenBy = async (viewer, id) => (await call(viewer, '/profiles')).body.profiles.find((p) => p.id === id)?.photos;
+const photosSeenBy = async (viewer, id) => { const p = await pid(id); return (await call(viewer, '/profiles')).body.profiles.find((x) => x.id === p)?.photos; };
 
 test.after(() => server.close());
 
@@ -59,15 +61,17 @@ test('une photo ajoutée attend la modération : visible pour soi, pas pour les 
   assert.ok(fs.existsSync(file('7501', 1)), 'le fichier est écrit');
   assert.deepEqual((await call('7501', '/me')).body.photos, [{ n: 1, status: 'pending' }], 'je vois mon attente');
   assert.deepEqual(await photosSeenBy('7502', '7501'), [], 'Paul ne voit rien');
-  assert.equal((await call('7502', '/photos/7501/1')).status, 404, 'Paul ne peut pas la charger');
-  assert.equal((await call('7501', '/photos/7501/1')).status, 200, 'moi, si');
+  const p7501 = await pid('7501');
+  assert.equal((await call('7502', `/photos/${p7501}/1`)).status, 404, 'Paul ne peut pas la charger');
+  assert.equal((await call('7501', `/photos/${p7501}/1`)).status, 200, 'moi, si');
 });
 
 test('validée, elle est montrée ; refusée, elle est supprimée et la personne prévenue', async () => {
   await decidePhoto('7501', 1, true);
   assert.deepEqual(await photosSeenBy('7502', '7501'), [1]);
-  assert.equal((await call('7502', '/photos/7501/1')).status, 200);
-  assert.equal((await call('7502', '/photos/7501')).status, 200, 'l\'adresse historique sert la première validée');
+  const p7501 = await pid('7501');
+  assert.equal((await call('7502', `/photos/${p7501}/1`)).status, 200);
+  assert.equal((await call('7502', `/photos/${p7501}`)).status, 200, 'l\'adresse historique sert la première validée');
   assert.match(sent.at(-1).text, /photo 1 est validée/);
 
   await call('7501', '/me/photos/2', 'PUT', { photo: JPEG });
@@ -91,12 +95,13 @@ test('retirer sa photo, être bloqué, supprimer son compte', async () => {
   const r = await call('7501', '/me/photos/1', 'DELETE');
   assert.deepEqual(r.body.photos, []);
   assert.ok(!fs.existsSync(file('7501', 1)));
-  assert.equal((await call('7502', '/profiles')).body.profiles.find((p) => p.id === '7501').hasPhoto, false);
+  const p7501b = await pid('7501');
+  assert.equal((await call('7502', '/profiles')).body.profiles.find((p) => p.id === p7501b).hasPhoto, false);
 
   await call('7501', '/me/photos/1', 'PUT', { photo: JPEG });
   await decidePhoto('7501', 1, true);
   await store.block('7502', '7501');
-  assert.equal((await call('7502', '/photos/7501/1')).status, 404, 'bloqué : pas de photo');
+  assert.equal((await call('7502', `/photos/${await pid('7501')}/1`)).status, 404, 'bloqué : pas de photo');
 
   await call('7501', '/me/photos/2', 'PUT', { photo: JPEG });
   await call('7501', '/me', 'DELETE');

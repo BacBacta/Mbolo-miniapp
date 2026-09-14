@@ -22,6 +22,8 @@ process.env.WEB_SESSION_SECRET = 'secret-de-test-assez-long';
 const express = (await import('express')).default;
 const { config } = await import('../server/config.js');
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 const { modApi, creerPageModeration, creerLienModeration, oublierLesAdmins } = await import('../server/moderation.js');
@@ -55,8 +57,8 @@ async function membre(id, name, gender = 'femme') {
 const ecrire = (de, matchId, text) => fetch(`${base}/api/matches/${matchId}/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-dev-user': de }, body: JSON.stringify({ text }) });
 
 async function matcher(a, b) {
-  await fetch(`${base}/api/swipes`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-dev-user': a }, body: JSON.stringify({ targetId: b, action: 'like' }) });
-  const r = await fetch(`${base}/api/swipes`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-dev-user': b }, body: JSON.stringify({ targetId: a, action: 'like' }) });
+  await fetch(`${base}/api/swipes`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-dev-user': a }, body: JSON.stringify({ targetId: await pid(b), action: 'like' }) });
+  const r = await fetch(`${base}/api/swipes`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-dev-user': b }, body: JSON.stringify({ targetId: await pid(a), action: 'like' }) });
   return (await r.json()).match;
 }
 
@@ -104,7 +106,7 @@ test('le fil signalé se lit, et lui seul', async () => {
   const autre = await matcher('612', '611');
   await ecrire('611', autre.id, 'Message qui ne regarde personne');
 
-  await fetch(`${base}/api/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-dev-user': '610' }, body: JSON.stringify({ targetId: '611', reason: 'comportement déplacé', matchId: m.id }) });
+  await fetch(`${base}/api/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-dev-user': '610' }, body: JSON.stringify({ targetId: await pid('611'), reason: 'comportement déplacé', matchId: m.id }) });
   const signalement = (await store.reports()).at(-1);
 
   const { status, texte } = await html(`/moderation?signalement=${signalement.id}`, cookie);
@@ -143,7 +145,7 @@ test("un fil défait ne se relit pas, et la page l'explique", async () => {
 test('un signalement sans discussion ne propose pas de fil', async () => {
   await membre('620', 'Élise');
   await membre('621', 'Fabrice', 'homme');
-  await fetch(`${base}/api/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-dev-user': '620' }, body: JSON.stringify({ targetId: '621', reason: 'usurpation' }) });
+  await fetch(`${base}/api/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-dev-user': '620' }, body: JSON.stringify({ targetId: await pid('621'), reason: 'usurpation' }) });
 
   const { texte } = await html('/moderation?vue=signalements', cookie);
   assert.match(texte, /Aucune discussion rattachée/);
@@ -184,7 +186,7 @@ test('un prénom ou un message qui contient du HTML ne s\'exécute pas', async (
   await store.updateUser('640', { profile: { ...(await store.getUser('640')).profile, name: '<script>alert(1)</script>' } });
   const m = await matcher('640', '641');
   await ecrire('640', m.id, 'regarde <img src=x onerror=alert(2)>');
-  await fetch(`${base}/api/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-dev-user': '641' }, body: JSON.stringify({ targetId: '640', reason: 'autre', matchId: m.id }) });
+  await fetch(`${base}/api/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-dev-user': '641' }, body: JSON.stringify({ targetId: await pid('640'), reason: 'autre', matchId: m.id }) });
   const signalement = (await store.reports()).at(-1);
 
   const { texte } = await html(`/moderation?signalement=${signalement.id}`, cookie);

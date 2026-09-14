@@ -21,6 +21,8 @@ process.env.AUTO_APPROVE = 'false';
 
 const express = (await import('express')).default;
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 const { consommer, reinitialiser, REGLES } = await import('../server/limites.js');
@@ -81,7 +83,7 @@ test('en HTTP, le refus est un 429 avec Retry-After et un message en français',
 
   let dernier = { status: 200 };
   for (let i = 0; i <= REGLES.signalement.max; i++) {
-    dernier = await call('6301', '/reports', 'POST', { targetId: '6302', reason: 'argent' });
+    dernier = await call('6301', '/reports', 'POST', { targetId: await pid('6302'), reason: 'argent' });
   }
   assert.equal(dernier.status, 429);
   assert.equal(dernier.body.code, 'RATE_LIMIT');

@@ -195,7 +195,7 @@ const page = (assetV, titre, corps) => `<!doctype html>
   <title>${echapper(titre)} — ${echapper(config.appName)}</title>
   <link rel="stylesheet" href="/styles.css?v=${assetV}">
   <style>${STYLE}</style>
-  <script>try{document.documentElement.dataset.scheme=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}catch(e){}</script>
+  <script src="/scheme.js?v=${assetV}"></script>
 </head>
 <body class="doc-page">
 <main class="doc">

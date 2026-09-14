@@ -18,6 +18,8 @@ process.env.ADMIN_CHAT_ID = '-1001234567890';
 
 const express = (await import('express')).default;
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { config } = await import('../server/config.js');
 const { bot, setupBot, decideVerification, retirerSelfieDuGroupe } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
@@ -84,8 +86,8 @@ test("le signal de fermeture n'a pas besoin d'un compte, et n'en crée pas", asy
 
 test('les signalements émis et reçus partent avec le compte', async () => {
   await creer('s2', 'Bana'); await creer('s3', 'Cyrille', 'homme'); await creer('s4', 'Dieudonné', 'homme');
-  assert.equal((await call('s2', '/reports', 'POST', { targetId: 's3', reason: 'argent' })).status, 200);
-  assert.equal((await call('s4', '/reports', 'POST', { targetId: 's2', reason: 'autre' })).status, 200);
+  assert.equal((await call('s2', '/reports', 'POST', { targetId: await pid('s3'), reason: 'argent' })).status, 200);
+  assert.equal((await call('s4', '/reports', 'POST', { targetId: await pid('s2'), reason: 'autre' })).status, 200);
   assert.equal((await store.reports()).filter((r) => r.from === 's2' || r.targetId === 's2').length, 2);
   await call('s2', '/me', 'DELETE');
   const restants = await store.reports();
@@ -99,7 +101,8 @@ test("être la personne de confiance de quelqu'un ne survit pas non plus, et le 
   assert.equal((await store.getUser('s5')).confiance.id, 's6');
   telegram.messages.length = 0;
   assert.equal((await call('s6', '/me', 'DELETE')).status, 200);
-  assert.equal((await store.getUser('s5')).confiance, null, "Estelle n'a plus de personne de confiance fantôme");
+  // null sur le fichier, clé absente sur PostgreSQL (data - 'confiance') : les deux disent la même chose.
+  assert.ok(!(await store.getUser('s5')).confiance, "Estelle n'a plus de personne de confiance fantôme");
   await respirer();
   const avis = telegram.messages.find((m) => m.chatId === 's5');
   assert.ok(avis, 'Estelle est prévenue');

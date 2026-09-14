@@ -18,6 +18,8 @@ process.env.AUTO_APPROVE = 'false';
 
 const express = (await import('express')).default;
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 const { venues, VENUES_DEMO } = await import('../server/config.js');
@@ -47,8 +49,8 @@ async function creer(id, name, gender) {
   await store.updateUser(id, { verification: 'approved' });
 }
 async function matcher(a, b) {
-  await call(a, '/swipes', 'POST', { targetId: b, action: 'like' });
-  return (await call(b, '/swipes', 'POST', { targetId: a, action: 'like' })).body.match.id;
+  await call(a, '/swipes', 'POST', { targetId: await pid(b), action: 'like' });
+  return (await call(b, '/swipes', 'POST', { targetId: await pid(a), action: 'like' })).body.match.id;
 }
 const lieu = venues.find((v) => v.city === 'Yaoundé');
 // Renvoie [identifiant du rendez-vous, identifiant du match]. `qui` propose, l'autre est invité.

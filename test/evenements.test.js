@@ -21,6 +21,8 @@ process.env.ADMIN_CHAT_ID = '-1001234567890';
 const express = (await import('express')).default;
 const { config } = await import('../server/config.js');
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot, decideVerification } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 const { chargeValide, semaineIso } = await import('../server/mesure.js');
@@ -151,7 +153,7 @@ test('un paquet servi compte une ligne par paquet, pas une par carte', async () 
 });
 
 test('le quota atteint laisse une ligne, avec l\'action tentée', async () => {
-  await call('821', '/swipes', 'POST', { targetId: '831', action: 'like' });
+  await call('821', '/swipes', 'POST', { targetId: await pid('831'), action: 'like' });
   await attendre(async () => (await de('821', 'quota_hit')).length === 1, 'quota_hit');
   assert.equal((await de('821', 'quota_hit'))[0].p.action, 'like');
 });
@@ -162,8 +164,8 @@ test('le quota atteint laisse une ligne, avec l\'action tentée', async () => {
 test("un blocage anti-arnaque enregistre sa catégorie, jamais le message", async () => {
   await membre('840', 'Gaëlle');
   await membre('841', 'Hervé', 'homme');
-  await call('840', '/swipes', 'POST', { targetId: '841', action: 'like' });
-  const m = (await call('841', '/swipes', 'POST', { targetId: '840', action: 'like' })).body.match;
+  await call('840', '/swipes', 'POST', { targetId: await pid('841'), action: 'like' });
+  const m = (await call('841', '/swipes', 'POST', { targetId: await pid('840'), action: 'like' })).body.match;
 
   const secret = 'envoie-moi 50000 par orange money stp';
   const r = await call('841', `/matches/${m.id}/messages`, 'POST', { text: secret });

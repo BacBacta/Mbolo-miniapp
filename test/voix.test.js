@@ -24,6 +24,8 @@ process.env.ADMIN_CHAT_ID = '-100999';
 const express = (await import('express')).default;
 const { config, runtime } = await import('../server/config.js');
 const { store } = await import('../server/store.js');
+// Les routes désignent les autres par leur identifiant public, jamais par l'identifiant Telegram.
+const pid = async (id) => (await store.getUser(id))?.pid;
 const { bot, setupBot } = await import('../server/bot.js');
 const { api } = await import('../server/routes.js');
 const { refusDuree, fichierVoix, DUREE_MAX_S, DUREE_MIN_S } = await import('../server/voix.js');
@@ -270,10 +272,10 @@ test('une présentation en attente ne s\'entend que par soi-même', async () => 
   await membre('8021', 'Bintou');
   await envoyerVocal('8020', 9);
 
-  const parLesAutres = await vraiFetch(`${base}/voix/8020`, { headers: { 'x-dev-user': '8021' } });
+  const parLesAutres = await vraiFetch(`${base}/voix/${await pid('8020')}`, { headers: { 'x-dev-user': '8021' } });
   assert.equal(parLesAutres.status, 404, 'personne ne doit entendre ce que la modération n\'a pas écouté');
 
-  const parSoi = await vraiFetch(`${base}/voix/8020`, { headers: { 'x-dev-user': '8020' } });
+  const parSoi = await vraiFetch(`${base}/voix/${await pid('8020')}`, { headers: { 'x-dev-user': '8020' } });
   assert.equal(parSoi.status, 200, 'mais on doit pouvoir se réécouter avant de laisser passer');
   assert.match(parSoi.headers.get('content-type') || '', /audio\/ogg/);
 });
@@ -285,7 +287,7 @@ test('une fois validée, les autres membres vérifiés l\'entendent', async () =
   await envoyerVocal('8022', 9);
   await toucher('voix:approve:8022');
 
-  const r = await vraiFetch(`${base}/voix/8022`, { headers: { 'x-dev-user': '8023' } });
+  const r = await vraiFetch(`${base}/voix/${await pid('8022')}`, { headers: { 'x-dev-user': '8023' } });
   assert.equal(r.status, 200);
 });
 
@@ -307,7 +309,7 @@ test('un blocage coupe aussi le son', async () => {
   await membre('8027', 'Bintou');
   await envoyerVocal('8026', 9);
   await toucher('voix:approve:8026');
-  await call('8027', '/blocks', 'POST', { targetId: '8026' });
+  await call('8027', '/blocks', 'POST', { targetId: await pid('8026') });
 
   const r = await vraiFetch(`${base}/voix/8026`, { headers: { 'x-dev-user': '8027' } });
   assert.equal(r.status, 404);
@@ -324,7 +326,8 @@ test('le profil public annonce la durée, et rien de plus', async () => {
   const vu = (await call('8029', '/me')) && null; // le lecteur doit exister
   await membre('8029', 'Bintou');
   const profils = (await call('8029', '/profiles')).body.profiles;
-  const p = profils.find((x) => x.id === '8028');
+  const p8028 = await pid('8028');
+  const p = profils.find((x) => x.id === p8028);
   assert.ok(p, 'le profil est bien proposé');
   assert.deepEqual(p.voix, { duree: 11 }, 'la durée, et rien qui dise le statut ou la date');
   assert.equal(vu, null);
