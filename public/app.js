@@ -1762,7 +1762,9 @@ function ouvrirLeBotVoix() {
   tg.haptic('light');
   if (!S.me?.botUsername) return toast(t("Le bot n'est pas joignable pour l'instant."));
   toast(t('Appuie sur le micro, en bas de la discussion'));
-  tg.openLink(`https://t.me/${S.me.botUsername}?start=voix`);
+  // Un lien t.me passe par openTelegramLink : openLink ouvrirait un navigateur sur la page web
+  // de t.me, par-dessus la mini app — ce qui se voit comme un écran figé sur Android.
+  tg.openTelegramLink(`https://t.me/${S.me.botUsername}?start=voix`);
 }
 
 async function retirerMatch() {
