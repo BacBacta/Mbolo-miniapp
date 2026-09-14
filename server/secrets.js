@@ -56,16 +56,23 @@ export function secretsPartages(env = process.env) {
 export function secretsPartagesFly(sortie) {
   const parEmpreinte = new Map();
   const connus = [];
-  for (const ligne of String(sortie).split('\n')) {
-    // Le « * » (secret posé, pas encore déployé) et le « ! » (déployé sur une partie des
-    // machines) précèdent le nom dans la liste de flyctl. Les prévoir n'est pas un détail :
-    // le déploiement pose les secrets juste avant de lire cette liste, donc toutes les lignes
-    // qui comptent portent le marqueur. Sans lui, le contrôle ne reconnaît plus rien et refuse
-    // tout déploiement en disant « je n'ai pas su lire » — y compris celui qui remet la
-    // production debout.
-    const m = ligne.match(/^\s*(?:[*!]\s*)?([A-Z0-9_]+)\s+([0-9a-f]{8,})\b/);
-    if (!m) continue;
-    const [, nom, empreinte] = m;
+  for (const brut of String(sortie).split('\n')) {
+    // La forme réelle de flyctl (tablewriter, bordures éteintes) : une espace, puis des cellules
+    // séparées par « | », et le marqueur dans la cellule du nom — « * » pour un secret posé mais
+    // pas encore déployé, « ! » pour un déploiement partiel :
+    //     NAME          | DIGEST           | STATUS
+    //     * BOT_TOKEN   | 5c8a…            | Staged
+    //     BACKUP_SECRET | 9f1c…            | Deployed
+    // Ni le marqueur ni les barres n'étaient prévus par le premier jet, qui lisait « NOM
+    // empreinte » séparés d'espaces. Or le déploiement pose les secrets juste avant de lire la
+    // liste : toutes les lignes qui comptent portaient le marqueur, et un contrôle qui ne
+    // reconnaît rien refuse — y compris le déploiement qui remettait la production debout.
+    // On lit donc les deux formes, la cellule du nom d'abord, celle de l'empreinte ensuite,
+    // sans présumer de l'alphabet de l'empreinte : c'est sa colonne qui la désigne.
+    const ligne = brut.trim().replace(/^[*!]\s*/, '');
+    const cellules = (ligne.includes('|') ? ligne.split('|') : ligne.split(/\s+/)).map((c) => c.trim());
+    const [nom, empreinte] = cellules;
+    if (!/^[A-Z0-9_]+$/.test(nom || '') || !/^\S{6,}$/.test(empreinte || '')) continue;
     if (!SECRETS_DISTINCTS.includes(nom)) continue;
     connus.push(nom);
     if (!parEmpreinte.has(empreinte)) parEmpreinte.set(empreinte, []);

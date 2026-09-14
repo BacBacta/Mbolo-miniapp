@@ -247,6 +247,12 @@ test('la base est préparée sous un nom que le serveur ne lit pas', () => {
 const fauxFlyctl = (orgs, secretsEnPlus = '') => {
   const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'odo-flyctl-'));
   const trace = path.join(dossier, 'appels.txt');
+  // Un faux curl aussi, et pas seulement pour le test qui regarde l'ordre des appels : le script
+  // « réveille » la machine par une requête vers https://<app>.fly.dev/health avant chaque
+  // commande à distance, vingt essais de vingt secondes. Sans ce faux, un test unitaire frappait
+  // la vraie production — et le 14 septembre 2026, production éteinte, deux tests ont pris
+  // quinze minutes chacun, en CI comme sur un poste. Un test ne sort jamais sur le réseau.
+  fs.writeFileSync(path.join(dossier, 'curl'), `#!/bin/sh\necho "curl $@" >> ${trace}\n`, { mode: 0o755 });
   fs.writeFileSync(path.join(dossier, 'flyctl'), `#!/bin/sh
 echo "$@" >> ${trace}
 SECRETS_EN_PLUS='${secretsEnPlus}'
@@ -332,8 +338,7 @@ test('un secret que la machine ne voit pas est appliqué avant l\'import', async
 // par une requête, comme le ferait un visiteur.
 test('la machine est réveillée avant toute commande à distance', async () => {
   const { dossier, trace } = fauxFlyctl('{"personal":"Bacta"}', ' DATABASE_URL | abc | Deployed\n');
-  // Un faux curl, pour voir dans quel ordre les deux sont appelés.
-  fs.writeFileSync(path.join(dossier, 'curl'), `#!/bin/sh\necho "curl $@" >> ${trace}\n`, { mode: 0o755 });
+  // Le faux curl de fauxFlyctl trace ses appels : c'est lui qui permet de lire l'ordre.
 
   // « verifier » ne fait que lire, et passe par le même chemin que l'import.
   await lancer('./basculer-postgres.sh', ['verifier', 'mbolo-miniapp', 'mbolo-pg'], {
