@@ -121,7 +121,6 @@ export default {
   'Le bot t\'envoie un message dans Telegram': 'Boti hukutumia ujumbe kwenye Telegram',
   'Le compte est bloqué et vérifié en priorité': 'Akaunti huzuiwa na kukaguliwa kwa kipaumbele',
   'Le micro est dans Telegram, pas dans cette app': 'Maikrofoni iko ndani ya Telegram, si katika programu hii',
-  'Le ndolé plantain de ma tante': 'Ndolé ya shangazi yangu na ndizi',
   'Les cartes avec photo sont bien plus regardées': 'Kadi zenye picha huangaliwa zaidi',
   'Les contacts se débloquent seulement après quelques messages.': 'Anwani hufunguliwa tu baada ya ujumbe kadhaa.',
   'Les demandes et offres d\'argent sont bloquées sur {app}. Ce message ressemble à une {categorie}. Retire le montant ou le moyen de paiement, et renvoie-le.': 'Kuomba au kutoa pesa kumezuiwa kwenye {app}. Ujumbe huu unafanana na {categorie}. Ondoa kiasi au njia ya malipo, kisha utume tena.',

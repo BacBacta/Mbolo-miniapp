@@ -121,7 +121,6 @@ export default {
   "Le bot t'envoie un message dans Telegram": "Бот надсилає тобі повідомлення в Telegram",
   "Le compte est bloqué et vérifié en priorité": "Акаунт блокують і перевіряють у першу чергу",
   "Le micro est dans Telegram, pas dans cette app": "Мікрофон у Telegram, а не в цьому застосунку",
-  "Le ndolé plantain de ma tante": "Ндоле з плантаном від моєї тітки",
   "Les cartes avec photo sont bien plus regardées": "Картки з фото дивляться набагато частіше",
   "Les contacts se débloquent seulement après quelques messages.": "Контакти розблоковуються лише після кількох повідомлень.",
   "Les demandes et offres d'argent sont bloquées sur {app}. Ce message ressemble à une {categorie}. Retire le montant ou le moyen de paiement, et renvoie-le.": "Прохання про гроші та їх пропозиції заблоковані в {app}. Це повідомлення схоже на {categorie}. Прибери суму або спосіб оплати й надішли ще раз.",

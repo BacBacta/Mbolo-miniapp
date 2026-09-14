@@ -121,7 +121,6 @@ export default {
   'Le bot t\'envoie un message dans Telegram': 'El bot te envía un mensaje por Telegram',
   'Le compte est bloqué et vérifié en priorité': 'La cuenta se bloquea y se revisa con prioridad',
   'Le micro est dans Telegram, pas dans cette app': 'El micrófono está en Telegram, no en esta app',
-  'Le ndolé plantain de ma tante': 'El ndolé con plátano de mi tía',
   'Les cartes avec photo sont bien plus regardées': 'Las tarjetas con foto se miran mucho más',
   'Les contacts se débloquent seulement après quelques messages.': 'Los contactos se desbloquean solo después de unos mensajes.',
   'Les demandes et offres d\'argent sont bloquées sur {app}. Ce message ressemble à une {categorie}. Retire le montant ou le moyen de paiement, et renvoie-le.': 'Pedir u ofrecer dinero está bloqueado en {app}. Este mensaje se parece a {categorie}. Quita el importe o el medio de pago, y vuelve a enviarlo.',
