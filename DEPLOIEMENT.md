@@ -256,6 +256,33 @@ Tu dois lire `Sauvegarde écrite` suivi du compte de lignes, table par table. Si
 que la base est vide alors qu'elle ne l'est pas, arrête-toi : ne laisse pas la rotation effacer une
 bonne copie pour en garder quatorze mauvaises.
 
+### Vérifier qu'une sauvegarde s'ouvre
+
+Écrire n'est pas sauvegarder. Tant que personne n'a rouvert un fichier avec le secret réellement
+posé sur la machine, « on a des sauvegardes » reste une hypothèse — et le jour où on la vérifie
+pour de bon est le pire jour possible pour la démentir.
+
+Le travail nocturne le fait maintenant tout seul, sur la copie qu'il vient d'écrire. Pour le lancer
+à la main, sur la machine ou sur un fichier ramené chez toi :
+
+```powershell
+# Sur la machine : le secret y est déjà
+flyctl ssh console -a mbolo-miniapp -C "node scripts/verifier-sauvegarde.js /data/sauvegardes/<fichier>"
+
+# Ou chez toi, sur l'artefact GitHub téléchargé
+$env:BACKUP_SECRET="<ton secret>"
+node "scripts\verifier-sauvegarde.js" "sauvegarde.bin"
+```
+
+Tu dois lire `lisible`, suivi de la date et du compte par table. **Ce contrôle ne touche à aucune
+base** : il déchiffre en mémoire, compte, et s'arrête là. On peut donc le lancer sur la production
+sans rien risquer.
+
+S'il répond que la sauvegarde ne s'ouvre pas, il n'y a que deux causes : le secret posé n'est pas
+celui qui a chiffré ce fichier, ou le fichier est abîmé. Le chiffrement est authentifié, donc il
+refuse plutôt que de rendre des octets faux. **Ne remplace pas un secret qui « ne marche pas » sans
+avoir retrouvé l'ancien** : toutes les copies chiffrées avec lui deviendraient illisibles.
+
 ### Restaurer
 
 **Ne restaure jamais par-dessus une base vivante sans l'avoir décidé.** Le script refuse tout seul
