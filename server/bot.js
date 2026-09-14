@@ -23,6 +23,18 @@ export function appUrl(params = {}) {
 // Le texte arrive sous forme de clé française et de valeurs : c'est ici, au moment de l'envoi,
 // qu'on sait dans quelle langue écrire, puisque c'est celle de la personne qui reçoit.
 export async function notify(userId, cle, vars, button, throttleKey, throttleMs = 2 * 60 * 1000) {
+  // Appelée presque toujours sans await : elle ne doit jamais rejeter. Le corps entier est donc
+  // sous filet, y compris la lecture du compte et la traduction — c'est là, hors du try, qu'un
+  // message inexistant faisait tomber le serveur (audit/09-revue-code.md, C1).
+  try {
+    return await notifierVraiment(userId, cle, vars, button, throttleKey, throttleMs);
+  } catch (e) {
+    console.error(`Notification impossible pour ${userId} (erreur interne) : ${e.message}`);
+    return { sent: false, reason: 'ERROR', detail: e.message };
+  }
+}
+
+async function notifierVraiment(userId, cle, vars, button, throttleKey, throttleMs) {
   const user = await store.getUser(userId);
   if (!bot) return { sent: false, reason: 'NO_BOT' };
   if (!user || user.demo) return { sent: false, reason: 'NO_USER' };
@@ -51,8 +63,8 @@ export async function notify(userId, cle, vars, button, throttleKey, throttleMs 
 // accepté, dans Telegram, après avoir lu ce qu'elle recevrait. Sa langue est celle qu'elle a
 // annoncée à ce moment-là ; on ne peut pas la lire ailleurs, puisqu'elle n'a pas de profil.
 export async function direATiers(chatId, lang, cle, vars) {
-  if (!bot || !chatId) return { sent: false, reason: 'NO_BOT' };
   try {
+    if (!bot || !chatId) return { sent: false, reason: 'NO_BOT' };
     await bot.api.sendMessage(chatId, t(langueDe({ languageCode: lang }), cle, vars));
     return { sent: true };
   } catch (e) {
@@ -67,8 +79,12 @@ let approvedHook = null;
 export const onApproved = (fn) => { approvedHook = fn; };
 
 export async function notifyAdmin(text, reply_markup) {
-  if (!bot || !config.adminChatId) return;
-  await bot.api.sendMessage(config.adminChatId, text, { reply_markup }).catch((e) => console.warn('Message à la modération impossible :', e.message));
+  try {
+    if (!bot || !config.adminChatId) return;
+    await bot.api.sendMessage(config.adminChatId, text, { reply_markup });
+  } catch (e) {
+    console.warn('Message à la modération impossible :', e.message);
+  }
 }
 
 // Bouton posé sous les messages où la modération voit passer un nom : signalement, message bloqué.
@@ -449,8 +465,23 @@ export async function setupBot() {
     await ctx.reply(t(lang, "C'est fait, tu ne recevras plus rien. Ton prénom et ton compte ont été effacés."));
   });
 
-  bot.catch((err) => console.error('Erreur du bot :', err.error?.message || err.message));
+  bot.catch(signalerErreurDuBot);
 }
+
+// bot.catch ne sert qu'à l'interrogation longue : en mode webhook, grammY relance l'erreur au
+// lieu de l'y passer, et Express 4 ignore la promesse rejetée — le processus s'arrêtait sur un
+// ctx.reply refusé par Telegram (audit/09-revue-code.md, C5). Le webhook journalise donc par le
+// même chemin, et répond 200 : Telegram renverrait sinon la même mise à jour en boucle.
+const signalerErreurDuBot = (err) => console.error('Erreur du bot :', err?.error?.message || err?.message || err);
+export function routeWebhook(webhookCallback) {
+  const wh = webhookCallback(bot, 'express', { onTimeout: 'return', timeoutMilliseconds: WEBHOOK_TIMEOUT_MS });
+  return (req, res) => Promise.resolve(wh(req, res)).catch((err) => {
+    signalerErreurDuBot(err);
+    if (!res.headersSent) res.status(200).end();
+  });
+}
+// Telegram attend une réponse ; au-delà, on la donne et le traitement continue en arrière-plan.
+export const WEBHOOK_TIMEOUT_MS = 25_000;
 
 // Telegram refuse parfois le webhook pour une cause passagère : nom de domaine pas encore
 // résolu après l'allocation d'une adresse publique, coupure réseau au démarrage. Sans reprise,
@@ -505,7 +536,7 @@ export async function startBot(app, { delais } = {}) {
   if (config.useWebhook) {
     const { webhookCallback } = await import('grammy');
     const secretPath = `/telegram/${config.botToken.split(':')[0]}-${config.adminKey || 'hook'}`;
-    app.use(secretPath, webhookCallback(bot, 'express'));
+    app.use(secretPath, routeWebhook(webhookCallback));
     // Sans await : le serveur répond tout de suite, la reprise se poursuit en arrière-plan
     poseWebhook(`${config.webAppUrl}${secretPath}`, delais ? { delais } : {});
   } else {

@@ -13,7 +13,7 @@ process.env.USE_WEBHOOK = 'true';
 process.env.SEED_DEMO = 'false';
 
 const express = (await import('express')).default;
-const { bot, startBot, poseWebhook, WEBHOOK_RETRY_DELAYS_MS } = await import('../server/bot.js');
+const { bot, startBot, poseWebhook, WEBHOOK_RETRY_DELAYS_MS, routeWebhook } = await import('../server/bot.js');
 
 // Telegram n'est jamais appelé : on remplace les méthodes utilisées au démarrage
 const appels = { setWebhook: [], getMe: 0 };
@@ -68,4 +68,37 @@ test('startBot ne jette pas quand Telegram refuse, et la route reste montée', a
   const montee = app._router.stack.some((c) => c.regexp?.test(chemin));
   assert.ok(montee, `la route ${chemin} doit être montée`);
   assert.ok(appels.setWebhook[0].startsWith('https://exemple.test/telegram/'), 'adresse construite depuis WEBAPP_URL');
+});
+
+// En mode webhook, grammY relance l'erreur d'un gestionnaire au lieu de la passer à bot.catch,
+// et Express 4 ignore la promesse rejetée : un ctx.reply refusé par Telegram arrêtait le
+// processus (audit/09-revue-code.md, C5). Ici un gestionnaire jette exprès, et le serveur doit
+// répondre 200 — sinon Telegram renvoie la même mise à jour jusqu'à ce qu'on l'accepte.
+test("un gestionnaire du bot qui jette ne couche pas le serveur, et Telegram reçoit 200", async () => {
+  bot.botInfo = { id: 123456, is_bot: true, first_name: 'T', username: 'odo_test_bot', can_join_groups: true, can_read_all_group_messages: false, supports_inline_queries: false };
+  bot.command('boum', async () => { throw new Error('Telegram a refusé la réponse'); });
+  bot.catch((e) => { throw e; }); // bot.catch ne doit même pas être nécessaire ici
+  const { webhookCallback } = await import('grammy');
+  const app = express();
+  app.use(express.json());
+  app.use('/hook', routeWebhook(webhookCallback));
+  const server = app.listen(0);
+  const rejets = [];
+  const ecoute = (r) => rejets.push(r);
+  process.on('unhandledRejection', ecoute);
+  const journal = [];
+  const vrai = console.error;
+  console.error = (...m) => journal.push(m.join(' '));
+  try {
+    const update = { update_id: 1, message: { message_id: 1, date: 1, chat: { id: 7, type: 'private' }, from: { id: 7, is_bot: false, first_name: 'X' }, text: '/boum', entities: [{ type: 'bot_command', offset: 0, length: 5 }] } };
+    const r = await fetch(`http://localhost:${server.address().port}/hook`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(update) });
+    assert.equal(r.status, 200);
+    await new Promise((res) => setTimeout(res, 50));
+    assert.equal(rejets.length, 0, 'aucune promesse orpheline');
+    assert.ok(journal.some((l) => /Erreur du bot.*refusé/.test(l)), `l'erreur doit être journalisée : ${journal.join(' | ')}`);
+  } finally {
+    console.error = vrai;
+    process.off('unhandledRejection', ecoute);
+    server.close();
+  }
 });

@@ -30,6 +30,11 @@ export const pool = new pg.Pool({
   ...(config.databaseSchema ? { options: `-c search_path=${config.databaseSchema}` } : {}),
 });
 
+// Une connexion inactive du pool coupée par le serveur (redémarrage, réseau) émet « error » sur le
+// pool ; sans écouteur, c'est une exception non capturée et le processus s'arrête. Le pool en
+// rouvre une à la requête suivante : il n'y a rien d'autre à faire que le dire.
+pool.on('error', (e) => console.error(`Connexion PostgreSQL perdue (le pool en rouvrira une) : ${e.message}`));
+
 // Les migrations s'appliquent à l'import, pas au démarrage du serveur : rien ne peut interroger
 // une table qui n'existe pas encore, ni dans index.js ni dans un test qui monte son propre Express.
 export const pret = await migrer(pool, (m) => console.error(m), config.databaseSchema);

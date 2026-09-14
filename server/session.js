@@ -48,7 +48,12 @@ export function lireCookie(req, nom) {
   if (!entete) return null;
   for (const morceau of entete.split(';')) {
     const i = morceau.indexOf('=');
-    if (i > 0 && morceau.slice(0, i).trim() === nom) return decodeURIComponent(morceau.slice(i + 1).trim());
+    if (i > 0 && morceau.slice(0, i).trim() === nom) {
+      // Un cookie malformé (« % » seul) fait jeter decodeURIComponent. Sans ce filet, une requête
+      // anonyme sur /api/mod arrêtait le serveur (audit/09-revue-code.md, C2). Un cookie qu'on ne
+      // sait pas lire est un cookie absent.
+      try { return decodeURIComponent(morceau.slice(i + 1).trim()); } catch { return null; }
+    }
   }
   return null;
 }
