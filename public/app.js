@@ -46,15 +46,24 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 // L'icône « duo » reste dans ui.js : le mode reviendra, et la retirer ferait du bruit pour rien.
 const INTENT_ICONS = { amitie: 'users', serieux: 'heart' };
 const QUESTIONS = {
-  plat: 'Mon plat du dimanche',
   coin: 'Mon coin préféré',
   weekend: 'Mon week-end idéal',
   supporte: 'Je supporte',
   chanson: 'Ma chanson du moment',
   rire: 'Ce qui me fait rire',
 };
-// Une clé connue se traduit ; un texte libre venu d'un ancien profil s'affiche tel qu'il a été écrit.
-const libelleQuestion = (q) => (QUESTIONS[q] ? t(QUESTIONS[q]) : q || '');
+// Retirée de l'inscription, mais gardée ici : la question est rangée sur le profil par sa clé,
+// et des comptes portent encore « plat ». Sans cette ligne, leur carte afficherait « plat » en
+// clair — on ne fait pas payer à quelqu'un un choix de produit qu'il n'a pas fait. Sa phrase
+// reste dans les six dictionnaires pour la même raison : elle s'affiche encore.
+const QUESTIONS_RETIREES = { plat: 'Mon plat du dimanche' };
+const QUESTION_DEFAUT = 'coin';
+// Une clé connue se traduit — qu'elle soit encore proposée ou non ; un texte libre venu d'un
+// ancien profil s'affiche tel qu'il a été écrit.
+const libelleQuestion = (q) => {
+  const l = QUESTIONS[q] || QUESTIONS_RETIREES[q];
+  return l ? t(l) : q || '';
+};
 
 const INTENT_SUBS = () => ({ amitie: t('Élargir ton cercle en ville'), serieux: t('Construire quelque chose de durable') });
 
@@ -694,7 +703,7 @@ const SCREENS = {
       country: p.country || paysDevine(),
       city: p.city || '',
       area: p.area || '',
-      promptQ: p.promptQ || 'plat',
+      promptQ: QUESTIONS[p.promptQ] ? p.promptQ : QUESTION_DEFAUT,
       promptA: p.promptA || '',
       languages: p.languages || '',
       compat: { ...(p.compat || {}) },

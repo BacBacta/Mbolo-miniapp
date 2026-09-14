@@ -162,3 +162,26 @@ test('la tranche d\'âge explique un paquet vide sans vivier vide', async () => 
   assert.ok(r.body.vivier.total > 0, 'des profils compatibles existent');
   assert.ok(r.body.vivier.horsTranche > 0, 'ils sont hors de la tranche choisie');
 });
+
+// « Mon plat du dimanche » a été retirée de l'inscription. La question est rangée sur le profil
+// par sa clé, et des comptes portent encore « plat » : sans filet, leur carte afficherait cette
+// clé en clair. Ce test tient les deux bouts — plus proposée, toujours lisible.
+test('une question retirée disparaît du choix, sans casser les profils qui l\'avaient', () => {
+  const source = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const bloc = (nom) => source.match(new RegExp(`const ${nom} = \\{([^}]*)\\}`))?.[1] ?? '';
+
+  assert.ok(!/\bplat:/.test(bloc('QUESTIONS')),
+    "« plat » ne doit plus être proposée à l'inscription");
+  assert.match(bloc('QUESTIONS_RETIREES'), /plat:\s*'Mon plat du dimanche'/,
+    'son libellé reste, sinon un ancien profil afficherait « plat » en clair');
+
+  // Le formulaire ne peut pas présélectionner une option que le menu ne contient plus : sans
+  // repli, le navigateur choisirait la première en silence et rangerait la réponse de la
+  // personne sous une question qu'elle n'a pas choisie.
+  assert.match(source, /promptQ: QUESTIONS\[p\.promptQ\] \? p\.promptQ : QUESTION_DEFAUT/,
+    'le formulaire retombe sur la question par défaut quand celle du profil est retirée');
+
+  // Et aucun profil de démonstration ne la porte plus : ils sont regardés à chaque test manuel.
+  const seed = fs.readFileSync(new URL('../server/seed.js', import.meta.url), 'utf8');
+  assert.ok(!/promptQ: 'plat'/.test(seed), 'aucun profil de démonstration ne reste sur « plat »');
+});

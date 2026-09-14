@@ -217,7 +217,7 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
     // Clé de comparaison, jamais affichée : c'est elle qui réunit « Yaoundé » et « Yaounde »
     cityKey: cleVille(city),
     area: String(b.area || '').trim().slice(0, 40),
-    promptQ: String(b.promptQ || 'Mon plat du dimanche').slice(0, 60),
+    promptQ: String(b.promptQ || 'coin').slice(0, 60),
     promptA,
     languages: String(b.languages || '').trim().slice(0, 60),
     hasPhoto,
