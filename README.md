@@ -369,6 +369,8 @@ node -e "const r=new Intl.PluralRules('ru');const f=new Set();for(let n=0;n<=120
 
 Le dictionnaire n'est téléchargé que par les personnes qui lisent dans cette langue : ajouter une langue ne coûte rien aux autres.
 
+**Un alphabet que Fraunces ne couvre pas demande une ligne de plus.** La police des titres est latine : Google Fonts n'en sert aucun sous-ensemble cyrillique, grec ou arabe. Sans rien, un titre en russe tombe sur Georgia pendant que le corps reste en Manrope, qui a le cyrillique — deux dessins de lettres dans la même phrase. `styles.css` pose donc Playfair Display sur `:lang(ru)` et `:lang(uk)`, et `public/i18n.js` ne la télécharge que pour ces deux langues. Pour un autre alphabet, ajoute la langue à `DISPLAY_CYRILLIQUE` (ou à un ensemble équivalent) plutôt que de charger la police dans `index.html` pour tout le monde : sur un forfait data limité, une police de titrage se paie en dizaines de kilo-octets que personne ne devrait porter pour un alphabet qu'il ne lit pas.
+
 > **Traduire l'interface n'étend pas l'anti-arnaque.** `server/antiscam.js` ne connaît le vocabulaire de l'argent qu'en français et en anglais. Les montants, les numéros et les moyens de paiement restent attrapés dans toutes les langues, parce qu'ils n'en dépendent pas ; les tournures, non. Et la modération doit pouvoir lire un fil signalé pour le trancher. Une langue ajoutée invite des gens à écrire là où ces deux garde-fous ne suivent pas encore.
 
 Côté serveur, `notify()` prend une clé et des variables, jamais une phrase toute faite : le bot écrit à chacun dans **sa** langue, pas dans celle de la personne qui a déclenché la notification.

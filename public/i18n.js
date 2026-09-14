@@ -16,6 +16,24 @@ export const LANGUES = {
 };
 export const LANGUE_SOURCE = 'fr';
 
+// Fraunces, la police des titres, est latine : elle n'a pas de glyphes cyrilliques. Sans rien,
+// chaque titre en russe et en ukrainien tombe sur Georgia pendant que le corps de texte reste en
+// Manrope, qui les a — deux dessins de lettres dans la même phrase, au moment précis où l'app
+// cherche à se faire reconnaître. Playfair Display tient le même rôle de sérif de titrage à fort
+// contraste et couvre le cyrillique ; styles.css la pose sur :lang(ru) et :lang(uk).
+//
+// Elle est demandée ici, par la langue qui en a besoin, et pas dans index.html : qui lit en
+// français, en anglais, en espagnol, en portugais ou en swahili n'en télécharge pas un octet
+// (règle 15). Un test refuse qu'elle parte chez quelqu'un qui n'en verra jamais un caractère.
+const DISPLAY_CYRILLIQUE = new Set(['ru', 'uk']);
+const POLICE_CYRILLIQUE = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400..600&display=swap';
+
+function chargerPoliceCyrillique() {
+  if (document.getElementById('police-cyrillique')) return;
+  document.head.append(Object.assign(document.createElement('link'),
+    { id: 'police-cyrillique', rel: 'stylesheet', href: POLICE_CYRILLIQUE }));
+}
+
 const dictionnaires = { fr: {} };
 let courante = LANGUE_SOURCE;
 
@@ -37,6 +55,7 @@ export async function chargerLangue(code) {
   }
   courante = c;
   document.documentElement.lang = c;
+  if (DISPLAY_CYRILLIQUE.has(c)) chargerPoliceCyrillique();
   return c;
 }
 
