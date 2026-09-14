@@ -667,20 +667,30 @@ async function swipePerson(action) {
 // Écrans
 // ============================================================
 const SCREENS = {
-  // L'accueil est le seul écran où la marque se montre : l'anneau de l'identité (identite/),
-  // en CSS et en jetons, tangent à un second cercle tracé au filet — la rencontre est le point
-  // de contact. Rien n'est téléchargé pour lui : ni image, ni police de plus (règle 15).
+  // L'accueil montre le produit lui-même, pas la marque : deux cartes de profil comme celles de
+  // la découverte — le dégradé à initiale que l'app affiche tant qu'une photo n'est pas chargée —,
+  // le bouclier du selfie vérifié, un « J'aime » tamponné, et un message qui propose un café.
+  // Une rencontre en une image, sans télécharger la moindre photo (règle 15). Les prénoms et
+  // les quartiers sont ceux des profils de démonstration : des noms propres, pas des phrases.
   // Le titre garde son début en clé, coupé après la virgule pour que les derniers mots portent
   // la couleur ; chaque dictionnaire coupe sa propre phrase au même endroit.
   welcome() {
     const name = tg.telegramUser()?.first_name || S.me?.firstName || '';
     const promesse = (i, texte, classe = '') => `<li class="promesse ${classe}"><span class="pictogramme">${icon(i, 20)}</span><span>${texte}</span></li>`;
+    const [elle, lui] = [{ prenom: 'Carine', age: 24, lieu: 'Bastos · Yaoundé' }, { prenom: 'Landry', age: 23, lieu: 'Bastos' }];
+    const carte = (p, classe) => `
+          <div class="carte-demo ${classe}">
+            <span class="initial">${esc(p.prenom[0])}</span>
+            <span class="scrim"></span>
+            <div class="haut">${classe === 'devant' ? `<span class="pill-glass pill-like">${icon('heart', 12, { fill: true })} ${t("T'a liké")}</span>` : ''}</div>
+            <div class="bas">
+              <div class="nom">${esc(p.prenom)}<span class="age">${p.age}</span><span class="shield">${icon('shield', 15)}</span></div>
+              <div class="lieu">${icon('pin', 11)}<span>${esc(p.lieu)}</span></div>
+            </div>
+            ${classe === 'devant' ? `<span class="stamp like" aria-hidden="true">${t("J'aime")}</span>` : ''}
+          </div>`;
     render(`
       <section class="accueil">
-        <div class="scene" aria-hidden="true">
-          <div class="anneau"><i class="bloom"></i><i class="disque"></i><i class="base"></i><i class="ombre"></i><i class="reflet"></i><i class="lisiere"></i><i class="portee"></i></div>
-          <i class="autre"></i><i class="contact"></i>
-        </div>
         <header class="accueil-tete">
           <span class="marque">${esc(APP)}</span>
           <span class="sep"></span>
@@ -688,6 +698,15 @@ const SCREENS = {
             ${icon('globe', 14)}<span>${esc(LANGUES[langue()])}</span>
           </button>
         </header>
+        <div class="scene" aria-hidden="true">
+          <i class="lueur lueur-or"></i><i class="lueur lueur-rose"></i>
+          ${carte(lui, 'derriere')}
+          ${carte(elle, 'devant')}
+          <div class="message">
+            <span class="avatar sm verified">${esc(elle.prenom[0])}</span>
+            <span class="bulle">${t('Samedi 16 h, café de la fac ?')}</span>
+          </div>
+        </div>
         <p class="eyebrow">${name ? t('Salut {nom}', { nom: esc(name) }) : t('Bienvenue')}</p>
         <h1 class="display accueil-h"><span>${t('Des rencontres vérifiées,')}</span> <em>${t('face à face.')}</em></h1>
       </section>
@@ -698,7 +717,7 @@ const SCREENS = {
         ${promesse('wifi', t('Léger en data'))}
       </ul>
       <footer class="accueil-pied">
-        <p class="fine"><span class="age">18+</span><span>${t("Réservé aux 18 ans et plus. En continuant, tu acceptes les règles de la communauté : respect, aucune demande d'argent, aucun contenu sexuel.")}</span></p>
+        <p class="fine"><span class="tag-age">18+</span><span>${t("Réservé aux 18 ans et plus. En continuant, tu acceptes les règles de la communauté : respect, aucune demande d'argent, aucun contenu sexuel.")}</span></p>
         <p class="fine">${icon('lock', 14)}<span>${t('Connecté avec Telegram, sans mot de passe. Ton pseudo et ton numéro restent cachés aux autres.')}</span></p>
       </footer>
     `);

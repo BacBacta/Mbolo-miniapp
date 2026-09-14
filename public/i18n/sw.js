@@ -222,6 +222,7 @@ export default {
   'Réponds à la question sur toi.': 'Jibu swali kukuhusu.',
   'Réservé aux 18 ans et plus. En continuant, tu acceptes les règles de la communauté : respect, aucune demande d\'argent, aucun contenu sexuel.': 'Kwa wenye miaka 18 na zaidi tu. Ukiendelea, unakubali kanuni za jumuiya: heshima, hakuna ombi la pesa, hakuna maudhui ya ngono.',
   'Salut {nom}': 'Habari {nom}',
+  'Samedi 16 h, café de la fac ?': 'Jumamosi saa kumi, kwenye kafe ya chuo?',
   'Samedi, 11 h': 'Jumamosi, saa 5 asubuhi',
   'Sans rien signaler': 'Bila kuripoti chochote',
   'Scanne le code posé sur ta table': 'Changanua msimbo uliopo mezani pako',

@@ -222,6 +222,7 @@ export default {
   "Réponds à la question sur toi.": "Ответь на вопрос о себе.",
   "Réservé aux 18 ans et plus. En continuant, tu acceptes les règles de la communauté : respect, aucune demande d'argent, aucun contenu sexuel.": "Только для тех, кому есть 18. Продолжая, ты принимаешь правила сообщества: уважение, никаких просьб о деньгах, никакого сексуального контента.",
   "Salut {nom}": "Привет, {nom}",
+  "Samedi 16 h, café de la fac ?": "В субботу в 16:00, в кафе у универа?",
   "Samedi, 11 h": "Суббота, 11:00",
   "Sans rien signaler": "Без жалобы",
   "Scanne le code posé sur ta table": "Отсканируй код на своём столе",

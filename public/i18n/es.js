@@ -222,6 +222,7 @@ export default {
   'Réponds à la question sur toi.': 'Responde a la pregunta sobre ti.',
   'Réservé aux 18 ans et plus. En continuant, tu acceptes les règles de la communauté : respect, aucune demande d\'argent, aucun contenu sexuel.': 'Solo para mayores de 18 años. Al continuar aceptas las reglas de la comunidad: respeto, ninguna petición de dinero, ningún contenido sexual.',
   'Salut {nom}': 'Hola {nom}',
+  'Samedi 16 h, café de la fac ?': '¿El sábado a las 16 h, en el café de la facu?',
   'Samedi, 11 h': 'Sábado, 11 h',
   'Sans rien signaler': 'Sin denunciar nada',
   'Scanne le code posé sur ta table': 'Escanea el código que está en tu mesa',
