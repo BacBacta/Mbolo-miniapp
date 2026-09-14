@@ -425,6 +425,71 @@ test('le contrôle passe avant le déploiement, pas après', () => {
     'les empreintes à juger sont celles que la machine recevra');
 });
 
+// ---------- Le déploiement en marche, contre un faux flyctl ----------
+//
+// Ce que les tests de texte ne voyaient pas, et qui a éteint la production le 14 septembre 2026 :
+// le secret WEB_SESSION_SECRET du dépôt GitHub portait la valeur d'ADMIN_KEY, le serveur
+// refusait donc de démarrer, et chaque déploiement reposait la même paire depuis le dépôt — une
+// correction à la main chez l'hébergeur ne tenait pas jusqu'au déploiement suivant. On fait donc
+// tourner le script pour de bon, dans un dossier à lui (il réécrit fly.toml), avec un flyctl de
+// paille qui rend en JSON les empreintes de ce qu'on vient de lui poser, et un faux curl.
+const fauxDeploiement = () => {
+  const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'odo-deploiement-'));
+  const trace = path.join(dossier, 'appels.txt');
+  const outils = path.join(dossier, 'outils');
+  fs.mkdirSync(outils);
+  fs.mkdirSync(path.join(dossier, 'scripts'));
+  fs.mkdirSync(path.join(dossier, 'server'));
+  for (const f of ['fly.toml', 'deployer-fly.sh', 'scripts/verifier-secrets.js', 'server/secrets.js']) {
+    fs.copyFileSync(path.join(process.cwd(), f), path.join(dossier, f));
+  }
+  fs.writeFileSync(path.join(outils, 'flyctl'), `#!/bin/sh
+echo "$@" >> ${trace}
+case "$1 $2" in
+  "auth whoami") echo "test@tokens.fly.io" ;;
+  "volumes list") echo "mbolo_data" ;;
+  "ips list") echo '[{"Type":"v4"},{"Type":"v6"}]' ;;
+  # Retient ce qu'on lui pose, pour le rendre ensuite.
+  "secrets set") shift 4; for kv in "$@"; do echo "$kv" >> ${dossier}/poses.txt; done ;;
+  # Le vrai flyctl rend une empreinte par secret : ici, une somme de la valeur posée.
+  "secrets list") echo '['; sep=''; while IFS== read -r nom val; do
+      printf '%s{"name":"%s","digest":"%s","status":"Staged"}' "$sep" "$nom" "$(printf '%s' "$val" | cksum | cut -d' ' -f1)"; sep=','; done < ${dossier}/poses.txt; echo ']' ;;
+  *) : ;;
+esac
+`, { mode: 0o755 });
+  fs.writeFileSync(path.join(outils, 'curl'), `#!/bin/sh\necho "curl $@" >> ${trace}\necho '{"ok":true}'\n`, { mode: 0o755 });
+  const lancer = (env) => spawnSync('bash', ['./deployer-fly.sh', 'app-de-test', 'ams'], {
+    cwd: dossier, encoding: 'utf8',
+    env: { ...process.env, PATH: `${outils}:${process.env.PATH}`, FLY_API_TOKEN: 'jeton', BOT_TOKEN: 'bot-123', ADMIN_CHAT_ID: '-100', ...env },
+  });
+  const poses = () => Object.fromEntries(fs.readFileSync(path.join(dossier, 'poses.txt'), 'utf8').trim().split('\n').map((l) => l.split(/=(.*)/s).slice(0, 2)));
+  const appels = () => fs.readFileSync(trace, 'utf8');
+  return { lancer, poses, appels };
+};
+
+test('le déploiement ne pose jamais dans WEB_SESSION_SECRET une copie d\'ADMIN_KEY', () => {
+  const d = fauxDeploiement();
+  const r = d.lancer({ ADMIN_KEY: 'meme-valeur-partagee', WEB_SESSION_SECRET: 'meme-valeur-partagee' });
+  assert.equal(r.status, 0, `le déploiement doit aboutir avec un secret tiré au hasard :\n${r.stdout}${r.stderr}`);
+  const p = d.poses();
+  assert.equal(p.ADMIN_KEY, 'meme-valeur-partagee', "ADMIN_KEY reste celui du dépôt : c'est l'autre qui coûte le moins à changer");
+  assert.ok(p.WEB_SESSION_SECRET && p.WEB_SESSION_SECRET !== 'meme-valeur-partagee', 'WEB_SESSION_SECRET doit être une autre valeur');
+  assert.ok(p.WEB_SESSION_SECRET.length >= 32, 'et une vraie valeur aléatoire, pas un mot');
+  assert.match(r.stderr, /même valeur qu'un autre secret/, 'et le dire');
+  assert.match(r.stderr, /dépôt GitHub/, "en nommant l'endroit à corriger");
+  assert.match(d.appels(), /deploy --remote-only/, 'le contrôle des empreintes passe, et le déploiement part');
+});
+
+test('un WEB_SESSION_SECRET distinct est posé tel quel, et le contrôle lit bien le JSON de flyctl', () => {
+  const d = fauxDeploiement();
+  const r = d.lancer({ ADMIN_KEY: 'cle-admin-propre', WEB_SESSION_SECRET: 'cle-session-propre' });
+  assert.equal(r.status, 0, `${r.stdout}${r.stderr}`);
+  assert.equal(d.poses().WEB_SESSION_SECRET, 'cle-session-propre');
+  assert.ok(!/même valeur/.test(r.stderr), 'rien à signaler');
+  assert.match(r.stdout, /Secrets distincts \(3 reconnus/, 'BOT_TOKEN, ADMIN_KEY et WEB_SESSION_SECRET, lus en JSON');
+  assert.match(d.appels(), /secrets list --json/, 'la liste est demandée en JSON, la forme sûre');
+});
+
 // Il tourne sur le runner de déploiement, où `npm ci` n'a pas été lancé : le moindre import de
 // dépendance le ferait échouer sur un module manquant, c'est-à-dire précisément au moment où on
 // compte sur lui. C'est pourquoi la liste vit dans server/secrets.js et non dans config.js.

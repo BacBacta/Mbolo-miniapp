@@ -82,9 +82,20 @@ echo "== Secrets =="
 set -- BOT_TOKEN="$BOT_TOKEN" \
   ADMIN_KEY="${ADMIN_KEY:-$(head -c 32 /dev/urandom | base64 | tr -d '/+=')}" \
   ADMIN_CHAT_ID="$ADMIN_CHAT_ID"
-if [ -n "${WEB_SESSION_SECRET:-}" ]; then
+if [ -n "${WEB_SESSION_SECRET:-}" ] && { [ "$WEB_SESSION_SECRET" = "${ADMIN_KEY:-}" ] || [ "$WEB_SESSION_SECRET" = "$BOT_TOKEN" ]; }; then
+  # Le 14 septembre 2026, le secret WEB_SESSION_SECRET du dépôt GitHub portait la valeur
+  # d'ADMIN_KEY. Le serveur refusait donc de démarrer (server/secrets.js), et chaque déploiement
+  # reposait la même paire depuis le dépôt : une correction à la main chez l'hébergeur ne tenait
+  # pas jusqu'au déploiement suivant. C'est le secret qui coûte le moins à changer — il ne ferme
+  # que les sessions de modération en cours — alors on en tire un plutôt que d'en poser une copie.
+  echo "WEB_SESSION_SECRET porte la même valeur qu'un autre secret : je n'en pose pas une copie." >&2
+  echo "J'en tire un au hasard pour ce déploiement. Les sessions de modération en cours se ferment," >&2
+  echo "et ce sera le cas à chaque déploiement tant que le secret WEB_SESSION_SECRET du dépôt GitHub" >&2
+  echo "(Settings, Secrets and variables, Actions) n'aura pas sa propre valeur." >&2
+  set -- "$@" WEB_SESSION_SECRET="$(head -c 32 /dev/urandom | base64 | tr -d '/+=')"
+elif [ -n "${WEB_SESSION_SECRET:-}" ]; then
   set -- "$@" WEB_SESSION_SECRET="$WEB_SESSION_SECRET"
-elif ! flyctl secrets list -a "$APP" 2>/dev/null | grep -q '^WEB_SESSION_SECRET'; then
+elif ! flyctl secrets list --json -a "$APP" 2>/dev/null | grep -q '"name": *"WEB_SESSION_SECRET"'; then
   echo "WEB_SESSION_SECRET absent : j'en tire un au hasard pour l'espace de modération."
   set -- "$@" WEB_SESSION_SECRET="$(head -c 32 /dev/urandom | base64 | tr -d '/+=')"
 fi
