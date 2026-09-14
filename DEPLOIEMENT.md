@@ -334,7 +334,7 @@ jour où tu en auras besoin, tu ne voudras pas découvrir la procédure.
 |---|---|---|
 | Le déploiement s'arrête sur `ADMIN_CHAT_ID absent` | Le secret n'est pas posé | Ajoute-le dans les secrets du dépôt |
 | Le déploiement s'arrête sur `Deux secrets portent la même valeur` | Deux secrets ont la même chaîne chez l'hébergeur | Repose-en un au hasard (`flyctl secrets list` montre les empreintes), puis relance. **Jamais `BACKUP_SECRET`** sans avoir gardé l'ancien ailleurs |
-| Le déploiement s'arrête sur `Je n'ai pas su lire la liste des secrets` | `flyctl secrets list` a changé de format | Le contrôle refuse plutôt que d'approuver à l'aveugle. Compare les empreintes toi-même, puis corrige `scripts/verifier-secrets.js` |
+| Le déploiement s'arrête sur `Je n'ai pas su lire la liste des secrets` | `flyctl secrets list --json` a changé de forme | Le contrôle refuse plutôt que d'approuver à l'aveugle, et décrit ce qu'il a reçu (empreintes masquées). Compare les empreintes toi-même, puis corrige `scripts/verifier-secrets.js` |
 | `/moderation` répond « n'est pas configuré » | `WEB_SESSION_SECRET` manque sur la machine | Pose-le (`flyctl secrets set WEB_SESSION_SECRET=...`) ou relance le déploiement, qui en tire un |
 | `Groupe de modération injoignable` dans le journal | Bot absent du groupe, ou identifiant mal recopié | Rajoute le bot, refais `/id` dans le groupe |
 | `Error: app not found` | Le nom d'app passé au workflow n'existe pas | Vérifie les deux champs de **Run workflow** |

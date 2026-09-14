@@ -24,13 +24,20 @@ const lire = () => new Promise((resolve) => {
 const sortie = await lire();
 const { connus, partages } = secretsPartagesFly(sortie);
 
+const masquer = (ligne) => ligne.replace(/[^\s|\u2500-\u257f"',:{}\[\]]{6,}/g, (m) => (/^[A-Z0-9_]+$/.test(m) ? m : `<${m.length} car.>`));
+
 // Un garde-fou qui ne comprend plus ce qu'il lit ne prévient de rien : il approuve. Si la liste
 // change de forme un jour, ce message dira lequel des deux s'est passé, au lieu de laisser croire
 // que tout va bien. Un déploiement en pose toujours au moins deux (BOT_TOKEN et ADMIN_KEY).
 if (connus.length < 2) {
   console.error("Je n'ai pas su lire la liste des secrets : aucune empreinte reconnue.");
-  console.error(`Attendu des lignes « NOM  empreinte », pour ${SECRETS_DISTINCTS.join(', ')}.`);
-  console.error('Vérifie la sortie de : flyctl secrets list -a <app>');
+  console.error(`Attendu un tableau JSON { name, digest } ou des lignes « NOM  empreinte », pour ${SECRETS_DISTINCTS.join(', ')}.`);
+  console.error('Vérifie la sortie de : flyctl secrets list --json -a <app>');
+  // Ce qui a été reçu, pour ne pas avoir à deviner une quatrième fois — la forme seulement :
+  // chaque suite de six caractères ou plus qui n'est pas un nom de variable est remplacée par
+  // sa longueur. Une empreinte, même tronquée, ne passe donc jamais dans un journal public.
+  console.error(`Reçu ${sortie.length} caractère(s), ${sortie.split('\n').length} ligne(s) :`);
+  for (const ligne of sortie.split('\n').slice(0, 12)) console.error(`  ${masquer(ligne)}`);
   process.exit(1);
 }
 

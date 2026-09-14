@@ -260,7 +260,9 @@ case "$1 $2" in
   "orgs list") echo '${orgs}' ;;
   # La vraie réponse de Fly quand l'organisation n'a aucune base gérée : du texte, pas du JSON.
   "mpg list") echo "No managed postgres clusters found in organization personal" ;;
-  "secrets list") printf ' NAME      | DIGEST | STATUS\n BOT_TOKEN | abc    | Deployed\n%s' "$SECRETS_EN_PLUS" ;;
+  # Le vrai trait est « │ » (U+2502), pas la barre ASCII : un contrôle écrit sur la barre
+  # a refusé trois déploiements de suite.
+  "secrets list") printf ' NAME      │ DIGEST │ STATUS\n BOT_TOKEN │ abc    │ Deployed\n%s' "$SECRETS_EN_PLUS" ;;
   # La machine ne voit rien : c'est exactement le cas d'un secret posé mais pas encore appliqué.
   "ssh console") : ;;
   *) : ;;
@@ -305,7 +307,7 @@ test('une liste de bases vide n\'est pas prise pour une panne', async () => {
 // « Staged ». Le premier jet ne reconnaissait pas cette forme : après un attachement réussi, il
 // concluait « l'attachement n'a pas posé DATABASE_URL_FUTURE » et s'arrêtait — la base créée,
 // attachée, facturée, et l'import jamais lancé. C'est exactement ce qui est arrivé.
-const STAGED = ' * DATABASE_URL_FUTURE | def | Staged\\n';
+const STAGED = ' * DATABASE_URL_FUTURE │ def │ Staged\\n';
 
 test('un secret posé mais pas encore appliqué compte comme posé', async () => {
   const { dossier, trace } = fauxFlyctl('{"personal":"Bacta"}', STAGED);
@@ -337,7 +339,7 @@ test('un secret que la machine ne voit pas est appliqué avant l\'import', async
 // contrôle, relecture du secret — échoue sans raison lisible. Le script la réveille d'abord,
 // par une requête, comme le ferait un visiteur.
 test('la machine est réveillée avant toute commande à distance', async () => {
-  const { dossier, trace } = fauxFlyctl('{"personal":"Bacta"}', ' DATABASE_URL | abc | Deployed\n');
+  const { dossier, trace } = fauxFlyctl('{"personal":"Bacta"}', ' DATABASE_URL │ abc │ Deployed\n');
   // Le faux curl de fauxFlyctl trace ses appels : c'est lui qui permet de lire l'ordre.
 
   // « verifier » ne fait que lire, et passe par le même chemin que l'import.

@@ -292,20 +292,22 @@ test('des empreintes distinctes laissent le déploiement continuer', () => {
   assert.equal(r.status, 0, `rien à signaler :\n${r.stdout}${r.stderr}`);
 });
 
-// Ce que les quatre cas ci-dessus ne voyaient pas : la forme réelle de la liste. flyctl la rend
-// avec tablewriter, bordures éteintes — une espace en tête, des cellules séparées par « | » —
-// et `deployer-fly.sh` pose les secrets juste avant de la lire (`flyctl secrets set --stage`),
-// donc chaque secret posé y porte le marqueur « * » dans la cellule du nom, « ! » pour un
-// déploiement partiel. Le premier jet lisait « NOM  empreinte » séparés d'espaces : il ne
-// reconnaissait plus rien et refusait tout déploiement en disant « je n'ai pas su lire » — le
-// 14 septembre 2026, y compris celui qui remettait la production debout, deux fois de suite.
+// Ce que les quatre cas ci-dessus ne voyaient pas : la forme réelle de la liste.
+//
+// Trois lectures se sont cassées dessus le 14 septembre 2026, chacune refusant le déploiement
+// qui remettait la production debout. flyctl dessine sa table avec tablewriter, bordures
+// éteintes : une espace en tête, des cellules séparées par « │ » — le trait de dessin de boîte
+// U+2502, que le faux flyctl de bascule.test.js approximait par la barre ASCII — et, parce que
+// `deployer-fly.sh` pose les secrets juste avant de lire (`flyctl secrets set --stage`), le
+// marqueur « * » dans la cellule du nom de chaque secret posé, « ! » pour un déploiement
+// partiel. Le rendu ci-dessous est celui de `render.Table` de flyctl, obtenu en l'exécutant.
 const LISTE_FLY_REELLE = (lignes) => [
-  ' NAME               | DIGEST           | STATUS   ',
-  ...lignes.map(([nom, empreinte, statut]) => ` ${nom.padEnd(18)} | ${empreinte.padEnd(16)} | ${statut.padEnd(8)} `),
+  ' NAME                 │ DIGEST           │ STATUS   ',
+  ...lignes.map(([nom, empreinte, statut]) => ` ${nom.padEnd(20)} │ ${empreinte.padEnd(16)} │ ${statut.padEnd(8)} `),
   '', '2 secrets staged, 1 partial deployment.',
 ].join('\n') + '\n';
 
-test('la liste telle que flyctl la rend, marqueurs compris, reste lisible', () => {
+test('la liste telle que flyctl la dessine, marqueurs compris, reste lisible', () => {
   const r = controlerSecrets(LISTE_FLY_REELLE([
     ['* BOT_TOKEN', 'eeeeeeeeffffffff', 'Staged'],
     ['* ADMIN_KEY', 'aaaaaaaabbbbbbbb', 'Staged'],
@@ -317,7 +319,7 @@ test('la liste telle que flyctl la rend, marqueurs compris, reste lisible', () =
   assert.match(r.stdout, /4 reconnus/, 'et les quatre comptent, marqueur compris, sans ADMIN_CHAT_ID');
 });
 
-test('un partage reste visible sous le marqueur et entre les barres', () => {
+test('un partage reste visible sous le marqueur et entre les traits', () => {
   const r = controlerSecrets(LISTE_FLY_REELLE([
     ['* ADMIN_KEY', 'c095251a7d8ce235', 'Staged'],
     ['* BOT_TOKEN', 'eeeeeeeeffffffff', 'Staged'],
@@ -325,6 +327,27 @@ test('un partage reste visible sous le marqueur et entre les barres', () => {
   ]));
   assert.equal(r.status, 1, 'le marqueur ne doit pas rendre le partage invisible');
   assert.match(r.stderr, /ADMIN_KEY, BACKUP_SECRET/);
+});
+
+// La forme que le déploiement demande vraiment : `--json`, un tableau de { name, digest,
+// status }. Une machine qui sait produire du JSON n'a pas à être lue comme un dessin.
+const LISTE_FLY_JSON = (secrets) => JSON.stringify(secrets.map(([name, digest, status]) => ({ name, digest, status })), null, 4) + '\n';
+
+test('la liste en JSON est lue en priorité', () => {
+  const r = controlerSecrets(LISTE_FLY_JSON([
+    ['BOT_TOKEN', 'eeeeeeeeffffffff', 'Staged'],
+    ['ADMIN_KEY', 'aaaaaaaabbbbbbbb', 'Staged'],
+    ['BACKUP_SECRET', 'ccccccccdddddddd', 'Deployed'],
+  ]));
+  assert.equal(r.status, 0, `trois empreintes distinctes :\n${r.stderr}`);
+  assert.match(r.stdout, /3 reconnus/);
+  const partage = controlerSecrets(LISTE_FLY_JSON([
+    ['ADMIN_KEY', 'c095251a7d8ce235', 'Staged'],
+    ['BOT_TOKEN', 'eeeeeeeeffffffff', 'Staged'],
+    ['WEB_SESSION_SECRET', 'c095251a7d8ce235', 'Deployed'],
+  ]));
+  assert.equal(partage.status, 1);
+  assert.match(partage.stderr, /ADMIN_KEY, WEB_SESSION_SECRET/);
 });
 
 // L'alphabet de l'empreinte n'est pas une promesse de l'hébergeur : c'est sa colonne qui la
@@ -338,17 +361,29 @@ test("l'empreinte est reconnue par sa colonne, pas par son alphabet", () => {
   assert.match(r.stdout, /2 reconnus/);
 });
 
-// Et la forme d'avant, « NOM  empreinte » séparés d'espaces, reste lue : c'est celle des cas
-// ci-dessus, et un jour flyctl peut cesser de dessiner des barres.
-test('les secrets fraîchement posés, marqués « * », restent lisibles sans barres', () => {
-  const r = controlerSecrets(LISTE_FLY([
+// Et les formes d'avant restent lues : « NOM  empreinte » séparés d'espaces (les cas ci-dessus),
+// ou la barre ASCII que le faux flyctl dessinait. Le séparateur n'est plus une hypothèse.
+test('les secrets fraîchement posés, marqués « * », restent lisibles quel que soit le séparateur', () => {
+  const espaces = controlerSecrets(LISTE_FLY([
     '*\tADMIN_KEY\taaaaaaaabbbbbbbb\t1 minute ago',
     '*\tBOT_TOKEN\teeeeeeeeffffffff\t1 minute ago',
-    '!\tWEB_SESSION_SECRET\t0123456789abcdef\t1 minute ago',
-    'BACKUP_SECRET\tccccccccdddddddd\t1 month ago',
   ]));
-  assert.equal(r.status, 0, `quatre empreintes distinctes, rien à signaler :\n${r.stdout}${r.stderr}`);
-  assert.match(r.stdout, /4 reconnus/);
+  assert.equal(espaces.status, 0, `espaces :\n${espaces.stderr}`);
+  const barres = controlerSecrets(' NAME | DIGEST | STATUS\n * ADMIN_KEY | aaaaaaaabbbbbbbb | Staged\n * BOT_TOKEN | eeeeeeeeffffffff | Staged\n');
+  assert.equal(barres.status, 0, `barre ASCII :\n${barres.stderr}`);
+});
+
+// Quand il ne reconnaît rien, le contrôle dit ce qu'il a reçu — la forme, jamais le contenu.
+// Quatre lectures se sont succédé à l'aveugle parce que la sortie de flyctl partait dans un
+// tuyau sans laisser de trace ; ce diagnostic aurait réglé la question au premier essai.
+test('une liste illisible décrit sa forme sans jamais montrer une empreinte', () => {
+  const r = controlerSecrets(' NAME ‖ DIGEST\n ADMIN_KEY ‖ c095251a7d8ce235z ‖ Deployed\n');
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /pas su lire/);
+  assert.match(r.stderr, /1 ligne|2 ligne|3 ligne/, 'et compter ce qui a été reçu');
+  assert.match(r.stderr, /ADMIN_KEY/, 'les noms de variables restent lisibles : ils disent quelle colonne est laquelle');
+  assert.ok(!r.stderr.includes('c095251a7d8ce235'), "l'empreinte, elle, ne sort jamais");
+  assert.match(r.stderr, /<17 car\.>/, 'remplacée par sa longueur');
 });
 
 // L'identifiant du groupe de modération n'est pas un secret, et deux variables de confort qui se
