@@ -239,11 +239,26 @@ test('les libellés envoyés par le serveur sont traduits, eux aussi', async () 
   const { INTENTS, GENDERS, COMPAT } = await import('../server/config.js');
   const { CRITERES } = await import('../server/jauge.js');
 
+  // Les questions de profil vivent dans public/app.js et traversent t() sous forme de variable,
+  // exactement comme les libellés du serveur : elles échappaient donc aux deux balayages
+  // précédents. Elles se lisent dans la source, app.js n'étant pas importable ici (il touche au
+  // DOM dès son chargement). Les questions retirées comptent autant que les vivantes : un
+  // ancien profil affiche encore la sienne.
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const questions = [];
+  for (const nom of ['QUESTIONS', 'QUESTIONS_RETIREES']) {
+    const bloc = app.match(new RegExp(`const ${nom} = \\{([^}]*)\\}`));
+    assert.ok(bloc, `${nom} doit exister dans public/app.js`);
+    for (const m of bloc[1].matchAll(/:\s*'((?:[^'\\]|\\.)*)'/g)) questions.push(m[1].replace(/\\'/g, "'"));
+  }
+  assert.ok(questions.length >= 6, `les questions de profil sont bien lues (${questions.length})`);
+
   const libelles = [
     ...Object.values(INTENTS),
     ...Object.values(GENDERS),
     ...Object.values(COMPAT).flatMap(({ question, valeurs }) => [question, ...Object.values(valeurs)]),
     ...CRITERES.flatMap(({ titre, quoi, comment }) => [titre, quoi, comment]),
+    ...questions,
   ];
   for (const [code, dico] of Object.entries(DICOS)) {
     const manquants = libelles.filter((l) => !(l in dico));
