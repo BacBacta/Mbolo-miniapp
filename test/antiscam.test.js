@@ -228,3 +228,52 @@ test('recoller les lettres ne recolle pas le français ordinaire', () => {
     assert.equal(checkMessage(t, 20, 10).ok, true, t);
   }
 });
+
+// ==================================================================
+// Ce que la revue du 14 septembre 2026 a fait passer (audit/09-revue-code.md, I15) : des messages
+// ordinaires, en français, que la règle visait et manquait. Chaque ligne a été rejouée contre
+// l'ancienne version avant d'être corrigée : toutes passaient.
+// ==================================================================
+
+const ARNAQUES_MANQUEES = [
+  // le tiret était supprimé au lieu d'être remplacé : « prête-moi » devenait « pretemoi »
+  'prête-moi 5000', 'dépanne-moi de 5k', 'dépanne-moi',
+  // l'apostrophe omise colle les mots, comme en SMS
+  'jai besoin dargent', 'besoin dargent stp',
+  // « m'aider » n'était pas un besoin
+  "tu peux m'aider avec 5000 fcfa", 'tu peux m aider avec 5000',
+  // les montants espacés : « 5 000 » n'avait pas quatre chiffres collés
+  'envoie 5 000', 'envoie 5.000', 'envoie 5,000', 'besoin de 10 000',
+  // verbes absents
+  'tu me donnes 5000', 'envoyez 5000', 'vire moi 5000', 'offre moi 5000', 'gimme 5k', 'dash me 5k', 'bless me with 5k',
+  // unicode : cyrillique qui ressemble au latin, largeur nulle, pleine largeur, chiffres emoji
+  'еnvоiе-mоi 5k', 'en​voie-moi 5​k', 'envoie-moi ５０００ fcfa', 'envoie 5️⃣0️⃣0️⃣0️⃣ f',
+];
+
+test("les demandes d'argent que la revue a fait passer sont bloquées", () => {
+  for (const m of ARNAQUES_MANQUEES) assert.equal(checkMessage(m, 20, 10).code, 'MONEY_BLOCKED', m);
+});
+
+const CONTACTS_MANQUES = [
+  'je suis sur wa', 'mon wa', 'tu as mon ig ?', 'mon ig c handle', 'mon tg', 'ton tel', 'ton phone', 'ur number',
+  'text me', 'dm me', 'appelle-moi au', 'tes coordonnées', 'whatsap ?', 'wtsp', 'wapp',
+  't . me / handle', 'telegram.me/handle', 'bit.ly/abc', 'monsite.cm/profil', 'moi at gmail dot com',
+  '６７７１２３４５６', '6​7​7​1​2​3​4​5​6', '6️⃣7️⃣7️⃣1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣', '677l23456',
+];
+
+test('les partages de contact que la revue a fait passer sont retenus avant dix messages', () => {
+  for (const m of CONTACTS_MANQUES) assert.equal(checkMessage(m, 2, 10).code, 'CONTACT_TOO_EARLY', m);
+  for (const m of CONTACTS_MANQUES) assert.equal(checkMessage(m, 12, 10).ok, true, `${m} : débloqué après dix messages`);
+});
+
+// Chaque règle ajoutée ci-dessus a son revers : le mot court qui a un autre sens.
+test('les nouvelles règles laissent passer le français et l\'anglais ordinaires', () => {
+  for (const t of [
+    'un homme tel que toi', 't me plais grave', 'on se voit samedi, envoie une photo', 'je suis sur la route',
+    'prête attention à toi', 'mon oncle m a prêté sa voiture', 'on y va par le bus', 'je passe par la poste',
+    'call me maybe', 'je suis né en 1998', 'le 12/09/2026 à 16h', 'j ai eu 15 000 vues sur ma vidéo',
+    'on est 5 000 à la fac', 'Wa, tu es belle', 'je fais du sport le samedi',
+  ]) {
+    assert.equal(checkMessage(t, 2, 10).ok, true, t);
+  }
+});

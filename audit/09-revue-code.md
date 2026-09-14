@@ -510,7 +510,7 @@ journée et ferment tout ce qui éteint la production.
 4. ~~**Ce qui sort du serveur**~~ — fait le 14 septembre 2026 (`test/identifiants.test.js`, `pid`, `CSP`). (I6, I7, I8) : identifiant public opaque — le plus lourd du lot,
    parce qu'il change la forme de l'API ; `/photos` et `/voix` conditionnés à la cible ; ville
    dans le texte contrôlé ; politique de sécurité de contenu complète.
-5. **Anti-arnaque** (I15) : normalisation Unicode, tiret, apostrophe, montants espacés, verbes et
+5. ~~**Anti-arnaque**~~ — fait le 14 septembre 2026 (corpus de la revue dans `test/antiscam.test.js`). (I15) : normalisation Unicode, tiret, apostrophe, montants espacés, verbes et
    abréviations manquants — puis le corpus réel.
 6. **Interface et exploitation** (I9, I10, I12, section 3) : jeton de requête sur la discussion,
    garde sur `date()`, identifiants encodés ; actions épinglées, `permissions:`, entrées validées ;
