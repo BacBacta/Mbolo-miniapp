@@ -102,7 +102,9 @@ echo "== Secrets distincts =="
 # refuserait un déploiement qui corrige justement le partage : un déploiement à relancer, jamais
 # une production éteinte. C'est le sens dans lequel on préfère se tromper.
 command -v node >/dev/null 2>&1 || { echo "node introuvable : le contrôle des secrets ne peut pas tourner." >&2; exit 1; }
-flyctl secrets list -a "$APP" | node scripts/verifier-secrets.js
+# --json : la forme sûre. Le texte de flyctl a changé trois fois de lecture (espaces, marqueur
+# « * », trait « │ ») avant qu'on ne lise ce que la machine sait produire sans ambiguïté.
+flyctl secrets list --json -a "$APP" | node scripts/verifier-secrets.js
 
 echo "== Déploiement =="
 # --remote-only : l'image est construite chez Fly, aucun Docker local nécessaire
