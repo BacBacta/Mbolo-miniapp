@@ -208,7 +208,7 @@ un ordre de grandeur public, à confirmer au même moment.
 **Ce qui coûte.**
 - Hébergement : une machine de 256 Mo et une base sur Fly — de l'ordre de 6 000 FCFA par mois
   (*ordre de grandeur, à lire sur la facture*). Fixe.
-- Modération : selfie, jusqu'à trois photos, une présentation vocale — **par nouveau membre**,
+- Modération : selfie, jusqu'à six photos (deux sans pass), une présentation vocale — **par nouveau membre**,
   du temps humain. Personne ne l'a chronométré ; l'hypothèse de départ est de trois minutes
   par membre. Variable, et **croît avec les inscriptions, pas avec les payeurs**.
 - Intermédiaires : ~35 % sur les Stars, ~3 % sur le mobile money.
@@ -287,9 +287,8 @@ permet de **mesurer** si Odo Plus vaut quelque chose avant de lui donner un prix
 
 ## 8. Ce qui est construit, au 15 septembre 2026
 
-Le socle et les deux premières fonctions. Le reste du tableau du §3 (zone élargie, photos,
-questions, voix de 30 secondes, filtre par langue, ordre du paquet) **n'est pas écrit**, et
-l'écran du pass ne l'annonce donc pas : la leçon de « Sortie en duo » tient en une ligne — une
+Le socle et **les dix lignes du §3**. L'écran du pass n'annonce que ce qui existe, et tout ce
+qu'il annonce existe : la leçon de « Sortie en duo » tient en une ligne — une
 promesse affichée que rien n'honore est pire qu'une fonction absente, parce que la personne l'a
 crue.
 
@@ -301,6 +300,9 @@ crue.
 | Quota : 2 sans badge, 5 gratuit, sans limite avec le pass | oui | `config.dailyProfiles`, `quotaDe()` |
 | Qui t'a aimé, les quatre portes | oui | `voitSesLikes()`, `requirePlus` |
 | Se sont arrêtés sur ta fiche | oui | `server/vues.js`, `audit/12-profils-consultes.md` |
+| Vue Liste, tout le pays, 6 photos, 30 s de voix | oui | `PALIERS` dans `server/plus.js`, `zoneCherchee()`, `test/plus.test.js` |
+| Trois questions sur la fiche, filtre par langue | oui | `extras`, `dansLaLangue()`, `test/plus.test.js` |
+| Ordre du paquet au choix | oui | `ORDRES`, `trierLePaquet()` — qui t'a aimé devant dans tous les ordres |
 | La caisse (mobile money, Stars) | **non** | P0-6, `CLAUDE.md` §10 |
 
 **Pas de caisse, et c'est volontaire.** Avant de faire payer, il faut savoir si ce qu'il y a
@@ -308,3 +310,19 @@ derrière change quelque chose pour de vrais membres. Un pass offert le dit, et 
 agrégateur, ni remboursement, ni structure juridique. Ce que la bêta doit répondre : est-ce que
 quelqu'un qui reçoit un pass s'en sert — et est-ce que ne pas savoir qui l'a aimé fait revenir
 plus souvent, ou partir.
+
+**Et depuis le 15 septembre 2026, ça se mesure.** Pendant une journée, le pass a existé sans que
+rien ne le compte : on avait construit une fonction *pour* mesurer, et on ne mesurait pas.
+`npm run chiffres` porte maintenant une section **Odo Plus**, bâtie sur deux chiffres :
+
+| Ce qu'on compte | L'événement | Ce qu'il dit |
+|---|---|---|
+| **La demande** | `pass_refuse {quoi}` | Combien de fois, et surtout **par combien de personnes**, quelqu'un a voulu passer une porte fermée. Dix refus d'un curieux obstiné ne disent pas ce que disent dix membres |
+| **L'usage** | `pass_usage {quoi}`, ralenti | La part de ceux qui ont reçu un pass et s'en sont servis au moins une fois. Un pass dont personne ne se sert ne vaut rien |
+| Ce qu'on a distribué | `pass_pose {jours}`, `pass_retire` | Sur combien de membres la part ci-dessus porte |
+| Le mur du quota | `quota_hit {action, q}` | `q` est le **palier touché** : 2 (sans badge) et 5 (gratuit) ne racontent pas la même histoire |
+
+Trois limites sont écrites à côté des nombres, pas dans un coin : aucun pass n'a été **vendu**,
+donc un refus mesure une curiosité et jamais un consentement à payer ; les lignes `quota_hit`
+d'avant ce jour n'ont pas de `q` et sont rangées sous « — » plutôt qu'attribuées au hasard ; et
+rien n'est rétroactif, comme pour le reste de la mesure.

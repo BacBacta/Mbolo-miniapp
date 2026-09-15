@@ -61,6 +61,9 @@ const QUESTIONS = {
   chanson: 'Ma chanson du moment',
   rire: 'Ce qui me fait rire',
 };
+// Les ordres du paquet, par clé du serveur (`options.ordres`). Les libellés vivent ici, dans
+// t(), pour que le test des langues les voie ; les clés, elles, ne sont jamais montrées.
+const ORDRES_LABELS = { defaut: 'Conseillé', actifs: 'Les plus actifs', nouveaux: 'Les nouveaux', proches: 'Mon quartier' };
 // Retirée de l'inscription, mais gardée ici : la question est rangée sur le profil par sa clé,
 // et des comptes portent encore « plat ». Sans cette ligne, leur carte afficherait « plat » en
 // clair — on ne fait pas payer à quelqu'un un choix de produit qu'il n'a pas fait. Sa phrase
@@ -273,6 +276,18 @@ const plus = () => !!S.me?.plus?.actif;
 // c'est le contrat posé par `auClient()` côté serveur. Sans cette fonction, `!S.remaining` prend
 // l'absence de limite pour une limite atteinte, et l'écran le plus ouvert devient le plus fermé.
 const sansLimite = () => S.quota === null;
+// Les paliers viennent du serveur (`me.limites`), jamais d'une constante recopiée ici : un nombre
+// écrit des deux côtés finit par diverger, et c'est l'interface qui se met à mentir.
+const limite = (nom) => S.me?.limites?.[nom];
+// Les emplacements de photo à afficher : ceux que le palier ouvre, **plus ceux déjà occupés**.
+// Des comptes portent trois photos d'un temps où trois était la limite pour tout le monde ; les
+// faire disparaître de l'écran donnerait l'impression qu'on les a effacées, alors qu'elles sont
+// toujours là et toujours montrées. On les affiche, avec leur bouton pour les retirer.
+function emplacementsPhoto() {
+  const ouverts = limite('photos') || 2;
+  const occupes = Math.max(0, ...(S.me?.photos || []).map((x) => x.n));
+  return Array.from({ length: Math.max(ouverts, occupes) }, (_, i) => i + 1);
+}
 
 const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', pays: () => S.pays?.retour || 'me', plus: () => S.plusRetour || 'me', vues: () => 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
@@ -518,6 +533,7 @@ function profileCard(p, { own = false, cls = '' } = {}) {
       </div>
       <div class="card-body">
         <div class="prompt"><span class="q">${esc(libelleQuestion(p.promptQ))}</span><span class="a">${esc(p.promptA)}</span></div>
+        ${(p.extras || []).map((x) => `<div class="prompt"><span class="q">${esc(libelleQuestion(x.q))}</span><span class="a">${esc(x.a)}</span></div>`).join('')}
         ${p.compat ? `<div class="compat">${p.compat.map((c) => `<span class="chip chip-compat"><span class="q">${t(c.question)}</span><span class="a">${t(c.reponse)}</span></span>`).join('')}</div>` : ''}
         ${p.voix ? `<button type="button" class="btn btn-glass voix" data-action="voix" data-id="${esc(p.id)}" data-duree="${esc(dureeLisible(p.voix.duree))}" aria-label="${t('Écouter la présentation de {nom}', { nom: esc(p.name) })}"><span class="voix-icone">${icon('play', 16)}</span><span class="voix-label">${t('Écouter · {duree}', { duree: dureeLisible(p.voix.duree) })}</span></button>` : ''}
         <div class="facts-line">
@@ -557,6 +573,32 @@ const listRow = ({ iconName, tile = '', title, sub = '', action = '', extra = ''
     <div class="body"><div class="title">${title}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>
     ${trailing === 'chev' && action ? `<span class="chev">${icon('chevron-right', 18)}</span>` : trailing === 'chev' ? '' : trailing}
   </${action ? 'button' : 'div'}>`;
+
+// Les questions supplémentaires du formulaire. Le nombre de blocs qu'on peut **ajouter** vient du
+// serveur (`limites.questions`) ; ceux qu'on porte déjà restent, même au-delà — la borne s'applique
+// à l'ajout, jamais à ce qu'on a, comme pour les photos. Chaque bloc propose les questions que
+// les autres n'ont pas prises : deux réponses à la même question ne diraient rien de plus.
+function blocsQuestionsSupplementaires(f) {
+  const extras = f.extras || [];
+  const plafond = Math.max((limite('questions') || 1) - 1, extras.length);
+  const total = S.me?.limites?.avecPass?.questions || 3;
+  const blocs = extras.map((x, i) => {
+    const prises = new Set([f.promptQ, ...extras.filter((_, j) => j !== i).map((y) => y.q)]);
+    return `
+      <div class="field extra" data-extra="${i}"><span class="label">${t('Une autre question')}
+        <button type="button" class="btn btn-ghost btn-sm" data-action="extra-remove" data-i="${i}">${t('Retirer')}</button></span>
+        <div class="chips" role="group" aria-label="${t('Une autre question')}">${Object.entries(QUESTIONS).filter(([k]) => !prises.has(k)).map(([k, l]) => `
+          <button type="button" aria-pressed="${k === x.q}" data-action="question-extra" data-i="${i}" data-value="${esc(k)}">${esc(t(l))}</button>`).join('')}</div>
+        <input name="extra-a-${i}" maxlength="120" value="${esc(x.a)}" placeholder="${t('Ta réponse')}">
+      </div>`;
+  }).join('');
+  const suite = extras.length < plafond
+    ? `<button type="button" class="btn btn-ghost btn-sm" data-action="extra-add">${icon('plus', 15)} ${t('Ajouter une question')}</button>`
+    : extras.length < total - 1
+      ? `<div class="list">${listRow({ iconName: 'lock', title: t('{n} questions sur ta fiche', { n: total }), sub: t('Avec un pass'), action: 'plus' })}</div>`
+      : '';
+  return blocs + suite;
+}
 
 // Changer de photo sur une carte : moitié droite, la suivante ; moitié gauche, la précédente
 function photoNav(box, e) {
@@ -599,7 +641,7 @@ function discoverBar() {
       <button type="button" class="pill" data-action="filters" aria-label="${t('Filtres')}">${icon('pin', 15)} ${esc(zoneLabel(zoneDe()))}${range} ${icon('sliders', 14)}</button>
       <div class="seg seg-mini" aria-label="${t('Affichage')}">
         <button type="button" data-action="mode" data-mode="cards" aria-pressed="${!list}">${icon('card', 15)} ${t('Cartes')}</button>
-        <button type="button" data-action="mode" data-mode="list" aria-pressed="${list}">${icon('rows', 15)} ${t('Liste')}</button>
+        <button type="button" data-action="mode" data-mode="list" aria-pressed="${list}">${icon(limite('liste') ? 'rows' : 'lock', 15)} ${t('Liste')}</button>
       </div>
       ${list || sansLimite() ? '' : `<span class="quota">${tn('{n} restant', '{n} restants', S.remaining)}</span>`}
     </div>`;
@@ -700,6 +742,9 @@ async function saveFilters(values) {
     gender: S.genreDraft ?? (S.me.filters?.gender || ''),
     // Le réglage n'existe que sous « badge » : ailleurs on renvoie ce qui est déjà rangé.
     verifiesSeulement: form?.verifiesSeulement ? form.verifiesSeulement.checked : !!S.me.filters?.verifiesSeulement,
+    // Sans le champ à l'écran (pas de pass), on renvoie ce qui est rangé : il dort, on n'efface pas.
+    langue: form?.langue ? form.langue.value.trim() : (S.me.filters?.langue || ''),
+    ordre: S.ordreDraft ?? (S.me.filters?.ordre || 'defaut'),
   };
   const ok = (n) => Number.isInteger(n) && n >= 18 && n <= 99;
   if (!ok(v.ageMin) || !ok(v.ageMax)) return showError(new Error(t('Indique des âges entre 18 et 99 ans.')));
@@ -710,6 +755,7 @@ async function saveFilters(values) {
     S.me.filters = r.filters;
     S.zoneDraft = null;
     S.genreDraft = null;
+    S.ordreDraft = null;
     S.filtresDraft = null;
     S.profiles = [];
     S.people = [];
@@ -822,10 +868,12 @@ const SCREENS = {
       area: p.area || '',
       promptQ: QUESTIONS[p.promptQ] ? p.promptQ : QUESTION_DEFAUT,
       promptA: p.promptA || '',
+      // Les questions supplémentaires, telles que le serveur les rend : clé et réponse.
+      extras: (p.extras || []).map((x) => ({ q: x.q, a: x.a || '' })),
       languages: p.languages || '',
       compat: { ...(p.compat || {}) },
       // Par emplacement : 'keep' (photo existante), une image encodée (nouvelle), ou null (vide ou à retirer)
-      photos: Object.fromEntries([1, 2, 3].map((n) => [n, (S.me.photos || []).some((x) => x.n === n) ? 'keep' : null])),
+      photos: Object.fromEntries(emplacementsPhoto().map((n) => [n, (S.me.photos || []).some((x) => x.n === n) ? 'keep' : null])),
     });
     const step = S.formStep;
   noterEtape(step + 1);
@@ -867,8 +915,8 @@ const SCREENS = {
       <label class="field"><span class="label">${t('Quartier')} <span class="opt">${t('facultatif')}</span></span><input name="area" maxlength="40" value="${esc(f.area)}" placeholder="${t('Ton quartier')}"></label>
       <p class="fine">${icon('pin', 14)}<span>${t("Tu verras d'abord les profils de ta ville. Tu pourras élargir à tout le pays, ou viser une autre ville, depuis les filtres.")}</span></p>`,
       `
-      <div class="field"><span class="label">${t('Tes photos')} <span class="opt">${t("jusqu'à 3, facultatif")}</span></span>
-        <div class="photo-slots">${[1, 2, 3].map((n) => {
+      <div class="field"><span class="label">${t('Tes photos')} <span class="opt">${t("jusqu'à {n}, facultatif", { n: limite('photos') || 2 })}</span></span>
+        <div class="photo-slots">${emplacementsPhoto().map((n) => {
           const v = f.photos[n];
           const existing = (S.me.photos || []).find((x) => x.n === n);
           const src = v && v !== 'keep' ? v : v === 'keep' ? S.photoUrls[`${S.me.id}/${n}`] : null;
@@ -892,11 +940,12 @@ const SCREENS = {
            rapport avec ce qui était demandé. Une suggestion par question serait juste ; une
            suggestion qui ne suit pas la question est pire que pas de suggestion. -->
       <label class="field"><span class="label">${t('Ta réponse')}</span><input name="promptA" maxlength="120" value="${esc(f.promptA)}"></label>
+      ${blocsQuestionsSupplementaires(f)}
       <label class="field"><span class="label">${t('Langues parlées')} <span class="opt">${t('facultatif')}</span></span><input name="languages" maxlength="60" value="${esc(f.languages)}" placeholder="${t('Français, anglais, ewondo')}"></label>
       <p class="fine">${icon('ban', 14)}<span>${t('Ni numéro, ni pseudo, ni lien dans ton profil : ils seraient refusés.')}</span></p>`,
     ];
     render(`${head}${bodies[step]}<p id="form-error" class="error" role="alert"></p>`);
-    if (step === 2) [1, 2, 3].filter((n) => f.photos[n] === 'keep' && !S.photoUrls[`${S.me.id}/${n}`]).forEach((n) => photoUrl(S.me.id, n).then((url) => {
+    if (step === 2) emplacementsPhoto().filter((n) => f.photos[n] === 'keep' && !S.photoUrls[`${S.me.id}/${n}`]).forEach((n) => photoUrl(S.me.id, n).then((url) => {
       const slot = app.querySelector(`input[name="photo-${n}"]`)?.closest('.photo-slot');
       if (url && slot && !slot.querySelector('img')) slot.prepend(Object.assign(document.createElement('img'), { src: url, alt: '' }));
     }));
@@ -984,6 +1033,10 @@ const SCREENS = {
   },
 
   async discover() {
+    // Le mode est retenu dans CloudStorage : quelqu'un qui avait la vue Liste avant qu'elle passe
+    // dans le pass, ou dont le pass vient d'expirer, la retrouverait ici et n'obtiendrait qu'un
+    // 403. On revient aux cartes plutôt que de le laisser devant un écran d'erreur.
+    if (S.discoverMode === 'list' && !limite('liste')) S.discoverMode = 'cards';
     if (S.discoverMode === 'list') return renderPeople();
     const dbar = discoverBar;
     if (!S.profiles.length) {
@@ -1054,7 +1107,8 @@ const SCREENS = {
   filters() {
     // Le brouillon en dernier : ce qui a été tapé sans être enregistré l'emporte sur ce qui est
     // rangé, sinon aller choisir un pays remettrait les âges à leur valeur d'avant.
-    const f = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, ...(S.me.filters || {}), ...(S.filtresDraft || {}) };
+    const f = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, langue: '', ordre: 'defaut', ...(S.me.filters || {}), ...(S.filtresDraft || {}) };
+    const ordre = S.ordreDraft ?? f.ordre;
     if (S.genreDraft != null) f.gender = S.genreDraft;
     // Qui choisit le genre recherché.
     //
@@ -1082,8 +1136,9 @@ const SCREENS = {
         <button type="button" class="btn btn-ghost btn-sm" data-action="zone-ici">${icon('pin', 15)} ${t('Ma position : {pays}', { pays: esc(nomPays(ici)) })}</button>` : ''}
         <div class="seg seg-zone" aria-label="${t('Étendue')}">
           <button type="button" data-action="zone-mode" data-mode="ville" aria-pressed="${!toutLePays}">${t('Une ville')}</button>
-          <button type="button" data-action="zone-mode" data-mode="pays" aria-pressed="${toutLePays}">${t('Tout le pays')}</button>
+          <button type="button" data-action="zone-mode" data-mode="pays" aria-pressed="${toutLePays && limite('paysEntier')}">${icon(limite('paysEntier') ? 'globe' : 'lock', 14)} ${t('Tout le pays')}</button>
         </div>
+        ${limite('paysEntier') ? '' : `<p class="fine">${icon('info', 14)}<span>${t('Sans pass, tu vois les profils de ta ville. Un pass ouvre le pays entier.')}</span></p>`}
         ${toutLePays ? '' : `
         <label class="field"><span class="label">${t('Ville')}</span>
           <input name="zoneCity" maxlength="40" value="${esc(z.city || '')}" placeholder="${esc((S.me.options.knownCities[z.country] || [])[0] || t('Ta ville'))}" list="villes-zone" autocomplete="off">
@@ -1102,6 +1157,18 @@ const SCREENS = {
           <label class="field"><span class="label">${t('De')}</span><input name="ageMin" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMin)}"></label>
           <label class="field"><span class="label">${t('À')}</span><input name="ageMax" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMax)}"></label>
         </div>
+        <span class="eyebrow">${t('Ordre du paquet')}</span>
+        ${limite('ordreDuPaquet') ? `
+        <div class="seg seg-ordre" aria-label="${t('Ordre du paquet')}">${(S.me.options.ordres || []).map((k) => `
+          <button type="button" data-action="ordre" data-ordre="${esc(k)}" aria-pressed="${k === ordre}">${t(ORDRES_LABELS[k] || k)}</button>`).join('')}</div>
+        <p class="fine">${icon('info', 14)}<span>${t("Qui t'a aimé passe toujours devant, quel que soit l'ordre.")}</span></p>` : `
+        <div class="list">${listRow({ iconName: 'lock', title: t("Choisir l'ordre du paquet"), sub: t('Avec un pass'), action: 'plus' })}</div>`}
+        <span class="eyebrow">${t('Langue parlée')}</span>
+        ${limite('filtreLangue') ? `
+        <label class="field"><span class="label">${t('Ne voir que les personnes qui parlent')} <span class="opt">${t('facultatif')}</span></span>
+          <input name="langue" maxlength="30" value="${esc(f.langue || '')}" placeholder="${t('Français, ewondo, anglais…')}" autocomplete="off"></label>
+        <p class="fine">${icon('info', 14)}<span>${t("Ça lit ce que chacun a écrit dans « Langues parlées », mot pour mot. « Anglais » ne trouve pas « English ».")}</span></p>` : `
+        <div class="list">${listRow({ iconName: 'lock', title: t('Filtrer par langue parlée'), sub: t('Avec un pass'), action: 'plus' })}</div>`}
         ${entreeLibre() ? `
         <span class="eyebrow">${t('Vérification')}</span>
         <label class="list-row">
@@ -1114,7 +1181,7 @@ const SCREENS = {
       <p class="fine">${icon('users', 14)}<span>${t('Ta zone ne vaut que pour toi : elle décide de qui tu vois, pas de qui te voit.')}</span></p>
       <p class="fine">${icon('info', 14)}<span>${t('Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.')}</span></p>`);
     document.getElementById('filters-form').addEventListener('submit', (e) => { e.preventDefault(); saveFilters(); });
-    tg.setButtons({ main: { text: t('Enregistrer'), onClick: () => saveFilters() }, secondary: { text: t('Tout voir'), onClick: () => saveFilters({ ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, zone: { ...zoneDe(), city: null } }) } });
+    tg.setButtons({ main: { text: t('Enregistrer'), onClick: () => saveFilters() }, secondary: { text: t('Tout voir'), onClick: () => saveFilters({ ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, langue: '', zone: { ...zoneDe(), city: null } }) } });
   },
 
   person({ id }) {
@@ -1432,6 +1499,13 @@ const SCREENS = {
         ${listRow({ iconName: 'heart', tile: 'tile-like', title: t('Des « J\'aime » sans compter'), sub: S.me.quota === null ? t('Tu n\'as aucune limite en ce moment.') : t('Sans pass, tu en as {n} par jour.', { n: S.me.quota }) })}
         ${listRow({ iconName: 'sparkles', tile: 'tile-ok', title: t('Qui t\'a aimé'), sub: t('La liste, avec les fiches. Sans pass, ces personnes passent devant dans ton paquet, mais rien ne les nomme.') })}
         ${listRow({ iconName: 'rows', title: t("Se sont arrêtés sur ta fiche"), sub: t("Combien, en gros, et les cinq dernières fiches. Jamais ce qu'elles ont décidé.") })}
+        ${listRow({ iconName: 'rows', title: t('La vue Liste'), sub: t('Cinquante profils d\'un coup, avec leur statut. Les mêmes personnes que dans tes cartes.') })}
+        ${listRow({ iconName: 'globe', title: t('Tout le pays'), sub: t('Sans pass, tu vois les profils de ta ville.') })}
+        ${listRow({ iconName: 'camera', title: t('{n} photos', { n: S.me?.limites?.avecPass?.photos || 6 }), sub: t('Sans pass, {n}.', { n: limite('photos') || 2 }) })}
+        ${listRow({ iconName: 'mic', title: t('Une présentation vocale de {n} secondes', { n: S.me?.limites?.avecPass?.voixSecondes || 30 }), sub: t('Sans pass, {n} secondes.', { n: limite('voixSecondes') || 15 }) })}
+        ${listRow({ iconName: 'sparkles', title: t('{n} questions sur ta fiche', { n: S.me?.limites?.avecPass?.questions || 3 }), sub: t('Sans pass, {n}.', { n: limite('questions') || 1 }) })}
+        ${listRow({ iconName: 'globe', title: t('Filtrer par langue parlée'), sub: t('Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.') })}
+        ${listRow({ iconName: 'sliders', title: t("L'ordre du paquet au choix"), sub: t("Conseillé, les plus actifs, les nouveaux, ou ton quartier d'abord.") })}
       </div>
       ${etat.actif ? '' : `<p class="fine">${icon('info', 14)}<span>${t("Le pass n'est pas encore en vente. Il le sera dans {app}, jamais par message.", { app: APP })}</span></p>`}`);
     tg.setBack(() => go(S.plusRetour || 'me'));
@@ -1690,6 +1764,7 @@ function garderLesFiltres() {
   S.filtresDraft = {
     ageMin: form.ageMin?.value,
     ageMax: form.ageMax?.value,
+    ...(form.langue ? { langue: form.langue.value } : {}),
     ...(form.verifiesSeulement ? { verifiesSeulement: form.verifiesSeulement.checked } : {}),
   };
 }
@@ -1717,6 +1792,7 @@ function stepError(step) {
   }
   if (step === 1 && !f.intent) return t('Choisis ce que tu cherches.');
   if (step === 2 && f.promptA.trim().length < 3) return t('Réponds à la question sur toi.');
+  if (step === 2 && (f.extras || []).some((x) => x.a.trim().length < 3)) return t('Réponds à chaque question que tu as choisie, ou retire-la.');
   return null;
 }
 
@@ -1765,7 +1841,7 @@ async function saveProfile() {
     const { photos, ...fields } = f;
     await api('/me/profile', { method: 'PUT', body: { ...fields, age: Number(f.age) } });
     // Emplacements : une nouvelle image part en modération, un emplacement vidé est supprimé
-    for (const n of [1, 2, 3]) {
+    for (const n of emplacementsPhoto()) {
       const v = photos[n];
       const existed = (S.me.photos || []).some((x) => x.n === n);
       if (v && v !== 'keep') await api(`/me/photos/${n}`, { method: 'PUT', body: { photo: v } });
@@ -2256,8 +2332,34 @@ app.addEventListener('click', async (e) => {
       S.form.promptQ = el.dataset.value;
       pressOnly(el, '[data-action="question"]');
       break;
+    case 'question-extra':
+      tg.haptic('select');
+      S.form.extras[Number(el.dataset.i)].q = el.dataset.value;
+      pressOnly(el, '[data-action="question-extra"]');
+      break;
+    // Ajouter ou retirer un bloc redessine l'écran : l'état est dans S.form, tenu à jour à
+    // chaque frappe, donc rien de tapé ailleurs ne se perd — même raison que set-compat.
+    case 'extra-add': {
+      tg.haptic('select');
+      const prises = new Set([S.form.promptQ, ...S.form.extras.map((x) => x.q)]);
+      const libre = Object.keys(QUESTIONS).find((k) => !prises.has(k));
+      if (libre) S.form.extras.push({ q: libre, a: '' });
+      SCREENS.profile();
+      break;
+    }
+    case 'extra-remove': tg.haptic('select'); S.form.extras.splice(Number(el.dataset.i), 1); SCREENS.profile(); break;
+    case 'ordre':
+      tg.haptic('light');
+      garderLesFiltres();
+      S.ordreDraft = el.dataset.ordre;
+      SCREENS.filters();
+      break;
     case 'zone-mode':
       garderLesFiltres();
+      // « Tout le pays » demande un pass : on emmène à l'écran qui l'explique, sans toucher au
+      // réglage. Le serveur l'ignorerait de toute façon, et un bouton qui s'enfonce sans rien
+      // changer est pire qu'un bouton qui dit pourquoi.
+      if (el.dataset.mode === 'pays' && !limite('paysEntier')) { S.plusRetour = 'filters'; go('plus'); break; }
       S.zoneDraft = { ...(S.zoneDraft || zoneDe()), city: el.dataset.mode === 'pays' ? null : (S.zoneDraft?.city || S.me.profile.city || '') };
       SCREENS.filters();
       break;
@@ -2273,6 +2375,9 @@ app.addEventListener('click', async (e) => {
     case 'photo-remove': e.preventDefault(); S.form.photos[el.dataset.n] = null; SCREENS.profile(); break;
     case 'mode':
       tg.haptic('select');
+      // Sans pass, la vue Liste mène à l'écran du pass plutôt qu'à un 403 muet — et le mode
+      // retenu ne bascule pas, sinon on reviendrait sur Découvrir coincé dans une vue fermée.
+      if (el.dataset.mode === 'list' && !limite('liste')) { S.plusRetour = 'discover'; go('plus'); break; }
       S.discoverMode = el.dataset.mode;
       tg.cloudSet('discover_mode', el.dataset.mode);
       SCREENS.discover();
@@ -2341,7 +2446,10 @@ app.addEventListener('click', async (e) => {
 
 app.addEventListener('input', (e) => {
   const { name, value } = e.target;
-  if (S.screen === 'profile' && S.form && name in S.form && name !== 'photo') {
+  const extra = /^extra-a-(\d)$/.exec(name || '');
+  if (S.screen === 'profile' && S.form && extra && S.form.extras[Number(extra[1])]) {
+    S.form.extras[Number(extra[1])].a = value;
+  } else if (S.screen === 'profile' && S.form && name in S.form && name !== 'photo') {
     S.form[name] = value;
     const err = document.getElementById('form-error');
     if (err) err.textContent = '';
@@ -2366,7 +2474,7 @@ app.addEventListener('input', (e) => {
 // bien, mais sans un mot à l'écran, et avec une promesse rejetée derrière.
 app.addEventListener('change', async (e) => {
   const el = e.target;
-  if (/^photo-[123]$/.test(el.name) && el.files?.[0]) {
+  if (/^photo-[1-6]$/.test(el.name) && el.files?.[0]) {
     try { S.form.photos[el.name.slice(-1)] = await compressImage(el.files[0]); SCREENS.profile(); } catch (err) { showError(err); }
   } else if (el.name === 'selfie' && el.files?.[0]) {
     try { S.selfie = await compressImage(el.files[0], 900, 0.85); SCREENS.verify(); } catch (err) { showError(err); }

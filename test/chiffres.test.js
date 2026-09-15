@@ -207,7 +207,7 @@ test('--json sort du JSON et rien d\'autre sur la sortie standard', async () => 
     env: { ...process.env, DATA_DIR: dossier, DATABASE_URL: '', SEED_DEMO: 'false', BOT_TOKEN: '' },
   });
   const r = JSON.parse(stdout);
-  assert.deepEqual(Object.keys(r).sort(), ['activation', 'avertissements', 'churn', 'contre', 'entonnoir', 'entree', 'exclus', 'phare']);
+  assert.deepEqual(Object.keys(r).sort(), ['activation', 'avertissements', 'churn', 'contre', 'entonnoir', 'entree', 'exclus', 'phare', 'plus']);
   assert.equal(r.entonnoir.comptes, 0, 'une base neuve ne compte personne');
   assert.ok(r.avertissements.length > 0, 'et dit quand même ce qui limite la lecture');
 });
@@ -229,4 +229,71 @@ test("la sortie lisible par un humain dit ce qu'elle ne peut pas dire", async ()
   assert.match(stdout, /rétroactif/, "l'avertissement qui vaut pour tout le dossier est là");
   // Aucune part inventée sur une base vide : les cases vides disent « — », jamais « 0 % ».
   assert.match(stdout, /délai médian de modération\s+—/);
+});
+
+// ---------- Odo Plus : la demande, et l'usage ----------
+//
+// Le pass a été construit pour répondre à une question — est-ce que ce qu'il y a derrière
+// intéresse quelqu'un — et pendant un jour, rien n'y répondait. Ces tests éprouvent les deux
+// chiffres qui la tranchent, et surtout ce qu'ils refusent de dire.
+
+test('la demande se compte en personnes autant qu\'en gestes', () => {
+  const r = monde({
+    users: [membre(3)],
+    // Le membre 1 bute dix fois, le membre 3 une seule. Dix gestes, deux personnes : dire
+    // « dix » sans dire « deux » laisserait croire à dix curieux là où il y en a un obstiné.
+    events: [
+      ...Array.from({ length: 10 }, () => evt('pass_refuse', 1, { quoi: 'likes' })),
+      evt('pass_refuse', 3, { quoi: 'vues' }),
+    ],
+  });
+  assert.equal(r.plus.refusGestes, 11);
+  assert.equal(r.plus.refusPersonnes, 2);
+  assert.deepEqual(r.plus.refusParPorte, { likes: 10, vues: 1 });
+});
+
+test('un pass posé qui ne sert à rien se voit', () => {
+  const r = monde({
+    users: [membre(3, { plus: { source: 'gift', finLe: MAINTENANT + 10 * JOUR } })],
+    events: [evt('pass_pose', 1, { jours: 30 }), evt('pass_pose', 3, { jours: 30 }),
+      evt('pass_usage', 1, { quoi: 'likes' })],
+  });
+  assert.equal(r.plus.passPoses, 2);
+  assert.equal(r.plus.usagePersonnes, 1);
+  // Un sur deux s'en sert : c'est le chiffre qui dit si le pass tient sa promesse.
+  assert.equal(r.plus.partQuiSEnServent, 0.5);
+  // `actifs` se lit sur les comptes, pas sur les événements : un pass posé peut être échu.
+  assert.equal(r.plus.actifs, 1, "seul le membre 3 porte un pass encore valable");
+});
+
+test('le palier du quota est rangé à part quand la ligne ne le dit pas', () => {
+  const r = monde({
+    events: [evt('quota_hit', 1, { action: 'like', q: 5 }), evt('quota_hit', 1, { action: 'like', q: 2 }),
+      evt('quota_hit', 2, { action: 'like' })],
+  });
+  assert.equal(r.plus.murDuQuotaGestes, 3);
+  assert.equal(r.plus.murDuQuotaPersonnes, 2);
+  // La ligne sans `q` date d'avant le 15 septembre 2026, quand le quota valait 20. L'attribuer
+  // à un palier au hasard serait inventer ; elle va sous « — », et l'avertissement le dit.
+  assert.deepEqual(r.plus.murParPalier, { 5: 1, 2: 1, '—': 1 });
+  assert.ok(r.avertissements.some((a) => /d'avant le 15 septembre 2026/.test(a)));
+});
+
+test('aucun de ces chiffres ne prétend mesurer un consentement à payer', () => {
+  const r = monde({ events: [evt('pass_pose', 1, { jours: 30 })] });
+  assert.ok(r.avertissements.some((a) => /offerts à la main/.test(a) && /jamais un consentement à payer/.test(a)),
+    "sans caisse, un refus mesure une curiosité — l'écrire à côté du nombre est la moitié du travail");
+});
+
+test('un profil de démonstration ne gonfle ni la demande ni l\'usage', () => {
+  const r = monde({
+    users: [membre('demo-2', { demo: true, plus: { source: 'gift', finLe: MAINTENANT + JOUR } })],
+    events: [evt('pass_refuse', 'demo-2', { quoi: 'likes' }), evt('pass_usage', 'demo-2', { quoi: 'vues' }),
+      evt('pass_pose', 'demo-2', { jours: 30 }), evt('quota_hit', 'demo-2', { action: 'like', q: 5 })],
+  });
+  assert.equal(r.plus.refusGestes, 0);
+  assert.equal(r.plus.usagePersonnes, 0);
+  assert.equal(r.plus.passPoses, 0);
+  assert.equal(r.plus.murDuQuotaGestes, 0);
+  assert.equal(r.plus.actifs, 0, 'et son pass ne compte pas non plus');
 });

@@ -165,7 +165,7 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
 - [ ] Juste après la vérification, l'écran de la présentation vocale est proposé **une fois**.
 - [ ] Le bouton ouvre la **discussion du bot**, pas un navigateur, et l'écran ne fige pas.
 - [ ] Le bot dit le geste en premier : « Appuie sur le micro, en bas de cette discussion. »
-- [ ] Enregistre un vocal de moins de 15 s : il arrive dans le groupe de modération avec ses
+- [ ] Enregistre un vocal de moins de 15 s (30 s avec un pass, et la consigne du bot doit dire le bon nombre) : il arrive dans le groupe de modération avec ses
       boutons, et l'app affiche « En attente ».
 - [ ] Valide-le depuis le groupe : l'app affiche « Validée · 0:12 ».
 

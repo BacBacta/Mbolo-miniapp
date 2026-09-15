@@ -15,6 +15,42 @@
 // de moyen de paiement gardée pour la suite. Un pass a une fin franche, et il faut un geste pour
 // en reprendre un (section 10.2). C'est plus cher en réachat, et c'est le prix de la promesse.
 
+// ---------- Ce que le pass ouvre, chiffre par chiffre ----------
+//
+// Une table plutôt que des constantes éparpillées, pour la même raison que `CRITERES` dans
+// `jauge.js` : la carte, l'interface et le serveur lisent tous la même ligne, et deux endroits qui
+// décrivent la même chose finissent toujours par diverger. L'interface ne recopie aucun de ces
+// nombres — `GET /api/me` les lui envoie.
+//
+// Ce qui n'est **pas** ici, et n'y sera pas : les limites de débit (des digues anti-abus), le
+// déverrouillage des contacts avant dix messages (une barrière anti-arnaque), et l'activité
+// précise d'un autre membre (elle est arrondie exprès). Vendre l'un de ces trois-là reviendrait à
+// vendre la capacité de nuire, ou la vie privée de quelqu'un d'autre.
+export const PALIERS = {
+  photos: { sans: 2, avec: 6 },
+  voixSecondes: { sans: 15, avec: 30 },
+  // Questions sur la fiche : la première est obligatoire pour tout le monde, les deux suivantes
+  // viennent avec le pass. Comme les photos, la borne s'applique à l'ajout, jamais à l'affichage.
+  questions: { sans: 1, avec: 3 },
+};
+
+// Ce que le pass ouvre sans nombre : des droits, pas des paliers. Lus par `GET /api/me` pour que
+// l'interface montre un cadenas au bon endroit sans recopier la règle.
+export const DROITS_DU_PASS = ['liste', 'paysEntier', 'filtreLangue', 'ordreDuPaquet'];
+
+// Les ordres du paquet qu'on peut choisir avec un pass. Une liste fermée : une valeur inventée
+// est refusée, jamais rangée (règle 5.1). Chacun ne trie que sur ce que la carte montre déjà —
+// l'activité **par tranche** et pas à l'heure près, le badge « Nouveau », le quartier — pour
+// que choisir un ordre n'apprenne rien qu'on ne verrait pas en regardant les cartes une à une.
+// Et dans tous, qui t'a aimé passe devant : c'est le meilleur signal qui existe, on ne le cache
+// pas derrière un réglage.
+export const ORDRES = ['defaut', 'actifs', 'nouveaux', 'proches'];
+export const ORDRE_DEFAUT = 'defaut';
+
+// Le palier qui s'applique à cette personne. `estPlus()` reste le seul endroit qui tranche : cette
+// fonction ne fait que lire la table à la lumière de sa réponse.
+export const palier = (nom, user, maintenant = Date.now()) => PALIERS[nom][estPlus(user, maintenant) ? 'avec' : 'sans'];
+
 // Les sources possibles, reprises telles quelles de la table `entitlements` (section 10.4), pour
 // que la migration soit une recopie et pas une traduction.
 export const SOURCES = ['momo', 'stars', 'sponsor', 'gift'];

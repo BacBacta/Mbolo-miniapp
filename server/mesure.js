@@ -13,6 +13,22 @@
 import { config } from './config.js';
 import { store } from './store.js';
 
+// Les clés posées par le code, pour que la liste se lise à un endroit plutôt que de se
+// reconstituer en fouillant les appels. Elle ne sert à rien au calcul — `mesurer()` n'y regarde
+// pas — mais elle dit ce que `server/chiffres.js` a le droit d'attendre de trouver.
+//
+//   app_opened {}        · une par heure et par personne : ce qui permet de dater un départ
+//   form_step {step}     · l'étape maximale atteinte dans le formulaire, jointe à l'ouverture suivante
+//   profile_saved {}     · selfie_sent {} · verif_decided {ok, auto, ms} · verif_retried {}
+//   deck_served {n, r}   · une par paquet, ralentie à cinq minutes ; `r` absent avec un pass
+//   deck_empty {why}     · quota_hit {action, q} — `q` est le palier touché, absent avant le 15/09/2026
+//   antiscam_block {code}· le code de la règle, jamais le libellé ni le texte
+//   account_deleted {}   · sans identifiant
+//   pass_pose {jours}    · pass_retire {} — ce que la modération distribue à la main
+//   pass_refuse {quoi}   · **la demande** : qui bute sur le mur sans pass. Sans caisse, c'est la
+//                          seule façon de savoir si ce qu'il y a derrière intéresse quelqu'un
+//   pass_usage {quoi}    · l'usage réel, ralenti : un pass dont personne ne se sert ne vaut rien
+
 // Les seules formes admises dans une charge utile. Tout le reste est un refus : c'est la barrière
 // qui empêche un texte libre d'entrer un jour par inadvertance.
 // `Number.isFinite` et pas `typeof number` : Infinity et NaN sont des nombres pour JavaScript, mais

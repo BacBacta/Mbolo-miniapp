@@ -36,6 +36,8 @@ async function makeUser(id, name, gender, age = 25) {
   await store.updateUser(id, { verification: 'approved' });
 }
 const ids = (r) => r.body.profiles.map((p) => p.id);
+// La vue Liste demande un pass : ces tests portent sur les filtres, pas sur la porte.
+const listeDe = async (id) => { await passer(id); return ids(await call(id, '/profiles')); };
 // Un pass offert : voir qui t'a aimé est ce qu'il ouvre, donc ces tests-là en ont besoin.
 const passer = async (id) => store.updateUser(id, { plus: { source: 'gift', depuisLe: Date.now(), finLe: Date.now() + 30 * 24 * 3600 * 1000 } });
 
@@ -44,13 +46,13 @@ test.after(() => server.close());
 test('la tranche d\'âge se règle, se relit, et refuse l\'absurde', async () => {
   await makeUser('7401', 'Aline', 'femme');
   // Par défaut : tous les âges, et la zone est la ville du profil
-  assert.deepEqual((await call('7401', '/me')).body.filters, { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, zone: { country: 'CM', city: 'Douala' } }, 'par défaut : tout le monde, dans ma ville');
+  assert.deepEqual((await call('7401', '/me')).body.filters, { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, langue: '', ordre: 'defaut', zone: { country: 'CM', city: 'Douala' } }, 'par défaut : tout le monde, dans ma ville, toutes les langues');
   assert.equal((await call('7401', '/me/filters', 'PUT', { ageMin: 30, ageMax: 25 })).status, 400, 'min > max');
   assert.equal((await call('7401', '/me/filters', 'PUT', { ageMin: 17, ageMax: 25 })).status, 400, 'jamais de mineur');
   assert.equal((await call('7401', '/me/filters', 'PUT', { ageMin: 'x', ageMax: 25 })).status, 400);
   const r = await call('7401', '/me/filters', 'PUT', { ageMin: 24, ageMax: 30 });
   assert.equal(r.status, 200);
-  assert.deepEqual((await call('7401', '/me')).body.filters, { ageMin: 24, ageMax: 30, gender: '', verifiesSeulement: false, zone: { country: 'CM', city: 'Douala' } }, "une requête sans zone ne touche pas à la zone");
+  assert.deepEqual((await call('7401', '/me')).body.filters, { ageMin: 24, ageMax: 30, gender: '', verifiesSeulement: false, langue: '', ordre: 'defaut', zone: { country: 'CM', city: 'Douala' } }, "une requête sans zone ne touche pas à la zone");
 });
 
 test('cartes et liste respectent la tranche ; un like reçu l\'ignore', async () => {
@@ -61,17 +63,17 @@ test('cartes et liste respectent la tranche ; un like reçu l\'ignore', async ()
 
   const cartes = ids(await call('7401', '/discover'));
   assert.ok(cartes.includes(await pid('7402')) && !cartes.includes(await pid('7403')) && !cartes.includes(await pid('7404')), 'le paquet filtre par âge');
-  const liste = ids(await call('7401', '/profiles'));
-  assert.ok(liste.includes(await pid('7402')) && !liste.includes(await pid('7403')), 'la liste aussi');
 
-  // Qui t'a aimé est ce que le pass ouvre : sans lui la porte est fermée, et fermée en le
-  // disant — un 403 muet se lit comme une panne.
+  // Les deux portes fermées se vérifient **avant** qu'un pass entre en jeu : `listeDe()` en pose
+  // un, et l'ordre de ces lignes est donc ce qui fait que ce test dit encore quelque chose.
   const sansPass = await call('7401', '/likes');
-  assert.equal(sansPass.status, 403, 'sans pass, la liste ne s\'ouvre pas');
+  assert.equal(sansPass.status, 403, 'sans pass, la liste des « J\'aime » ne s\'ouvre pas');
   assert.equal(sansPass.body.code, 'PASS_REQUIS');
   assert.equal((await call('7401', '/summary')).body.likes, null, 'et le compteur ne dit pas zéro : il ne dit rien');
+  assert.equal((await call('7401', '/profiles')).status, 403, 'la vue Liste non plus');
 
-  await passer('7401');
+  const liste = await listeDe('7401'); // pose le pass, puis lit
+  assert.ok(liste.includes(await pid('7402')) && !liste.includes(await pid('7403')), 'la liste aussi respecte la tranche');
   const likes = await call('7401', '/likes');
   assert.deepEqual(ids(likes), [await pid('7404')], 'Jean, hors tranche, apparaît quand même dans les likes reçus');
   assert.equal(likes.body.profiles[0].activity, 'week', 'activité rabattue avant le match');
@@ -115,7 +117,7 @@ test('en amitié, le genre recherché se règle et le paquet le suit', async () 
   const cartes = ids(await call('7410', '/discover'));
   assert.ok(cartes.includes(await pid('7411')), 'les femmes restent');
   assert.ok(!cartes.includes(await pid('7412')), 'les hommes sortent du paquet');
-  assert.ok(!ids(await call('7410', '/profiles')).includes(await pid('7412')), 'et de la liste aussi');
+  assert.ok(!(await listeDe('7410')).includes(await pid('7412')), 'et de la liste aussi');
 
   // Revenir à « tout le monde » est un choix comme un autre : la chaîne vide, pas une absence.
   await call('7410', '/me/filters', 'PUT', { ageMin: 18, ageMax: 99, gender: '' });

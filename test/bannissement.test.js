@@ -71,7 +71,11 @@ async function creer(id, name, gender = 'femme') {
   await call(id, '/me/profile', 'PUT', { name, age: 25, gender, intent: 'amitie', city: 'Yaoundé', promptA: 'Le poisson braisé' });
   await store.updateUser(id, { verification: 'approved' });
 }
-const profilsVusPar = async (id) => (await call(id, '/profiles')).body.profiles?.map((p) => p.id) ?? [];
+const profilsVusPar = async (id) => { await passer(id); return (await call(id, '/profiles')).body.profiles?.map((p) => p.id) ?? []; };
+
+// La vue Liste et le pays entier demandent un pass. Ces tests portent sur autre chose : on leur
+// en donne un plutôt que de réécrire ce qu'ils éprouvent.
+const passer = (id) => store.updateUser(id, { plus: { source: 'gift', depuisLe: Date.now(), finLe: Date.now() + 30 * 24 * 3600 * 1000 } });
 
 test.after(() => server.close());
 

@@ -68,6 +68,19 @@ console.log(ligne('matchs avec un message en 48 h', pct(r.entree.partMatchsAvecM
 console.log(ligne('discussions longues avec proposition', pct(r.entree.partLonguesAvecProposition)));
 console.log(ligne('propositions acceptées', pct(r.entree.partPropositionsAcceptees)));
 
+console.log(titre('Odo Plus — la demande, et l\'usage'));
+console.log(ligne('pass actifs en ce moment', r.plus.actifs));
+console.log(ligne('pass posés à la main', r.plus.passPoses, r.plus.passRetires ? `${r.plus.passRetires} retiré(s)` : ''));
+console.log(ligne('refusés faute de pass', r.plus.refusGestes, `${r.plus.refusPersonnes} personne(s)`));
+console.log('  par porte fermée :');
+console.log(liste(r.plus.refusParPorte));
+console.log(ligne('s\'en sont servis', r.plus.usagePersonnes, pct(r.plus.partQuiSEnServent) + ' de ceux qui l\'ont eu'));
+console.log('  par porte ouverte :');
+console.log(liste(r.plus.usageParPorte));
+console.log(ligne('ont buté sur le quota du jour', r.plus.murDuQuotaGestes, `${r.plus.murDuQuotaPersonnes} personne(s)`));
+console.log('  par palier touché :');
+console.log(liste(r.plus.murParPalier));
+
 console.log(titre('Contre-métriques — si l\'une monte, la phare ne compte plus'));
 console.log(ligne('signalements pour 100 matchs', nb(r.contre.signalementsPour100Matchs)));
 console.log(ligne('blocages anti-arnaque pour 100 messages', nb(r.contre.blocagesPour100Messages)));

@@ -72,6 +72,10 @@ app.use(express.json());
 app.use('/api', api);
 const server = app.listen(0);
 const base = `http://localhost:${server.address().port}/api`;
+// La vue Liste et le pays entier demandent un pass. Ces tests portent sur autre chose : on leur
+// en donne un plutôt que de réécrire ce qu'ils éprouvent.
+const passer = (id) => store.updateUser(id, { plus: { source: 'gift', depuisLe: Date.now(), finLe: Date.now() + 30 * 24 * 3600 * 1000 } });
+
 test.after(() => { server.close(); globalThis.fetch = vraiFetch; });
 
 const call = async (user, p, method = 'GET', body) => {
@@ -325,6 +329,7 @@ test('le profil public annonce la durée, et rien de plus', async () => {
 
   const vu = (await call('8029', '/me')) && null; // le lecteur doit exister
   await membre('8029', 'Bintou');
+  await passer('8029');
   const profils = (await call('8029', '/profiles')).body.profiles;
   const p8028 = await pid('8028');
   const p = profils.find((x) => x.id === p8028);

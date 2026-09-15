@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { config, runtime, genreAuChoix, entreeLibre, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT } from './config.js';
-import { estPlus, etatDuPass } from './plus.js';
+import { estPlus, etatDuPass, palier, PALIERS, DROITS_DU_PASS, ORDRES, ORDRE_DEFAUT } from './plus.js';
 import { arrondir, dansLaFenetre, discret, MAX_FICHES } from './vues.js';
 import { codeValide } from './lieux.js';
 import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
@@ -80,6 +80,7 @@ async function publicProfile(user) {
     area: p.area,
     promptQ: p.promptQ,
     promptA: p.promptA,
+    extras: p.extras || [],
     languages: p.languages || '',
     // Seules les photos validées par la modération sont montrées aux autres
     photos: (await store.photosOf(user)).filter((x) => x.status === 'approved').map((x) => x.n),
@@ -185,9 +186,17 @@ const auClient = (n) => (Number.isFinite(n) ? n : null);
 // pour qui n'a pas le pass — zéro serait faux, et « personne ne t'a aimé » est un mensonge — il
 // vaut `null`, comme le quota : on ne le dit pas.
 const voitSesLikes = (u) => estPlus(u);
-const requirePlus = (req, res, next) => (estPlus(req.user)
-  ? next()
-  : fail(res, 403, 'PASS_REQUIS', 'Il faut un pass pour voir qui t\'a aimé. En attendant, ces personnes passent devant dans ton paquet.'));
+//
+// Le refus est **la mesure la plus utile du pass**, et c'est pour ça qu'il pose un événement.
+// Sans caisse, on ne peut pas compter qui paie ; on peut compter qui bute sur le mur, et c'est la
+// seule façon de savoir si ce qu'il y a derrière intéresse quelqu'un. `quoi` est un mot-clé fermé,
+// jamais un chemin d'URL : la barrière de `mesure.js` refuserait du texte, et il ne faut pas
+// qu'un jour une route nouvelle y verse son nom complet.
+const requirePlus = (quoi) => (req, res, next) => {
+  if (estPlus(req.user)) return next();
+  mesurer('pass_refuse', req.user.id, { quoi });
+  return fail(res, 403, 'PASS_REQUIS', 'Il faut un pass pour voir qui t\'a aimé. En attendant, ces personnes passent devant dans ton paquet.');
+};
 
 // Une intention retirée ne peut plus servir à rien : la découverte cherche la même intention
 // chez les autres, donc un compte resté en « Sortie en duo » ne voit plus personne et n'est vu
@@ -244,6 +253,17 @@ api.get('/me', async (req, res) => {
     quota: auClient(quotaDe(u)),
     // L'opposition à « qui s'est arrêté sur ta fiche ». Gratuite, donc lue par tout le monde.
     discretion: discret(u),
+    // Les paliers qui s'appliquent à cette personne, et ceux qu'un pass ouvrirait. L'interface ne
+    // recopie aucun de ces nombres : elle les affiche. Deux endroits qui portent le même chiffre
+    // finissent par diverger, et c'est l'interface qui se met à mentir.
+    limites: {
+      photos: palier('photos', u),
+      voixSecondes: palier('voixSecondes', u),
+      questions: palier('questions', u),
+      // Les droits sans nombre : la vue Liste, le pays entier, le filtre par langue.
+      ...Object.fromEntries(DROITS_DU_PASS.map((d) => [d, estPlus(u)])),
+      avecPass: Object.fromEntries(Object.entries(PALIERS).map(([k, v]) => [k, v.avec])),
+    },
     options: {
       intents: INTENTS, genders: GENDERS, compat: COMPAT, criteres: CRITERES, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
       // Qui choisit le genre recherché en « Relation sérieuse » : la politique du serveur, ou la
@@ -252,6 +272,8 @@ api.get('/me', async (req, res) => {
       // Ce que la vérification décide sur ce serveur : une porte (false) ou un badge (true).
       // L'interface en tire tout le reste — les onglets, l'écran d'arrivée, ce qu'elle promet.
       entreeLibre: entreeLibre(),
+      // Les ordres du paquet qu'un pass permet de choisir. Des clés ; les libellés sont à l'interface.
+      ordres: ORDRES,
       defaultCountry: config.defaultCountry,
       // Pays déduit du fuseau envoyé par le navigateur (?tz=). Il n'est ni stocké ni journalisé :
       // il sert à préremplir le menu, puis il est oublié. null si le fuseau est inconnu.
@@ -276,11 +298,29 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
   if (cleVille(city).length < 2) return fail(res, 400, 'CITY_REQUIRED', 'Indique ta ville.');
   const promptA = String(b.promptA || '').trim().slice(0, 120);
   if (promptA.length < 3) return fail(res, 400, 'PROMPT_REQUIRED', 'Réponds à la question pour que les autres te découvrent.');
+  const promptQ = String(b.promptQ || 'coin').slice(0, 60);
+  // Les questions supplémentaires. Chacune a sa clé et sa réponse, distincte de la première et
+  // des autres ; une réponse trop courte est refusée comme la première. La borne s'applique à
+  // l'**ajout** : qui en porte déjà trois d'un temps où le pass courait les garde et peut les
+  // retirer, mais n'en met pas une de plus sans pass. Même règle que les photos.
+  const extras = [];
+  for (const x of Array.isArray(b.extras) ? b.extras.slice(0, PALIERS.questions.avec) : []) {
+    const q = String(x?.q || '').slice(0, 60);
+    const a = String(x?.a || '').trim().slice(0, 120);
+    if (!q || a.length < 3) return fail(res, 400, 'PROMPT_REQUIRED', 'Réponds à chaque question que tu as choisie, ou retire-la.');
+    if (q === promptQ || extras.some((e) => e.q === q)) return fail(res, 400, 'PROMPT_DUPLICATE', 'Choisis une question différente pour chaque réponse.');
+    extras.push({ q, a });
+  }
+  const plafond = Math.max(palier('questions', req.user) - 1, (req.user.profile?.extras || []).length);
+  if (extras.length > plafond) {
+    mesurer('pass_refuse', req.user.id, { quoi: 'questions' });
+    return fail(res, 403, 'PASS_REQUIS', `Tu peux répondre à ${plafond + 1} question${plafond ? 's' : ''}. Un pass en ouvre ${PALIERS.questions.avec}.`);
+  }
   const { compat, erreur } = lireCompat(b);
   if (erreur) return fail(res, 400, 'COMPAT_INVALID', `Réponse inattendue à « ${COMPAT[erreur].question} ». Choisis dans la liste.`);
   // La ville aussi : champ libre, chiffres conservés, affiché sur la carte avant tout échange —
   // « Douala 677 12 34 56 » passait (audit/09-revue-code.md, I7).
-  const profileText = [name, city, b.area, b.promptQ, promptA, b.languages].filter(Boolean).join(' ');
+  const profileText = [name, city, b.area, promptQ, promptA, ...extras.flatMap((e) => [e.q, e.a]), b.languages].filter(Boolean).join(' ');
   if (!checkMessage(profileText, 0, 1).ok) return fail(res, 400, 'PROFILE_CONTACT', "Ton profil ne doit contenir ni numéro, ni lien, ni pseudo, ni demande d'argent.");
 
   // Ancien champ « photo » : il alimente l'emplacement 1, avec la même modération. L'interface
@@ -299,9 +339,12 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
     // Clé de comparaison, jamais affichée : c'est elle qui réunit « Yaoundé » et « Yaounde »
     cityKey: cleVille(city),
     area: String(b.area || '').trim().slice(0, 40),
-    promptQ: String(b.promptQ || 'coin').slice(0, 60),
+    promptQ,
     promptA,
+    extras,
     languages: String(b.languages || '').trim().slice(0, 60),
+    // Clés de comparaison des langues, jamais affichées : c'est sur elles que le filtre lit.
+    languageKeys: decouperLangues(b.languages),
     hasPhoto,
     // Rangées seulement en « Relation sérieuse » : changer d'intention ne doit pas laisser derrière
     // soi des réponses à des questions qu'on ne pose plus.
@@ -433,7 +476,13 @@ api.delete('/me', async (req, res) => {
 });
 
 // ---------- Photos : jusqu'à trois, chacune modérée avant d'être montrée ----------
-const PHOTO_SLOTS = [1, 2, 3];
+// Six emplacements existent ; **deux sont ouverts sans pass** (`palier('photos', …)`).
+//
+// La borne s'applique à l'**envoi**, pas à l'affichage. Des comptes portent déjà trois photos,
+// d'un temps où trois était la limite pour tout le monde : les cacher aujourd'hui reviendrait à
+// retirer à quelqu'un ce qu'il avait, parce que la règle a changé sous lui. Elles restent
+// visibles, et restent supprimables ; c'est le prochain envoi au-delà du palier qui est refusé.
+const PHOTO_SLOTS = [1, 2, 3, 4, 5, 6];
 // Renvoie `{ photos }` quand tout s'est bien passé, sinon `{ code, message }` prêt pour fail().
 // La liste vient du stockage et non de req.user : cette copie de la personne date du début de la
 // requête, et l'enregistrement qu'on vient de faire ne s'y trouve pas.
@@ -461,16 +510,23 @@ const slotOf = (req) => (PHOTO_SLOTS.includes(Number(req.params.n)) ? Number(req
 
 api.put('/me/photos/:n', limiter('photo'), async (req, res) => {
   const n = slotOf(req);
-  if (!n) return fail(res, 400, 'PHOTO_SLOT', 'Trois photos au plus.');
+  if (!n) return fail(res, 400, 'PHOTO_SLOT', `${PHOTO_SLOTS.length} photos au plus.`);
   if (!req.user.profile) return fail(res, 400, 'PROFILE_REQUIRED', 'Crée ton profil avant d\'ajouter des photos.');
+  const combien = palier('photos', req.user);
+  if (n > combien) {
+    mesurer('pass_refuse', req.user.id, { quoi: 'photos' });
+    return fail(res, 403, 'PASS_REQUIS', `Tu peux mettre ${combien} photos. Un pass en ouvre ${PALIERS.photos.avec}.`);
+  }
   const r = await acceptPhoto(req.user, n, req.body?.photo);
   if (r.code) return fail(res, r.code === 'PHOTO_INVALID' ? 400 : 503, r.code, r.message);
   res.json({ photos: r.photos });
 });
 
+// Supprimer n'est jamais refusé, même au-delà du palier : c'est par là qu'on se débarrasse d'une
+// photo qu'on ne pourrait plus renvoyer.
 api.delete('/me/photos/:n', async (req, res) => {
   const n = slotOf(req);
-  if (!n) return fail(res, 400, 'PHOTO_SLOT', 'Trois photos au plus.');
+  if (!n) return fail(res, 400, 'PHOTO_SLOT', `${PHOTO_SLOTS.length} photos au plus.`);
   res.json({ photos: await store.removePhoto(req.user.id, n) });
 });
 
@@ -484,7 +540,37 @@ api.delete('/me/photos/:n', async (req, res) => {
 // de rencontre, où le rayon de chacun ne s'impose qu'à lui.
 // « Vérifiés seulement » : le paquet ne montre alors que les profils au badge. Sous « gate »,
 // tout le monde en a un, et le réglage ne change rien — il n'est proposé que sous « badge ».
-const DEFAULT_FILTERS = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false };
+const DEFAULT_FILTERS = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, langue: '', ordre: ORDRE_DEFAUT };
+
+// L'ordre du paquet. Sans pass, c'est l'ordre conseillé, quoi qu'on ait rangé : le réglage dort,
+// comme la zone et la langue. Les clés secondaires ne lisent que ce que la carte montre déjà.
+const ordreChoisi = (me) => (estPlus(me) && ORDRES.includes(filtersOf(me).ordre) ? filtersOf(me).ordre : ORDRE_DEFAUT);
+const ACTIVITE_RANG = { recent: 3, today: 2, week: 1 };
+const rangActivite = (u) => ACTIVITE_RANG[activityBucket(u.lastActiveAt)] || 0;
+const estNouveau = (u) => !u.demo && Date.now() - u.createdAt < 7 * 86400e3;
+function trierLePaquet(me, rel, liste) {
+  const conseille = (a, b) => Number(verifie(b)) - Number(verifie(a)) || sameArea(me, b) - sameArea(me, a);
+  const suite = {
+    defaut: conseille,
+    actifs: (a, b) => rangActivite(b) - rangActivite(a) || conseille(a, b),
+    nouveaux: (a, b) => Number(estNouveau(b)) - Number(estNouveau(a)) || conseille(a, b),
+    proches: (a, b) => sameArea(me, b) - sameArea(me, a) || Number(verifie(b)) - Number(verifie(a)),
+  }[ordreChoisi(me)];
+  // Qui t'a aimé d'abord, dans tous les ordres. Ensuite seulement, le choix.
+  return liste.sort((a, b) => Number(rel.maLike.has(b.id)) - Number(rel.maLike.has(a.id)) || suite(a, b));
+}
+
+// « Français, anglais, ewondo » est un champ libre, et c'est voulu : aucune liste fermée ne couvre
+// les langues d'Afrique. Filtrer dessus demande donc une clé de comparaison par langue, faite
+// comme celle des villes — sans accent, sans casse, sans ponctuation — et jamais affichée.
+// Les profils d'avant ce jour n'en portent pas : on la refait à la volée depuis le texte, sans
+// migration, plutôt que de les faire disparaître d'un paquet filtré.
+const decouperLangues = (texte) => [...new Set(String(texte || '').split(/[,;/·]+/).map(cleVille).filter((k) => k.length >= 2))];
+const clesLangues = (p) => p?.languageKeys || decouperLangues(p?.languages);
+// Le filtre par langue est ce que le pass ouvre. Sans pass il dort, comme la zone : accepté,
+// rangé, sans effet — et il reprend le jour où le pass arrive.
+const langueCherchee = (me) => (estPlus(me) ? cleVille(filtersOf(me).langue) : '');
+const dansLaLangue = (me, other) => { const k = langueCherchee(me); return !k || clesLangues(other.profile).includes(k); };
 
 const zoneParDefaut = (u) => ({ country: u.profile?.country || config.defaultCountry, city: u.profile?.city || null });
 const filtersOf = (u) => ({ ...DEFAULT_FILTERS, zone: zoneParDefaut(u), ...(u.filters || {}) });
@@ -511,9 +597,19 @@ const dansLeGenre = (me, other) => { const g = genreRecherche(me); return !g || 
 // Le vœu de ne voir que des profils vérifiés. Il s'applique comme le genre : à mon seul paquet.
 const selonLeBadge = (me, other) => !filtersOf(me).verifiesSeulement || verifie(other);
 
+// La zone réellement cherchée. **Sans pass, c'est sa ville** ; le pays entier est ce que le pass
+// ouvre. Le réglage de la personne n'est pas effacé pour autant — il est seulement sans effet tant
+// qu'elle n'a pas de pass, et il reprend le jour où elle en a un. Effacer aurait demandé de le
+// refaire, et aurait puni quelqu'un pour un changement de règle qu'il n'a pas décidé.
+//
+// C'est la ligne qui **retire** le plus au gratuit, et la seule du lot. À surveiller en premier
+// dans les chiffres : sur un vivier de quelques dizaines de comptes, une ville peut être vide, et
+// un paquet vide ne convertit personne — il fait partir.
+const zoneCherchee = (me) => (estPlus(me) ? (filtersOf(me).zone || zoneParDefaut(me)) : zoneParDefaut(me));
+
 // La zone de la personne qui cherche s'applique à son seul paquet.
 function dansLaZone(me, other) {
-  const zone = filtersOf(me).zone || zoneParDefaut(me);
+  const zone = zoneCherchee(me);
   const b = other.profile;
   if ((b.country || config.defaultCountry) !== zone.country) return false;
   if (!zone.city) return true;
@@ -552,7 +648,20 @@ api.put('/me/filters', async (req, res) => {
   let verifiesSeulement = !!filtersOf(req.user).verifiesSeulement;
   if ('verifiesSeulement' in (req.body || {})) verifiesSeulement = !!req.body.verifiesSeulement;
 
-  const filters = { ageMin, ageMax, zone, gender, verifiesSeulement };
+  // Une langue, en clair, bornée. Vide pour « toutes ». Pas de liste fermée, pour la même raison
+  // que le champ du profil ; la comparaison se fait sur la clé, jamais sur le texte.
+  let langue = filtersOf(req.user).langue || '';
+  if ('langue' in (req.body || {})) langue = String(req.body.langue || '').trim().slice(0, 30);
+
+  // Liste fermée : une valeur inventée est refusée, jamais rangée telle quelle.
+  let ordre = filtersOf(req.user).ordre || ORDRE_DEFAUT;
+  if ('ordre' in (req.body || {})) {
+    const o = String(req.body.ordre || ORDRE_DEFAUT);
+    if (!ORDRES.includes(o)) return fail(res, 400, 'FILTERS_INVALID', "Choisis un ordre dans la liste.");
+    ordre = o;
+  }
+
+  const filters = { ageMin, ageMax, zone, gender, verifiesSeulement, langue, ordre };
   await store.updateUser(req.user.id, { filters });
   res.json({ filters });
 });
@@ -640,7 +749,7 @@ async function relations(me) {
 const joignable = (me, rel, u) => u.id !== me.id && membre(u) && !rel.bloque.has(u.id) && compatible(me, u);
 // Candidat : joignable et dans la zone que je cherche. La zone filtre ce que JE vais voir ;
 // un like reçu, lui, m'est adressé et la traverse (voir likersOf).
-const candidat = (me, rel, u) => joignable(me, rel, u) && dansLaZone(me, u) && dansLeGenre(me, u) && selonLeBadge(me, u);
+const candidat = (me, rel, u) => joignable(me, rel, u) && dansLaZone(me, u) && dansLeGenre(me, u) && selonLeBadge(me, u) && dansLaLangue(me, u);
 
 // Un écran vide ne dit rien s'il ne dit pas pourquoi. Trois situations très différentes se
 // ressemblaient : personne d'autre n'est vérifié dans ta ville, tu as déjà tout vu, ou ton quota
@@ -664,12 +773,10 @@ api.get('/discover', requireMembre, async (req, res) => {
   }
   // Le tri passe avant la mise en forme : publicProfile n'est appelé que sur les dix cartes
   // envoyées, au lieu de l'être sur tout le vivier pour en jeter la plus grande part.
-  const retenus = tous
-    .filter((u) => candidat(me, rel, u) && !rel.monSwipe.has(u.id) && inAgeRange(me, u))
-    // Ceux qui t'ont liké, puis les profils vérifiés, puis ton quartier. Le badge passe devant
-    // sans exclure personne : c'est ce qui distingue un modèle ouvert d'une porte fermée.
-    .sort((a, b) => Number(rel.maLike.has(b.id)) - Number(rel.maLike.has(a.id))
-      || Number(verifie(b)) - Number(verifie(a)) || sameArea(me, b) - sameArea(me, a))
+  // Ceux qui t'ont liké, puis — par défaut — les profils vérifiés, puis ton quartier. Le badge
+  // passe devant sans exclure personne : c'est ce qui distingue un modèle ouvert d'une porte
+  // fermée. Avec un pass, la suite de l'ordre se choisit (trierLePaquet).
+  const retenus = trierLePaquet(me, rel, tous.filter((u) => candidat(me, rel, u) && !rel.monSwipe.has(u.id) && inAgeRange(me, u)))
     // Dix cartes, quel que soit le quota restant. Le paquet était coupé à `remaining`, ce qui se
     // voyait à peine tant que le quota valait vingt ; à cinq, il envoyait cinq cartes, puis quatre.
     // Or **passer ne consomme rien** (`swipesToday` ne compte que les « J'aime ») : le nombre de
@@ -698,7 +805,10 @@ api.get('/discover', requireMembre, async (req, res) => {
 // Parcourir ne consomme rien ; seul un « J'aime » compte dans le quota du jour (route /swipes).
 const ACTIVITY_RANK = { recent: 3, today: 2, week: 1 };
 const listRank = (p) => (p.status === 'match' ? 0 : p.status ? 1 : p.likedYou ? 3 : 2);
-api.get('/profiles', requireMembre, async (req, res) => {
+// La vue d'ensemble est ce que le pass ouvre de plus large, et **elle ne retire aucune rencontre**
+// à qui ne l'a pas : les mêmes personnes sont dans le paquet de cartes, dix à la fois. C'est un
+// outil de puissance — cinquante profils d'un coup, avec leur statut, sans consommer un « J'aime ».
+api.get('/profiles', requireMembre, requirePlus('liste'), async (req, res) => {
   const me = req.user;
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
   // Le rang et l'activité se calculent sur la personne brute et ses relations : le tri n'a pas
@@ -740,8 +850,11 @@ const likersOf = (me, rel, tous) => tous
   .filter((u) => joignable(me, rel, u) && dansLeGenre(me, u) && selonLeBadge(me, u) && rel.maLike.has(u.id) && !rel.monSwipe.has(u.id))
   .sort((a, b) => rel.maLike.get(b.id).at - rel.maLike.get(a.id).at);
 
-api.get('/likes', requireMembre, requirePlus, async (req, res) => {
+api.get('/likes', requireMembre, requirePlus('likes'), async (req, res) => {
   const me = req.user;
+  // L'usage, pas seulement le droit : un pass dont personne ne se sert ne vaut rien. Ralenti à
+  // cinq minutes — l'écran se recharge à chaque retour sur l'onglet Messages.
+  mesurerRalenti('pass_usage', me, CINQ_MINUTES, { quoi: 'likes' });
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
   const profiles = await Promise.all(likersOf(me, rel, tous).slice(0, 20).map(async (u) => {
     const p = await publicProfile(u);
@@ -761,8 +874,9 @@ api.get('/likes', requireMembre, requirePlus, async (req, res) => {
 //   * **L'action du balayage ne quitte jamais `swipes`.** `dansLaFenetre()` ne la recopie pas,
 //     donc aucune ligne d'ici ne peut la laisser fuir : c'est le refus n° 1, tenu par le code et
 //     pas par la vigilance.
-api.get('/vues', requireMembre, requirePlus, async (req, res) => {
+api.get('/vues', requireMembre, requirePlus('vues'), async (req, res) => {
   const me = req.user;
+  mesurerRalenti('pass_usage', me, CINQ_MINUTES, { quoi: 'vues' });
   // La symétrie : qui se retire n'apparaît nulle part, et ne regarde nulle part non plus.
   if (discret(me)) return res.json({ discret: true, arrondi: arrondir(0), profiles: [] });
   const [recus, rel] = await Promise.all([store.swipesTo(me.id), relations(me)]);
@@ -805,7 +919,11 @@ api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {
   // Déjà en match : rien à refaire, et surtout rien à renotifier.
   if (rel.match.has(target.id)) return res.json({ match: { id: rel.match.get(target.id).id, other: await publicProfile(target) } });
   if (await store.swipesToday(me.id) >= quotaDe(me)) {
-    mesurer('quota_hit', me.id, { action });
+    // Le palier touché, pas seulement le fait de buter : 2 (sans badge) et 5 (gratuit) ne
+    // racontent pas la même histoire, et un jour où le chiffre bougera il faudra savoir lequel
+    // des deux murs les gens rencontraient. Les lignes posées avant ce jour n'ont pas de `q` :
+    // `chiffres.js` les range à part plutôt que de les attribuer au hasard.
+    mesurer('quota_hit', me.id, { action, q: quotaDe(me) });
     return fail(res, 429, 'DAILY_LIMIT', "Tu as vu tous tes profils du jour. Reviens demain.");
   }
   const previous = await store.swipeOf(me.id, target.id);

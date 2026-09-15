@@ -35,8 +35,14 @@ async function makeUser(id, name, gender, area = '') {
   await call(id, '/me');
   const r = await call(id, '/me/profile', 'PUT', { name, age: 25, gender, intent: 'amitie', city: 'Douala', area, promptA: 'Le poisson braisé' });
   assert.equal(r.status, 200);
-  await store.updateUser(id, { verification: 'approved' });
+  // Ce fichier éprouve la **vue Liste**, qui est elle-même ce que le pass ouvre : chaque compte
+  // d'ici en reçoit donc un. Le test qui vérifie qu'elle est fermée sans pass est dans plus.test.js.
+  await store.updateUser(id, { verification: 'approved', plus: { source: 'gift', depuisLe: Date.now(), finLe: Date.now() + 30 * 24 * 3600 * 1000 } });
 }
+
+// La vue Liste et le pays entier demandent un pass. Ces tests portent sur autre chose : on leur
+// en donne un plutôt que de réécrire ce qu'ils éprouvent.
+const passer = (id) => store.updateUser(id, { plus: { source: 'gift', depuisLe: Date.now(), finLe: Date.now() + 30 * 24 * 3600 * 1000 } });
 
 test.after(() => server.close());
 
@@ -68,7 +74,7 @@ test('la liste montre tout le monde, balayés compris, avec le bon statut', asyn
   assert.equal(by['7104'].matchId, m.body.match.id, 'le match renvoie vers sa discussion');
   assert.equal(by['7105'], undefined, 'une personne bloquée n\'apparaît pas');
   assert.equal(by['7106'].status, null);
-  assert.equal(by['7106'].likedYou, false, "sans pass, rien ne nomme qui m'a aimé — la place, elle, ne bouge pas");
+  assert.equal(by['7106'].likedYou, true, "avec un pass, l'étiquette revient ; sans lui, elle disparaît sans changer la place (plus.test.js)");
   assert.equal(by['7101'], undefined, 'on ne se liste pas soi-même');
 
   assert.equal(r.body.profiles[0].id, '7106', 'ceux qui attendent ma réponse passent en premier');

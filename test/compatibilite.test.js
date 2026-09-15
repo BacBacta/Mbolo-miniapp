@@ -29,6 +29,10 @@ app.use(express.json());
 app.use('/api', api);
 const server = app.listen(0);
 const base = `http://localhost:${server.address().port}/api`;
+// La vue Liste et le pays entier demandent un pass. Ces tests portent sur autre chose : on leur
+// en donne un plutôt que de réécrire ce qu'ils éprouvent.
+const passer = (id) => store.updateUser(id, { plus: { source: 'gift', depuisLe: Date.now(), finLe: Date.now() + 30 * 24 * 3600 * 1000 } });
+
 test.after(() => server.close());
 
 const call = async (user, p, method = 'GET', body) => {
@@ -91,6 +95,7 @@ test('les réponses ne sortent qu\'en « Relation sérieuse »', async () => {
   // En « Relation sérieuse », MATCH_POLICY (romance_opposite) ne met en relation que des genres
   // opposés : le lecteur doit être un homme pour voir ces profils.
   await membre('9107', { name: 'Blaise', gender: 'homme' });
+  await passer('9107');
   const profils = (await call('9107', '/profiles')).body.profiles;
   const p9105 = await pid('9105');
   const serieux = profils.find((p) => p.id === p9105);
@@ -104,6 +109,7 @@ test('un profil sans réponse ne montre pas un bloc vide', async () => {
   await membre('9108');
   await membre('9109', { name: 'Blaise', gender: 'homme' });
   const p9108 = await pid('9108');
+  await passer('9109');
   const p = (await call('9109', '/profiles')).body.profiles.find((x) => x.id === p9108);
   assert.equal(p.compat, null, 'null, pas un tableau vide qui dessinerait une ligne pour rien');
 });
