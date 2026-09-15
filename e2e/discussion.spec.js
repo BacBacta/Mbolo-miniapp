@@ -141,3 +141,29 @@ test('le dernier message reste visible quand le clavier réduit la fenêtre', as
   await page.waitForTimeout(400);
   expect(await page.locator('#messages').evaluate((box) => box.scrollTop)).toBeLessThan(120);
 });
+
+// Toucher « envoyer » donnait le focus au bouton, donc le retirait au champ. Sur Android le
+// clavier se ferme alors, puis se rouvre quand le champ le reprend : l'écran se dandine à chaque
+// message envoyé — et comme la discussion se recolle en bas à chaque changement de hauteur, le
+// mouvement se voyait deux fois. Ici on compte les allers-retours du focus : il doit y en avoir
+// zéro, et le message doit partir quand même.
+test('envoyer un message ne fait pas perdre le focus au champ, donc le clavier ne bouge pas', async ({ page }) => {
+  await membreVerifie(page, 'Zara');
+  await aimerUnProfil(page);
+  await ouvrirLaDiscussion(page);
+
+  await page.evaluate(() => {
+    window.__focus = [];
+    const champ = document.querySelector('input[name=message]');
+    champ.addEventListener('blur', () => window.__focus.push('le champ perd le focus'));
+    document.querySelector('.composer .send').addEventListener('focus', () => window.__focus.push('le bouton le prend'));
+  });
+
+  await champMessage(page).fill('Un message, sans faire bouger le clavier');
+  await boutonEnvoyer(page).click();
+
+  await expect(page.locator('#messages')).toContainText('Un message, sans faire bouger le clavier');
+  const mouvements = await page.evaluate(() => window.__focus);
+  expect(mouvements, `le focus ne doit pas bouger : ${mouvements.join(', ')}`).toEqual([]);
+  expect(await page.evaluate(() => document.activeElement?.name)).toBe('message');
+});
