@@ -24,6 +24,9 @@ const S = {
   chat: null,
   chatTimer: null,
   summaryTimer: null,
+  // Est-on collé au bas de la discussion ? Mis à jour au défilement, lu quand la fenêtre change
+  // de taille : on ne recolle en bas que quelqu'un qui y était.
+  chatEnBas: true,
   summary: { unread: 0, newMatches: 0 },
   pendingTimer: null,
   lastMatch: null,
@@ -652,11 +655,17 @@ async function saveFilters(values) {
 }
 
 // « J'aime » ou « Passer » depuis le détail d'un profil ouvert par la liste
+const boutonsDeLaFiche = () => ({
+  main: { text: t("J'aime"), onClick: () => swipePerson('like') },
+  secondary: { text: t('Passer'), onClick: () => swipePerson('pass') },
+});
+
 async function swipePerson(action) {
   const p = S.person;
   if (!p || swiping) return;
   swiping = true;
   tg.haptic(action === 'like' ? 'medium' : 'select');
+  tg.setButtons(null);
   try {
     const r = await api('/swipes', { method: 'POST', body: { targetId: p.id, action } });
     S.people = []; // la liste se rechargera avec les nouveaux statuts
@@ -672,6 +681,7 @@ async function swipePerson(action) {
       go(S.personFrom || 'discover');
     }
   } catch (e) {
+    if (S.screen === 'person') tg.setButtons(boutonsDeLaFiche());
     showError(e, null);
   } finally {
     swiping = false;
@@ -958,7 +968,7 @@ const SCREENS = {
       ${S.swiped ? '' : `<p class="fine">${icon('hand', 14)}<span>${t('Glisse la carte vers la droite pour aimer, vers la gauche pour passer.')}</span></p>`}`);
     loadCardPhoto(p);
     S.detachSwipe = attachSwipe(app.querySelector('.deck .card.top'), { onLike: () => swipe('like'), onPass: () => swipe('pass') });
-    tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipe('like') }, secondary: { text: t('Passer'), onClick: () => swipe('pass') } });
+    tg.setButtons(boutonsDuPaquet());
   },
 
   filters() {
@@ -1028,7 +1038,7 @@ const SCREENS = {
     loadCardPhoto(p);
     if (p.status === 'liked') tg.setButtons(null);
     else if (p.status === 'passed') tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipePerson('like') } });
-    else tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipePerson('like') }, secondary: { text: t('Passer'), onClick: () => swipePerson('pass') } });
+    else tg.setButtons(boutonsDeLaFiche());
   },
 
   match() {
@@ -1553,12 +1563,22 @@ async function refreshStatus() {
 
 let swiping = false;
 // La carte part sur le côté pendant que le serveur enregistre le choix ; elle revient en cas d'erreur
+const boutonsDuPaquet = () => ({
+  main: { text: t("J'aime"), onClick: () => swipe('like') },
+  secondary: { text: t('Passer'), onClick: () => swipe('pass') },
+});
+
 async function swipe(action) {
   const p = S.profiles[0];
   if (!p || swiping) return;
   swiping = true;
   S.swiped = true;
   tg.haptic(action === 'like' ? 'medium' : 'select');
+  // Les boutons partent le temps du balayage. Deux raisons : on ne peut plus toucher « J'aime »
+  // deux fois pendant que la carte s'envole, et l'écran suivant pose ses propres boutons au lieu
+  // de renommer ceux-ci — un match affichait « J'aime » et « Écrire à … » l'un sur l'autre, le
+  // temps que Telegram fonde les deux libellés.
+  tg.setButtons(null);
   const card = app.querySelector('.deck .card.top');
   try {
     const [r] = await Promise.all([
@@ -1581,6 +1601,8 @@ async function swipe(action) {
       card.style.transform = '';
       card.querySelectorAll('.stamp').forEach((s) => (s.style.opacity = 0));
     }
+    // La carte est toujours là : elle retrouve ses boutons.
+    if (S.screen === 'discover') tg.setButtons(boutonsDuPaquet());
     showError(e);
   } finally {
     swiping = false;
@@ -1663,17 +1685,43 @@ function renderChat() {
     </div>
   `);
   loadAvatar(c.other);
+  // #messages est reconstruit à chaque ouverture : l'écouteur suit le nouvel élément.
+  document.getElementById('messages').addEventListener('scroll', () => {
+    S.chatEnBas = enBas(document.getElementById('messages'));
+  }, { passive: true });
   updateChat({ scroll: true });
 }
 
 function updateChat({ scroll = false } = {}) {
   const box = document.getElementById('messages');
   if (!box || !S.chat) return;
-  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+  const nearBottom = enBas(box);
   box.innerHTML = chatBody(S.chat);
   document.getElementById('chat-notice').innerHTML = S.chat.notice ? `<div class="notice notice-warn" role="alert">${icon('alert', 18)}<span>${esc(S.chat.notice)}</span></div>` : '';
-  if (scroll || nearBottom) box.scrollTop = box.scrollHeight;
+  if (scroll || nearBottom) collerEnBas({ force: true });
 }
+
+const enBas = (box) => box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+
+// Le clavier réduit la fenêtre : la zone des messages rétrécit, mais sa position de défilement ne
+// bouge pas. Le message qu'on vient d'envoyer passe alors sous le champ de saisie, et il faut
+// défiler pour le revoir — c'est le premier geste de toute discussion, et il était cassé.
+//
+// On ne recolle que quelqu'un qui était déjà en bas : remonter l'historique pendant que l'autre
+// écrit ne doit pas se faire annuler. Et on le fait deux fois, maintenant et à l'image suivante :
+// quand l'événement arrive, la fenêtre a changé de taille mais la mise en page pas toujours.
+function collerEnBas({ force = false } = {}) {
+  const box = document.getElementById('messages');
+  if (!box || S.screen !== 'chat') return;
+  if (!force && !S.chatEnBas) return;
+  box.scrollTop = box.scrollHeight;
+  S.chatEnBas = true;
+  requestAnimationFrame(() => {
+    const encore = document.getElementById('messages');
+    if (encore && S.screen === 'chat' && S.chatEnBas) encore.scrollTop = encore.scrollHeight;
+  });
+}
+tg.onViewport(() => collerEnBas());
 
 async function pollChat() {
   if (S.screen !== 'chat' || !S.chat || document.hidden) return;

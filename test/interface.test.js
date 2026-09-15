@@ -34,3 +34,37 @@ test("une discussion fermée arrête l'interrogation, et l'app en arrière-plan 
   assert.match(entre('async function pollChat() {', 'async function sendMessage('), /MATCH_NOT_FOUND[^\n]*BLOCKED[\s\S]*clearInterval\(S\.chatTimer\)/);
   assert.match(entre('async function refreshSummary() {', 'const avatar ='), /if \(document\.hidden\) return;/);
 });
+
+// Sur un téléphone, l'écran de match affichait « J'aime » et « Écrire à … » l'un sur l'autre :
+// le bouton natif de Telegram était visible avec l'ancien libellé, et l'écran suivant se
+// contentait de le renommer — le client Android fond alors les deux textes. Les boutons partent
+// donc le temps du balayage, et l'écran d'arrivée pose les siens sur un bouton masqué.
+test('les boutons partent pendant le balayage, et reviennent si le balayage échoue', () => {
+  for (const [nom, debut, fin] of [['swipe', 'async function swipe(action) {', '// ---------- Discussion ----------'], ['swipePerson', 'async function swipePerson(action) {', 'function personFrom']]) {
+    const f = entre(debut, fin);
+    const avantAttente = f.slice(0, f.indexOf('await'));
+    assert.match(avantAttente, /tg\.setButtons\(null\)/, `${nom} : les boutons doivent partir avant l'appel réseau`);
+    assert.match(f, /catch[\s\S]*tg\.setButtons\(boutonsD/, `${nom} : et revenir si l'appel échoue`);
+  }
+});
+
+// Un seul endroit décrit les boutons du paquet, et un seul ceux de la fiche : deux copies
+// finissent par diverger, et c'est un libellé qui se met à dire autre chose que ce qu'il fait.
+test("les boutons du paquet et de la fiche sont décrits à un seul endroit", () => {
+  for (const nom of ['boutonsDuPaquet', 'boutonsDeLaFiche']) {
+    const defs = (app.match(new RegExp(`const ${nom} = `, 'g')) || []).length;
+    const usages = (app.match(new RegExp(`${nom}\\(\\)`, 'g')) || []).length;
+    assert.equal(defs, 1, `${nom} : une seule définition`);
+    assert.ok(usages >= 2, `${nom} : employé au rendu et au rattrapage, pas une seule fois (${usages})`);
+  }
+});
+
+// Le clavier réduit la fenêtre : sans écouteur, la zone des messages rétrécit et le dernier
+// message passe dessous. Le parcours navigateur le rejoue pour de vrai (e2e/discussion.spec.js) ;
+// ici on refuse seulement que l'écouteur disparaisse.
+test('la discussion se recolle en bas quand la fenêtre change de taille', () => {
+  assert.match(app, /tg\.onViewport\(\(\) => collerEnBas\(\)\)/);
+  const f = entre('function collerEnBas(', 'tg.onViewport(');
+  assert.match(f, /if \(!force && !S\.chatEnBas\) return;/, 'qui remonte l\'historique n\'est pas ramené de force');
+  assert.match(entre('function renderChat() {', 'function updateChat'), /addEventListener\('scroll'/, 'et on sait s\'il y était');
+});

@@ -69,6 +69,21 @@ export function init() {
   W.onEvent('themeChanged', () => { applyScheme(W.colorScheme); syncChrome(); });
 }
 
+// Le clavier qui s'ouvre change la hauteur de la fenêtre. Telegram l'annonce par
+// « viewportChanged » et met à jour --tg-viewport-height ; le navigateur, lui, l'annonce par
+// visualViewport. On écoute les deux : l'un manque sur les clients anciens, l'autre hors de
+// Telegram. Rend de quoi se désabonner.
+export function onViewport(fn) {
+  const vv = window.visualViewport;
+  vv?.addEventListener('resize', fn);
+  const natif = inTelegram && typeof W.onEvent === 'function';
+  if (natif) W.onEvent('viewportChanged', fn);
+  return () => {
+    vv?.removeEventListener('resize', fn);
+    if (natif && typeof W.offEvent === 'function') W.offEvent('viewportChanged', fn);
+  };
+}
+
 export const initData = () => (inTelegram ? W.initData : '');
 export const telegramUser = () => (inTelegram ? W.initDataUnsafe?.user : null);
 

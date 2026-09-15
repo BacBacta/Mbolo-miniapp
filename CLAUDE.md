@@ -105,9 +105,10 @@ test/
   (tous rejoués sur PostgreSQL par npm run test:pg)
 e2e/
   aides.js       Gestes partagés : ouvrir, créer un profil, se faire vérifier
-  inscription, discussion, mesure, pages-publiques, suppression (plus aucune requête après), verre,
+  inscription, discussion (dont : le dernier message reste visible quand le clavier réduit la
+  fenêtre), mesure, pages-publiques, suppression (plus aucune requête après), verre,
   voix-et-filtres (genre recherché à l'écran, et la présentation vocale proposée à la vérification)
-  (27 tests Playwright, npm run e2e)
+  (28 tests Playwright, npm run e2e)
 scripts/
   chiffres.js    npm run chiffres : entonnoir et contre-métriques, --json pour la machine
   import-json.js Reprise d'un db.json existant vers PostgreSQL, événements compris
@@ -206,7 +207,7 @@ identite/
 13. **Toute action principale passe par `tg.setButtons()`**, toute navigation arrière par `tg.setBack()`. N'appelle jamais `window.Telegram.WebApp` en dehors de `public/tg.js`. **Deux portes pour les liens, à ne pas confondre** : `tg.openLink()` ouvre un navigateur par-dessus la mini app (les pages publiques), `tg.openTelegramLink()` la referme et ouvre la discussion visée (tout lien `t.me`). Employer la première sur un lien `t.me` ouvre un navigateur sur la page web de t.me, qui cherche à rouvrir Telegram par-dessus l'app : sur Android, ça se voit comme un écran figé. `test/liens.test.js` le refuse.
 14. **L'app possède ses surfaces, Telegram décide du schéma.** Les couleurs viennent des jetons de `styles.css` (`--bg`, `--bg2`, `--bg3`, `--text`, `--button`…), déclinés en clair et en sombre par `<html data-scheme>` que `tg.js` règle d'après `colorScheme` ; `tg.js` renvoie ensuite la surface de la page au cadre Telegram (`setHeaderColor`, `setBackgroundColor`, `setBottomBarColor`) et la couleur d'action au bouton natif. Jamais de couleur en dur dans un composant : un jeton, ou `color-mix` d'un jeton. **L'aura (`--aura`) n'apparaît qu'au match, sur l'anneau d'un avatar vérifié et sur le stamp du like** — l'accueil n'y ajoute rien : sa scène de deux cartes n'emploie que ces deux moments-là ; le rose (`--like`) et l'ambre (`--gold`) sont les seules autres couleurs au repos. L'app doit rester lisible dans les deux schémas (contraste AA mesuré).
 15. **Pensé pour la data et le réseau** : pas de bibliothèque front lourde, images compressées, états de chargement et d'erreur réseau sur chaque écran.
-16. **Ne jamais reconstruire le champ de saisie de la discussion** pendant la frappe (le clavier se fermerait) : mettre à jour seulement `#messages` via `updateChat()`.
+16. **Ne jamais reconstruire le champ de saisie de la discussion** pendant la frappe (le clavier se fermerait) : mettre à jour seulement `#messages` via `updateChat()`. **Et le clavier qui s'ouvre réduit la fenêtre** : `--tg-viewport-height` rétrécit, la zone des messages avec, mais sa position de défilement ne bouge pas — le message qu'on vient d'envoyer passait sous le champ de saisie, au moment précis où l'on écrit la suite. `tg.onViewport()` (Telegram et `visualViewport`, les deux) recolle la discussion en bas, **seulement si on y était** : qui remonte l'historique n'est pas ramené de force. Rejoué en vrai dans `e2e/discussion.spec.js`, qui rétrécit la fenêtre comme le ferait un clavier.
 
 ## 6. Façon de travailler
 
