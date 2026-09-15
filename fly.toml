@@ -36,6 +36,18 @@ swap_size_mb = 256
   # Bruxelles. Repasser à "romance_opposite" referme le choix, cesse de lire le champ, et rend à
   # la page de confidentialité sa promesse d'origine. Décision du propriétaire, 14 septembre 2026.
   MATCH_POLICY = "open"
+  # Ce que la vérification par selfie décide. « badge » : on entre avec un profil, et le selfie
+  # vérifié donne un bouclier sur la fiche — plus une porte, un signe. « gate » (le défaut) la
+  # remet en porte : rien avant qu'un humain ait tranché.
+  #
+  # Pourquoi « badge » ici : la modération est humaine et l'équipe fait une personne. Sous
+  # « gate », personne ne voit rien tant que ce modérateur n'a pas regardé, et un délai de
+  # quelques heures la nuit vide l'app de tout le monde en même temps. Ce qui reste réservé au
+  # bouclier est ce qui met deux personnes en présence : proposer un rendez-vous, des deux
+  # côtés, et confirmer une arrivée — plus un quota de « J'aime » réduit tant qu'on ne l'a pas.
+  # Les deux pages publiques portent les deux versions et n'en servent qu'une
+  # (server/index.js, selonLaPolitique). Décision du propriétaire, 15 septembre 2026.
+  VERIFICATION_POLICY = "badge"
   # AUTO_APPROVE n'est volontairement pas ici : NODE_ENV vaut production, et la validation
   # automatique des selfies y est éteinte quoi qu'on écrive (server/config.js). La modération
   # passe par ADMIN_CHAT_ID, posé en secret par deployer-fly.sh.

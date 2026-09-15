@@ -428,4 +428,23 @@ export default {
   'Présentation vocale': 'Utangulizi wa sauti',
   'Validée · {duree} — les autres peuvent l\'écouter': 'Umethibitishwa · {duree} — wengine wanaweza kuusikiliza',
   'Le bot n\'est pas joignable pour l\'instant.': 'Boti haipatikani kwa sasa.',
+
+  // Porte ou badge : ce que la vérification décide (VERIFICATION_POLICY).
+  "Un bouclier vérifié par selfie sur les profils": "Ngao iliyothibitishwa kwa selfie kwenye wasifu",
+  "Le bouclier sur ta fiche": "Ngao kwenye wasifu wako",
+  "Les autres voient que ton selfie a été vérifié": "Wengine wanaona kuwa selfie yako imethibitishwa",
+  "Réservé aux profils vérifiés, des deux côtés": "Kwa wasifu uliothibitishwa pekee, pande zote mbili",
+  "Plus de profils par jour": "Wasifu zaidi kila siku",
+  "Ton quota du jour passe au maximum": "Kikomo chako cha siku kinapanda hadi cha juu",
+  "Faire vérifier mon profil": "Thibitisha wasifu wangu",
+  "Un profil vérifié en a davantage.": "Wasifu uliothibitishwa una zaidi.",
+  "Profils vérifiés seulement": "Wasifu uliothibitishwa pekee",
+  "Les profils au bouclier passent déjà en premier. Ici, tu ne vois qu'eux.": "Wasifu wenye ngao tayari huja kwanza. Hapa unaona hao tu.",
+  "Le rendez-vous demande le bouclier": "Miadi inahitaji ngao",
+  "Fais vérifier ton profil pour proposer un rendez-vous. C'est un selfie avec un geste, regardé par une vraie personne.": "Thibitisha wasifu wako ili kupendekeza miadi. Ni selfie yenye ishara, inayoangaliwa na mtu halisi.",
+  "{nom} n'a pas encore fait vérifier son profil. Proposer un rendez-vous demande le bouclier des deux côtés.": "{nom} bado hajathibitisha wasifu wake. Kupendekeza miadi kunahitaji ngao pande zote mbili.",
+  "Revenir à la discussion": "Rudi kwenye mazungumzo",
+  "Le bot t'écrit dès que c'est fait": "Boti itakuandikia mara tu itakapokamilika",
+  "Ta dernière tentative a été refusée. Tu peux recommencer.": "Jaribio lako la mwisho lilikataliwa. Unaweza kuanza tena.",
+  "Le bouclier sur ta fiche, le rendez-vous, et plus de profils par jour": "Ngao kwenye wasifu wako, miadi, na wasifu zaidi kila siku",
 };

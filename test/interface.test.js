@@ -27,7 +27,12 @@ test("aucun identifiant n'entre dans un chemin d'API sans être encodé", () => 
 test("les paramètres de lancement n'ouvrent une discussion que sur un identifiant de la bonne forme", () => {
   const boot = entre('async function boot() {', '\nboot();');
   assert.match(boot, /\/\^\[a-f0-9\]\{16\}\$\/\.test\(params\.match/);
-  assert.match(boot, /params\.screen === 'verify' && !approved/, 'un compte vérifié n\'est pas renvoyé au selfie');
+  assert.match(boot, /params\.screen === 'verify' && !verifie\(\)/, 'un compte vérifié n\'est pas renvoyé au selfie');
+  // Porte ou badge : l'app ne recopie pas la règle, elle lit le drapeau du serveur. Sous
+  // « gate », membre() exige le badge et boot() n'a qu'un écran à montrer ; sous « badge », un
+  // profil suffit. Une comparaison en dur ici ferait diverger l'interface du serveur.
+  assert.match(boot, /if \(!membre\(\)\) return go\(/, "l'app s'ouvre selon la politique, pas selon une copie de la règle");
+  assert.ok(!/verification === 'approved'/.test(boot), 'jamais la comparaison à la main dans boot()');
 });
 
 test("une discussion fermée arrête l'interrogation, et l'app en arrière-plan n'interroge plus /summary", () => {

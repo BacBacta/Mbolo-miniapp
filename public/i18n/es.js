@@ -428,4 +428,23 @@ export default {
   'Présentation vocale': 'Presentación de voz',
   'Validée · {duree} — les autres peuvent l\'écouter': 'Aprobada · {duree} — los demás pueden escucharla',
   'Le bot n\'est pas joignable pour l\'instant.': 'No se puede contactar con el bot por ahora.',
+
+  // Porte ou badge : ce que la vérification décide (VERIFICATION_POLICY).
+  "Un bouclier vérifié par selfie sur les profils": "Un escudo verificado por selfi en los perfiles",
+  "Le bouclier sur ta fiche": "El escudo en tu ficha",
+  "Les autres voient que ton selfie a été vérifié": "Los demás ven que tu selfi fue verificado",
+  "Réservé aux profils vérifiés, des deux côtés": "Reservado a los perfiles verificados, de ambos lados",
+  "Plus de profils par jour": "Más perfiles al día",
+  "Ton quota du jour passe au maximum": "Tu límite del día sube al máximo",
+  "Faire vérifier mon profil": "Verificar mi perfil",
+  "Un profil vérifié en a davantage.": "Un perfil verificado tiene más.",
+  "Profils vérifiés seulement": "Solo perfiles verificados",
+  "Les profils au bouclier passent déjà en premier. Ici, tu ne vois qu'eux.": "Los perfiles con escudo ya aparecen primero. Aquí solo ves a ellos.",
+  "Le rendez-vous demande le bouclier": "La cita necesita el escudo",
+  "Fais vérifier ton profil pour proposer un rendez-vous. C'est un selfie avec un geste, regardé par une vraie personne.": "Verifica tu perfil para proponer una cita. Es un selfi con un gesto, revisado por una persona real.",
+  "{nom} n'a pas encore fait vérifier son profil. Proposer un rendez-vous demande le bouclier des deux côtés.": "{nom} todavía no ha verificado su perfil. Proponer una cita necesita el escudo de ambos lados.",
+  "Revenir à la discussion": "Volver a la conversación",
+  "Le bot t'écrit dès que c'est fait": "El bot te escribe en cuanto esté hecho",
+  "Ta dernière tentative a été refusée. Tu peux recommencer.": "Tu último intento fue rechazado. Puedes volver a empezar.",
+  "Le bouclier sur ta fiche, le rendez-vous, et plus de profils par jour": "El escudo en tu ficha, la cita y más perfiles al día",
 };
