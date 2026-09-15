@@ -267,6 +267,12 @@ function go(screen, params = {}) {
   S.avatarObserver?.disconnect();
   tg.closingConfirmation(false);
   S.screen = screen;
+  // L'écran de match renverse toute la palette : le bouton natif change de couleur **et** de
+  // libellé au même instant, et Telegram Android fond alors les deux états — « J'aime » et
+  // « Écrire à … » s'affichaient l'un sur l'autre. On l'efface avant la bascule, et l'écran
+  // d'arrivée repose le sien sur un bouton déjà masqué. Uniquement là : masquer à chaque
+  // navigation ferait clignoter la barre sur tout le reste de l'app.
+  if ((screen === 'match') !== document.body.classList.contains('match-mode')) tg.setButtons(null);
   // La discussion occupe toute la hauteur de l'écran, champ de saisie fixé en bas
   document.body.classList.toggle('chat-mode', screen === 'chat');
   // Le match est un écran d'encre dans les deux thèmes : le moment signature, pas une page de l'app
@@ -655,17 +661,11 @@ async function saveFilters(values) {
 }
 
 // « J'aime » ou « Passer » depuis le détail d'un profil ouvert par la liste
-const boutonsDeLaFiche = () => ({
-  main: { text: t("J'aime"), onClick: () => swipePerson('like') },
-  secondary: { text: t('Passer'), onClick: () => swipePerson('pass') },
-});
-
 async function swipePerson(action) {
   const p = S.person;
   if (!p || swiping) return;
   swiping = true;
   tg.haptic(action === 'like' ? 'medium' : 'select');
-  tg.setButtons(null);
   try {
     const r = await api('/swipes', { method: 'POST', body: { targetId: p.id, action } });
     S.people = []; // la liste se rechargera avec les nouveaux statuts
@@ -681,7 +681,6 @@ async function swipePerson(action) {
       go(S.personFrom || 'discover');
     }
   } catch (e) {
-    if (S.screen === 'person') tg.setButtons(boutonsDeLaFiche());
     showError(e, null);
   } finally {
     swiping = false;
@@ -968,7 +967,7 @@ const SCREENS = {
       ${S.swiped ? '' : `<p class="fine">${icon('hand', 14)}<span>${t('Glisse la carte vers la droite pour aimer, vers la gauche pour passer.')}</span></p>`}`);
     loadCardPhoto(p);
     S.detachSwipe = attachSwipe(app.querySelector('.deck .card.top'), { onLike: () => swipe('like'), onPass: () => swipe('pass') });
-    tg.setButtons(boutonsDuPaquet());
+    tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipe('like') }, secondary: { text: t('Passer'), onClick: () => swipe('pass') } });
   },
 
   filters() {
@@ -1038,7 +1037,7 @@ const SCREENS = {
     loadCardPhoto(p);
     if (p.status === 'liked') tg.setButtons(null);
     else if (p.status === 'passed') tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipePerson('like') } });
-    else tg.setButtons(boutonsDeLaFiche());
+    else tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipePerson('like') }, secondary: { text: t('Passer'), onClick: () => swipePerson('pass') } });
   },
 
   match() {
@@ -1563,22 +1562,12 @@ async function refreshStatus() {
 
 let swiping = false;
 // La carte part sur le côté pendant que le serveur enregistre le choix ; elle revient en cas d'erreur
-const boutonsDuPaquet = () => ({
-  main: { text: t("J'aime"), onClick: () => swipe('like') },
-  secondary: { text: t('Passer'), onClick: () => swipe('pass') },
-});
-
 async function swipe(action) {
   const p = S.profiles[0];
   if (!p || swiping) return;
   swiping = true;
   S.swiped = true;
   tg.haptic(action === 'like' ? 'medium' : 'select');
-  // Les boutons partent le temps du balayage. Deux raisons : on ne peut plus toucher « J'aime »
-  // deux fois pendant que la carte s'envole, et l'écran suivant pose ses propres boutons au lieu
-  // de renommer ceux-ci — un match affichait « J'aime » et « Écrire à … » l'un sur l'autre, le
-  // temps que Telegram fonde les deux libellés.
-  tg.setButtons(null);
   const card = app.querySelector('.deck .card.top');
   try {
     const [r] = await Promise.all([
@@ -1601,8 +1590,6 @@ async function swipe(action) {
       card.style.transform = '';
       card.querySelectorAll('.stamp').forEach((s) => (s.style.opacity = 0));
     }
-    // La carte est toujours là : elle retrouve ses boutons.
-    if (S.screen === 'discover') tg.setButtons(boutonsDuPaquet());
     showError(e);
   } finally {
     swiping = false;

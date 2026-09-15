@@ -36,27 +36,16 @@ test("une discussion fermée arrête l'interrogation, et l'app en arrière-plan 
 });
 
 // Sur un téléphone, l'écran de match affichait « J'aime » et « Écrire à … » l'un sur l'autre :
-// le bouton natif de Telegram était visible avec l'ancien libellé, et l'écran suivant se
-// contentait de le renommer — le client Android fond alors les deux textes. Les boutons partent
-// donc le temps du balayage, et l'écran d'arrivée pose les siens sur un bouton masqué.
-test('les boutons partent pendant le balayage, et reviennent si le balayage échoue', () => {
-  for (const [nom, debut, fin] of [['swipe', 'async function swipe(action) {', '// ---------- Discussion ----------'], ['swipePerson', 'async function swipePerson(action) {', 'function personFrom']]) {
-    const f = entre(debut, fin);
-    const avantAttente = f.slice(0, f.indexOf('await'));
-    assert.match(avantAttente, /tg\.setButtons\(null\)/, `${nom} : les boutons doivent partir avant l'appel réseau`);
-    assert.match(f, /catch[\s\S]*tg\.setButtons\(boutonsD/, `${nom} : et revenir si l'appel échoue`);
-  }
-});
-
-// Un seul endroit décrit les boutons du paquet, et un seul ceux de la fiche : deux copies
-// finissent par diverger, et c'est un libellé qui se met à dire autre chose que ce qu'il fait.
-test("les boutons du paquet et de la fiche sont décrits à un seul endroit", () => {
-  for (const nom of ['boutonsDuPaquet', 'boutonsDeLaFiche']) {
-    const defs = (app.match(new RegExp(`const ${nom} = `, 'g')) || []).length;
-    const usages = (app.match(new RegExp(`${nom}\\(\\)`, 'g')) || []).length;
-    assert.equal(defs, 1, `${nom} : une seule définition`);
-    assert.ok(usages >= 2, `${nom} : employé au rendu et au rattrapage, pas une seule fois (${usages})`);
-  }
+// il renverse toute la palette, donc le bouton natif de Telegram changeait de couleur et de
+// libellé au même instant, et le client Android fond alors les deux états. On l'efface avant la
+// bascule — et seulement là : masquer à chaque navigation ferait clignoter la barre partout.
+test("les boutons sont effacés quand l'écran de match renverse la palette", () => {
+  const f = entre('function go(screen, params = {}) {', 'async function refreshSummary');
+  const ligne = /if \(\(screen === 'match'\) !== document\.body\.classList\.contains\('match-mode'\)\) tg\.setButtons\(null\);/;
+  assert.match(f, ligne, 'effacés à l\'entrée comme à la sortie du match');
+  assert.ok(f.indexOf('tg.setButtons(null)') < f.indexOf("classList.toggle('match-mode'"),
+    'avant la bascule de la palette, sinon le bouton reprend déjà les nouvelles couleurs');
+  assert.equal((f.match(/tg\.setButtons\(null\)/g) || []).length, 1, 'une seule fois : go() ne masque rien d\'autre');
 });
 
 // Le clavier réduit la fenêtre : sans écouteur, la zone des messages rétrécit et le dernier
