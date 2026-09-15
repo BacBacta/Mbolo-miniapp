@@ -1,8 +1,13 @@
 # « Qui s'est arrêté sur ta fiche »
 
 Conception, à la demande du propriétaire (15 septembre 2026), pour que la fonction rejoigne
-Odo Plus. **Rien n'est implémenté** : cette fonction crée un usage nouveau de données
-personnelles, donc elle attend l'accord explicite du propriétaire (CLAUDE.md §6.1).
+Odo Plus.
+
+> **Construite le 15 septembre 2026**, après l'accord explicite du propriétaire (« Go »).
+> `server/vues.js` porte la règle, `GET /api/vues` et `PUT /api/me/discretion` la servent,
+> `test/vues.test.js` essaie de casser les trois refus un par un (sabotages vérifiés), et
+> `server/legal/confidentialite.html` la décrit — y compris pourquoi la liste est incomplète.
+> Ce document reste le **pourquoi** : le code ne peut pas expliquer la soustraction qu'il empêche.
 
 ---
 
@@ -73,6 +78,11 @@ seule qui ne se retourne pas contre les membres.
 | `public/app.js` | un écran, une ligne dans l'onglet Profil, l'interrupteur dans les réglages |
 | `server/legal/confidentialite.html` | **obligatoire** : dire que la décision de s'arrêter sur une fiche est montrée, de façon arrondie, aux membres Plus de cette fiche, et comment s'y opposer |
 | `server/store.*.js` | rien — `swipesTo` existe |
+
+**Tout est écrit.** Une seule chose a bougé en route : la fenêtre de trente jours s'éprouve sur
+la fonction pure, pas à travers la route. Le stockage ne sait pas antidater un balayage, et lui
+apprendre à le faire pour la commodité d'un test ouvrirait une porte — une date de balayage
+qu'un appelant choisit est une date qu'un appelant peut mentir.
 | `test/` | l'opposition rend invisible **et** aveugle ; l'issue ne sort jamais ; l'arrondi ne permet pas la soustraction ; un gratuit reçoit 403 |
 
 **Rétention.** Les `swipes` ne sont jamais purgés aujourd'hui (audit 09, exploitation). La

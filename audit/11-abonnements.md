@@ -282,3 +282,29 @@ permet de **mesurer** si Odo Plus vaut quelque chose avant de lui donner un prix
 - Si Google Play propose le paiement par l'opérateur au Cameroun — cela changerait
   l'accessibilité des Stars.
 - Rien de tout ceci ne se teste avant quelques dizaines de membres actifs.
+
+---
+
+## 8. Ce qui est construit, au 15 septembre 2026
+
+Le socle et les deux premières fonctions. Le reste du tableau du §3 (zone élargie, photos,
+questions, voix de 30 secondes, filtre par langue, ordre du paquet) **n'est pas écrit**, et
+l'écran du pass ne l'annonce donc pas : la leçon de « Sortie en duo » tient en une ligne — une
+promesse affichée que rien n'honore est pire qu'une fonction absente, parce que la personne l'a
+crue.
+
+| | Écrit | Où |
+|---|---|---|
+| `estPlus()`, le seul endroit qui tranche | oui | `server/plus.js` |
+| Pass empilable, expiration franche | oui | `prolonger()`, `test/plus.test.js` |
+| Pass offert à la main depuis la modération | oui | `/pass`, `/sanspass` dans `server/bot.js` |
+| Quota : 2 sans badge, 5 gratuit, sans limite avec le pass | oui | `config.dailyProfiles`, `quotaDe()` |
+| Qui t'a aimé, les quatre portes | oui | `voitSesLikes()`, `requirePlus` |
+| Se sont arrêtés sur ta fiche | oui | `server/vues.js`, `audit/12-profils-consultes.md` |
+| La caisse (mobile money, Stars) | **non** | P0-6, `CLAUDE.md` §10 |
+
+**Pas de caisse, et c'est volontaire.** Avant de faire payer, il faut savoir si ce qu'il y a
+derrière change quelque chose pour de vrais membres. Un pass offert le dit, et ne demande ni
+agrégateur, ni remboursement, ni structure juridique. Ce que la bêta doit répondre : est-ce que
+quelqu'un qui reçoit un pass s'en sert — et est-ce que ne pas savoir qui l'a aimé fait revenir
+plus souvent, ou partir.
