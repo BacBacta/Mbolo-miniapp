@@ -447,4 +447,16 @@ export default {
   "Le bot t'écrit dès que c'est fait": "Boti itakuandikia mara tu itakapokamilika",
   "Ta dernière tentative a été refusée. Tu peux recommencer.": "Jaribio lako la mwisho lilikataliwa. Unaweza kuanza tena.",
   "Le bouclier sur ta fiche, le rendez-vous, et plus de profils par jour": "Ngao kwenye wasifu wako, miadi, na wasifu zaidi kila siku",
+
+  // Choisir son pays sans passer par le menu du système : l'écran de recherche.
+  "Choisir": "Chagua",
+  "Où veux-tu rencontrer ?": "Unataka kukutana wapi?",
+  "Ton pays": "Nchi yako",
+  "Chercher un pays": "Tafuta nchi",
+  "Aucun pays ne correspond": "Hakuna nchi inayolingana",
+  "Vérifie l'orthographe, ou fais défiler la liste.": "Angalia tahajia, au sogeza orodha.",
+  "Proposés": "Zilizopendekezwa",
+  "Tous les pays": "Nchi zote",
+  "{n} pays trouvé": "Nchi {n} imepatikana",
+  "{n} pays trouvés": "Nchi {n} zimepatikana",
 };

@@ -81,6 +81,24 @@ redevenir sans qu'on s'en aperçoive. Le numéro dit de quel lot elles viennent.
 - [ ] En **Relation sérieuse**, les deux questions facultatives (mariage, enfants) apparaissent.
       En **Amitié**, elles disparaissent.
 
+### Le pays, et les autres choix
+
+C'est le seul endroit où l'app touchait encore au menu déroulant du système : gris, à la
+typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Afghanistan.
+
+- [ ] Touche **Pays** : un **écran de l'app** s'ouvre, pas une boîte de dialogue grise. Titre
+      « Ton pays », champ de recherche en haut.
+- [ ] Ton pays est déjà **proposé en haut**, sous « Proposés ».
+- [ ] Tape `cam` : la liste se réduit pendant la frappe, et **le clavier reste ouvert**.
+      *S'il se referme à chaque lettre, l'écran se reconstruit — c'est le bug de la règle 16.*
+- [ ] Tape `cote divoire`, sans accent ni apostrophe : la Côte d'Ivoire doit sortir.
+- [ ] Tape `zzzz` : « Aucun pays ne correspond », pas une liste vide.
+- [ ] Choisis un pays : retour au formulaire, le nom s'affiche dans la ligne, et la ville
+      suggérée suit le nouveau pays.
+- [ ] Étape 3 : les sept questions sont des **pastilles visibles d'un coup**, plus un menu.
+- [ ] Même chose depuis **Filtres** → **Pays**. Tape d'abord une tranche d'âge, va choisir un
+      pays, reviens : **la tranche que tu as tapée est toujours là.**
+
 ---
 
 ## 4. La jauge de confiance
@@ -156,6 +174,18 @@ redevenir sans qu'on s'en aperçoive. Le numéro dit de quel lot elles viennent.
 - [ ] Le balayage fonctionne dans les deux sens ; le tampon « J'aime » apparaît au like.
 - [ ] La jauge (pastilles) s'ouvre sur l'écran d'explication.
 - [ ] Le compteur du jour descend ; à 20 likes, l'écran dit de revenir demain.
+
+---
+
+### Les cartes elles-mêmes
+
+- [ ] L'initiale au fond de l'image est **centrée**, et aucun cercle ne lui passe dessus.
+      *Les images de démonstration posaient la lettre trop haut, avec un cercle en travers.*
+- [ ] Sur un profil à plusieurs photos (la barre en haut est coupée en deux ou trois), touche la
+      **moitié droite** de l'image : la photo doit **visiblement** changer — le motif et la
+      teinte changent ensemble.
+- [ ] Le prénom et la ville se lisent bien en bas, sur toutes les cartes : le bas de chaque image
+      est assez sombre.
 
 ---
 

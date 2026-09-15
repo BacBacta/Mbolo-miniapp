@@ -222,7 +222,7 @@ svg { display: inline-block; vertical-align: -.15em; }
 
 /* ------------------------------------------------------------ Boutons */
 button { font: inherit; color: inherit; cursor: pointer; }
-.pressable, .btn, .choice, .slot, .list-row, .new-item { transition: transform .12s var(--ease), background .2s, border-color .2s, opacity .2s; }
+.pressable, .btn, .choice, .slot, .list-row, .select-row, .new-item { transition: transform .12s var(--ease), background .2s, border-color .2s, opacity .2s; }
 .pressable:active, .btn:active, .choice:active, .slot:active, .new-item:active { transform: scale(.97); }
 .btn {
   height: 50px; padding: 0 20px; border: 0; border-radius: 15px;
@@ -302,6 +302,46 @@ input:not([type="checkbox"]):not([type="file"]), select, textarea {
 }
 input:focus, select:focus, textarea:focus { border-color: var(--button); box-shadow: 0 0 0 3px var(--tint-strong); }
 input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
+/* Ce qui remplace un `<select>`. Le menu déroulant d'Android est une boîte de dialogue du
+   système : ni notre typographie, ni nos couleurs, ni de recherche — et 243 pays sans recherche
+   font quarante lignes à faire défiler. Cette ligne a la taille et le rayon d'un champ, et
+   ouvre un écran à nous. */
+.select-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font: inherit; font-size: 16px; color: var(--text); text-align: left;
+  height: 52px; width: 100%; padding: 0 14px 0 15px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 14px;
+}
+.select-row .valeur { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.select-row svg { color: var(--hint); flex-shrink: 0; }
+.select-row:active { background: var(--bg2); transform: none; }
+
+/* Un choix court, montré d'un coup plutôt que caché derrière un appui : les sept questions du
+   profil tiennent en pastilles qui reviennent à la ligne. */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips button {
+  height: 40px; padding: 0 14px; border-radius: 999px;
+  font: inherit; font-size: 13.5px; font-weight: 600;
+  background: var(--bg); color: var(--hint);
+  border: 1.5px solid var(--line); transition: background .2s, color .2s, border-color .2s;
+}
+.chips button[aria-pressed="true"] { background: var(--button); color: var(--button-text); border-color: var(--button); }
+
+/* Recherche d'un pays : collée en haut, la liste défile dessous. La bande déborde les gouttières
+   de `main` pour que rien ne se voie passer derrière ses coins. */
+.recherche { position: sticky; top: 0; z-index: 3; margin: -6px -16px -4px; padding: 6px 16px 10px; background: var(--bg2); }
+.recherche .champ { position: relative; display: block; }
+.recherche .champ svg { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--hint); pointer-events: none; }
+/* Deux classes, pas une : la règle générale des champs porte deux `:not()`, et un sélecteur
+   plus court perdrait la place à l'icône. */
+.recherche .champ input { padding-left: 44px; }
+.recherche .champ input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+#liste-pays { display: grid; gap: 10px; align-content: start; }
+/* Une liste d'une seule ligne par rangée n'a pas besoin de la hauteur d'une liste à sous-titre :
+   sur 243 pays, les douze pixels de trop font quatre écrans de défilement en plus. */
+.list-simple .list-row { min-height: 52px; padding: 10px 14px; }
+.list-simple .list-row .title { font-weight: 500; }
+
 .select-wrap { position: relative; display: block; }
 .select-wrap select { appearance: none; -webkit-appearance: none; padding-right: 42px; }
 .select-wrap svg { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--hint); pointer-events: none; }

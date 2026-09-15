@@ -119,6 +119,13 @@ que le paquet ne soit jamais vide quel que soit ton profil, plus trois à Douala
 démarrage. Deux d'entre eux t'aiment automatiquement dès que ton profil est vérifié, pour remplir
 « Ont aimé ton profil » sans attendre.
 
+**Leurs images se refont** : `npm run demo-photos` (`scripts/demo-photos.mjs`) les redessine toutes,
+dans Chromium, à partir du prénom et du numéro de photo. C'est une commande de développement — elle
+s'appuie sur `@playwright/test`, et rien en production ne l'appelle. Elle existe parce que ces images
+étaient d'abord des fichiers sans fabrique : le jour où on les a trouvées mal calibrées, rien ne
+permettait de les refaire. Chaque numéro de photo a son motif, pour que passer d'une photo à l'autre
+se voie ; `test/demo-photos.test.js` refuse qu'elles redeviennent identiques.
+
 | Ton choix | Profils proposés | Ce que tu peux tester avec eux |
 |---|---|---|
 | Relation sérieuse, tu es un homme | Carine 24 (3 photos), Laure 21, Sandrine 29 (2 photos), Estelle 19 (sans photo) | changement de photo au toucher sur Carine, filtre d'âge (de 19 à 29), **Sandrine ne rend jamais les « J'aime »** : ton like reste en attente dans la liste |

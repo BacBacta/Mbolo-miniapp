@@ -10,6 +10,11 @@ const S = {
   profiles: [],
   remaining: 0,
   quota: 0,
+  // D'où l'écran des pays a été ouvert, et ce qu'il doit remplir au retour.
+  pays: null,
+  // Ce qui est tapé dans les filtres sans être enregistré, le temps d'un aller-retour
+  // vers l'écran des pays. Le DOM ne survit pas au changement d'écran, lui.
+  filtresDraft: null,
   // Découvrir : « cards » (une carte à la fois) ou « list » (tous les profils compatibles)
   discoverMode: 'cards',
   people: [],
@@ -263,7 +268,7 @@ const entreeLibre = () => !!S.me?.options?.entreeLibre;
 const verifie = () => S.me?.verification === 'approved';
 const membre = () => !!S.me?.profile && (entreeLibre() || verifie());
 
-const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
+const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', pays: () => S.pays?.retour || 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
 const TABS = [['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']];
 
@@ -273,6 +278,10 @@ function go(screen, params = {}) {
   // inscription, et l'onglet Profil. On retient lequel, pour y revenir — et pour que le bouton
   // retour natif ne renvoie pas vers un onglet qui n'existe pas encore.
   if (screen === 'langue' && S.screen !== 'langue') S.langueRetour = S.screen;
+  // Le brouillon des filtres ne sert qu'à l'aller-retour vers l'écran des pays. Le garder plus
+  // longtemps ferait ressortir, à la prochaine ouverture des filtres, des âges que personne
+  // n'a réglés — et « Enregistrer » les aurait pris pour un choix.
+  if (S.screen === 'filters' && screen !== 'pays') S.filtresDraft = null;
   clearInterval(S.chatTimer);
   clearInterval(S.pendingTimer);
   clearInterval(S.summaryTimer);
@@ -406,6 +415,29 @@ function paysTries() {
   const collator = new Intl.Collator(langue(), { sensitivity: 'base' });
   return codes.map((code) => ({ code, name: nomPays(code) })).sort((a, b) => collator.compare(a.name, b.name));
 }
+// Chercher un pays sans se soucier de la casse, des accents, ni de la ponctuation : « cote
+// divoire » doit trouver « Côte d'Ivoire », « guinee bissau » « Guinée-Bissau », et « cm » le
+// Cameroun par son code. Personne ne tape une apostrophe ni un tiret dans un champ de recherche.
+const sansAccent = (s) => String(s)
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  // Tout ce qui n'est ni lettre ni chiffre saute, espaces compris : « Guinée-Bissau » et
+  // « guinee bissau » doivent se rejoindre, et le tiret d'un côté n'est pas l'espace de l'autre.
+  .replace(/[^a-z0-9]/g, '');
+const paysCherches = (liste, q) => {
+  const r = sansAccent(q).trim();
+  if (!r) return liste;
+  // Ce qui commence par la recherche d'abord : taper « ni » doit donner le Niger avant la
+  // Bosnie. Un nom qui contient la recherche ailleurs suit, il n'est pas jeté.
+  const debut = [], dedans = [];
+  for (const c of liste) {
+    const n = sansAccent(c.name);
+    if (n.startsWith(r) || sansAccent(c.code) === r) debut.push(c);
+    else if (n.includes(r)) dedans.push(c);
+  }
+  return [...debut, ...dedans];
+};
+
 // Ce que dit la pilule de Découvrir : la ville, ou le nom du pays quand la zone couvre tout le pays.
 // Aucun article : « le Cameroun », « la France » et « les Pays-Bas » ne suivent pas la même règle,
 // et une table de genres pour 243 pays serait exactement la donnée de traduction qu'on évite ici.
@@ -652,8 +684,10 @@ async function changerLangue(code) {
 
 async function saveFilters(values) {
   const form = document.getElementById('filters-form');
+  // Le pays vient du brouillon : il se choisit maintenant sur un écran à nous, plus dans un
+  // menu du système dont il aurait fallu relire la valeur ici.
   const zone = S.zoneDraft
-    ? { country: form?.zoneCountry?.value || S.zoneDraft.country, city: S.zoneDraft.city === null ? null : (form?.zoneCity?.value ?? S.zoneDraft.city) }
+    ? { country: S.zoneDraft.country, city: S.zoneDraft.city === null ? null : (form?.zoneCity?.value ?? S.zoneDraft.city) }
     : undefined;
   const v = values || {
     ageMin: Number(form?.ageMin.value), ageMax: Number(form?.ageMax.value), zone,
@@ -670,6 +704,7 @@ async function saveFilters(values) {
     S.me.filters = r.filters;
     S.zoneDraft = null;
     S.genreDraft = null;
+    S.filtresDraft = null;
     S.profiles = [];
     S.people = [];
     S.venues = [];
@@ -796,8 +831,6 @@ const SCREENS = {
         <p class="eyebrow">${t('Étape {n} sur 3', { n: step + 1 })}</p>
         <h1>${titles[step]}</h1>
       </div>`;
-    const select = (name, options, current) => `
-      <span class="select-wrap"><select name="${name}">${options.map((c) => `<option ${c === current ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>${icon('chevron-down', 18)}</span>`;
     const bodies = [
       `
       <label class="field"><span class="label">${t('Prénom')}</span><input name="name" maxlength="30" value="${esc(f.name)}" autocomplete="given-name" placeholder="${t('Ton prénom')}"></label>
@@ -818,9 +851,9 @@ const SCREENS = {
           <div class="seg seg-wrap">${Object.entries(valeurs).map(([v, l]) => `
             <button type="button" aria-pressed="${f.compat[champ] === v}" data-action="set-compat" data-champ="${champ}" data-value="${v}">${t(l)}</button>`).join('')}</div>
         </div>`).join('') : ''}
-      <label class="field"><span class="label">${t('Pays')}</span>
-        <span class="select-wrap"><select name="country">${paysTries().map((c) => `<option value="${esc(c.code)}" ${c.code === f.country ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>${icon('chevron-down', 18)}</span>
-      </label>
+      <div class="field"><span class="label">${t('Pays')}</span>
+        ${ligneDeChoix('choisir-pays', nomPays(f.country) || t('Choisir'), { cible: 'profil' })}
+      </div>
       <label class="field"><span class="label">${t('Ville')}</span>
         <input name="city" maxlength="40" value="${esc(f.city)}" placeholder="${esc((S.me.options.knownCities[f.country] || [])[0] || t('Ta ville'))}" list="villes-connues" autocomplete="off">
         <datalist id="villes-connues">${(S.me.options.knownCities[f.country] || []).map((v) => `<option value="${esc(v)}"></option>`).join('')}</datalist>
@@ -844,9 +877,10 @@ const SCREENS = {
         }).join('')}</div>
         <span class="small muted">${t("Chaque photo est vérifiée avant d'être montrée aux autres. Compressée sur ton téléphone.")}</span>
       </div>
-      <label class="field"><span class="label">${t('Une question sur toi')}</span>
-        <span class="select-wrap"><select name="promptQ">${Object.entries(QUESTIONS).map(([k, l]) => `<option value="${k}" ${k === f.promptQ ? 'selected' : ''}>${esc(t(l))}</option>`).join('')}</select>${icon('chevron-down', 18)}</span>
-      </label>
+      <div class="field"><span class="label">${t('Une question sur toi')}</span>
+        <div class="chips" role="group" aria-label="${t('Une question sur toi')}">${Object.entries(QUESTIONS).map(([k, l]) => `
+          <button type="button" aria-pressed="${k === f.promptQ}" data-action="question" data-value="${esc(k)}">${esc(t(l))}</button>`).join('')}</div>
+      </div>
       <!-- Pas de suggestion sous ce champ : elle répondait à « Mon plat du dimanche », retirée des
            questions (#74), et s'affichait donc sous « Mon coin préféré » ou « Je supporte » sans
            rapport avec ce qui était demandé. Une suggestion par question serait juste ; une
@@ -1012,7 +1046,9 @@ const SCREENS = {
   },
 
   filters() {
-    const f = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, ...(S.me.filters || {}) };
+    // Le brouillon en dernier : ce qui a été tapé sans être enregistré l'emporte sur ce qui est
+    // rangé, sinon aller choisir un pays remettrait les âges à leur valeur d'avant.
+    const f = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, ...(S.me.filters || {}), ...(S.filtresDraft || {}) };
     if (S.genreDraft != null) f.gender = S.genreDraft;
     // Qui choisit le genre recherché.
     //
@@ -1033,9 +1069,9 @@ const SCREENS = {
       <div class="step-head"><h1>${t('Qui veux-tu voir ?')}</h1><p class="lead">${t("La zone où tu veux rencontrer, et la tranche d'âge. Ton intention vient de ton profil.")}</p></div>
       <form id="filters-form" class="stack">
         <span class="eyebrow">${t('Zone de recherche')}</span>
-        <label class="field"><span class="label">${t('Pays')}</span>
-          <span class="select-wrap"><select name="zoneCountry">${paysTries().map((c) => `<option value="${esc(c.code)}" ${c.code === z.country ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>${icon('chevron-down', 18)}</span>
-        </label>
+        <div class="field"><span class="label">${t('Pays')}</span>
+          ${ligneDeChoix('choisir-pays', nomPays(z.country) || t('Choisir'), { cible: 'zone' })}
+        </div>
         ${ici && ici !== z.country ? `
         <button type="button" class="btn btn-ghost btn-sm" data-action="zone-ici">${icon('pin', 15)} ${t('Ma position : {pays}', { pays: esc(nomPays(ici)) })}</button>` : ''}
         <div class="seg seg-zone" aria-label="${t('Étendue')}">
@@ -1386,6 +1422,38 @@ const SCREENS = {
     tg.setButtons({ main: { text: t('Compris'), onClick: () => go(avantVerif ? 'verify' : 'me') } });
   },
 
+  // Choisir un pays parmi 243, sans passer par le menu du système.
+  //
+  // Le `<select>` d'Android n'est pas une liste de l'app : c'est une boîte de dialogue du
+  // système, grise, à la typographie du système, qu'aucune ligne de notre CSS ne peut toucher.
+  // Et surtout **elle n'a pas de recherche** : atteindre le Cameroun demandait de faire défiler
+  // une quarantaine de pays depuis l'Afghanistan, sur un écran de téléphone.
+  //
+  // Cet écran est donc le nôtre, comme celui de la langue : une recherche, les pays probables
+  // en haut, le reste par ordre alphabétique. **Pas de drapeau** : l'emoji de drapeau manque sur
+  // une partie des Android, et deux lettres dans un carré valent moins qu'un nom bien posé.
+  pays() {
+    const { cible, courant } = S.pays || {};
+    const tous = paysTries();
+    // Les pays probables : celui déjà choisi, celui du fuseau du téléphone, celui de la
+    // configuration. Dédoublonnés, et seulement s'ils existent dans la liste.
+    const suggeres = [...new Set([courant, S.me.options.suggestedCountry, S.me.options.defaultCountry].filter(Boolean))]
+      .map((code) => tous.find((c) => c.code === code)).filter(Boolean);
+    render(`
+      <div class="step-head">
+        <h1>${cible === 'zone' ? t('Où veux-tu rencontrer ?') : t('Ton pays')}</h1>
+      </div>
+      <div class="recherche">
+        <span class="champ">
+          ${icon('search', 18)}
+          <input name="recherche-pays" type="search" autocomplete="off" autocorrect="off" spellcheck="false"
+                 placeholder="${t('Chercher un pays')}" aria-label="${t('Chercher un pays')}">
+        </span>
+      </div>
+      <div id="liste-pays">${listeDesPays(tous, suggeres, courant, '')}</div>`);
+    tg.setButtons(null);
+  },
+
   // Choix de la langue. Par défaut celle de Telegram ; le choix explicite est gardé sur le
   // serveur, pour que le bot écrive lui aussi dans la bonne langue.
   langue() {
@@ -1497,6 +1565,56 @@ const SCREENS = {
     tg.setButtons({ main: { text: pp ? t('Modifier mon profil') : t('Créer mon profil'), onClick: () => { S.form = null; S.formStep = 0; go('profile'); } } });
   },
 };
+
+// Ce qui remplace un `<select>` : une ligne de l'app, à la taille et au rayon d'un champ, qui
+// ouvre un écran à nous. Le menu du système n'était ni de notre typographie, ni de nos couleurs,
+// ni traduisible, ni cherchable — et c'est cette dernière absence qui coûtait le plus cher.
+const ligneDeChoix = (action, valeur, data = {}) => `
+  <button type="button" class="select-row" data-action="${action}"${Object.entries(data).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('')}>
+    <span class="valeur">${esc(valeur)}</span>
+    ${icon('chevron-down', 18)}
+  </button>`;
+
+// Les lignes de la liste des pays, et la liste entière. Deux fonctions parce que la recherche
+// ne redessine que la liste : refaire le champ pendant la frappe fermerait le clavier — même
+// cause que la règle 16 dans la discussion.
+const lignesDePays = (liste, courant) => liste.map((c) => `
+  <button type="button" class="list-row" data-action="pays-choisi" data-code="${esc(c.code)}">
+    <div class="body"><div class="title">${esc(c.name)}</div></div>
+    ${c.code === courant ? `<span class="c-ok">${icon('check', 18)}</span>` : ''}
+  </button>`).join('');
+
+function listeDesPays(tous, suggeres, courant, q) {
+  const trouves = paysCherches(tous, q);
+  if (!trouves.length) {
+    return `
+      <div class="empty">
+        <span class="glyph">${icon('search', 30)}</span>
+        <h2>${t('Aucun pays ne correspond')}</h2>
+        <p>${t('Vérifie l\'orthographe, ou fais défiler la liste.')}</p>
+      </div>`;
+  }
+  // Pendant une recherche, les suggestions n'ont plus de sens : on répond à la question posée.
+  const enTete = q.trim() || !suggeres.length ? '' : `
+    <span class="eyebrow">${t('Proposés')}</span>
+    <div class="list list-simple">${lignesDePays(suggeres, courant)}</div>`;
+  return `${enTete}
+    <span class="eyebrow">${q.trim() ? tn('{n} pays trouvé', '{n} pays trouvés', trouves.length) : t('Tous les pays')}</span>
+    <div class="list list-simple">${lignesDePays(trouves, courant)}</div>`;
+}
+
+// Quitter l'écran des filtres pour choisir un pays ne doit rien faire perdre. La zone et le genre
+// ont déjà leur brouillon ; l'âge et « vérifiés seulement » vivaient dans le DOM, et le DOM
+// disparaît au changement d'écran. On les met de côté avant de partir.
+function garderLesFiltres() {
+  const form = document.getElementById('filters-form');
+  if (!form) return;
+  S.filtresDraft = {
+    ageMin: form.ageMin?.value,
+    ageMax: form.ageMax?.value,
+    ...(form.verifiesSeulement ? { verifiesSeulement: form.verifiesSeulement.checked } : {}),
+  };
+}
 
 function dateSummary() {
   const d = S.dateDraft;
@@ -1991,6 +2109,9 @@ app.addEventListener('click', async (e) => {
     // mini app sur Android. On ouvre donc la discussion avec le bot, qui explique la marche à suivre.
     case 'genre':
       tg.haptic('light');
+      // Redessiner l'écran repart de l'état, pas du DOM : sans cette ligne, changer de genre
+      // effaçait une tranche d'âge tapée juste avant.
+      garderLesFiltres();
       S.genreDraft = el.dataset.genre || '';
       SCREENS.filters();
       break;
@@ -2021,7 +2142,42 @@ app.addEventListener('click', async (e) => {
     case 'edit-step': S.form = null; S.formStep = Number(el.dataset.step); go('profile'); break;
     case 'photo-nav': photoNav(el, e); break;
     case 'set-langue': await changerLangue(el.dataset.langue); break;
+    // Ouvrir l'écran des pays. On retient d'où l'on vient et ce qui est déjà choisi : l'écran
+    // n'a pas à deviner, et le bouton retour de Telegram ramène au bon endroit.
+    case 'choisir-pays': {
+      const cible = el.dataset.cible;
+      if (cible === 'zone') {
+        garderLesFiltres();
+        S.pays = { cible, courant: (S.zoneDraft || zoneDe()).country, retour: 'filters' };
+      } else {
+        S.pays = { cible, courant: S.form?.country || '', retour: 'profile' };
+      }
+      go('pays');
+      break;
+    }
+    case 'pays-choisi': {
+      const code = el.dataset.code;
+      tg.haptic('select');
+      if (S.pays?.cible === 'zone') {
+        // Le fuseau donne le pays, jamais la ville : changer de pays rouvre sur tout le pays.
+        // Garder l'ancienne ville serait pire — elle appartient au pays qu'on vient de quitter.
+        if (code !== (S.zoneDraft || zoneDe()).country) S.zoneDraft = { country: code, city: null };
+        go('filters');
+      } else if (S.form) {
+        if (code !== S.form.country) { S.form.country = code; S.form.city = ''; }
+        go('profile');
+      } else {
+        go('me');
+      }
+      break;
+    }
+    case 'question':
+      tg.haptic('select');
+      S.form.promptQ = el.dataset.value;
+      pressOnly(el, '[data-action="question"]');
+      break;
     case 'zone-mode':
+      garderLesFiltres();
       S.zoneDraft = { ...(S.zoneDraft || zoneDe()), city: el.dataset.mode === 'pays' ? null : (S.zoneDraft?.city || S.me.profile.city || '') };
       SCREENS.filters();
       break;
@@ -2030,6 +2186,7 @@ app.addEventListener('click', async (e) => {
     // appartient au pays qu'on vient de quitter.
     case 'zone-ici':
       tg.haptic('select');
+      garderLesFiltres();
       S.zoneDraft = { country: S.me.options.suggestedCountry, city: null };
       SCREENS.filters();
       break;
@@ -2108,6 +2265,14 @@ app.addEventListener('input', (e) => {
     S.form[name] = value;
     const err = document.getElementById('form-error');
     if (err) err.textContent = '';
+  } else if (S.screen === 'pays' && name === 'recherche-pays') {
+    // **Seule la liste est reconstruite.** Refaire le champ à chaque caractère fermerait le
+    // clavier sur Android — exactement la cause de la règle 16 dans la discussion.
+    const liste = document.getElementById('liste-pays');
+    const tous = paysTries();
+    const suggeres = [...new Set([S.pays?.courant, S.me.options.suggestedCountry, S.me.options.defaultCountry].filter(Boolean))]
+      .map((code) => tous.find((c) => c.code === code)).filter(Boolean);
+    if (liste) liste.innerHTML = listeDesPays(tous, suggeres, S.pays?.courant, value);
   } else if (S.screen === 'chat' && name === 'message') {
     // Le bouton Envoyer ne s'active qu'avec du texte ; le champ lui-même n'est jamais reconstruit
     const send = e.target.nextElementSibling;
@@ -2121,18 +2286,8 @@ app.addEventListener('change', async (e) => {
     try { S.form.photos[t.name.slice(-1)] = await compressImage(t.files[0]); SCREENS.profile(); } catch (err) { showError(err); }
   } else if (t.name === 'selfie' && t.files?.[0]) {
     try { S.selfie = await compressImage(t.files[0], 900, 0.85); SCREENS.verify(); } catch (err) { showError(err); }
-  } else if (t.name === 'country' && S.form) {
-    // Changer de pays change les villes suggérées : on redessine l'étape
-    S.form.country = t.value;
-    S.form.city = '';
-    SCREENS.profile();
-  } else if (t.name === 'zoneCountry' && S.zoneDraft) {
-    S.zoneDraft = { country: t.value, city: null };
-    SCREENS.filters();
   } else if (t.name === 'zoneCity' && S.zoneDraft) {
     S.zoneDraft.city = t.value;
-  } else if (t.name === 'promptQ' && S.form) {
-    S.form.promptQ = t.value;
   } else if (t.name === 'dataSaver') {
     S.dataSaver = t.checked;
     await tg.cloudSet('data_saver', t.checked ? '1' : '0');
