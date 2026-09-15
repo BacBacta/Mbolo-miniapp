@@ -106,7 +106,12 @@ test('profil de démo : like pendant l\'absence puis réponse notifiée', async 
   assert.ok(to('6001').some((x) => /Tu as plu à quelqu'un/.test(x.text)), 'alerte de like de démo');
 
   const d = await call('6001', '/discover');
-  assert.equal(d.body.profiles[0].likedYou, true, 'le profil qui a liké apparaît en premier');
+  // La notification promet « continue à découvrir : tu le croiseras dans ton paquet ». C'est
+  // cette ligne qui la tient : la personne qui a aimé est bien la première carte. L'étiquette,
+  // elle, demande un pass — mais la **place** n'en dépend pas, et c'est tout l'équilibre.
+  const quiMAAime = (await store.swipesTo('6001')).filter((x) => x.action === 'like').map((x) => x.from);
+  assert.equal((await store.userByPid(d.body.profiles[0].id)).id, quiMAAime[0], 'la personne qui a aimé est la première carte');
+  assert.equal(d.body.profiles[0].likedYou, false, "sans pass, rien ne dit que cette personne m'a aimé");
   const m = await call('6001', '/swipes', 'POST', { targetId: d.body.profiles[0].id, action: 'like' });
   assert.ok(m.body.match);
   await call('6001', `/matches/${m.body.match.id}/messages`, 'POST', { text: 'Coucou' });

@@ -36,6 +36,8 @@ async function makeUser(id, name, gender, age = 25) {
   await store.updateUser(id, { verification: 'approved' });
 }
 const ids = (r) => r.body.profiles.map((p) => p.id);
+// Un pass offert : voir qui t'a aimé est ce qu'il ouvre, donc ces tests-là en ont besoin.
+const passer = async (id) => store.updateUser(id, { plus: { source: 'gift', depuisLe: Date.now(), finLe: Date.now() + 30 * 24 * 3600 * 1000 } });
 
 test.after(() => server.close());
 
@@ -62,6 +64,14 @@ test('cartes et liste respectent la tranche ; un like reçu l\'ignore', async ()
   const liste = ids(await call('7401', '/profiles'));
   assert.ok(liste.includes(await pid('7402')) && !liste.includes(await pid('7403')), 'la liste aussi');
 
+  // Qui t'a aimé est ce que le pass ouvre : sans lui la porte est fermée, et fermée en le
+  // disant — un 403 muet se lit comme une panne.
+  const sansPass = await call('7401', '/likes');
+  assert.equal(sansPass.status, 403, 'sans pass, la liste ne s\'ouvre pas');
+  assert.equal(sansPass.body.code, 'PASS_REQUIS');
+  assert.equal((await call('7401', '/summary')).body.likes, null, 'et le compteur ne dit pas zéro : il ne dit rien');
+
+  await passer('7401');
   const likes = await call('7401', '/likes');
   assert.deepEqual(ids(likes), [await pid('7404')], 'Jean, hors tranche, apparaît quand même dans les likes reçus');
   assert.equal(likes.body.profiles[0].activity, 'week', 'activité rabattue avant le match');

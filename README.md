@@ -589,6 +589,34 @@ Comme pour `MATCH_POLICY`, **les deux pages publiques portent les deux versions*
 
 ---
 
+### Odo Plus : le pass, et ce qu'il enlève
+
+Le modèle économique est un **pass à durée fixe** — pas un abonnement : aucune reconduction tacite, aucune empreinte de moyen de paiement gardée pour la suite, une fin franche et un geste pour reprendre. Le raisonnement complet est dans `audit/11-abonnements.md` ; le cahier des charges du paiement est la section 10 de `CLAUDE.md`.
+
+**Il n'y a pas encore de caisse, et c'est volontaire.** Avant de faire payer quoi que ce soit, il faut savoir si ce qu'il y a derrière change quelque chose pour de vrais membres. Un pass **offert à la main** le dit, et ne demande ni agrégateur, ni remboursement, ni structure juridique. Depuis le groupe de modération :
+
+```
+/pass 123456789 30      pose (ou prolonge de) 30 jours
+/sanspass 123456789     retire le pass en cours
+```
+
+La personne est prévenue des deux côtés, dans sa langue. Un pass pris pendant qu'un autre court **repousse la fin** au lieu de la remplacer.
+
+| | Sans pass | Avec le pass |
+|---|---|---|
+| « J'aime » par jour | **5** (2 sans le bouclier) | sans limite |
+| Qui t'a aimé | rien — mais ces personnes **passent devant dans le paquet** | la liste, avec les fiches |
+
+Le reste de ce que le pass donnera (zone élargie, photos, questions, présentation vocale plus longue) n'est **pas construit**, et l'écran du pass ne l'annonce donc pas : une promesse affichée que rien n'honore est pire qu'une fonction absente, parce que la personne l'a crue — la leçon de « Sortie en duo ».
+
+**Ce que le pass n'enlève jamais, c'est une rencontre.** Les mêmes personnes, la même zone, les mêmes règles ; le paquet place les « J'aime » reçus devant pour tout le monde, avec ou sans pass, et la notification du bot le dit ainsi : « Tu as plu à quelqu'un à Yaoundé. Continue à découvrir : tu le croiseras dans ton paquet. » Ce qui disparaît sans pass est de savoir **lesquels**.
+
+Il faut alors fermer **quatre portes ensemble**, sans quoi les trois autres ne servent à rien : la liste (`GET /api/likes`, 403 `PASS_REQUIS`), la pastille « T'a liké » sur la carte, la même dans la vue Liste, et **le compteur** de l'onglet Messages. Le compteur est le plus bavard des quatre : « une personne t'a aimé », posé à côté d'un paquet qui met cette personne en tête, fait un nom. Il ne vaut pas `0` sans pass — zéro dirait « personne ne t'a aimé », ce qui est faux — il vaut **`null`** : on ne le dit pas, et on ne dit pas le contraire. L'**ordre**, lui, ne change pas d'un compte à l'autre : deux ordres différents se compareraient, et la différence dirait ce que l'étiquette ne dit plus.
+
+`estPlus()` dans `server/plus.js` est le seul endroit qui tranche, comme `entreeLibre()` et `genreAuChoix()`. Le droit vit pour l'instant dans l'objet utilisateur (du jsonb des deux côtés, donc aucune migration) ; la table `entitlements` arrive avec la caisse (P0-6) et cette fonction en deviendra la projection. Une fin de pass absente ou illisible vaut **« pas de pass »**, jamais « pass éternel » : se tromper dans ce sens-là le donnerait à tout le monde le jour d'une écriture ratée. `test/plus.test.js` fige tout cela.
+
+---
+
 ## Organisation du code
 
 ```

@@ -459,4 +459,18 @@ export default {
   "Tous les pays": "Todos los países",
   "{n} pays trouvé": "{n} país encontrado",
   "{n} pays trouvés": "{n} países encontrados",
+  // Odo Plus
+  "Voir qui t'a aimé": "Ver a quién le gustas",
+  "Ces personnes passent déjà devant dans ton paquet. Le pass les nomme.": "Estas personas ya van primero en tu mazo. El pase las nombra.",
+  "{app} Plus": "{app} Plus",
+  "Le pass ne change rien à qui tu rencontres : les mêmes personnes, la même zone, les mêmes règles. Il enlève l'attente.": "El pase no cambia a quién conoces: las mismas personas, la misma zona, las mismas reglas. Quita la espera.",
+  "Ton pass est actif jusqu'au {date}.": "Tu pase está activo hasta el {date}.",
+  "Des « J'aime » sans compter": "«Me gusta» sin contar",
+  "Tu n'as aucune limite en ce moment.": "Ahora mismo no tienes ningún límite.",
+  "Sans pass, tu en as {n} par jour.": "Sin pase, tienes {n} al día.",
+  "Qui t'a aimé": "A quién le gustas",
+  "La liste, avec les fiches. Sans pass, ces personnes passent devant dans ton paquet, mais rien ne les nomme.": "La lista, con los perfiles. Sin pase, estas personas van primero en tu mazo, pero nada las nombra.",
+  "Le pass n'est pas encore en vente. Il le sera dans {app}, jamais par message.": "El pase todavía no está a la venta. Se venderá dentro de {app}, nunca por mensaje.",
+  "Actif jusqu'au {date}": "Activo hasta el {date}",
+  "Ce que le pass enlève, et ce qu'il ne change pas": "Lo que el pase quita, y lo que no cambia",
 };

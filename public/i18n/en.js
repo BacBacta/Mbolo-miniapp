@@ -470,4 +470,18 @@ export default {
   "Tous les pays": "All countries",
   "{n} pays trouvé": "{n} country found",
   "{n} pays trouvés": "{n} countries found",
+  // Odo Plus
+  "Voir qui t'a aimé": "See who liked you",
+  "Ces personnes passent déjà devant dans ton paquet. Le pass les nomme.": "These people already come first in your deck. The pass names them.",
+  "{app} Plus": "{app} Plus",
+  "Le pass ne change rien à qui tu rencontres : les mêmes personnes, la même zone, les mêmes règles. Il enlève l'attente.": "The pass changes nothing about who you meet: the same people, the same area, the same rules. It removes the waiting.",
+  "Ton pass est actif jusqu'au {date}.": "Your pass is active until {date}.",
+  "Des « J'aime » sans compter": "Likes without counting",
+  "Tu n'as aucune limite en ce moment.": "You have no limit right now.",
+  "Sans pass, tu en as {n} par jour.": "Without the pass, you get {n} a day.",
+  "Qui t'a aimé": "Who liked you",
+  "La liste, avec les fiches. Sans pass, ces personnes passent devant dans ton paquet, mais rien ne les nomme.": "The list, with the profiles. Without the pass, these people come first in your deck, but nothing names them.",
+  "Le pass n'est pas encore en vente. Il le sera dans {app}, jamais par message.": "The pass is not on sale yet. It will be sold inside {app}, never by message.",
+  "Actif jusqu'au {date}": "Active until {date}",
+  "Ce que le pass enlève, et ce qu'il ne change pas": "What the pass removes, and what it leaves alone",
 };

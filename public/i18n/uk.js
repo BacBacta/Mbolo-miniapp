@@ -459,4 +459,18 @@ export default {
   "Tous les pays": "Усі країни",
   "{n} pays trouvé": "Знайдено {n} країну",
   "{n} pays trouvés": {"one": "Знайдено {n} країну", "few": "Знайдено {n} країни", "many": "Знайдено {n} країн", "other": "Знайдено {n} країни"},
+  // Odo Plus
+  "Voir qui t'a aimé": "Подивитися, кому сподобалася твоя анкета",
+  "Ces personnes passent déjà devant dans ton paquet. Le pass les nomme.": "Ці анкети вже йдуть першими у твоїй колоді. Пропуск називає їх.",
+  "{app} Plus": "{app} Plus",
+  "Le pass ne change rien à qui tu rencontres : les mêmes personnes, la même zone, les mêmes règles. Il enlève l'attente.": "Пропуск не змінює того, з ким ти знайомишся: ті самі люди, та сама зона, ті самі правила. Він прибирає очікування.",
+  "Ton pass est actif jusqu'au {date}.": "Твій пропуск діє до {date}.",
+  "Des « J'aime » sans compter": "«Подобається» без ліку",
+  "Tu n'as aucune limite en ce moment.": "Зараз у тебе немає обмеження.",
+  "Sans pass, tu en as {n} par jour.": "Без пропуску їх {n} на день.",
+  "Qui t'a aimé": "Кому сподобалася твоя анкета",
+  "La liste, avec les fiches. Sans pass, ces personnes passent devant dans ton paquet, mais rien ne les nomme.": "Список з анкетами. Без пропуску ці анкети йдуть першими в колоді, але ніщо їх не називає.",
+  "Le pass n'est pas encore en vente. Il le sera dans {app}, jamais par message.": "Пропуск поки не продається. Він продаватиметься в {app}, ніколи в повідомленні.",
+  "Actif jusqu'au {date}": "Діє до {date}",
+  "Ce que le pass enlève, et ce qu'il ne change pas": "Що прибирає пропуск і чого він не змінює",
 };

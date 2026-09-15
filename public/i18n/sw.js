@@ -459,4 +459,18 @@ export default {
   "Tous les pays": "Nchi zote",
   "{n} pays trouvé": "Nchi {n} imepatikana",
   "{n} pays trouvés": "Nchi {n} zimepatikana",
+  // Odo Plus
+  "Voir qui t'a aimé": "Ona nani amependa wasifu wako",
+  "Ces personnes passent déjà devant dans ton paquet. Le pass les nomme.": "Watu hawa tayari wanatangulia kwenye rundo lako. Pasi inawataja.",
+  "{app} Plus": "{app} Plus",
+  "Le pass ne change rien à qui tu rencontres : les mêmes personnes, la même zone, les mêmes règles. Il enlève l'attente.": "Pasi haibadilishi unayekutana naye: watu wale wale, eneo lile lile, sheria zile zile. Inaondoa kusubiri.",
+  "Ton pass est actif jusqu'au {date}.": "Pasi yako inatumika hadi {date}.",
+  "Des « J'aime » sans compter": "Mapendo bila kuhesabu",
+  "Tu n'as aucune limite en ce moment.": "Kwa sasa huna kikomo chochote.",
+  "Sans pass, tu en as {n} par jour.": "Bila pasi, unapata {n} kwa siku.",
+  "Qui t'a aimé": "Nani amependa wasifu wako",
+  "La liste, avec les fiches. Sans pass, ces personnes passent devant dans ton paquet, mais rien ne les nomme.": "Orodha, pamoja na wasifu. Bila pasi, watu hawa wanatangulia kwenye rundo lako, lakini hakuna kinachowataja.",
+  "Le pass n'est pas encore en vente. Il le sera dans {app}, jamais par message.": "Pasi bado haijauzwa. Itauzwa ndani ya {app}, kamwe si kwa ujumbe.",
+  "Actif jusqu'au {date}": "Inatumika hadi {date}",
+  "Ce que le pass enlève, et ce qu'il ne change pas": "Pasi inaondoa nini, na haibadilishi nini",
 };

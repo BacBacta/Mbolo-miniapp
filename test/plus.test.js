@@ -146,3 +146,55 @@ test('un pass échu ne vaut plus rien, sans qu\'on ait à le retirer', async () 
   assert.equal((await call('9130', '/discover')).body.quota, config.dailyProfiles, 'et le quota revient tout seul');
   assert.equal(etatDuPass(await store.getUser('9130')).jours, 0);
 });
+
+// ---------- Les portes de « qui t'a aimé » ----------
+//
+// Il y en a quatre, et il faut les fermer ensemble : la liste, la pastille sur la carte, la
+// pastille dans la liste des profils, et le compteur. Le compteur est le plus bavard des quatre —
+// « une personne t'a aimé », posé à côté d'un paquet qui met cette personne en tête, fait un nom.
+// Ce fichier les essaie une par une : une seule restée ouverte rend les trois autres inutiles.
+test("sans pass, les quatre portes de « qui t'a aimé » sont fermées", async () => {
+  await membre('9140', 'Eve', 'femme', 24);
+  await membre('9141', 'Fabrice', 'homme', 27);
+  assert.equal((await call('9141', '/swipes', 'POST', { targetId: await pid('9140'), action: 'like' })).status, 200);
+
+  // 1. La liste.
+  const liste = await call('9140', '/likes');
+  assert.equal(liste.status, 403);
+  assert.equal(liste.body.code, 'PASS_REQUIS');
+
+  // 2. La pastille sur la carte.
+  const paquet = await call('9140', '/discover');
+  const carte = paquet.body.profiles.find((p) => p.name === 'Fabrice');
+  assert.ok(carte, 'la carte est bien là : le pass ne retire aucune rencontre');
+  assert.equal(carte.likedYou, false);
+
+  // 3. La pastille dans la liste des profils.
+  const profils = await call('9140', '/profiles');
+  assert.equal(profils.body.profiles.find((p) => p.name === 'Fabrice').likedYou, false);
+
+  // 4. Le compteur. `null`, pas `0` : zéro dirait « personne ne t'a aimé », et ce serait faux.
+  const resume = await call('9140', '/summary');
+  assert.equal(resume.body.likes, null, "on ne le dit pas — on ne dit pas non plus le contraire");
+
+  // Et avec le pass, les quatre s'ouvrent.
+  await donnerLePass('9140');
+  assert.deepEqual((await call('9140', '/likes')).body.profiles.map((p) => p.name), ['Fabrice']);
+  assert.equal((await call('9140', '/discover')).body.profiles.find((p) => p.name === 'Fabrice').likedYou, true);
+  assert.equal((await call('9140', '/profiles')).body.profiles.find((p) => p.name === 'Fabrice').likedYou, true);
+  assert.equal((await call('9140', '/summary')).body.likes, 1);
+});
+
+test("le pass ne retire aucune rencontre : la place ne dépend pas de lui", async () => {
+  await membre('9150', 'Gaelle', 'femme', 29);
+  await membre('9151', 'Hervé', 'homme', 29);
+  await membre('9152', 'Ivan', 'homme', 29);
+  // Hervé aime Gaëlle ; Ivan non. Sans pass, Gaëlle ne sait pas lequel — mais elle voit Hervé
+  // en premier, exactement comme avec le pass. C'est ce que la notification du bot promet.
+  await call('9151', '/swipes', 'POST', { targetId: await pid('9150'), action: 'like' });
+  const sans = (await call('9150', '/discover')).body.profiles.map((p) => p.name);
+  await donnerLePass('9150');
+  const avec = (await call('9150', '/discover')).body.profiles.map((p) => p.name);
+  assert.equal(sans[0], 'Hervé', 'la personne qui a aimé passe devant, avec ou sans pass');
+  assert.deepEqual(sans, avec, "l'ordre est le même : une différence d'ordre dirait ce que l'étiquette ne dit plus");
+});

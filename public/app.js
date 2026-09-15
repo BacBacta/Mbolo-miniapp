@@ -274,7 +274,7 @@ const plus = () => !!S.me?.plus?.actif;
 // l'absence de limite pour une limite atteinte, et l'écran le plus ouvert devient le plus fermé.
 const sansLimite = () => S.quota === null;
 
-const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', pays: () => S.pays?.retour || 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
+const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', pays: () => S.pays?.retour || 'me', plus: () => S.plusRetour || 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
 const TABS = [['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']];
 
@@ -1153,18 +1153,26 @@ const SCREENS = {
       tg.setButtons(null);
     }
     try {
-      // Les likes reçus s'affichent ici : c'est là qu'on répond à quelqu'un
-      const [m, l] = await Promise.all([api('/matches'), api('/likes').catch(() => ({ profiles: [] }))]);
+      // Les likes reçus s'affichent ici : c'est là qu'on répond à quelqu'un. Sans pass, le
+      // serveur refuse la liste — on ne la demande donc pas : une requête qu'on sait refusée
+      // coûte de la data pour un 403 (règle 15). Le `catch` reste, pour le pass qui expire
+      // entre deux écrans.
+      const [m, l] = await Promise.all([api('/matches'), plus() ? api('/likes').catch(() => ({ profiles: [] })) : Promise.resolve({ profiles: [] })]);
       S.matches = m.matches;
       S.likes = l.profiles;
     } catch (e) {
       return renderError(e, () => go('matches'));
     }
     if (S.screen !== 'matches') return;
+    // Sans pass, la bande ne disparaît pas en silence : elle dit ce qui existe et où le voir.
+    // Un manque sans explication se lit comme une panne, et on cherche ce qu'on a mal fait.
     const likesStrip = S.likes.length ? `
       <div class="group"><span class="eyebrow">${t('Ont aimé ton profil')}</span>
         <div class="new-strip">${S.likes.map((p) => `<button type="button" class="new-item like-item" data-action="person" data-id="${esc(p.id)}">${avatar(p, 'md')}<span>${esc(p.name)}</span></button>`).join('')}</div>
-      </div>` : '';
+      </div>` : plus() ? '' : `
+      <div class="group"><span class="eyebrow">${t('Ont aimé ton profil')}</span>
+        <div class="list">${listRow({ iconName: 'sparkles', tile: 'tile-ok', title: t("Voir qui t'a aimé"), sub: t('Ces personnes passent déjà devant dans ton paquet. Le pass les nomme.'), action: 'plus' })}</div>
+      </div>`;
     if (!S.matches.length) {
       render(`${likesStrip}
         <div class="empty${likesStrip ? ' top' : ''}">
@@ -1405,6 +1413,30 @@ const SCREENS = {
         <p class="lead">${t('Pour recommencer, ferme {app} et rouvre-le depuis le bot.', { app: APP })}</p></div>`);
   },
 
+  // Odo Plus : ce que le pass donne, et ce qu'il ne donne pas encore.
+  //
+  // L'écran n'annonce que ce qui existe **dans le serveur**. La leçon de « Sortie en duo » tient
+  // en une ligne : une promesse affichée que rien n'honore est pire qu'une fonction absente, parce
+  // que la personne l'a crue. Le reste du pass viendra ligne par ligne, et cet écran avec.
+  //
+  // Et tant qu'il n'y a pas de caisse, il le dit. Vendre est un chantier à part (P0-6) ; faire
+  // semblant d'avoir un bouton d'achat en serait un mauvais résumé.
+  plus() {
+    const etat = S.me.plus || { actif: false };
+    const fin = etat.finLe ? new Date(etat.finLe).toLocaleDateString(langue(), { dateStyle: 'long' }) : '';
+    render(`
+      <div class="step-head"><h1>${t('{app} Plus', { app: APP })}</h1>
+        <p class="lead">${t("Le pass ne change rien à qui tu rencontres : les mêmes personnes, la même zone, les mêmes règles. Il enlève l'attente.")}</p></div>
+      ${etat.actif ? `<div class="notice notice-ok">${icon('check', 18)}<span>${t('Ton pass est actif jusqu\'au {date}.', { date: fin })}</span></div>` : ''}
+      <div class="list">
+        ${listRow({ iconName: 'heart', tile: 'tile-like', title: t('Des « J\'aime » sans compter'), sub: S.me.quota === null ? t('Tu n\'as aucune limite en ce moment.') : t('Sans pass, tu en as {n} par jour.', { n: S.me.quota }) })}
+        ${listRow({ iconName: 'sparkles', tile: 'tile-ok', title: t('Qui t\'a aimé'), sub: t('La liste, avec les fiches. Sans pass, ces personnes passent devant dans ton paquet, mais rien ne les nomme.') })}
+      </div>
+      ${etat.actif ? '' : `<p class="fine">${icon('info', 14)}<span>${t("Le pass n'est pas encore en vente. Il le sera dans {app}, jamais par message.", { app: APP })}</span></p>`}`);
+    tg.setBack(() => go(S.plusRetour || 'me'));
+    tg.setButtons({ main: { text: t('Compris'), onClick: () => go(S.plusRetour || 'me') } });
+  },
+
   jauge() {
     const tr = S.me.publicProfile?.trust || { score: 0, total: 0, criteres: [] };
     const etat = Object.fromEntries((tr.criteres || []).map((c) => [c.cle, c.ok]));
@@ -1546,6 +1578,10 @@ const SCREENS = {
       </div>` : `<div class="notice notice-info">${icon('info', 18)}<span>${t("Tu n'as pas encore de profil.")}</span></div>`}
       <div class="group"><span class="eyebrow">${t('Paramètres')}</span>
         <div class="list">
+          ${listRow({ iconName: 'sparkles', tile: plus() ? 'tile-ok' : '', title: t('{app} Plus', { app: APP }),
+            sub: plus() ? t('Actif jusqu\'au {date}', { date: new Date(S.me.plus.finLe).toLocaleDateString(langue(), { dateStyle: 'long' }) })
+              : t('Ce que le pass enlève, et ce qu\'il ne change pas'),
+            action: 'plus' })}
           ${listRow({ iconName: 'globe', title: t('Langue'), sub: LANGUES[langue()], action: 'go', extra: ` data-screen="langue"` })}
           ${listRow({ iconName: 'bell', title: t('Tester les notifications'), sub: t("Le bot t'envoie un message dans Telegram"), action: 'test-notif' })}
           <label class="list-row">
@@ -2111,6 +2147,8 @@ app.addEventListener('click', async (e) => {
       break;
     }
     case 'voix': tg.haptic('light'); ecouterLaVoix(el.dataset.id); break;
+    // Le pass s'ouvre de plusieurs endroits : on retient d'où, pour que le retour ramène là.
+    case 'plus': S.plusRetour = S.screen; go('plus'); break;
     // L'enregistrement se fait dans Telegram, pas ici : le micro n'est pas accessible depuis une
     // mini app sur Android. On ouvre donc la discussion avec le bot, qui explique la marche à suivre.
     case 'genre':

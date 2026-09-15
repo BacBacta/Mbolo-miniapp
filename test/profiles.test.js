@@ -68,7 +68,7 @@ test('la liste montre tout le monde, balayés compris, avec le bon statut', asyn
   assert.equal(by['7104'].matchId, m.body.match.id, 'le match renvoie vers sa discussion');
   assert.equal(by['7105'], undefined, 'une personne bloquée n\'apparaît pas');
   assert.equal(by['7106'].status, null);
-  assert.equal(by['7106'].likedYou, true);
+  assert.equal(by['7106'].likedYou, false, "sans pass, rien ne nomme qui m'a aimé — la place, elle, ne bouge pas");
   assert.equal(by['7101'], undefined, 'on ne se liste pas soi-même');
 
   assert.equal(r.body.profiles[0].id, '7106', 'ceux qui attendent ma réponse passent en premier');

@@ -171,6 +171,23 @@ const quotaDe = (u) => {
 // **null veut dire « aucun compte à tenir »**, et surtout pas zéro.
 const auClient = (n) => (Number.isFinite(n) ? n : null);
 
+// ---------- Qui t'a aimé ----------
+//
+// C'est la seule chose que le pass enlève à qui n'en a pas, et c'est celle-là parce qu'elle ne
+// retire **aucune rencontre** : le paquet continue de placer devant les personnes qui t'ont aimé,
+// exactement comme avant. Ce qui disparaît est de savoir **lesquelles**, pas de les croiser.
+//
+// Il faut fermer les quatre portes ensemble, sans quoi la cinquième reste ouverte et le reste ne
+// sert à rien : la liste (`/likes`), la pastille « T'a liké » sur la carte et dans la liste, et
+// **le compteur**. Le compteur est le moins évident et le plus bavard : « une personne t'a aimé »,
+// posé à côté d'un paquet qui met cette personne en tête, fait un nom. Il ne vaut donc pas zéro
+// pour qui n'a pas le pass — zéro serait faux, et « personne ne t'a aimé » est un mensonge — il
+// vaut `null`, comme le quota : on ne le dit pas.
+const voitSesLikes = (u) => estPlus(u);
+const requirePlus = (req, res, next) => (estPlus(req.user)
+  ? next()
+  : fail(res, 403, 'PASS_REQUIS', 'Il faut un pass pour voir qui t\'a aimé. En attendant, ces personnes passent devant dans ton paquet.'));
+
 // Une intention retirée ne peut plus servir à rien : la découverte cherche la même intention
 // chez les autres, donc un compte resté en « Sortie en duo » ne voit plus personne et n'est vu
 // de personne. On le ramène vers Amitié à sa prochaine ouverture, et on le lui dit — changer le
@@ -220,6 +237,10 @@ api.get('/me', async (req, res) => {
     // n'est pas dans `publicProfile`, et il n'y entrera pas. Un pass visible deviendrait un signe
     // extérieur — et surtout il dirait qui peut voir la liste des « J'aime », donc qui sait.
     plus: etatDuPass(u),
+    // Le quota du jour voyage aussi ici, et pas seulement avec le paquet : l'écran du pass doit
+    // pouvoir dire le nombre sans que la personne soit passée par Découvrir d'abord. Même
+    // contrat que là-bas — `null` veut dire « aucun compte à tenir ».
+    quota: auClient(quotaDe(u)),
     options: {
       intents: INTENTS, genders: GENDERS, compat: COMPAT, criteres: CRITERES, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
       // Qui choisit le genre recherché en « Relation sérieuse » : la politique du serveur, ou la
@@ -655,7 +676,7 @@ api.get('/discover', requireMembre, async (req, res) => {
   const profiles = await Promise.all(retenus.map(async (u) => {
     const p = await publicProfile(u);
     // Avant le match, on ne dit que « cette semaine » ou rien : la tranche fine est réservée aux matchs
-    return { ...p, activity: p.activity ? 'week' : null, likedYou: rel.maLike.has(u.id) };
+    return { ...p, activity: p.activity ? 'week' : null, likedYou: voitSesLikes(me) && rel.maLike.has(u.id) };
   }));
   // Le symptôme numéro un d'un lancement à vivier vide : combien de personnes vérifiées n'ont
   // jamais vu une seule carte. Sans cette ligne, personne ne le saura jamais.
@@ -697,7 +718,10 @@ api.get('/profiles', requireMembre, async (req, res) => {
   const profiles = await Promise.all(retenus.map(async ({ u, m, status, activity, likedYou }) => ({
     ...(await publicProfile(u)),
     activity,
-    likedYou,
+    // Le rang, lui, garde `likedYou` : l'ordre est le même pour tout le monde, avec ou sans pass.
+    // Deux ordres différents se comparent d'un compte à l'autre, et la différence dirait ce que
+    // l'étiquette ne dit plus. Ce qui change est l'étiquette, pas la place.
+    likedYou: voitSesLikes(me) && likedYou,
     status,
     matchId: m?.id || null,
   })));
@@ -713,7 +737,7 @@ const likersOf = (me, rel, tous) => tous
   .filter((u) => joignable(me, rel, u) && dansLeGenre(me, u) && selonLeBadge(me, u) && rel.maLike.has(u.id) && !rel.monSwipe.has(u.id))
   .sort((a, b) => rel.maLike.get(b.id).at - rel.maLike.get(a.id).at);
 
-api.get('/likes', requireMembre, async (req, res) => {
+api.get('/likes', requireMembre, requirePlus, async (req, res) => {
   const me = req.user;
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
   const profiles = await Promise.all(likersOf(me, rel, tous).slice(0, 20).map(async (u) => {
@@ -764,7 +788,7 @@ api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {
     // Sauf si la personne m'a déjà balayé (« passer », ou un match qu'elle a défait) : mon like
     // n'apparaîtra pas dans sa liste, et la prévenir l'enverrait vers un écran vide.
     if (await store.swipeOf(target.id, me.id) || !dansLeGenre(target, me)) return res.json({ match: null });
-    notify(target.id, "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.", { ville: target.profile.city, app: config.appName }, { label: 'Découvrir', params: { screen: 'matches' } }, 'likes', 24 * 3600 * 1000);
+    notify(target.id, "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.", { ville: target.profile.city }, { label: 'Découvrir', params: { screen: 'discover' } }, 'likes', 24 * 3600 * 1000);
   }
   res.json({ match: null });
 });
@@ -817,7 +841,8 @@ api.get('/summary', requireMembre, async (req, res) => {
     unread += await store.unreadCount(m.id, me.id);
     if (!(await store.hasOpened(m.id, me.id))) newMatches += 1;
   }
-  res.json({ unread, newMatches, likes: likersOf(me, rel, tous).length });
+  // `null` et pas `0` : zéro dirait « personne ne t'a aimé », ce qui est faux la plupart du temps.
+  res.json({ unread, newMatches, likes: voitSesLikes(me) ? likersOf(me, rel, tous).length : null });
 });
 
 api.get('/matches/:id', requireMembre, async (req, res) => {
@@ -914,7 +939,7 @@ onApproved((userId) => {
     const demo = tous.find((u) => u.demo && compatible(me, u) && dansLaZone(me, u) && dansLeGenre(me, u) && !dejaTranche.has(u.id));
     if (!demo) return;
     await store.addSwipe(demo.id, me.id, 'like');
-    notify(me.id, "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.", { ville: me.profile.city, app: config.appName }, { label: 'Découvrir', params: { screen: 'matches' } }, 'likes', 24 * 3600 * 1000);
+    notify(me.id, "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.", { ville: me.profile.city }, { label: 'Découvrir', params: { screen: 'discover' } }, 'likes', 24 * 3600 * 1000);
   }, config.demoLikeDelayMs);
 });
 
