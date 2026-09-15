@@ -148,6 +148,55 @@ export function calculer({ users, events, reports = [], matches = [], messages =
     partPropositionsAcceptees: part(acceptes, rdvReels.length),
   };
 
+  // ---------- Odo Plus ----------
+  //
+  // La question que la bêta doit trancher, et à laquelle rien ne répondait : **est-ce que ce
+  // qu'on a mis derrière le pass intéresse quelqu'un, et est-ce que ceux qui l'ont s'en servent.**
+  //
+  // Il n'y a pas de caisse, donc aucun de ces chiffres ne mesure un consentement à payer. Ce
+  // qu'ils mesurent est plus modeste et plus honnête : combien de fois quelqu'un a voulu passer
+  // une porte fermée (`pass_refuse`), et combien de fois quelqu'un qui l'a ouverte s'en est
+  // effectivement servi (`pass_usage`). **On compte des personnes distinctes autant que des
+  // gestes** : dix refus d'un seul membre curieux ne disent pas la même chose que dix membres.
+  const distinctes = (evenements) => new Set(evenements.filter((e) => estReel(e.u)).map((e) => String(e.u))).size;
+  const parQuoi = (evenements) => {
+    const n = {};
+    for (const e of evenements.filter((x) => estReel(x.u))) n[e.p?.quoi || '—'] = (n[e.p?.quoi || '—'] || 0) + 1;
+    return n;
+  };
+  const refus = evts('pass_refuse');
+  const usages = evts('pass_usage');
+  const poses = evts('pass_pose').filter((e) => estReel(e.u));
+  const avecPass = vrais.filter((u) => Number(u.plus?.finLe) > maintenant);
+
+  // Le mur du quota, par palier. Une ligne posée avant le 15 septembre 2026 n'a pas de `q` :
+  // elle est rangée sous « — » plutôt qu'attribuée à un palier qu'on ne connaît pas.
+  const butees = evts('quota_hit').filter((e) => estReel(e.u));
+  const murParPalier = {};
+  for (const e of butees) {
+    const cle = Number.isFinite(e.p?.q) ? String(e.p.q) : '—';
+    murParPalier[cle] = (murParPalier[cle] || 0) + 1;
+  }
+
+  const plus = {
+    actifs: avecPass.length,
+    passPoses: poses.length,
+    passRetires: evts('pass_retire').filter((e) => estReel(e.u)).length,
+    // La demande : ceux qui ont voulu et n'ont pas pu.
+    refusGestes: refus.filter((e) => estReel(e.u)).length,
+    refusPersonnes: distinctes(refus),
+    refusParPorte: parQuoi(refus),
+    // L'usage : ceux qui ont pu, et qui y sont allés.
+    usagePersonnes: distinctes(usages),
+    usageParPorte: parQuoi(usages),
+    // Sur ceux qui ont eu un pass, combien s'en sont servis au moins une fois. C'est le chiffre
+    // qui dit si le pass tient sa promesse, et il ne vaut que sur de vrais membres.
+    partQuiSEnServent: part(distinctes(usages), new Set(poses.map((e) => String(e.u))).size),
+    murDuQuotaGestes: butees.length,
+    murDuQuotaPersonnes: distinctes(butees),
+    murParPalier,
+  };
+
   // ---------- Contre-métriques ----------
   // Si l'une monte, la phare ne compte plus. À lire sur la même page, jamais ailleurs.
   const nbMessagesReels = matchsReels.reduce((n, m) => n + (messages.get(m.id) || []).length, 0);
@@ -187,6 +236,12 @@ export function calculer({ users, events, reports = [], matches = [], messages =
   if (phare.reciproques > 0) {
     avertissements.push("Les codes des lieux partenaires sont fixes : un check-in peut être confirmé sans s'être déplacé. La métrique phare est donc une borne haute, pas une preuve, tant que les codes ne tournent pas.");
   }
+  if (plus.actifs > 0 || plus.passPoses > 0) {
+    avertissements.push("Aucun pass n'a été vendu : tous ont été offerts à la main depuis le groupe de modération. Les refus mesurent une curiosité, jamais un consentement à payer — pour ça il faudra une caisse (P0-6).");
+  }
+  if (butees.some((e) => !Number.isFinite(e.p?.q))) {
+    avertissements.push("Des lignes quota_hit n'indiquent pas le palier touché : elles datent d'avant le 15 septembre 2026, quand le quota valait 20. Elles sont rangées sous « — » et ne disent pas quel mur les gens rencontraient.");
+  }
   if (!churn.datable) {
     avertissements.push("Aucun app_opened enregistré : on peut compter les comptes inactifs, pas dater leur départ.");
   }
@@ -198,6 +253,7 @@ export function calculer({ users, events, reports = [], matches = [], messages =
     activation,
     churn,
     phare,
+    plus,
     entree,
     contre,
     avertissements,

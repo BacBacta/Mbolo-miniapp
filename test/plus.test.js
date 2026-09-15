@@ -198,3 +198,40 @@ test("le pass ne retire aucune rencontre : la place ne dépend pas de lui", asyn
   assert.equal(sans[0], 'Hervé', 'la personne qui a aimé passe devant, avec ou sans pass');
   assert.deepEqual(sans, avec, "l'ordre est le même : une différence d'ordre dirait ce que l'étiquette ne dit plus");
 });
+
+// ---------- Ce que le pass laisse comme trace ----------
+//
+// Le pass a été construit pour répondre à une question : est-ce que ce qu'il y a derrière
+// intéresse quelqu'un. Pendant une journée, **rien n'y répondait** — les portes étaient fermées
+// et aucune ligne ne comptait ceux qui butaient dessus. Ce test va de la requête refusée jusqu'à
+// la table des événements : une charge que la barrière de `mesure.js` refuserait passerait
+// inaperçue autrement, puisque `mesurer()` ne jette jamais.
+test('un refus et un usage laissent chacun leur trace, et rien de plus', async () => {
+  await membre('9160', 'Jo', 'femme', 26);
+  const evenements = async (cle) => (await store.events()).filter((e) => e.k === cle && String(e.u) === '9160');
+
+  assert.equal((await call('9160', '/likes')).status, 403);
+  assert.equal((await call('9160', '/vues')).status, 403);
+  const refus = await evenements('pass_refuse');
+  assert.deepEqual(refus.map((e) => e.p.quoi).sort(), ['likes', 'vues'], 'chaque porte se compte à part');
+  // La barrière n'a rien refusé en silence : une charge invalide ne serait jamais arrivée ici.
+  assert.ok(refus.every((e) => Object.keys(e.p).length === 1), "le refus ne transporte rien d'autre");
+
+  await donnerLePass('9160');
+  assert.equal((await call('9160', '/likes')).status, 200);
+  assert.deepEqual((await evenements('pass_usage')).map((e) => e.p.quoi), ['likes']);
+  // Et le droit ouvert ne compte plus comme une demande.
+  assert.equal((await evenements('pass_refuse')).length, 2, 'le compteur des refus ne bouge plus');
+});
+
+test('buter sur le quota dit désormais quel mur on a rencontré', async () => {
+  await membre('9170', 'Kofi', 'homme', 31);
+  for (let i = 0; i < 6; i += 1) await membre(`918${i}`, `Cible${i}`, 'femme', 31);
+  for (let i = 0; i < 5; i += 1) await call('9170', '/swipes', 'POST', { targetId: await pid(`918${i}`), action: 'like' });
+  assert.equal((await call('9170', '/swipes', 'POST', { targetId: await pid('9185'), action: 'like' })).status, 429);
+
+  const [mur] = (await store.events()).filter((e) => e.k === 'quota_hit' && String(e.u) === '9170');
+  assert.ok(mur, 'la butée est enregistrée');
+  assert.equal(mur.p.q, config.dailyProfiles, 'avec le palier touché, pas seulement le fait de buter');
+  assert.equal(mur.p.action, 'like');
+});

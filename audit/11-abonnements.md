@@ -308,3 +308,19 @@ derrière change quelque chose pour de vrais membres. Un pass offert le dit, et 
 agrégateur, ni remboursement, ni structure juridique. Ce que la bêta doit répondre : est-ce que
 quelqu'un qui reçoit un pass s'en sert — et est-ce que ne pas savoir qui l'a aimé fait revenir
 plus souvent, ou partir.
+
+**Et depuis le 15 septembre 2026, ça se mesure.** Pendant une journée, le pass a existé sans que
+rien ne le compte : on avait construit une fonction *pour* mesurer, et on ne mesurait pas.
+`npm run chiffres` porte maintenant une section **Odo Plus**, bâtie sur deux chiffres :
+
+| Ce qu'on compte | L'événement | Ce qu'il dit |
+|---|---|---|
+| **La demande** | `pass_refuse {quoi}` | Combien de fois, et surtout **par combien de personnes**, quelqu'un a voulu passer une porte fermée. Dix refus d'un curieux obstiné ne disent pas ce que disent dix membres |
+| **L'usage** | `pass_usage {quoi}`, ralenti | La part de ceux qui ont reçu un pass et s'en sont servis au moins une fois. Un pass dont personne ne se sert ne vaut rien |
+| Ce qu'on a distribué | `pass_pose {jours}`, `pass_retire` | Sur combien de membres la part ci-dessus porte |
+| Le mur du quota | `quota_hit {action, q}` | `q` est le **palier touché** : 2 (sans badge) et 5 (gratuit) ne racontent pas la même histoire |
+
+Trois limites sont écrites à côté des nombres, pas dans un coin : aucun pass n'a été **vendu**,
+donc un refus mesure une curiosité et jamais un consentement à payer ; les lignes `quota_hit`
+d'avant ce jour n'ont pas de `q` et sont rangées sous « — » plutôt qu'attribuées au hasard ; et
+rien n'est rétroactif, comme pour le reste de la mesure.

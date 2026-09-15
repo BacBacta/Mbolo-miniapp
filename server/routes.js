@@ -185,9 +185,17 @@ const auClient = (n) => (Number.isFinite(n) ? n : null);
 // pour qui n'a pas le pass — zéro serait faux, et « personne ne t'a aimé » est un mensonge — il
 // vaut `null`, comme le quota : on ne le dit pas.
 const voitSesLikes = (u) => estPlus(u);
-const requirePlus = (req, res, next) => (estPlus(req.user)
-  ? next()
-  : fail(res, 403, 'PASS_REQUIS', 'Il faut un pass pour voir qui t\'a aimé. En attendant, ces personnes passent devant dans ton paquet.'));
+//
+// Le refus est **la mesure la plus utile du pass**, et c'est pour ça qu'il pose un événement.
+// Sans caisse, on ne peut pas compter qui paie ; on peut compter qui bute sur le mur, et c'est la
+// seule façon de savoir si ce qu'il y a derrière intéresse quelqu'un. `quoi` est un mot-clé fermé,
+// jamais un chemin d'URL : la barrière de `mesure.js` refuserait du texte, et il ne faut pas
+// qu'un jour une route nouvelle y verse son nom complet.
+const requirePlus = (quoi) => (req, res, next) => {
+  if (estPlus(req.user)) return next();
+  mesurer('pass_refuse', req.user.id, { quoi });
+  return fail(res, 403, 'PASS_REQUIS', 'Il faut un pass pour voir qui t\'a aimé. En attendant, ces personnes passent devant dans ton paquet.');
+};
 
 // Une intention retirée ne peut plus servir à rien : la découverte cherche la même intention
 // chez les autres, donc un compte resté en « Sortie en duo » ne voit plus personne et n'est vu
@@ -740,8 +748,11 @@ const likersOf = (me, rel, tous) => tous
   .filter((u) => joignable(me, rel, u) && dansLeGenre(me, u) && selonLeBadge(me, u) && rel.maLike.has(u.id) && !rel.monSwipe.has(u.id))
   .sort((a, b) => rel.maLike.get(b.id).at - rel.maLike.get(a.id).at);
 
-api.get('/likes', requireMembre, requirePlus, async (req, res) => {
+api.get('/likes', requireMembre, requirePlus('likes'), async (req, res) => {
   const me = req.user;
+  // L'usage, pas seulement le droit : un pass dont personne ne se sert ne vaut rien. Ralenti à
+  // cinq minutes — l'écran se recharge à chaque retour sur l'onglet Messages.
+  mesurerRalenti('pass_usage', me, CINQ_MINUTES, { quoi: 'likes' });
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
   const profiles = await Promise.all(likersOf(me, rel, tous).slice(0, 20).map(async (u) => {
     const p = await publicProfile(u);
@@ -761,8 +772,9 @@ api.get('/likes', requireMembre, requirePlus, async (req, res) => {
 //   * **L'action du balayage ne quitte jamais `swipes`.** `dansLaFenetre()` ne la recopie pas,
 //     donc aucune ligne d'ici ne peut la laisser fuir : c'est le refus n° 1, tenu par le code et
 //     pas par la vigilance.
-api.get('/vues', requireMembre, requirePlus, async (req, res) => {
+api.get('/vues', requireMembre, requirePlus('vues'), async (req, res) => {
   const me = req.user;
+  mesurerRalenti('pass_usage', me, CINQ_MINUTES, { quoi: 'vues' });
   // La symétrie : qui se retire n'apparaît nulle part, et ne regarde nulle part non plus.
   if (discret(me)) return res.json({ discret: true, arrondi: arrondir(0), profiles: [] });
   const [recus, rel] = await Promise.all([store.swipesTo(me.id), relations(me)]);
@@ -805,7 +817,11 @@ api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {
   // Déjà en match : rien à refaire, et surtout rien à renotifier.
   if (rel.match.has(target.id)) return res.json({ match: { id: rel.match.get(target.id).id, other: await publicProfile(target) } });
   if (await store.swipesToday(me.id) >= quotaDe(me)) {
-    mesurer('quota_hit', me.id, { action });
+    // Le palier touché, pas seulement le fait de buter : 2 (sans badge) et 5 (gratuit) ne
+    // racontent pas la même histoire, et un jour où le chiffre bougera il faudra savoir lequel
+    // des deux murs les gens rencontraient. Les lignes posées avant ce jour n'ont pas de `q` :
+    // `chiffres.js` les range à part plutôt que de les attribuer au hasard.
+    mesurer('quota_hit', me.id, { action, q: quotaDe(me) });
     return fail(res, 429, 'DAILY_LIMIT', "Tu as vu tous tes profils du jour. Reviens demain.");
   }
   const previous = await store.swipeOf(me.id, target.id);

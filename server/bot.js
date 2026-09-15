@@ -535,6 +535,9 @@ export async function setupBot() {
       return ctx.reply(`${e.message} Les durées vendues sont ${DUREES.join(' et ')} jours.`);
     }
     await store.updateUser(u.id, { plus });
+    // Un pass posé se compte : sans caisse, c'est la seule trace de ce qu'on a distribué, et
+    // sans elle on ne saurait pas dire sur combien de membres la mesure d'usage porte.
+    mesurer('pass_pose', u.id, { jours: Number(jours || 30) });
     // Deux lectrices, deux formats : la modération lit en français, la personne dans sa langue.
     // Une phrase traduite qui porte une date en français ne serait traduite qu'à moitié.
     const quand = (lang) => new Date(plus.finLe).toLocaleDateString(lang, { dateStyle: 'long', timeZone: config.modTimezone });
@@ -550,6 +553,7 @@ export async function setupBot() {
     if (!u) return ctx.reply(`Aucun compte avec l'identifiant ${id}.`);
     if (!estPlus(u)) return ctx.reply(`${id} n'a pas de pass en cours : rien n'a été changé.`);
     await store.updateUser(u.id, { plus: null });
+    mesurer('pass_retire', u.id);
     await ctx.reply(`Pass retiré à ${id} par ${ctx.from.first_name}.`);
     notify(u.id, 'Ton pass {app} Plus a été retiré.', { app: config.appName }, { label: 'Voir mon profil', params: { screen: 'me' } });
   });
