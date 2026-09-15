@@ -496,4 +496,16 @@ export default {
   "Sans pass, {n}.": "Без пропуска — {n}.",
   "Une présentation vocale de {n} secondes": "Голосовая визитка на {n} секунд",
   "Sans pass, {n} secondes.": "Без пропуска — {n} секунд.",
+  // Questions supplémentaires et filtre par langue
+  "Une autre question": "Ещё один вопрос",
+  "Ajouter une question": "Добавить вопрос",
+  "{n} questions sur ta fiche": "{n} вопроса в твоей анкете",
+  "Avec un pass": "С пропуском",
+  "Langue parlée": "Язык",
+  "Ne voir que les personnes qui parlent": "Показывать только тех, кто говорит на",
+  "Français, ewondo, anglais…": "Французский, эвондо, английский…",
+  "Ça lit ce que chacun a écrit dans « Langues parlées », mot pour mot. « Anglais » ne trouve pas « English ».": "Сравнивается с тем, что каждый написал в «Языки», слово в слово. «Anglais» не найдёт «English».",
+  "Filtrer par langue parlée": "Фильтр по языку",
+  "Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.": "Показывать только тех, кто говорит на твоём языке или на том, который ты учишь.",
+  "Réponds à chaque question que tu as choisie, ou retire-la.": "Ответь на каждый выбранный вопрос или убери его.",
 };

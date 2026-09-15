@@ -496,4 +496,16 @@ export default {
   "Sans pass, {n}.": "Sem passe, {n}.",
   "Une présentation vocale de {n} secondes": "Uma apresentação de voz de {n} segundos",
   "Sans pass, {n} secondes.": "Sem passe, {n} segundos.",
+  // Questions supplémentaires et filtre par langue
+  "Une autre question": "Outra pergunta",
+  "Ajouter une question": "Adicionar uma pergunta",
+  "{n} questions sur ta fiche": "{n} perguntas no teu perfil",
+  "Avec un pass": "Com o passe",
+  "Langue parlée": "Língua falada",
+  "Ne voir que les personnes qui parlent": "Ver só quem fala",
+  "Français, ewondo, anglais…": "Francês, ewondo, inglês…",
+  "Ça lit ce que chacun a écrit dans « Langues parlées », mot pour mot. « Anglais » ne trouve pas « English ».": "Lê o que cada pessoa escreveu em «Línguas faladas», palavra por palavra. «Anglais» não encontra «English».",
+  "Filtrer par langue parlée": "Filtrar por língua falada",
+  "Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.": "Ver só as pessoas que falam a tua língua, ou a que estás a aprender.",
+  "Réponds à chaque question que tu as choisie, ou retire-la.": "Responde a cada pergunta que escolheste, ou retira-a.",
 };

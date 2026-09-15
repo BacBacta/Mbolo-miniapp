@@ -530,6 +530,7 @@ function profileCard(p, { own = false, cls = '' } = {}) {
       </div>
       <div class="card-body">
         <div class="prompt"><span class="q">${esc(libelleQuestion(p.promptQ))}</span><span class="a">${esc(p.promptA)}</span></div>
+        ${(p.extras || []).map((x) => `<div class="prompt"><span class="q">${esc(libelleQuestion(x.q))}</span><span class="a">${esc(x.a)}</span></div>`).join('')}
         ${p.compat ? `<div class="compat">${p.compat.map((c) => `<span class="chip chip-compat"><span class="q">${t(c.question)}</span><span class="a">${t(c.reponse)}</span></span>`).join('')}</div>` : ''}
         ${p.voix ? `<button type="button" class="btn btn-glass voix" data-action="voix" data-id="${esc(p.id)}" data-duree="${esc(dureeLisible(p.voix.duree))}" aria-label="${t('Écouter la présentation de {nom}', { nom: esc(p.name) })}"><span class="voix-icone">${icon('play', 16)}</span><span class="voix-label">${t('Écouter · {duree}', { duree: dureeLisible(p.voix.duree) })}</span></button>` : ''}
         <div class="facts-line">
@@ -569,6 +570,32 @@ const listRow = ({ iconName, tile = '', title, sub = '', action = '', extra = ''
     <div class="body"><div class="title">${title}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>
     ${trailing === 'chev' && action ? `<span class="chev">${icon('chevron-right', 18)}</span>` : trailing === 'chev' ? '' : trailing}
   </${action ? 'button' : 'div'}>`;
+
+// Les questions supplémentaires du formulaire. Le nombre de blocs qu'on peut **ajouter** vient du
+// serveur (`limites.questions`) ; ceux qu'on porte déjà restent, même au-delà — la borne s'applique
+// à l'ajout, jamais à ce qu'on a, comme pour les photos. Chaque bloc propose les questions que
+// les autres n'ont pas prises : deux réponses à la même question ne diraient rien de plus.
+function blocsQuestionsSupplementaires(f) {
+  const extras = f.extras || [];
+  const plafond = Math.max((limite('questions') || 1) - 1, extras.length);
+  const total = S.me?.limites?.avecPass?.questions || 3;
+  const blocs = extras.map((x, i) => {
+    const prises = new Set([f.promptQ, ...extras.filter((_, j) => j !== i).map((y) => y.q)]);
+    return `
+      <div class="field extra" data-extra="${i}"><span class="label">${t('Une autre question')}
+        <button type="button" class="btn btn-ghost btn-sm" data-action="extra-remove" data-i="${i}">${t('Retirer')}</button></span>
+        <div class="chips" role="group" aria-label="${t('Une autre question')}">${Object.entries(QUESTIONS).filter(([k]) => !prises.has(k)).map(([k, l]) => `
+          <button type="button" aria-pressed="${k === x.q}" data-action="question-extra" data-i="${i}" data-value="${esc(k)}">${esc(t(l))}</button>`).join('')}</div>
+        <input name="extra-a-${i}" maxlength="120" value="${esc(x.a)}" placeholder="${t('Ta réponse')}">
+      </div>`;
+  }).join('');
+  const suite = extras.length < plafond
+    ? `<button type="button" class="btn btn-ghost btn-sm" data-action="extra-add">${icon('plus', 15)} ${t('Ajouter une question')}</button>`
+    : extras.length < total - 1
+      ? `<div class="list">${listRow({ iconName: 'lock', title: t('{n} questions sur ta fiche', { n: total }), sub: t('Avec un pass'), action: 'plus' })}</div>`
+      : '';
+  return blocs + suite;
+}
 
 // Changer de photo sur une carte : moitié droite, la suivante ; moitié gauche, la précédente
 function photoNav(box, e) {
@@ -712,6 +739,8 @@ async function saveFilters(values) {
     gender: S.genreDraft ?? (S.me.filters?.gender || ''),
     // Le réglage n'existe que sous « badge » : ailleurs on renvoie ce qui est déjà rangé.
     verifiesSeulement: form?.verifiesSeulement ? form.verifiesSeulement.checked : !!S.me.filters?.verifiesSeulement,
+    // Sans le champ à l'écran (pas de pass), on renvoie ce qui est rangé : il dort, on n'efface pas.
+    langue: form?.langue ? form.langue.value.trim() : (S.me.filters?.langue || ''),
   };
   const ok = (n) => Number.isInteger(n) && n >= 18 && n <= 99;
   if (!ok(v.ageMin) || !ok(v.ageMax)) return showError(new Error(t('Indique des âges entre 18 et 99 ans.')));
@@ -834,6 +863,8 @@ const SCREENS = {
       area: p.area || '',
       promptQ: QUESTIONS[p.promptQ] ? p.promptQ : QUESTION_DEFAUT,
       promptA: p.promptA || '',
+      // Les questions supplémentaires, telles que le serveur les rend : clé et réponse.
+      extras: (p.extras || []).map((x) => ({ q: x.q, a: x.a || '' })),
       languages: p.languages || '',
       compat: { ...(p.compat || {}) },
       // Par emplacement : 'keep' (photo existante), une image encodée (nouvelle), ou null (vide ou à retirer)
@@ -904,6 +935,7 @@ const SCREENS = {
            rapport avec ce qui était demandé. Une suggestion par question serait juste ; une
            suggestion qui ne suit pas la question est pire que pas de suggestion. -->
       <label class="field"><span class="label">${t('Ta réponse')}</span><input name="promptA" maxlength="120" value="${esc(f.promptA)}"></label>
+      ${blocsQuestionsSupplementaires(f)}
       <label class="field"><span class="label">${t('Langues parlées')} <span class="opt">${t('facultatif')}</span></span><input name="languages" maxlength="60" value="${esc(f.languages)}" placeholder="${t('Français, anglais, ewondo')}"></label>
       <p class="fine">${icon('ban', 14)}<span>${t('Ni numéro, ni pseudo, ni lien dans ton profil : ils seraient refusés.')}</span></p>`,
     ];
@@ -1070,7 +1102,7 @@ const SCREENS = {
   filters() {
     // Le brouillon en dernier : ce qui a été tapé sans être enregistré l'emporte sur ce qui est
     // rangé, sinon aller choisir un pays remettrait les âges à leur valeur d'avant.
-    const f = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, ...(S.me.filters || {}), ...(S.filtresDraft || {}) };
+    const f = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, langue: '', ...(S.me.filters || {}), ...(S.filtresDraft || {}) };
     if (S.genreDraft != null) f.gender = S.genreDraft;
     // Qui choisit le genre recherché.
     //
@@ -1119,6 +1151,12 @@ const SCREENS = {
           <label class="field"><span class="label">${t('De')}</span><input name="ageMin" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMin)}"></label>
           <label class="field"><span class="label">${t('À')}</span><input name="ageMax" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMax)}"></label>
         </div>
+        <span class="eyebrow">${t('Langue parlée')}</span>
+        ${limite('filtreLangue') ? `
+        <label class="field"><span class="label">${t('Ne voir que les personnes qui parlent')} <span class="opt">${t('facultatif')}</span></span>
+          <input name="langue" maxlength="30" value="${esc(f.langue || '')}" placeholder="${t('Français, ewondo, anglais…')}" autocomplete="off"></label>
+        <p class="fine">${icon('info', 14)}<span>${t("Ça lit ce que chacun a écrit dans « Langues parlées », mot pour mot. « Anglais » ne trouve pas « English ».")}</span></p>` : `
+        <div class="list">${listRow({ iconName: 'lock', title: t('Filtrer par langue parlée'), sub: t('Avec un pass'), action: 'plus' })}</div>`}
         ${entreeLibre() ? `
         <span class="eyebrow">${t('Vérification')}</span>
         <label class="list-row">
@@ -1131,7 +1169,7 @@ const SCREENS = {
       <p class="fine">${icon('users', 14)}<span>${t('Ta zone ne vaut que pour toi : elle décide de qui tu vois, pas de qui te voit.')}</span></p>
       <p class="fine">${icon('info', 14)}<span>${t('Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.')}</span></p>`);
     document.getElementById('filters-form').addEventListener('submit', (e) => { e.preventDefault(); saveFilters(); });
-    tg.setButtons({ main: { text: t('Enregistrer'), onClick: () => saveFilters() }, secondary: { text: t('Tout voir'), onClick: () => saveFilters({ ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, zone: { ...zoneDe(), city: null } }) } });
+    tg.setButtons({ main: { text: t('Enregistrer'), onClick: () => saveFilters() }, secondary: { text: t('Tout voir'), onClick: () => saveFilters({ ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, langue: '', zone: { ...zoneDe(), city: null } }) } });
   },
 
   person({ id }) {
@@ -1453,6 +1491,8 @@ const SCREENS = {
         ${listRow({ iconName: 'globe', title: t('Tout le pays'), sub: t('Sans pass, tu vois les profils de ta ville.') })}
         ${listRow({ iconName: 'camera', title: t('{n} photos', { n: S.me?.limites?.avecPass?.photos || 6 }), sub: t('Sans pass, {n}.', { n: limite('photos') || 2 }) })}
         ${listRow({ iconName: 'mic', title: t('Une présentation vocale de {n} secondes', { n: S.me?.limites?.avecPass?.voixSecondes || 30 }), sub: t('Sans pass, {n} secondes.', { n: limite('voixSecondes') || 15 }) })}
+        ${listRow({ iconName: 'sparkles', title: t('{n} questions sur ta fiche', { n: S.me?.limites?.avecPass?.questions || 3 }), sub: t('Sans pass, {n}.', { n: limite('questions') || 1 }) })}
+        ${listRow({ iconName: 'globe', title: t('Filtrer par langue parlée'), sub: t('Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.') })}
       </div>
       ${etat.actif ? '' : `<p class="fine">${icon('info', 14)}<span>${t("Le pass n'est pas encore en vente. Il le sera dans {app}, jamais par message.", { app: APP })}</span></p>`}`);
     tg.setBack(() => go(S.plusRetour || 'me'));
@@ -1711,6 +1751,7 @@ function garderLesFiltres() {
   S.filtresDraft = {
     ageMin: form.ageMin?.value,
     ageMax: form.ageMax?.value,
+    ...(form.langue ? { langue: form.langue.value } : {}),
     ...(form.verifiesSeulement ? { verifiesSeulement: form.verifiesSeulement.checked } : {}),
   };
 }
@@ -1738,6 +1779,7 @@ function stepError(step) {
   }
   if (step === 1 && !f.intent) return t('Choisis ce que tu cherches.');
   if (step === 2 && f.promptA.trim().length < 3) return t('Réponds à la question sur toi.');
+  if (step === 2 && (f.extras || []).some((x) => x.a.trim().length < 3)) return t('Réponds à chaque question que tu as choisie, ou retire-la.');
   return null;
 }
 
@@ -2277,6 +2319,22 @@ app.addEventListener('click', async (e) => {
       S.form.promptQ = el.dataset.value;
       pressOnly(el, '[data-action="question"]');
       break;
+    case 'question-extra':
+      tg.haptic('select');
+      S.form.extras[Number(el.dataset.i)].q = el.dataset.value;
+      pressOnly(el, '[data-action="question-extra"]');
+      break;
+    // Ajouter ou retirer un bloc redessine l'écran : l'état est dans S.form, tenu à jour à
+    // chaque frappe, donc rien de tapé ailleurs ne se perd — même raison que set-compat.
+    case 'extra-add': {
+      tg.haptic('select');
+      const prises = new Set([S.form.promptQ, ...S.form.extras.map((x) => x.q)]);
+      const libre = Object.keys(QUESTIONS).find((k) => !prises.has(k));
+      if (libre) S.form.extras.push({ q: libre, a: '' });
+      SCREENS.profile();
+      break;
+    }
+    case 'extra-remove': tg.haptic('select'); S.form.extras.splice(Number(el.dataset.i), 1); SCREENS.profile(); break;
     case 'zone-mode':
       garderLesFiltres();
       // « Tout le pays » demande un pass : on emmène à l'écran qui l'explique, sans toucher au
@@ -2369,7 +2427,10 @@ app.addEventListener('click', async (e) => {
 
 app.addEventListener('input', (e) => {
   const { name, value } = e.target;
-  if (S.screen === 'profile' && S.form && name in S.form && name !== 'photo') {
+  const extra = /^extra-a-(\d)$/.exec(name || '');
+  if (S.screen === 'profile' && S.form && extra && S.form.extras[Number(extra[1])]) {
+    S.form.extras[Number(extra[1])].a = value;
+  } else if (S.screen === 'profile' && S.form && name in S.form && name !== 'photo') {
     S.form[name] = value;
     const err = document.getElementById('form-error');
     if (err) err.textContent = '';

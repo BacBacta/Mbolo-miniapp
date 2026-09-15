@@ -496,4 +496,16 @@ export default {
   "Sans pass, {n}.": "Sin pase, {n}.",
   "Une présentation vocale de {n} secondes": "Una presentación de voz de {n} segundos",
   "Sans pass, {n} secondes.": "Sin pase, {n} segundos.",
+  // Questions supplémentaires et filtre par langue
+  "Une autre question": "Otra pregunta",
+  "Ajouter une question": "Añadir una pregunta",
+  "{n} questions sur ta fiche": "{n} preguntas en tu perfil",
+  "Avec un pass": "Con el pase",
+  "Langue parlée": "Idioma hablado",
+  "Ne voir que les personnes qui parlent": "Ver solo a quienes hablan",
+  "Français, ewondo, anglais…": "Francés, ewondo, inglés…",
+  "Ça lit ce que chacun a écrit dans « Langues parlées », mot pour mot. « Anglais » ne trouve pas « English ».": "Lee lo que cada persona escribió en «Idiomas que hablas», palabra por palabra. «Anglais» no encuentra «English».",
+  "Filtrer par langue parlée": "Filtrar por idioma hablado",
+  "Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.": "Ver solo a las personas que hablan tu idioma, o el que estás aprendiendo.",
+  "Réponds à chaque question que tu as choisie, ou retire-la.": "Responde a cada pregunta que elegiste, o retírala.",
 };

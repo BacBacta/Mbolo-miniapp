@@ -496,4 +496,16 @@ export default {
   "Sans pass, {n}.": "Без пропуску — {n}.",
   "Une présentation vocale de {n} secondes": "Голосова візитівка на {n} секунд",
   "Sans pass, {n} secondes.": "Без пропуску — {n} секунд.",
+  // Questions supplémentaires et filtre par langue
+  "Une autre question": "Ще одне запитання",
+  "Ajouter une question": "Додати запитання",
+  "{n} questions sur ta fiche": "{n} запитання у твоїй анкеті",
+  "Avec un pass": "З пропуском",
+  "Langue parlée": "Мова",
+  "Ne voir que les personnes qui parlent": "Показувати лише тих, хто говорить",
+  "Français, ewondo, anglais…": "Французька, евондо, англійська…",
+  "Ça lit ce que chacun a écrit dans « Langues parlées », mot pour mot. « Anglais » ne trouve pas « English ».": "Порівнюється з тим, що кожен написав у «Мови», слово в слово. «Anglais» не знайде «English».",
+  "Filtrer par langue parlée": "Фільтр за мовою",
+  "Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.": "Показувати лише тих, хто говорить твоєю мовою або тією, яку ти вчиш.",
+  "Réponds à chaque question que tu as choisie, ou retire-la.": "Дай відповідь на кожне вибране запитання або прибери його.",
 };

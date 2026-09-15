@@ -282,8 +282,88 @@ test('sans pass, la zone est sa ville ; le réglage dort au lieu de disparaître
 test('les paliers voyagent jusqu\'à l\'interface, qui ne les recopie pas', async () => {
   await membre('9260', 'Pia', 'femme', 22);
   const sans = (await call('9260', '/me')).body.limites;
-  assert.deepEqual(sans, { photos: 2, voixSecondes: 15, liste: false, paysEntier: false, avecPass: { photos: 6, voixSecondes: 30 } });
+  assert.deepEqual(sans, { photos: 2, voixSecondes: 15, questions: 1, liste: false, paysEntier: false, filtreLangue: false, avecPass: { photos: 6, voixSecondes: 30, questions: 3 } });
   await donnerLePass('9260');
   const avec = (await call('9260', '/me')).body.limites;
-  assert.deepEqual(avec, { photos: 6, voixSecondes: 30, liste: true, paysEntier: true, avecPass: { photos: 6, voixSecondes: 30 } });
+  assert.deepEqual(avec, { photos: 6, voixSecondes: 30, questions: 3, liste: true, paysEntier: true, filtreLangue: true, avecPass: { photos: 6, voixSecondes: 30, questions: 3 } });
+});
+
+// ---------- Trois questions, et le filtre par langue ----------
+
+const profilDe = (id, champs) => call(id, '/me/profile', 'PUT', {
+  name: 'X', age: 43, gender: 'femme', intent: 'amitie', city: 'Douala', promptQ: 'coin', promptA: 'Le poisson braisé', ...champs,
+});
+
+test('sans pass, une seule question ; avec, trois, et chacune doit être distincte et répondue', async () => {
+  await membre('9270', 'Rita', 'femme', 43);
+  const deux = await profilDe('9270', { extras: [{ q: 'weekend', a: 'La plage' }] });
+  assert.equal(deux.status, 403, 'la deuxième question demande un pass');
+  assert.equal(deux.body.code, 'PASS_REQUIS');
+  assert.equal((await profilDe('9270', { extras: [] })).status, 200, 'sans supplément, tout passe');
+
+  await donnerLePass('9270');
+  assert.equal((await profilDe('9270', { extras: [{ q: 'weekend', a: 'La plage' }, { q: 'rire', a: 'Les chats' }] })).status, 200);
+  assert.deepEqual((await call('9270', '/me')).body.profile.extras, [{ q: 'weekend', a: 'La plage' }, { q: 'rire', a: 'Les chats' }]);
+  assert.equal((await profilDe('9270', { extras: [{ q: 'weekend', a: 'x' }] })).status, 400, 'une réponse trop courte est refusée comme la première');
+  assert.equal((await profilDe('9270', { extras: [{ q: 'coin', a: 'Encore le coin' }] })).status, 400, 'la même question que la première ne dit rien de plus');
+  assert.equal((await profilDe('9270', { extras: [{ q: 'weekend', a: 'A' }, { q: 'weekend', a: 'B' }] })).status, 400, 'ni deux fois la même');
+  assert.equal((await profilDe('9270', { extras: [{ q: 'weekend', a: 'Un 677 12 34 56' }] })).status, 400, "et l'anti-arnaque lit les réponses supplémentaires aussi");
+});
+
+test('les questions déjà là restent quand le pass s\'arrête, et se retirent sans pass', async () => {
+  await membre('9271', 'Sara', 'femme', 43);
+  await donnerLePass('9271');
+  assert.equal((await profilDe('9271', { extras: [{ q: 'weekend', a: 'La plage' }, { q: 'rire', a: 'Les chats' }] })).status, 200);
+  await store.updateUser('9271', { plus: null });
+
+  // Ré-enregistrer son profil avec ce qu'on a déjà ne doit pas devenir impossible : sinon on ne
+  // pourrait plus changer son prénom sans perdre ses réponses.
+  assert.equal((await profilDe('9271', { name: 'Sarah', extras: [{ q: 'weekend', a: 'La plage' }, { q: 'rire', a: 'Les chats' }] })).status, 200, 'garder ce qu\'on a passe');
+  assert.equal((await profilDe('9271', { extras: [{ q: 'weekend', a: 'La plage' }] })).status, 200, 'en retirer une aussi');
+  assert.equal((await profilDe('9271', { extras: [{ q: 'weekend', a: 'La plage' }, { q: 'chanson', a: 'Du makossa' }] })).status, 403, 'mais pas en remettre une autre à la place');
+  // Et les autres les voient toujours.
+  await membre('9272', 'Tom', 'homme', 43);
+  await call('9272', '/me/filters', 'PUT', { ageMin: 43, ageMax: 43 });
+  // Par identifiant public, pas par prénom : `profilDe()` remet le prénom à « X » à chaque appel
+  // qui ne le précise pas, et chercher « Sarah » ici cherchait quelqu'un qui n'existe plus.
+  const p9271 = await pid('9271');
+  const carte = (await call('9272', '/discover')).body.profiles.find((p) => p.id === p9271);
+  assert.ok(carte, 'Sarah est dans le paquet de Tom');
+  assert.deepEqual(carte.extras, [{ q: 'weekend', a: 'La plage' }], 'la borne est à l\'ajout, pas à l\'affichage');
+});
+
+test('le filtre par langue lit ce que chacun a écrit, dort sans pass, et ne fait pas disparaître les anciens profils', async () => {
+  await membre('9280', 'Uma', 'femme', 44);
+  await membre('9281', 'Vic', 'homme', 44);
+  await membre('9282', 'Wil', 'homme', 44);
+  await call('9281', '/me/profile', 'PUT', { name: 'Vic', age: 44, gender: 'homme', intent: 'amitie', city: 'Douala', promptA: 'Le poisson braisé', languages: 'Français, Ewondo' });
+  await call('9282', '/me/profile', 'PUT', { name: 'Wil', age: 44, gender: 'homme', intent: 'amitie', city: 'Douala', promptA: 'Le poisson braisé', languages: 'Anglais' });
+  // Un profil d'avant ce jour : le texte est là, la clé de comparaison ne l'est pas.
+  await membre('9283', 'Xav', 'homme', 44);
+  const ancien = await store.getUser('9283');
+  await store.updateUser('9283', { profile: { ...ancien.profile, languages: 'ewondo', languageKeys: undefined } });
+
+  const noms = async () => (await call('9280', '/discover')).body.profiles.map((p) => p.name).sort();
+  const regler = (langue) => call('9280', '/me/filters', 'PUT', { ageMin: 44, ageMax: 44, langue });
+
+  assert.equal((await regler('Éwondo')).status, 200, 'accepté sans pass : il est rangé');
+  assert.equal((await call('9280', '/me')).body.filters.langue, 'Éwondo', 'et se relit tel quel');
+  assert.deepEqual(await noms(), ['Vic', 'Wil', 'Xav'], "mais sans pass il dort : tout le monde est là");
+
+  await donnerLePass('9280');
+  assert.deepEqual(await noms(), ['Vic', 'Xav'], "avec le pass, seuls ceux qui l'ont écrit — accent ou pas, clé rangée ou refaite à la volée");
+  await regler('');
+  assert.deepEqual(await noms(), ['Vic', 'Wil', 'Xav'], 'vide veut dire toutes');
+});
+
+test('les nouveaux paliers et droits voyagent jusqu\'à l\'interface', async () => {
+  await membre('9290', 'Yaël', 'femme', 45);
+  const sans = (await call('9290', '/me')).body.limites;
+  assert.equal(sans.questions, 1);
+  assert.equal(sans.filtreLangue, false);
+  assert.equal(sans.avecPass.questions, 3);
+  await donnerLePass('9290');
+  const avec = (await call('9290', '/me')).body.limites;
+  assert.equal(avec.questions, 3);
+  assert.equal(avec.filtreLangue, true);
 });

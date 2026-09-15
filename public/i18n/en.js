@@ -507,4 +507,16 @@ export default {
   "Sans pass, {n}.": "Without the pass, {n}.",
   "Une présentation vocale de {n} secondes": "A {n}-second voice intro",
   "Sans pass, {n} secondes.": "Without the pass, {n} seconds.",
+  // Questions supplémentaires et filtre par langue
+  "Une autre question": "Another question",
+  "Ajouter une question": "Add a question",
+  "{n} questions sur ta fiche": "{n} questions on your profile",
+  "Avec un pass": "With the pass",
+  "Langue parlée": "Spoken language",
+  "Ne voir que les personnes qui parlent": "Only see people who speak",
+  "Français, ewondo, anglais…": "French, Ewondo, English…",
+  "Ça lit ce que chacun a écrit dans « Langues parlées », mot pour mot. « Anglais » ne trouve pas « English ».": "It reads what each person wrote under “Languages spoken”, word for word. “Anglais” does not find “English”.",
+  "Filtrer par langue parlée": "Filter by spoken language",
+  "Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.": "Only see people who speak your language, or the one you are learning.",
+  "Réponds à chaque question que tu as choisie, ou retire-la.": "Answer every question you picked, or remove it.",
 };

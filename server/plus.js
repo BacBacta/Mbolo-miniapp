@@ -29,7 +29,14 @@
 export const PALIERS = {
   photos: { sans: 2, avec: 6 },
   voixSecondes: { sans: 15, avec: 30 },
+  // Questions sur la fiche : la première est obligatoire pour tout le monde, les deux suivantes
+  // viennent avec le pass. Comme les photos, la borne s'applique à l'ajout, jamais à l'affichage.
+  questions: { sans: 1, avec: 3 },
 };
+
+// Ce que le pass ouvre sans nombre : des droits, pas des paliers. Lus par `GET /api/me` pour que
+// l'interface montre un cadenas au bon endroit sans recopier la règle.
+export const DROITS_DU_PASS = ['liste', 'paysEntier', 'filtreLangue'];
 
 // Le palier qui s'applique à cette personne. `estPlus()` reste le seul endroit qui tranche : cette
 // fonction ne fait que lire la table à la lumière de sa réponse.

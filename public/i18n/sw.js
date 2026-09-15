@@ -496,4 +496,16 @@ export default {
   "Sans pass, {n}.": "Bila pasi, {n}.",
   "Une présentation vocale de {n} secondes": "Utangulizi wa sauti wa sekunde {n}",
   "Sans pass, {n} secondes.": "Bila pasi, sekunde {n}.",
+  // Questions supplémentaires et filtre par langue
+  "Une autre question": "Swali lingine",
+  "Ajouter une question": "Ongeza swali",
+  "{n} questions sur ta fiche": "Maswali {n} kwenye wasifu wako",
+  "Avec un pass": "Kwa pasi",
+  "Langue parlée": "Lugha inayozungumzwa",
+  "Ne voir que les personnes qui parlent": "Ona tu watu wanaozungumza",
+  "Français, ewondo, anglais…": "Kifaransa, Ewondo, Kiingereza…",
+  "Ça lit ce que chacun a écrit dans « Langues parlées », mot pour mot. « Anglais » ne trouve pas « English ».": "Inasoma kile kila mtu aliandika kwenye “Lugha unazozungumza”, neno kwa neno. “Anglais” haipati “English”.",
+  "Filtrer par langue parlée": "Chuja kwa lugha inayozungumzwa",
+  "Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.": "Ona tu watu wanaozungumza lugha yako, au ile unayojifunza.",
+  "Réponds à chaque question que tu as choisie, ou retire-la.": "Jibu kila swali ulilochagua, au liondoe.",
 };

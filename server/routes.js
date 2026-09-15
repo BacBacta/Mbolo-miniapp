@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { config, runtime, genreAuChoix, entreeLibre, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT } from './config.js';
-import { estPlus, etatDuPass, palier, PALIERS } from './plus.js';
+import { estPlus, etatDuPass, palier, PALIERS, DROITS_DU_PASS } from './plus.js';
 import { arrondir, dansLaFenetre, discret, MAX_FICHES } from './vues.js';
 import { codeValide } from './lieux.js';
 import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
@@ -80,6 +80,7 @@ async function publicProfile(user) {
     area: p.area,
     promptQ: p.promptQ,
     promptA: p.promptA,
+    extras: p.extras || [],
     languages: p.languages || '',
     // Seules les photos validées par la modération sont montrées aux autres
     photos: (await store.photosOf(user)).filter((x) => x.status === 'approved').map((x) => x.n),
@@ -258,10 +259,10 @@ api.get('/me', async (req, res) => {
     limites: {
       photos: palier('photos', u),
       voixSecondes: palier('voixSecondes', u),
-      // La vue Liste et le pays entier : deux droits, pas deux nombres.
-      liste: estPlus(u),
-      paysEntier: estPlus(u),
-      avecPass: { photos: PALIERS.photos.avec, voixSecondes: PALIERS.voixSecondes.avec },
+      questions: palier('questions', u),
+      // Les droits sans nombre : la vue Liste, le pays entier, le filtre par langue.
+      ...Object.fromEntries(DROITS_DU_PASS.map((d) => [d, estPlus(u)])),
+      avecPass: Object.fromEntries(Object.entries(PALIERS).map(([k, v]) => [k, v.avec])),
     },
     options: {
       intents: INTENTS, genders: GENDERS, compat: COMPAT, criteres: CRITERES, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
@@ -295,11 +296,29 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
   if (cleVille(city).length < 2) return fail(res, 400, 'CITY_REQUIRED', 'Indique ta ville.');
   const promptA = String(b.promptA || '').trim().slice(0, 120);
   if (promptA.length < 3) return fail(res, 400, 'PROMPT_REQUIRED', 'Réponds à la question pour que les autres te découvrent.');
+  const promptQ = String(b.promptQ || 'coin').slice(0, 60);
+  // Les questions supplémentaires. Chacune a sa clé et sa réponse, distincte de la première et
+  // des autres ; une réponse trop courte est refusée comme la première. La borne s'applique à
+  // l'**ajout** : qui en porte déjà trois d'un temps où le pass courait les garde et peut les
+  // retirer, mais n'en met pas une de plus sans pass. Même règle que les photos.
+  const extras = [];
+  for (const x of Array.isArray(b.extras) ? b.extras.slice(0, PALIERS.questions.avec) : []) {
+    const q = String(x?.q || '').slice(0, 60);
+    const a = String(x?.a || '').trim().slice(0, 120);
+    if (!q || a.length < 3) return fail(res, 400, 'PROMPT_REQUIRED', 'Réponds à chaque question que tu as choisie, ou retire-la.');
+    if (q === promptQ || extras.some((e) => e.q === q)) return fail(res, 400, 'PROMPT_DUPLICATE', 'Choisis une question différente pour chaque réponse.');
+    extras.push({ q, a });
+  }
+  const plafond = Math.max(palier('questions', req.user) - 1, (req.user.profile?.extras || []).length);
+  if (extras.length > plafond) {
+    mesurer('pass_refuse', req.user.id, { quoi: 'questions' });
+    return fail(res, 403, 'PASS_REQUIS', `Tu peux répondre à ${plafond + 1} question${plafond ? 's' : ''}. Un pass en ouvre ${PALIERS.questions.avec}.`);
+  }
   const { compat, erreur } = lireCompat(b);
   if (erreur) return fail(res, 400, 'COMPAT_INVALID', `Réponse inattendue à « ${COMPAT[erreur].question} ». Choisis dans la liste.`);
   // La ville aussi : champ libre, chiffres conservés, affiché sur la carte avant tout échange —
   // « Douala 677 12 34 56 » passait (audit/09-revue-code.md, I7).
-  const profileText = [name, city, b.area, b.promptQ, promptA, b.languages].filter(Boolean).join(' ');
+  const profileText = [name, city, b.area, promptQ, promptA, ...extras.flatMap((e) => [e.q, e.a]), b.languages].filter(Boolean).join(' ');
   if (!checkMessage(profileText, 0, 1).ok) return fail(res, 400, 'PROFILE_CONTACT', "Ton profil ne doit contenir ni numéro, ni lien, ni pseudo, ni demande d'argent.");
 
   // Ancien champ « photo » : il alimente l'emplacement 1, avec la même modération. L'interface
@@ -318,9 +337,12 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
     // Clé de comparaison, jamais affichée : c'est elle qui réunit « Yaoundé » et « Yaounde »
     cityKey: cleVille(city),
     area: String(b.area || '').trim().slice(0, 40),
-    promptQ: String(b.promptQ || 'coin').slice(0, 60),
+    promptQ,
     promptA,
+    extras,
     languages: String(b.languages || '').trim().slice(0, 60),
+    // Clés de comparaison des langues, jamais affichées : c'est sur elles que le filtre lit.
+    languageKeys: decouperLangues(b.languages),
     hasPhoto,
     // Rangées seulement en « Relation sérieuse » : changer d'intention ne doit pas laisser derrière
     // soi des réponses à des questions qu'on ne pose plus.
@@ -516,7 +538,19 @@ api.delete('/me/photos/:n', async (req, res) => {
 // de rencontre, où le rayon de chacun ne s'impose qu'à lui.
 // « Vérifiés seulement » : le paquet ne montre alors que les profils au badge. Sous « gate »,
 // tout le monde en a un, et le réglage ne change rien — il n'est proposé que sous « badge ».
-const DEFAULT_FILTERS = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false };
+const DEFAULT_FILTERS = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, langue: '' };
+
+// « Français, anglais, ewondo » est un champ libre, et c'est voulu : aucune liste fermée ne couvre
+// les langues d'Afrique. Filtrer dessus demande donc une clé de comparaison par langue, faite
+// comme celle des villes — sans accent, sans casse, sans ponctuation — et jamais affichée.
+// Les profils d'avant ce jour n'en portent pas : on la refait à la volée depuis le texte, sans
+// migration, plutôt que de les faire disparaître d'un paquet filtré.
+const decouperLangues = (texte) => [...new Set(String(texte || '').split(/[,;/·]+/).map(cleVille).filter((k) => k.length >= 2))];
+const clesLangues = (p) => p?.languageKeys || decouperLangues(p?.languages);
+// Le filtre par langue est ce que le pass ouvre. Sans pass il dort, comme la zone : accepté,
+// rangé, sans effet — et il reprend le jour où le pass arrive.
+const langueCherchee = (me) => (estPlus(me) ? cleVille(filtersOf(me).langue) : '');
+const dansLaLangue = (me, other) => { const k = langueCherchee(me); return !k || clesLangues(other.profile).includes(k); };
 
 const zoneParDefaut = (u) => ({ country: u.profile?.country || config.defaultCountry, city: u.profile?.city || null });
 const filtersOf = (u) => ({ ...DEFAULT_FILTERS, zone: zoneParDefaut(u), ...(u.filters || {}) });
@@ -594,7 +628,12 @@ api.put('/me/filters', async (req, res) => {
   let verifiesSeulement = !!filtersOf(req.user).verifiesSeulement;
   if ('verifiesSeulement' in (req.body || {})) verifiesSeulement = !!req.body.verifiesSeulement;
 
-  const filters = { ageMin, ageMax, zone, gender, verifiesSeulement };
+  // Une langue, en clair, bornée. Vide pour « toutes ». Pas de liste fermée, pour la même raison
+  // que le champ du profil ; la comparaison se fait sur la clé, jamais sur le texte.
+  let langue = filtersOf(req.user).langue || '';
+  if ('langue' in (req.body || {})) langue = String(req.body.langue || '').trim().slice(0, 30);
+
+  const filters = { ageMin, ageMax, zone, gender, verifiesSeulement, langue };
   await store.updateUser(req.user.id, { filters });
   res.json({ filters });
 });
@@ -682,7 +721,7 @@ async function relations(me) {
 const joignable = (me, rel, u) => u.id !== me.id && membre(u) && !rel.bloque.has(u.id) && compatible(me, u);
 // Candidat : joignable et dans la zone que je cherche. La zone filtre ce que JE vais voir ;
 // un like reçu, lui, m'est adressé et la traverse (voir likersOf).
-const candidat = (me, rel, u) => joignable(me, rel, u) && dansLaZone(me, u) && dansLeGenre(me, u) && selonLeBadge(me, u);
+const candidat = (me, rel, u) => joignable(me, rel, u) && dansLaZone(me, u) && dansLeGenre(me, u) && selonLeBadge(me, u) && dansLaLangue(me, u);
 
 // Un écran vide ne dit rien s'il ne dit pas pourquoi. Trois situations très différentes se
 // ressemblaient : personne d'autre n'est vérifié dans ta ville, tu as déjà tout vu, ou ton quota

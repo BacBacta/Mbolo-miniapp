@@ -287,8 +287,8 @@ permet de **mesurer** si Odo Plus vaut quelque chose avant de lui donner un prix
 
 ## 8. Ce qui est construit, au 15 septembre 2026
 
-Le socle et sept des dix lignes du §3. Les trois qui restent (trois questions, filtre par
-langue, ordre du paquet) **ne sont pas écrites**, et l'écran du pass ne les annonce donc pas : la leçon de « Sortie en duo » tient en une ligne — une
+Le socle et neuf des dix lignes du §3. Celle qui reste (l'ordre du paquet au choix) **n'est pas
+écrite**, et l'écran du pass ne l'annonce donc pas : la leçon de « Sortie en duo » tient en une ligne — une
 promesse affichée que rien n'honore est pire qu'une fonction absente, parce que la personne l'a
 crue.
 
@@ -301,7 +301,8 @@ crue.
 | Qui t'a aimé, les quatre portes | oui | `voitSesLikes()`, `requirePlus` |
 | Se sont arrêtés sur ta fiche | oui | `server/vues.js`, `audit/12-profils-consultes.md` |
 | Vue Liste, tout le pays, 6 photos, 30 s de voix | oui | `PALIERS` dans `server/plus.js`, `zoneCherchee()`, `test/plus.test.js` |
-| Trois questions, filtre par langue, ordre du paquet | **non** | à venir |
+| Trois questions sur la fiche, filtre par langue | oui | `extras`, `dansLaLangue()`, `test/plus.test.js` |
+| Ordre du paquet au choix | **non** | à venir |
 | La caisse (mobile money, Stars) | **non** | P0-6, `CLAUDE.md` §10 |
 
 **Pas de caisse, et c'est volontaire.** Avant de faire payer, il faut savoir si ce qu'il y a
