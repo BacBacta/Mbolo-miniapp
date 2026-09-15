@@ -177,6 +177,18 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
 
 ---
 
+### Les cartes elles-mêmes
+
+- [ ] L'initiale au fond de l'image est **centrée**, et aucun cercle ne lui passe dessus.
+      *Les images de démonstration posaient la lettre trop haut, avec un cercle en travers.*
+- [ ] Sur un profil à plusieurs photos (la barre en haut est coupée en deux ou trois), touche la
+      **moitié droite** de l'image : la photo doit **visiblement** changer — le motif et la
+      teinte changent ensemble.
+- [ ] Le prénom et la ville se lisent bien en bas, sur toutes les cartes : le bas de chaque image
+      est assez sombre.
+
+---
+
 ## 8. Filtres
 
 - [ ] Tranche d'âge et zone de recherche se règlent, et le paquet suit.
