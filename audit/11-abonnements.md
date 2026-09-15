@@ -82,35 +82,38 @@ Pourquoi pas un troisième niveau : la cible ne compare pas des paliers, elle co
 
 ---
 
-## 4. La grille : une hypothèse, avec ses ancrages
+## 4. La grille : un prix posé, et la règle qui donne l'autre
 
-**Cameroun** — ancré sur le prix de la data (500 FCFA ≈ 500 à 750 Mo, benchmark), pas sur les
-abonnements occidentaux.
+**Décision du propriétaire, 15 septembre 2026 : 3 000 FCFA les 30 jours, en Afrique.** Soit 5 % du
+SMIG camerounais relayé à 60 000 FCFA — le double de l'hypothèse de départ, ancrée sur une
+recharge data. C'est le chiffre à surveiller en premier dans le taux de conversion : le
+benchmark ne connaît aucun repère de consentement à payer, et 3 000 FCFA est un vrai prix
+pour un étudiant. Hors zone franc (Nigeria, Kenya, Ghana…), il se lit « l'équivalent de
+3 000 FCFA en monnaie locale », selon ce que l'agrégateur sait encaisser.
 
-| Pass | Prix | Par jour | Part du SMIG mensuel |
-|---|---|---|---|
-| 7 jours | 500 FCFA | 71 FCFA | 0,8 % |
-| 30 jours | 1 500 FCFA | 50 FCFA | 2,5 % |
-| 90 jours | 3 500 FCFA | 39 FCFA | 1,9 % par mois |
+**Hors Afrique, la règle : même revenu net par payeur, quel que soit le canal.**
 
-**Belgique** — ancré sur un café, loin des 20 à 35 € mensuels des leaders (benchmark, Coffee
-Meets Bagel). 1 € = 655,957 FCFA (parité fixe).
-
-| Pass | Prix | Équivalent FCFA |
+| | Afrique — web, mobile money | Hors Afrique — Telegram, Stars |
 |---|---|---|
-| 30 jours | 4,99 € | ≈ 3 270 FCFA |
-| 90 jours | 11,99 € | ≈ 7 865 FCFA |
+| 30 jours | **3 000 FCFA** | **6,99 €** ≈ 4 585 FCFA |
+| 90 jours | 7 500 FCFA | 16,99 € |
+| Part des intermédiaires | ~3 % (agrégateur) | ~35 % (boutiques, puis Telegram) |
+| **Net pour Odo, 30 jours** | ≈ 2 910 FCFA | ≈ 2 980 FCFA |
 
-**Parité Stars.** À exprimer en Stars au moment de fixer la grille, à partir d'une valeur de
-la Star **vérifiée** — le dépôt note explicitement qu'elle ne l'a pas été. Telegram impose une
-grille unique en Stars : la grille belge servira la mini app partout, la grille camerounaise
-n'existera que sur le web. C'est une conséquence, pas un choix.
+À 6,99 €, un pass vendu en Stars rapporte autant qu'un pass à 3 000 FCFA une fois la part des
+boutiques retirée. Et il reste trois à cinq fois sous les 20 à 35 € mensuels des leaders
+(benchmark) : le prix d'une bière, pas d'un abonnement. 1 € = 655,957 FCFA (parité fixe).
 
-> Le benchmark est formel : *aucun repère de consentement à payer pour une app de
-> rencontres au Cameroun n'a été trouvé.* La première grille sera probablement fausse. Elle se
-> corrige avec de vraies personnes, pas avec un tableau.
+**Le canal fait la segmentation, pas le pays déclaré.** Un prix selon le pays du profil se
+contourne en changeant une ligne de son profil. Mais un membre à Bruxelles ne paiera pas par
+Orange Money, et un membre à Yaoundé ne peut guère acheter des Stars : chaque canal porte
+son prix, et personne ne triche. Un Camerounais de la diaspora paie 6,99 € — il gagne en
+euros. Conséquence : Telegram n'impose qu'une grille en Stars, et c'est la grille hors
+Afrique ; la grille africaine n'existe que sur le web.
 
----
+**Parité en Stars.** À exprimer au moment de fixer la facture, à partir d'une valeur de la
+Star **vérifiée** — le dépôt note explicitement qu'elle ne l'a pas été. La part de 35 % est
+un ordre de grandeur public, à confirmer au même moment.
 
 ## 5. Économie unitaire
 
@@ -130,24 +133,23 @@ Cameroun** — c'est la bonne nouvelle. La modération, elle, n'est couverte qu'
 
 ### Scénario de référence (hypothèses, toutes réglables dans le simulateur)
 
-60 % de membres actifs · 5 % des actifs paient · panier moyen 1 500 FCFA/30 j au Cameroun,
-4,99 €/30 j en Belgique · 3 min de modération par nouveau membre, 10 % de nouveaux par mois ·
-web disponible au Cameroun (mobile money) · Stars en Belgique.
+60 % de membres actifs · 5 % des actifs paient · 3 000 FCFA ou 6,99 € les 30 jours · 3 min de
+modération par nouveau membre, 10 % de nouveaux par mois · web disponible en Afrique. Avec la
+règle du même net par payeur, la part de payeurs hors Afrique ne change presque rien au
+revenu : une seule colonne suffit.
 
-| Membres | Payeurs | Revenu net / mois, Cameroun seul | Revenu net / mois, moitié Belgique | Modération / mois |
-|---|---|---|---|---|
-| 100 | 3 | ≈ 4 400 FCFA | ≈ 6 500 FCFA | 30 min |
-| 1 000 | 30 | ≈ 44 000 FCFA | ≈ 65 000 FCFA | 5 h |
-| 5 000 | 150 | ≈ 218 000 FCFA | ≈ 325 000 FCFA | 25 h |
-| 20 000 | 600 | ≈ 873 000 FCFA | ≈ 1 300 000 FCFA | 100 h |
+| Membres | Payeurs | Revenu net / mois | Coût / mois | Marge | Modération / mois |
+|---|---|---|---|---|---|
+| 100 | 3 | ≈ 8 700 FCFA | ≈ 6 500 FCFA | ≈ +2 200 | 30 min |
+| 1 000 | 30 | ≈ 87 000 FCFA | ≈ 11 000 FCFA | ≈ +76 000 | 5 h |
+| 5 000 | 150 | ≈ 437 000 FCFA | ≈ 31 000 FCFA | ≈ +406 000 | 25 h |
+| 20 000 | 600 | ≈ 1 746 000 FCFA | ≈ 106 000 FCFA | ≈ +1 640 000 | 100 h |
 
-Lecture honnête : **au Cameroun seul, l'abonnement ne paie pas un modérateur à plein temps
-avant plusieurs milliers de membres.** À 1 000 membres il paie l'hébergement et dédommage le
-temps de modération ; à 5 000 il commence à payer une personne. La Belgique, à membres égaux,
-rapporte une fois et demie plus par payeur — mais le produit y est moins différenciant, et
-le taux de conversion n'y est pas connu non plus.
-
----
+Lecture honnête : à 3 000 FCFA, **l'hébergement est couvert dès trois payeurs**, et à 1 000
+membres le modèle dédommage largement le temps de modération. Ce que le prix doublé achète en
+revenu, il le paie peut-être en conversion — c'est le curseur à regarder dès les premiers
+vrais membres. Et rien de ceci n'existe tant que la version web n'est pas construite : sans
+elle, le revenu africain est à zéro.
 
 ## 6. Ce qui fait vivre ou mourir un abonnement à renouvellement explicite
 
