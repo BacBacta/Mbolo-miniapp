@@ -51,6 +51,16 @@ redevenir sans qu'on s'en aperçoive. Le numéro dit de quel lot elles viennent.
 
 ---
 
+### Ce que le bot promet sur l'argent
+
+- [ ] `/start` : « …sans rien te faire payer **pour ça** ». Pas « sans jamais te demander
+      d'argent » — cette promesse-là deviendrait fausse au premier pass vendu.
+- [ ] `/aide` : « …ne te demandera jamais d'argent **par message**. Si quelqu'un le fait,
+      **même en son nom**, c'est une arnaque. » Le canal et le mot doivent y être.
+- [ ] Refais les deux avec Telegram dans une autre langue : la précision doit y être aussi.
+
+---
+
 ## 2. Accueil (avant toute inscription)
 
 - [ ] L'écran s'affiche avec ses deux cartes de profil, le tampon « J'aime » et la bulle de

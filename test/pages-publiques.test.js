@@ -169,6 +169,54 @@ test('les pages ne sont pas servies aussi en fichiers bruts', async () => {
   }
 });
 
+// La consigne anti-arnaque du bot et les conditions doivent dire la même chose.
+//
+// Les conditions prévoient depuis toujours des fonctions payantes, et tracent la ligne au bon
+// endroit : « Aucun paiement n'est demandé par message ». Le bot, lui, disait « {app} ne te
+// demandera jamais d'argent », tout court — vrai tant que rien n'est vendu, faux le jour d'un
+// pass, et surtout : c'est la phrase qui apprend au membre que toute demande d'argent est une
+// arnaque. La perdre coûterait plus cher que le pass ne rapporte.
+//
+// Ce test refuse qu'elle reparte en promesse absolue. Il ne lance aucun serveur : il lit les
+// sources, parce que ce qu'on vérifie est une formulation, pas une route.
+test("la consigne anti-arnaque du bot nomme le canal, comme les conditions", () => {
+  const i18n = fs.readFileSync(new URL('../server/i18n.js', import.meta.url), 'utf8');
+  const bot = fs.readFileSync(new URL('../server/bot.js', import.meta.url), 'utf8');
+  const conditions = fs.readFileSync(new URL('../server/legal/conditions.html', import.meta.url), 'utf8');
+
+  assert.match(conditions, /Aucun paiement n'est demandé par message/,
+    "c'est la ligne des conditions sur laquelle le bot s'aligne ; si elle change, ce test doit changer avec elle");
+
+  // La phrase française vit dans bot.js et sert de clé dans les six dictionnaires : sept endroits.
+  // `d\\?'` parce que trois dictionnaires citent la clé entre apostrophes, donc échappée.
+  const consigne = /ne te demandera jamais d\\?'argent par message/g;
+  assert.equal((i18n.match(consigne) || []).length + (bot.match(consigne) || []).length, 7,
+    'la consigne, en français, dans bot.js et comme clé dans les six dictionnaires');
+
+  // Et jamais la version absolue, qui redeviendrait fausse le jour d'un pass.
+  assert.ok(!/ne te demandera jamais d\\?'argent\./.test(i18n + bot),
+    "« ne te demandera jamais d'argent. » sans le canal : la promesse redevient absolue");
+
+  // Ce que la consigne doit apprendre, dans chacune des six langues : **le canal** et **le mot**.
+  // On découpe dictionnaire par dictionnaire — additionner les correspondances sur tout le
+  // fichier ne prouvait rien, la clé française portant déjà « par message » six fois.
+  const ATTENDU = {
+    EN: [/by message/, /it is a scam/],
+    ES: [/por mensaje/, /es una estafa/],
+    PT: [/por mensagem/, /é uma burla/],
+    SW: [/kwa ujumbe/, /ni ulaghai/],
+    RU: [/в сообщении/, /мошенничество/],
+    UK: [/у повідомленні/, /це шахрайство/],
+  };
+  for (const [langue, [canal, mot]] of Object.entries(ATTENDU)) {
+    const debut = i18n.indexOf(`const ${langue} = {`);
+    assert.notEqual(debut, -1, `dictionnaire ${langue} introuvable`);
+    const bloc = i18n.slice(debut, i18n.indexOf('\n};', debut));
+    assert.match(bloc, canal, `${langue} : la consigne ne nomme plus le canal, elle redevient une promesse absolue`);
+    assert.match(bloc, mot, `${langue} : la consigne ne dit plus que c'est une arnaque`);
+  }
+});
+
 // La page ne décrit pas un produit en général : elle décrit ce que **ce serveur** fait. Sous la
 // politique par défaut, il n'apparie que femme et homme et ne demande à personne quel genre il
 // cherche ; sous une politique levée, il le demande, et ce choix indique l'orientation. Une page
