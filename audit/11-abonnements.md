@@ -58,29 +58,117 @@ l'accessibilité.
 
 ---
 
-## 3. Deux niveaux, pas trois
+## 3. Ce qui rentre dans le pass
+
+Cette section a été refaite **après avoir lu le code**, et non depuis le souvenir de ce que
+l'app fait. Deux propositions précédentes ne tenaient pas ; elles sont corrigées plus bas.
+
+### Inventaire : ce que le code offre, et ce qui est verrouillable
+
+| Capacité | Où | Aujourd'hui | Verrouillable ? |
+|---|---|---|---|
+| **Vue Liste** — tous les profils compatibles d'un coup | `GET /api/profiles`, `S.discoverMode` | **50 profils**, et parcourir ne consomme **aucun quota** | **Oui**, sans rien casser |
+| Vue Cartes | `GET /api/discover` | 10 cartes par requête | c'est le cœur |
+| Zone de recherche | `filters.zone`, `dansLaZone()` | une ville **ou tout le pays** | **Oui** |
+| « J'aime » par jour | `config.dailyProfiles` | 20 (5 sans badge) | **Oui**, au-dessus de 20 |
+| Photos | `PHOTO_SLOTS = [1, 2, 3]` | 3 | **Oui** |
+| Questions du profil | `QUESTIONS` (cinq), `promptQ`/`promptA` | **1 sur 5** | **Oui** |
+| Présentation vocale | `voix.js`, `DUREE_MAX_S` | 15 s | **Oui** |
+| Filtres | âge, genre, vérifiés seulement | — | partiellement |
+| « Qui t'a aimé » | `GET /api/likes` | 20 | techniquement oui — **refusé**, voir plus bas |
+| Activité d'un profil | `activityBucket()`, `routes.js:638` | **arrondie** à « cette semaine » avant le match | refusé : donnée d'autrui |
+| Contacts dans la discussion | `config.contactUnlockAfter` | après 10 messages | **jamais** : sécurité |
+| Signaler, bloquer, personne de confiance | `/blocks`, `/reports`, `/me/confiance` | — | **jamais** : sécurité |
+| Limites de débit | `limites.js`, `REGLES` | 20 messages/min, 60 balayages/min… | **jamais** : ce sont des digues anti-abus, pas des paliers produit |
+
+### Ce que la lecture du code a corrigé
+
+**1. « Plusieurs villes » était une fausse bonne idée.** `dansLaZone()` traite une ville nulle
+comme « tout le pays » (`routes.js:480`) : **le gratuit cherche déjà dans le pays entier**.
+Vendre « plusieurs villes » revenait à vendre *moins* que ce qui est déjà donné. Le vrai levier
+est l'inverse : le gratuit se limite à **sa ville**, et le pays entier passe dans le pass.
+
+**2. La vue Liste avait été oubliée.** C'est la fonction la plus généreuse de l'app et personne
+ne l'avait comptée : cinquante profils compatibles d'un coup, avec leur statut, **sans
+consommer un seul « J'aime »**. Le paquet de cartes en montre dix à la fois et chaque « J'aime »
+compte. La Liste est un outil de puissance — c'est le meilleur candidat au pass, et il ne
+coûte rien à personne : qui ne paie pas voit exactement les mêmes gens, une carte à la fois.
+
+### Le partage
+
+Décisions du propriétaire, 15 septembre 2026 : cinq « J'aime » gratuits, le gratuit ne voit
+plus qui l'a aimé, et « qui s'est arrêté sur ta fiche » rejoint le pass.
 
 | | **Gratuit** | **Odo Plus** |
 |---|---|---|
-| Vérification, badge, jauge | oui | oui |
-| Découvrir, aimer, matcher, écrire | oui | oui |
-| « Qui t'a aimé » | **oui, toujours** | oui |
-| Signaler, bloquer, personne de confiance, rendez-vous | oui | oui |
-| Quota de « J'aime » | 5 sans badge, 20 avec — **jamais à vendre** | identique |
-| Zone de recherche | sa ville, ou tout son pays | **plusieurs villes, plusieurs pays** |
-| Filtres | âge | **langues parlées, activité récente, taille de ville** |
+| « J'aime » par jour | **5** (2 sans badge) | **illimités** |
+| Qui t'a aimé | **rien** | **la liste** |
+| Qui s'est arrêté sur ta fiche | **rien** | **compte arrondi + 5 fiches** |
+| Parcourir | Cartes, dix à la fois | **+ vue Liste : 50 d'un coup** |
+| Zone | sa ville | **tout le pays** |
+| Photos | 2 | **6** |
+| Questions sur la fiche | 1 | **3** |
 | Présentation vocale | 15 s | **30 s** |
-| Aperçu des intentions | — | **réponses de compatibilité en premier sur la carte** |
+| Filtrer par langue parlée | — | **oui** |
+| Ordre du paquet | imposé | **au choix** |
 
-Ce qui est gratuit l'est parce que C21 l'exige (sécurité, réciprocité) ou parce que le
-vendre abîmerait le produit pour ceux qui ne paient pas (le quota est un levier de sécurité,
-le boost un jeu à somme nulle). Ce qui est payant est du **confort qui ne retire rien à
-personne** — et dans un vivier mince, la zone élargie est le confort le plus réel.
+Conception de la dernière ligne nouvelle : `audit/12-profils-consultes.md`.
 
-Pourquoi pas un troisième niveau : la cible ne compare pas des paliers, elle compare un prix
-à une recharge data. Deux choix, deux durées. La simplicité est le produit.
+### Trois conséquences que le code impose
 
----
+**1. Le badge perd son avantage de quota, sauf à descendre les non-vérifiés.** Aujourd'hui
+`dailyProfilesNonVerifie` vaut 5. Si le gratuit vérifié passe à 5 aussi, se faire vérifier ne
+change plus rien sur cet axe — or c'est ce qui donnait à la vérification un intérêt le jour
+même. **Proposition : 2 sans badge, 5 avec, illimité avec le pass.** Le dégradé reste, et la
+barrière anti-faux-comptes se resserre au passage.
+
+**2. Cacher « qui t'a aimé » demande de fermer quatre portes, pas une.** La liste n'est que la
+plus visible :
+
+| Ce qui fuite | Où |
+|---|---|
+| L'écran « qui t'a aimé » | `GET /api/likes` |
+| **La pastille « T'a liké » sur la carte** | `likedYou` dans `/discover` (`routes.js:638`) et sur la fiche (`app.js:499`) |
+| Le compteur de l'onglet Messages | `likes` dans `GET /api/summary` |
+| **La notification du bot** | « Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit. » (`routes.js:745`) |
+
+La pastille est la plus facile à oublier : sans elle, cacher la liste ne cache rien.
+
+**Ce qui ne change pas, et qu'il faut savoir** : le paquet trie **déjà** les likers en tête
+(`/discover`). Un membre gratuit continue donc de **rencontrer** ceux qui l'ont aimé — il ne
+sait simplement pas qu'ils l'ont aimé. La réciprocité n'est pas cassée, seul le raccourci l'est.
+
+**3. La notification du bot doit changer de texte.** Telle qu'elle est écrite, elle promet
+« découvre de qui il s'agit » à quelqu'un qui ne le pourra plus : c'est un mensonge, et si on
+la transforme en « avec Odo Plus, tu verras qui », c'est le motif que le benchmark note **0
+sur 2** (créer l'envie, facturer la réponse). **Proposition, vraie et sans paywall** :
+
+> « Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet. »
+
+C'est exact — le tri le garantit — ça garde la notification utile, et ça ne vend rien.
+
+### Ce qui ne bougera pas, et pourquoi
+
+| Refusé | La raison |
+|---|---|
+| **« Qui t'a aimé »** | Le bot envoie « tu as plu à quelqu'un ». Verrouiller l'écran derrière un paiement, c'est créer l'envie puis facturer la réponse : C21 le note **0 sur 2**. Et ce serait du théâtre — les likers passent **déjà en tête du paquet** (`routes.js`, tri de `/discover`), donc le gratuit les voit de toute façon |
+| **L'activité précise** | Elle est arrondie **exprès** avant le match. La vendre, c'est vendre la vie privée d'un autre membre à un tiers |
+| **Le filtre « vérifiés seulement »** | Filtre de sécurité. C21 = 0 |
+| **Contacts avant 10 messages** | `contactUnlockAfter` est une barrière anti-arnaque. Le vendre serait vendre le contournement de la promesse centrale du produit |
+| **Les limites de débit** | Ce sont des digues anti-abus. Les desserrer contre paiement, c'est vendre la capacité de nuire plus vite |
+| **Les boosts de visibilité** | Jeu à somme nulle : ce qu'un payeur gagne, un autre membre le perd |
+
+### Le risque à garder en tête
+
+Le vivier **est** le produit. Un gratuit trop maigre ne convertit pas : il vide la salle, et
+personne ne paie pour entrer dans une pièce vide. Le benchmark le note pour cette région —
+Badoo domine l'Afrique francophone avec « découverte gratuite très large, faible barrière à
+l'entrée ».
+
+Les huit lignes ci-dessus tiennent parce qu'elles **ajoutent à Plus** au moins autant qu'elles
+**retirent au gratuit** : la vue Liste et les « J'aime » illimités ne coûtent rien à qui ne
+paie pas. Descendre plus bas — une photo, cinq « J'aime », pas de vue d'ensemble — ferait un
+gratuit qui ne donne plus envie de rester assez longtemps pour payer.
 
 ## 4. La grille : un prix posé, et la règle qui donne l'autre
 
@@ -194,3 +282,29 @@ permet de **mesurer** si Odo Plus vaut quelque chose avant de lui donner un prix
 - Si Google Play propose le paiement par l'opérateur au Cameroun — cela changerait
   l'accessibilité des Stars.
 - Rien de tout ceci ne se teste avant quelques dizaines de membres actifs.
+
+---
+
+## 8. Ce qui est construit, au 15 septembre 2026
+
+Le socle et les deux premières fonctions. Le reste du tableau du §3 (zone élargie, photos,
+questions, voix de 30 secondes, filtre par langue, ordre du paquet) **n'est pas écrit**, et
+l'écran du pass ne l'annonce donc pas : la leçon de « Sortie en duo » tient en une ligne — une
+promesse affichée que rien n'honore est pire qu'une fonction absente, parce que la personne l'a
+crue.
+
+| | Écrit | Où |
+|---|---|---|
+| `estPlus()`, le seul endroit qui tranche | oui | `server/plus.js` |
+| Pass empilable, expiration franche | oui | `prolonger()`, `test/plus.test.js` |
+| Pass offert à la main depuis la modération | oui | `/pass`, `/sanspass` dans `server/bot.js` |
+| Quota : 2 sans badge, 5 gratuit, sans limite avec le pass | oui | `config.dailyProfiles`, `quotaDe()` |
+| Qui t'a aimé, les quatre portes | oui | `voitSesLikes()`, `requirePlus` |
+| Se sont arrêtés sur ta fiche | oui | `server/vues.js`, `audit/12-profils-consultes.md` |
+| La caisse (mobile money, Stars) | **non** | P0-6, `CLAUDE.md` §10 |
+
+**Pas de caisse, et c'est volontaire.** Avant de faire payer, il faut savoir si ce qu'il y a
+derrière change quelque chose pour de vrais membres. Un pass offert le dit, et ne demande ni
+agrégateur, ni remboursement, ni structure juridique. Ce que la bêta doit répondre : est-ce que
+quelqu'un qui reçoit un pass s'en sert — et est-ce que ne pas savoir qui l'a aimé fait revenir
+plus souvent, ou partir.

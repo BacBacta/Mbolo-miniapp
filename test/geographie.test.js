@@ -44,6 +44,9 @@ async function creer(id, name, gender, country, city, extra = {}) {
 }
 const vus = async (id) => (await call(id, '/discover')).body.profiles.map((p) => p.name);
 
+// Un pass offert : la liste des « J'aime » reçus est ce qu'il ouvre.
+const passer = async (id) => store.updateUser(id, { plus: { source: 'gift', depuisLe: Date.now(), finLe: Date.now() + 30 * 24 * 3600 * 1000 } });
+
 test.after(() => server.close());
 
 test('une ville écrite de deux façons donne une seule clé', () => {
@@ -149,6 +152,7 @@ test('un like reçu de hors zone atteint quand même la personne', async () => {
   assert.deepEqual(await vus('9162'), ['Nina']);
   await call('9162', '/swipes', 'POST', { targetId: await pid('9161'), action: 'like' });
 
+  await passer('9161'); // voir qui t'a aimé demande un pass ; la zone, elle, est ce qu'on teste ici
   const likes = (await call('9161', '/likes')).body.profiles.map((p) => p.name);
   assert.deepEqual(likes, ['Olivier'], "un signal qui m'est adressé traverse ma zone");
 });

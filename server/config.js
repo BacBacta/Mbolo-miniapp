@@ -95,11 +95,17 @@ export const config = {
   initDataMaxAgeSec: 24 * 60 * 60,
   // Nombre de messages avant d'autoriser liens et numéros dans une discussion
   contactUnlockAfter: 10,
-  dailyProfiles: 20,
-  // Le quota de qui n'a pas encore son badge. Plus bas : un faux compte qui voudrait parler à
-  // cent personnes avant qu'un humain l'ait vu est ralenti, et se faire vérifier a un intérêt
-  // immédiat. Sans effet sous la politique « gate », où personne n'entre sans badge.
-  dailyProfilesNonVerifie: Number(process.env.DAILY_PROFILES_UNVERIFIED || 5),
+  // Combien de « J'aime » par jour sans pass. **Cinq**, décision du propriétaire du 15 septembre
+  // 2026, contre vingt auparavant. Vingt n'était pas une limite : personne ne les atteignait, donc
+  // la première chose que le pass promettait — des « J'aime » illimités — ne se vendait à personne.
+  // Cinq se touche du doigt le soir même, et c'est le seul mur qu'on accepte de poser sur la
+  // rencontre elle-même. Passer un profil ne coûte rien, et parcourir non plus : ce qui est compté
+  // est le geste qui engage, pas celui qui regarde.
+  dailyProfiles: 5,
+  // Le quota de qui n'a pas encore son badge : **deux**. Plus bas : un faux compte qui voudrait
+  // parler à cent personnes avant qu'un humain l'ait vu est ralenti, et se faire vérifier a un
+  // intérêt immédiat. Sans effet sous la politique « gate », où personne n'entre sans badge.
+  dailyProfilesNonVerifie: Number(process.env.DAILY_PROFILES_UNVERIFIED || 2),
   // Ce que la vérification par selfie décide.
   //
   //   gate  (défaut) : elle est une **porte**. Tant qu'un humain n'a pas tranché, la personne ne

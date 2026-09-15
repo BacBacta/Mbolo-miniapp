@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { config, runtime, genreAuChoix, entreeLibre, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT } from './config.js';
+import { estPlus, etatDuPass } from './plus.js';
+import { arrondir, dansLaFenetre, discret, MAX_FICHES } from './vues.js';
 import { codeValide } from './lieux.js';
 import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
 import { LANGUES, t as tr } from './i18n.js';
@@ -154,11 +156,38 @@ const requireMembre = (req, res, next) => (membre(req.user) ? next() : fail(res,
 const requireVerifie = (req, res, next) => (verifie(req.user)
   ? next()
   : fail(res, 403, 'BADGE_REQUIS', 'Fais vérifier ton profil pour proposer un rendez-vous. Ça prend un selfie avec un geste.'));
-// Combien de profils par jour. Le badge ouvre le quota entier ; sans lui, il est réduit — un
-// faux compte qui voudrait écrire à cent personnes avant qu'un humain l'ait vu est ralenti, et
-// se faire vérifier a un intérêt le jour même. Sous « gate », personne n'arrive ici sans badge,
-// donc la ligne basse ne sert jamais.
-const quotaDe = (u) => (verifie(u) ? config.dailyProfiles : config.dailyProfilesNonVerifie);
+// Combien de « J'aime » par jour, en trois marches. Le pass les enlève ; le badge ouvre le quota
+// entier ; sans badge il est réduit — un faux compte qui voudrait écrire à cent personnes avant
+// qu'un humain l'ait vu est ralenti, et se faire vérifier a un intérêt le jour même. Sous
+// « gate », personne n'arrive ici sans badge, donc la marche basse ne sert jamais.
+//
+// L'absence de limite est `Infinity`, pas un grand nombre : l'arithmétique en dessous marche
+// toute seule (`max(0, Infinity - n)`, `n >= Infinity`), et rien n'a de valeur plafond à recopier.
+const quotaDe = (u) => {
+  if (estPlus(u)) return Infinity;
+  return verifie(u) ? config.dailyProfiles : config.dailyProfilesNonVerifie;
+};
+// Ce qu'un quota devient dans une réponse JSON. `Infinity` s'y sérialise en `null` tout seul, mais
+// en silence : on le dit ici, pour que le contrat avec l'interface soit lisible des deux côtés —
+// **null veut dire « aucun compte à tenir »**, et surtout pas zéro.
+const auClient = (n) => (Number.isFinite(n) ? n : null);
+
+// ---------- Qui t'a aimé ----------
+//
+// C'est la seule chose que le pass enlève à qui n'en a pas, et c'est celle-là parce qu'elle ne
+// retire **aucune rencontre** : le paquet continue de placer devant les personnes qui t'ont aimé,
+// exactement comme avant. Ce qui disparaît est de savoir **lesquelles**, pas de les croiser.
+//
+// Il faut fermer les quatre portes ensemble, sans quoi la cinquième reste ouverte et le reste ne
+// sert à rien : la liste (`/likes`), la pastille « T'a liké » sur la carte et dans la liste, et
+// **le compteur**. Le compteur est le moins évident et le plus bavard : « une personne t'a aimé »,
+// posé à côté d'un paquet qui met cette personne en tête, fait un nom. Il ne vaut donc pas zéro
+// pour qui n'a pas le pass — zéro serait faux, et « personne ne t'a aimé » est un mensonge — il
+// vaut `null`, comme le quota : on ne le dit pas.
+const voitSesLikes = (u) => estPlus(u);
+const requirePlus = (req, res, next) => (estPlus(req.user)
+  ? next()
+  : fail(res, 403, 'PASS_REQUIS', 'Il faut un pass pour voir qui t\'a aimé. En attendant, ces personnes passent devant dans ton paquet.'));
 
 // Une intention retirée ne peut plus servir à rien : la découverte cherche la même intention
 // chez les autres, donc un compte resté en « Sortie en duo » ne voit plus personne et n'est vu
@@ -205,6 +234,16 @@ api.get('/me', async (req, res) => {
     // La présentation vocale, telle que la personne la voit pour elle-même : son statut et sa
     // durée. Ce que les autres en sauront est décidé ailleurs (publicProfile).
     voix: u.voix ? { status: u.voix.status, duree: u.voix.duree } : null,
+    // Le pass, tel que la personne le voit pour elle-même. Il ne va nulle part ailleurs : il
+    // n'est pas dans `publicProfile`, et il n'y entrera pas. Un pass visible deviendrait un signe
+    // extérieur — et surtout il dirait qui peut voir la liste des « J'aime », donc qui sait.
+    plus: etatDuPass(u),
+    // Le quota du jour voyage aussi ici, et pas seulement avec le paquet : l'écran du pass doit
+    // pouvoir dire le nombre sans que la personne soit passée par Découvrir d'abord. Même
+    // contrat que là-bas — `null` veut dire « aucun compte à tenir ».
+    quota: auClient(quotaDe(u)),
+    // L'opposition à « qui s'est arrêté sur ta fiche ». Gratuite, donc lue par tout le monde.
+    discretion: discret(u),
     options: {
       intents: INTENTS, genders: GENDERS, compat: COMPAT, criteres: CRITERES, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
       // Qui choisit le genre recherché en « Relation sérieuse » : la politique du serveur, ou la
@@ -621,7 +660,7 @@ api.get('/discover', requireMembre, async (req, res) => {
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
   if (!remaining) {
     mesurer('deck_empty', me.id, { why: 'quota' });
-    return res.json({ profiles: [], remaining: 0, quota: quotaDe(me), vivier: vivier(me, rel, tous) });
+    return res.json({ profiles: [], remaining: 0, quota: auClient(quotaDe(me)), vivier: vivier(me, rel, tous) });
   }
   // Le tri passe avant la mise en forme : publicProfile n'est appelé que sur les dix cartes
   // envoyées, au lieu de l'être sur tout le vivier pour en jeter la plus grande part.
@@ -631,21 +670,28 @@ api.get('/discover', requireMembre, async (req, res) => {
     // sans exclure personne : c'est ce qui distingue un modèle ouvert d'une porte fermée.
     .sort((a, b) => Number(rel.maLike.has(b.id)) - Number(rel.maLike.has(a.id))
       || Number(verifie(b)) - Number(verifie(a)) || sameArea(me, b) - sameArea(me, a))
-    .slice(0, Math.min(10, remaining));
+    // Dix cartes, quel que soit le quota restant. Le paquet était coupé à `remaining`, ce qui se
+    // voyait à peine tant que le quota valait vingt ; à cinq, il envoyait cinq cartes, puis quatre.
+    // Or **passer ne consomme rien** (`swipesToday` ne compte que les « J'aime ») : le nombre de
+    // cartes n'a donc rien à voir avec le nombre de « J'aime » restants, et les lier multipliait
+    // les allers-retours au moment précis où le quota se resserre — règle 15.
+    .slice(0, 10);
   const profiles = await Promise.all(retenus.map(async (u) => {
     const p = await publicProfile(u);
     // Avant le match, on ne dit que « cette semaine » ou rien : la tranche fine est réservée aux matchs
-    return { ...p, activity: p.activity ? 'week' : null, likedYou: rel.maLike.has(u.id) };
+    return { ...p, activity: p.activity ? 'week' : null, likedYou: voitSesLikes(me) && rel.maLike.has(u.id) };
   }));
   // Le symptôme numéro un d'un lancement à vivier vide : combien de personnes vérifiées n'ont
   // jamais vu une seule carte. Sans cette ligne, personne ne le saura jamais.
   if (!profiles.length) mesurer('deck_empty', me.id, { why: 'vide' });
   // Une ligne par paquet, pas une par carte : n suffit et coûte dix fois moins. Ralenti à cinq
   // minutes, parce que l'écran se recharge à chaque retour et que ça n'apprend rien de plus.
-  else mesurerRalenti('deck_served', me, CINQ_MINUTES, { n: profiles.length, r: remaining });
+  // `r` est le reste du quota, et il n'existe que s'il y a un quota : avec un pass, la clé
+  // disparaît plutôt que de porter un infini que JSON ne sait pas écrire.
+  else mesurerRalenti('deck_served', me, CINQ_MINUTES, Number.isFinite(remaining) ? { n: profiles.length, r: remaining } : { n: profiles.length });
   // Le quota du jour part avec le paquet : l'écran vide doit dire le bon nombre, et ce nombre
   // dépend du badge. Le recopier dans l'interface le ferait mentir au premier changement.
-  res.json({ profiles, remaining, quota: quotaDe(me), vivier: vivier(me, rel, tous) });
+  res.json({ profiles, remaining: auClient(remaining), quota: auClient(quotaDe(me)), vivier: vivier(me, rel, tous) });
 });
 
 // Liste des profils compatibles, balayés ou non : la vue d'ensemble que les cartes n'offrent pas.
@@ -675,7 +721,10 @@ api.get('/profiles', requireMembre, async (req, res) => {
   const profiles = await Promise.all(retenus.map(async ({ u, m, status, activity, likedYou }) => ({
     ...(await publicProfile(u)),
     activity,
-    likedYou,
+    // Le rang, lui, garde `likedYou` : l'ordre est le même pour tout le monde, avec ou sans pass.
+    // Deux ordres différents se comparent d'un compte à l'autre, et la différence dirait ce que
+    // l'étiquette ne dit plus. Ce qui change est l'étiquette, pas la place.
+    likedYou: voitSesLikes(me) && likedYou,
     status,
     matchId: m?.id || null,
   })));
@@ -691,7 +740,7 @@ const likersOf = (me, rel, tous) => tous
   .filter((u) => joignable(me, rel, u) && dansLeGenre(me, u) && selonLeBadge(me, u) && rel.maLike.has(u.id) && !rel.monSwipe.has(u.id))
   .sort((a, b) => rel.maLike.get(b.id).at - rel.maLike.get(a.id).at);
 
-api.get('/likes', requireMembre, async (req, res) => {
+api.get('/likes', requireMembre, requirePlus, async (req, res) => {
   const me = req.user;
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
   const profiles = await Promise.all(likersOf(me, rel, tous).slice(0, 20).map(async (u) => {
@@ -699,6 +748,46 @@ api.get('/likes', requireMembre, async (req, res) => {
     return { ...p, activity: p.activity ? 'week' : null, likedYou: true, status: null, matchId: null };
   }));
   res.json({ profiles });
+});
+
+// ---------- Qui s'est arrêté sur ta fiche ----------
+//
+// La règle, les trois refus et l'arrondi vivent dans `server/vues.js` : ici il n'y a que la
+// lecture. Deux choses valent d'être vues en passant :
+//
+//   * **`store.allUsers()` n'est pas appelé.** Ce qu'on charge est borné par le nombre de
+//     personnes qui se sont arrêtées sur ma fiche en trente jours, pas par la taille de la table
+//     (dette technique n° 3). Une recherche par clé primaire par personne, et rien d'autre.
+//   * **L'action du balayage ne quitte jamais `swipes`.** `dansLaFenetre()` ne la recopie pas,
+//     donc aucune ligne d'ici ne peut la laisser fuir : c'est le refus n° 1, tenu par le code et
+//     pas par la vigilance.
+api.get('/vues', requireMembre, requirePlus, async (req, res) => {
+  const me = req.user;
+  // La symétrie : qui se retire n'apparaît nulle part, et ne regarde nulle part non plus.
+  if (discret(me)) return res.json({ discret: true, arrondi: arrondir(0), profiles: [] });
+  const [recus, rel] = await Promise.all([store.swipesTo(me.id), relations(me)]);
+  const arrets = dansLaFenetre(recus, me.id);
+  const gens = await Promise.all(arrets.map(async (a) => ({ at: a.at, u: await store.getUser(a.from) })));
+  // Le même socle que les « J'aime » reçus : joignable, du genre cherché, selon le filtre du
+  // badge. Plus l'opposition de l'autre, qui prime sur tout le reste.
+  const retenus = gens.filter(({ u }) => u && !discret(u) && joignable(me, rel, u) && dansLeGenre(me, u) && selonLeBadge(me, u));
+  // Le compte et la liste sortent **du même ensemble** : deux ensembles différents se
+  // recoupent, et le recoupement est exactement ce que l'arrondi empêche.
+  const profiles = await Promise.all(retenus.slice(0, MAX_FICHES).map(async ({ u }) => {
+    const p = await publicProfile(u);
+    return { ...p, activity: p.activity ? 'week' : null, likedYou: false, status: null, matchId: null };
+  }));
+  res.json({ discret: false, arrondi: arrondir(retenus.length), profiles });
+});
+
+// Le réglage d'opposition. **Pas de `requirePlus` ici, et jamais** : on ne vend pas le droit de
+// ne pas être montré. Il est aussi hors du quota et sans limitation de débit particulière — un
+// membre doit pouvoir se retirer à l'instant où il y pense.
+api.put('/me/discretion', requireMembre, async (req, res) => {
+  const veut = req.body?.discret;
+  if (typeof veut !== 'boolean') return fail(res, 400, 'DISCRETION_INVALIDE', 'Indique si tu veux rester discret ou non.');
+  await store.updateUser(req.user.id, { discretion: veut });
+  res.json({ discretion: veut });
 });
 
 api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {
@@ -742,7 +831,7 @@ api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {
     // Sauf si la personne m'a déjà balayé (« passer », ou un match qu'elle a défait) : mon like
     // n'apparaîtra pas dans sa liste, et la prévenir l'enverrait vers un écran vide.
     if (await store.swipeOf(target.id, me.id) || !dansLeGenre(target, me)) return res.json({ match: null });
-    notify(target.id, "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.", { ville: target.profile.city, app: config.appName }, { label: 'Découvrir', params: { screen: 'matches' } }, 'likes', 24 * 3600 * 1000);
+    notify(target.id, "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.", { ville: target.profile.city }, { label: 'Découvrir', params: { screen: 'discover' } }, 'likes', 24 * 3600 * 1000);
   }
   res.json({ match: null });
 });
@@ -795,7 +884,8 @@ api.get('/summary', requireMembre, async (req, res) => {
     unread += await store.unreadCount(m.id, me.id);
     if (!(await store.hasOpened(m.id, me.id))) newMatches += 1;
   }
-  res.json({ unread, newMatches, likes: likersOf(me, rel, tous).length });
+  // `null` et pas `0` : zéro dirait « personne ne t'a aimé », ce qui est faux la plupart du temps.
+  res.json({ unread, newMatches, likes: voitSesLikes(me) ? likersOf(me, rel, tous).length : null });
 });
 
 api.get('/matches/:id', requireMembre, async (req, res) => {
@@ -892,7 +982,7 @@ onApproved((userId) => {
     const demo = tous.find((u) => u.demo && compatible(me, u) && dansLaZone(me, u) && dansLeGenre(me, u) && !dejaTranche.has(u.id));
     if (!demo) return;
     await store.addSwipe(demo.id, me.id, 'like');
-    notify(me.id, "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.", { ville: me.profile.city, app: config.appName }, { label: 'Découvrir', params: { screen: 'matches' } }, 'likes', 24 * 3600 * 1000);
+    notify(me.id, "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.", { ville: me.profile.city }, { label: 'Découvrir', params: { screen: 'discover' } }, 'likes', 24 * 3600 * 1000);
   }, config.demoLikeDelayMs);
 });
 

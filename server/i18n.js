@@ -63,8 +63,8 @@ const EN = {
     '{app} notifications are working. Matches and messages will reach you here.',
   'Nouveau match : {nom} et toi, vous vous plaisez.': 'New match: {nom} and you like each other.',
   'Écrire': 'Write',
-  "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.":
-    'Someone in {ville} likes your profile. Open {app} to find out who.',
+  "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.":
+    'Someone in {ville} likes your profile. Keep browsing: you will come across them in your deck.',
   'Découvrir': 'Discover',
   "{nom} t'a écrit : « {extrait} »": '{nom} wrote to you: "{extrait}"',
   'Répondre': 'Reply',
@@ -75,6 +75,9 @@ const EN = {
   '{nom} a annulé le rendez-vous de {lieu}, {creneau}.': '{nom} cancelled the meet-up at {lieu}, {creneau}.',
   '{nom} est bien arrivé(e) à {lieu}.': '{nom} has arrived at {lieu}.',
   'Ouvrir la discussion': 'Open the chat',
+  // Odo Plus
+  "Ton pass {app} Plus est actif jusqu'au {date}.": 'Your {app} Plus pass is active until {date}.',
+  'Ton pass {app} Plus a été retiré.': 'Your {app} Plus pass has been removed.',
 };
 
 const ES = {
@@ -110,7 +113,7 @@ const ES = {
   "Les notifications {app} fonctionnent. Tu seras prévenu(e) ici des matchs et des messages.": "Las notificaciones de {app} funcionan. Aquí te avisaremos de los matchs y los mensajes.",
   "Nouveau match : {nom} et toi, vous vous plaisez.": "Nuevo match: a {nom} y a ti os gustáis.",
   "Écrire": "Escribir",
-  "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.": "Le gustas a alguien de {ville}. Abre {app} para descubrir quién es.",
+  "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.": "Le gustas a alguien de {ville}. Sigue descubriendo: te lo cruzarás en tu mazo.",
   "Découvrir": "Descubrir",
   "{nom} t'a écrit : « {extrait} »": "{nom} te ha escrito: « {extrait} »",
   "Répondre": "Responder",
@@ -121,6 +124,9 @@ const ES = {
   "{nom} a annulé le rendez-vous de {lieu}, {creneau}.": "{nom} ha cancelado la cita de {lieu}, {creneau}.",
   "{nom} est bien arrivé(e) à {lieu}.": "{nom} ha llegado a {lieu}.",
   "Ouvrir la discussion": "Abrir la conversación",
+  // Odo Plus
+  "Ton pass {app} Plus est actif jusqu'au {date}.": "Tu pase {app} Plus está activo hasta el {date}.",
+  'Ton pass {app} Plus a été retiré.': "Tu pase {app} Plus ha sido retirado.",
 };
 
 const PT = {
@@ -156,7 +162,7 @@ const PT = {
   "Les notifications {app} fonctionnent. Tu seras prévenu(e) ici des matchs et des messages.": "As notificações da {app} funcionam. Vais ser avisado aqui dos matchs e das mensagens.",
   "Nouveau match : {nom} et toi, vous vous plaisez.": "Novo match: tu e {nom} gostam um do outro.",
   "Écrire": "Escrever",
-  "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.": "Alguém em {ville} gostou do teu perfil. Abre a {app} para descobrir quem é.",
+  "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.": "Alguém em {ville} gostou do teu perfil. Continua a descobrir: vais cruzar-te com essa pessoa no teu baralho.",
   "Découvrir": "Descobrir",
   "{nom} t'a écrit : « {extrait} »": "{nom} escreveu-te: « {extrait} »",
   "Répondre": "Responder",
@@ -167,6 +173,9 @@ const PT = {
   "{nom} a annulé le rendez-vous de {lieu}, {creneau}.": "{nom} cancelou o encontro de {lieu}, {creneau}.",
   "{nom} est bien arrivé(e) à {lieu}.": "{nom} chegou a {lieu}.",
   "Ouvrir la discussion": "Abrir a conversa",
+  // Odo Plus
+  "Ton pass {app} Plus est actif jusqu'au {date}.": "O teu passe {app} Plus está ativo até {date}.",
+  'Ton pass {app} Plus a été retiré.': "O teu passe {app} Plus foi retirado.",
 };
 
 const SW = {
@@ -202,7 +211,7 @@ const SW = {
   "Les notifications {app} fonctionnent. Tu seras prévenu(e) ici des matchs et des messages.": "Arifa za {app} zinafanya kazi. Utaarifiwa hapa kuhusu match na ujumbe.",
   "Nouveau match : {nom} et toi, vous vous plaisez.": "Match mpya: wewe na {nom} mnapendana.",
   "Écrire": "Andika",
-  "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.": "Mtu mmoja {ville} amependa wasifu wako. Fungua {app} ili ujue ni nani.",
+  "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.": "Mtu mmoja {ville} amependa wasifu wako. Endelea kutazama: utamkuta kwenye rundo lako.",
   "Découvrir": "Gundua",
   "{nom} t'a écrit : « {extrait} »": "{nom} amekuandikia: « {extrait} »",
   "Répondre": "Jibu",
@@ -213,6 +222,9 @@ const SW = {
   "{nom} a annulé le rendez-vous de {lieu}, {creneau}.": "{nom} ameghairi mkutano wa {lieu}, {creneau}.",
   "{nom} est bien arrivé(e) à {lieu}.": "{nom} amefika {lieu}.",
   "Ouvrir la discussion": "Fungua mazungumzo",
+  // Odo Plus
+  "Ton pass {app} Plus est actif jusqu'au {date}.": "Pasi yako ya {app} Plus inatumika hadi {date}.",
+  'Ton pass {app} Plus a été retiré.': "Pasi yako ya {app} Plus imeondolewa.",
 };
 
 const RU = {
@@ -266,8 +278,8 @@ const RU = {
     'Уведомления {app} работают. Здесь ты будешь узнавать о мэтчах и сообщениях.',
   'Nouveau match : {nom} et toi, vous vous plaisez.': 'Новый мэтч: {nom} и ты понравились друг другу.',
   'Écrire': 'Написать',
-  "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.":
-    'Кому-то в городе {ville} понравилась твоя анкета. Открой {app}, чтобы узнать кому.',
+  "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.":
+    'Кому-то в городе {ville} понравилась твоя анкета. Смотри дальше: эта анкета попадётся тебе в колоде.',
   'Découvrir': 'Смотреть',
   "{nom} t'a écrit : « {extrait} »": '{nom} пишет тебе: «{extrait}»',
   'Répondre': 'Ответить',
@@ -278,6 +290,9 @@ const RU = {
   '{nom} a annulé le rendez-vous de {lieu}, {creneau}.': '{nom} отменяет встречу: {lieu}, {creneau}.',
   '{nom} est bien arrivé(e) à {lieu}.': '{nom} на месте: {lieu}.',
   'Ouvrir la discussion': 'Открыть чат',
+  // Odo Plus
+  "Ton pass {app} Plus est actif jusqu'au {date}.": 'Твой пропуск {app} Plus действует до {date}.',
+  'Ton pass {app} Plus a été retiré.': 'Твой пропуск {app} Plus снят.',
 };
 
 const UK = {
@@ -331,8 +346,8 @@ const UK = {
     'Сповіщення {app} працюють. Тут ти дізнаватимешся про метчі та повідомлення.',
   'Nouveau match : {nom} et toi, vous vous plaisez.': 'Новий метч: {nom} і ти сподобалися одне одному.',
   'Écrire': 'Написати',
-  "Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit.":
-    'Комусь у місті {ville} сподобалася твоя анкета. Відкрий {app}, щоб дізнатися кому.',
+  "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.":
+    'Комусь у місті {ville} сподобалася твоя анкета. Дивись далі: ця анкета трапиться тобі в колоді.',
   'Découvrir': 'Дивитися',
   "{nom} t'a écrit : « {extrait} »": '{nom} пише тобі: «{extrait}»',
   'Répondre': 'Відповісти',
@@ -343,6 +358,9 @@ const UK = {
   '{nom} a annulé le rendez-vous de {lieu}, {creneau}.': '{nom} скасовує зустріч: {lieu}, {creneau}.',
   '{nom} est bien arrivé(e) à {lieu}.': '{nom} на місці: {lieu}.',
   'Ouvrir la discussion': 'Відкрити чат',
+  // Odo Plus
+  "Ton pass {app} Plus est actif jusqu'au {date}.": 'Твій пропуск {app} Plus діє до {date}.',
+  'Ton pass {app} Plus a été retiré.': 'Твій пропуск {app} Plus знято.',
 };
 
 const DICTIONNAIRES = { fr: {}, en: EN, es: ES, pt: PT, sw: SW, ru: RU, uk: UK };

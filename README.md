@@ -577,7 +577,7 @@ La vérification par selfie ne change jamais : un geste tiré au hasard, valable
 | `VERIFICATION_POLICY` | Avant d'être vérifié | Ce que la vérification donne |
 |---|---|---|
 | `gate` (défaut) | **Rien.** Tu ne vois personne, personne ne te voit | L'accès à l'app |
-| `badge` | Découvrir, aimer, matcher, écrire — avec un quota de « J'aime » réduit (`DAILY_PROFILES_UNVERIFIED`, 5 par défaut, contre 20) | Le **bouclier** sur la fiche, le droit de **proposer un rendez-vous** (des deux côtés) et de **confirmer une arrivée**, et le quota entier |
+| `badge` | Découvrir, aimer, matcher, écrire — avec un quota de « J'aime » réduit (`DAILY_PROFILES_UNVERIFIED`, 2 par défaut, contre 5) | Le **bouclier** sur la fiche, le droit de **proposer un rendez-vous** (des deux côtés) et de **confirmer une arrivée**, et le quota entier |
 
 **Cette instance tourne sur la seconde ligne depuis le 15 septembre 2026** (`VERIFICATION_POLICY = "badge"` dans `fly.toml`, décision du propriétaire). La raison n'est pas un choix de produit mais une contrainte d'exploitation : la modération est humaine et l'équipe fait une personne. Sous `gate`, personne ne voit rien tant que ce modérateur n'a pas regardé — un délai de quelques heures la nuit vide l'app de tout le monde en même temps, et c'est le premier écran de quelqu'un qui vient de s'inscrire.
 
@@ -586,6 +586,49 @@ Ce qui reste réservé au bouclier est **ce qui met deux personnes en présence*
 Comme pour `MATCH_POLICY`, **les deux pages publiques portent les deux versions**, entre marqueurs, et `selonLaPolitique()` dans `server/index.js` n'en sert qu'une : sous `badge`, la phrase « tant que tu n'es pas vérifié, tu ne vois personne » serait fausse, dans un document opposable. `entreeLibre()` dans `server/config.js` est le seul endroit qui tranche, et `options.entreeLibre` le porte à l'interface, qui n'en garde aucune copie. `test/verification-badge.test.js` éprouve le cas ouvert ; le reste de la suite tourne sur le cas par défaut. Repasser à `gate` referme la porte, et rend aux pages leur promesse d'origine — une ligne de `fly.toml`.
 
 **Ce que `badge` ne change pas** : `AUTO_APPROVE` reste éteint en production, chaque selfie part toujours au groupe de modération, le serveur refuse toujours de démarrer sans `ADMIN_CHAT_ID`, et un compte fermé n'entre pas davantage. Le paquet montre **les profils vérifiés en premier**, et un filtre « vérifiés seulement » est à un geste dans les filtres.
+
+---
+
+### Odo Plus : le pass, et ce qu'il enlève
+
+Le modèle économique est un **pass à durée fixe** — pas un abonnement : aucune reconduction tacite, aucune empreinte de moyen de paiement gardée pour la suite, une fin franche et un geste pour reprendre. Le raisonnement complet est dans `audit/11-abonnements.md` ; le cahier des charges du paiement est la section 10 de `CLAUDE.md`.
+
+**Il n'y a pas encore de caisse, et c'est volontaire.** Avant de faire payer quoi que ce soit, il faut savoir si ce qu'il y a derrière change quelque chose pour de vrais membres. Un pass **offert à la main** le dit, et ne demande ni agrégateur, ni remboursement, ni structure juridique. Depuis le groupe de modération :
+
+```
+/pass 123456789 30      pose (ou prolonge de) 30 jours
+/sanspass 123456789     retire le pass en cours
+```
+
+La personne est prévenue des deux côtés, dans sa langue. Un pass pris pendant qu'un autre court **repousse la fin** au lieu de la remplacer.
+
+| | Sans pass | Avec le pass |
+|---|---|---|
+| « J'aime » par jour | **5** (2 sans le bouclier) | sans limite |
+| Qui t'a aimé | rien — mais ces personnes **passent devant dans le paquet** | la liste, avec les fiches |
+| Se sont arrêtés sur ta fiche | rien | un nombre arrondi, et cinq fiches — jamais ce qu'elles ont décidé |
+
+Le reste de ce que le pass donnera (zone élargie, photos, questions, présentation vocale plus longue) n'est **pas construit**, et l'écran du pass ne l'annonce donc pas : une promesse affichée que rien n'honore est pire qu'une fonction absente, parce que la personne l'a crue — la leçon de « Sortie en duo ».
+
+**Ce que le pass n'enlève jamais, c'est une rencontre.** Les mêmes personnes, la même zone, les mêmes règles ; le paquet place les « J'aime » reçus devant pour tout le monde, avec ou sans pass, et la notification du bot le dit ainsi : « Tu as plu à quelqu'un à Yaoundé. Continue à découvrir : tu le croiseras dans ton paquet. » Ce qui disparaît sans pass est de savoir **lesquels**.
+
+Il faut alors fermer **quatre portes ensemble**, sans quoi les trois autres ne servent à rien : la liste (`GET /api/likes`, 403 `PASS_REQUIS`), la pastille « T'a liké » sur la carte, la même dans la vue Liste, et **le compteur** de l'onglet Messages. Le compteur est le plus bavard des quatre : « une personne t'a aimé », posé à côté d'un paquet qui met cette personne en tête, fait un nom. Il ne vaut pas `0` sans pass — zéro dirait « personne ne t'a aimé », ce qui est faux — il vaut **`null`** : on ne le dit pas, et on ne dit pas le contraire. L'**ordre**, lui, ne change pas d'un compte à l'autre : deux ordres différents se compareraient, et la différence dirait ce que l'étiquette ne dit plus.
+
+#### « Se sont arrêtés sur ta fiche »
+
+La deuxième fonction du pass, et celle qui demandait le plus de précautions — elle montre le comportement de quelqu'un à un tiers. La conception complète est dans `audit/12-profils-consultes.md`, la règle dans `server/vues.js`.
+
+**Aucune collecte nouvelle.** La table `swipes` enregistre depuis toujours `{ from, to, action, at }` : chaque fois que quelqu'un voit une fiche et décide. On ne collecte rien de plus, on montre autrement ce qui est déjà là. D'où le nom : ce n'est pas « qui a vu ta fiche » — personne ne mesure ça — mais **qui s'est arrêté**. Quelqu'un qui fait défiler sans décider n'y est pas.
+
+Trois refus la rendent tenable :
+
+1. **L'issue n'est jamais montrée.** Un « passer » est une décision privée. `dansLaFenetre()` ne recopie même pas l'action, donc aucune ligne en aval ne peut la laisser fuir : c'est le code qui le tient, pas la vigilance.
+2. **Le compte est arrondi et la liste coupée à cinq.** C'est le point le moins évident et le plus important. Un membre avec un pass voit *aussi* qui l'a aimé : si la liste des passages était exhaustive, la soustraire à celle des « J'aime » donnerait **la liste de ceux qui ont refusé**. On fabriquerait une machine à savoir qui ne veut pas de vous. Un palier grossier (« plus de 10 ») et cinq fiches rendent ce calcul impossible sans rendre la fonction inutile.
+3. **On peut s'y opposer, gratuitement et des deux côtés.** `PUT /api/me/discretion`, **sans `requirePlus`, et jamais** : on ne vend pas le droit de ne pas être montré. Le réglage est **symétrique** — qui se retire n'apparaît chez personne, et ne voit pas la liste chez lui non plus, même avec un pass. C'est la seule règle qui ne se retourne pas contre les membres, et le RGPD s'applique depuis que la Belgique est servie.
+
+Fenêtre de **30 jours** : au-delà, « s'est arrêté il y a huit mois » ne veut plus rien dire. `GET /api/vues` **n'appelle pas `allUsers()`** : ce qu'il charge est borné par les balayages reçus, pas par la taille de la table (dette technique n° 3). La page de confidentialité décrit tout cela, et `test/pages-publiques.test.js` vérifie que le délai qu'elle annonce est celui que le serveur applique. `test/vues.test.js` essaie de casser les trois refus, un par un.
+
+`estPlus()` dans `server/plus.js` est le seul endroit qui tranche, comme `entreeLibre()` et `genreAuChoix()`. Le droit vit pour l'instant dans l'objet utilisateur (du jsonb des deux côtés, donc aucune migration) ; la table `entitlements` arrive avec la caisse (P0-6) et cette fonction en deviendra la projection. Une fin de pass absente ou illisible vaut **« pas de pass »**, jamais « pass éternel » : se tromper dans ce sens-là le donnerait à tout le monde le jour d'une écriture ratée. `test/plus.test.js` fige tout cela.
 
 ---
 
