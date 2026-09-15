@@ -1676,6 +1676,14 @@ function renderChat() {
   document.getElementById('messages').addEventListener('scroll', () => {
     S.chatEnBas = enBas(document.getElementById('messages'));
   }, { passive: true });
+  // Toucher « envoyer » donnait le focus au bouton, donc le retirait au champ : sur Android le
+  // clavier se ferme, puis se rouvre quand le champ le reprend — l'écran se dandine à chaque
+  // message. On empêche le déplacement du focus au moment du geste : le clavier ne bouge plus,
+  // et le clic part quand même. Le clavier physique n'est pas concerné (Tab donne le focus
+  // normalement, et Entrée envoie déjà).
+  for (const geste of ['pointerdown', 'mousedown']) {
+    document.querySelector('.composer .send').addEventListener(geste, (e) => e.preventDefault());
+  }
   updateChat({ scroll: true });
 }
 
@@ -1708,7 +1716,15 @@ function collerEnBas({ force = false } = {}) {
     if (encore && S.screen === 'chat' && S.chatEnBas) encore.scrollTop = encore.scrollHeight;
   });
 }
-tg.onViewport(() => collerEnBas());
+// Le clavier anime sa hauteur : l'événement part plusieurs fois par ouverture, parfois sans que
+// la hauteur bouge. On ne recolle que sur un vrai changement — faire défiler pour rien se voit.
+let hauteurConnue = 0;
+tg.onViewport(() => {
+  const h = Math.round(window.visualViewport?.height || window.innerHeight);
+  if (h === hauteurConnue) return;
+  hauteurConnue = h;
+  collerEnBas();
+});
 
 async function pollChat() {
   if (S.screen !== 'chat' || !S.chat || document.hidden) return;

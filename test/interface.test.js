@@ -52,8 +52,14 @@ test("les boutons sont effacés quand l'écran de match renverse la palette", ()
 // message passe dessous. Le parcours navigateur le rejoue pour de vrai (e2e/discussion.spec.js) ;
 // ici on refuse seulement que l'écouteur disparaisse.
 test('la discussion se recolle en bas quand la fenêtre change de taille', () => {
-  assert.match(app, /tg\.onViewport\(\(\) => collerEnBas\(\)\)/);
-  const f = entre('function collerEnBas(', 'tg.onViewport(');
+  const abonnement = entre('tg.onViewport(() => {', 'function renderChat');
+  assert.match(abonnement, /if \(h === hauteurConnue\) return;/, 'pas de défilement pour une hauteur inchangée');
+  assert.match(abonnement, /collerEnBas\(\)/);
+  const f = entre('function collerEnBas(', 'let hauteurConnue');
   assert.match(f, /if \(!force && !S\.chatEnBas\) return;/, 'qui remonte l\'historique n\'est pas ramené de force');
-  assert.match(entre('function renderChat() {', 'function updateChat'), /addEventListener\('scroll'/, 'et on sait s\'il y était');
+  const rendu = entre('function renderChat() {', 'function updateChat');
+  assert.match(rendu, /addEventListener\('scroll'/, 'et on sait s\'il y était');
+  // Toucher « envoyer » retirait le focus au champ : sur Android le clavier se ferme et se
+  // rouvre, et l'écran se dandine à chaque message. Rejoué en vrai dans e2e/discussion.spec.js.
+  assert.match(rendu, /for \(const geste of \['pointerdown', 'mousedown'\]\)[\s\S]*preventDefault/, 'le focus ne quitte pas le champ au moment du geste');
 });
