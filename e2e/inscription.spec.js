@@ -160,6 +160,43 @@ test("le selfie ne promet pas la caméra : c'est la galerie qui s'ouvre", async 
 // Les photos du profil se choisissent dans la galerie : on pose ce qu'on a déjà. `capture` ne
 // changerait rien dans Telegram — il y est ignoré — mais forcerait la caméra ailleurs (iPhone,
 // navigateur), et empêcherait donc d'y mettre une photo prise l'an dernier.
+// Le pays ne se choisit plus dans le menu du système. Celui d'Android est une boîte de dialogue
+// grise, à sa propre typographie, **sans recherche** : atteindre le Cameroun demandait de faire
+// défiler une quarantaine de pays depuis l'Afghanistan. Ce test rejoue le geste réel — chercher,
+// choisir — et refuse le retour du `<select>`.
+test('le pays se cherche au lieu de se faire défiler, et le clavier ne se ferme pas', async ({ page }) => {
+  await ouvrir(page);
+  await actionPrincipale(page).click();
+  await page.locator('input[name=name]').fill('Aline');
+  await page.locator('input[name=age]').fill('24');
+  await page.locator('main button', { hasText: /Femme/ }).first().click();
+  await actionPrincipale(page).click();
+
+  await expect(page.locator('main select')).toHaveCount(0, { timeout: 2000 });
+  await page.locator('[data-action="choisir-pays"]').click();
+  await expect(titre(page)).toHaveText(/Ton pays/);
+
+  // Le pays du fuseau est proposé en haut : le cas courant ne demande aucune recherche.
+  await expect(page.locator('.eyebrow', { hasText: /Proposés/ })).toBeVisible();
+
+  // Accents et ponctuation ignorés : personne ne tape « Côte d'Ivoire » avec son apostrophe.
+  const champ = page.locator('input[name="recherche-pays"]');
+  await champ.fill('cote divoire');
+  await expect(page.locator('#liste-pays .list-row').first()).toContainText(/Côte d/);
+  // Taper ne doit pas refaire le champ : sur Android, le clavier se refermerait à chaque
+  // caractère (même cause que la règle 16 dans la discussion).
+  expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('recherche-pays');
+
+  // Une recherche sans résultat dit quoi faire, au lieu d'une liste vide.
+  await champ.fill('zzzz');
+  await expect(page.locator('main h2')).toHaveText(/Aucun pays ne correspond/);
+
+  await champ.fill('cameroun');
+  await page.locator('#liste-pays .list-row').first().click();
+  await expect(titre(page)).toHaveText(/Ce que tu cherches/);
+  await expect(page.locator('[data-action="choisir-pays"] .valeur')).toHaveText('Cameroun');
+});
+
 test('les photos du profil ne demandent pas la caméra', async ({ page }) => {
   await ouvrir(page, nouvelIdentifiant());
   await actionPrincipale(page).click();

@@ -447,4 +447,16 @@ export default {
   "Le bot t'écrit dès que c'est fait": "O bot escreve-te assim que estiver feito",
   "Ta dernière tentative a été refusée. Tu peux recommencer.": "A tua última tentativa foi recusada. Podes recomeçar.",
   "Le bouclier sur ta fiche, le rendez-vous, et plus de profils par jour": "O escudo na tua ficha, o encontro e mais perfis por dia",
+
+  // Choisir son pays sans passer par le menu du système : l'écran de recherche.
+  "Choisir": "Escolher",
+  "Où veux-tu rencontrer ?": "Onde queres conhecer pessoas?",
+  "Ton pays": "O teu país",
+  "Chercher un pays": "Procurar um país",
+  "Aucun pays ne correspond": "Nenhum país corresponde",
+  "Vérifie l'orthographe, ou fais défiler la liste.": "Verifica a ortografia, ou percorre a lista.",
+  "Proposés": "Propostos",
+  "Tous les pays": "Todos os países",
+  "{n} pays trouvé": "{n} país encontrado",
+  "{n} pays trouvés": "{n} países encontrados",
 };

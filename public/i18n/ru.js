@@ -447,4 +447,16 @@ export default {
   "Le bot t'écrit dès que c'est fait": "Бот напишет тебе, как только всё будет готово",
   "Ta dernière tentative a été refusée. Tu peux recommencer.": "Твоя последняя попытка отклонена. Можешь начать заново.",
   "Le bouclier sur ta fiche, le rendez-vous, et plus de profils par jour": "Щит на карточке, встречи и больше профилей в день",
+
+  // Choisir son pays sans passer par le menu du système : l'écran de recherche.
+  "Choisir": "Выбрать",
+  "Où veux-tu rencontrer ?": "Где ты хочешь знакомиться?",
+  "Ton pays": "Твоя страна",
+  "Chercher un pays": "Найти страну",
+  "Aucun pays ne correspond": "Ни одна страна не подходит",
+  "Vérifie l'orthographe, ou fais défiler la liste.": "Проверь написание или пролистай список.",
+  "Proposés": "Предложенные",
+  "Tous les pays": "Все страны",
+  "{n} pays trouvé": "Найдена {n} страна",
+  "{n} pays trouvés": {"one": "Найдена {n} страна", "few": "Найдено {n} страны", "many": "Найдено {n} стран", "other": "Найдено {n} страны"},
 };

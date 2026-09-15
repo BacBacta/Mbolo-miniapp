@@ -53,6 +53,20 @@ test("les boutons sont effacés quand l'écran de match renverse la palette", ()
   assert.equal((f.match(/tg\.setButtons\(null\)/g) || []).length, 1, 'une seule fois : go() ne masque rien d\'autre');
 });
 
+// Le menu déroulant d'Android n'est pas une liste de l'app : c'est une boîte de dialogue du
+// système, à sa typographie et à ses couleurs, qu'aucune ligne de notre CSS ne peut toucher —
+// et **sans recherche**, ce qui faisait quarante lignes à faire défiler pour atteindre le
+// Cameroun sur 243 pays. Le pays passe donc par un écran à nous. Ce test refuse son retour,
+// et refuse surtout que la recherche reconstruise son propre champ : sur Android, le clavier se
+// refermerait à chaque caractère (même cause que la règle 16 dans la discussion).
+test("aucun menu du système ne revient, et la recherche ne refait pas son champ", () => {
+  assert.ok(!/<select/.test(app.replace(/\/\/[^\n]*/g, '')),
+    "plus aucun <select> : le menu du système ne se met ni à notre typographie, ni à nos couleurs, et n'a pas de recherche");
+  const recherche = entre("S.screen === 'pays' && name === 'recherche-pays'", "S.screen === 'chat' && name === 'message'");
+  assert.match(recherche, /liste\.innerHTML = listeDesPays\(/, 'seule la liste est reconstruite');
+  assert.ok(!/render\(/.test(recherche), 'jamais render() : il refait le champ, donc ferme le clavier');
+});
+
 // Le clavier réduit la fenêtre : sans écouteur, la zone des messages rétrécit et le dernier
 // message passe dessous. Le parcours navigateur le rejoue pour de vrai (e2e/discussion.spec.js) ;
 // ici on refuse seulement que l'écouteur disparaisse.

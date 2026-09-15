@@ -458,4 +458,16 @@ export default {
   "Le bot t'écrit dès que c'est fait": "The bot writes to you as soon as it’s done",
   "Ta dernière tentative a été refusée. Tu peux recommencer.": "Your last try was turned down. You can start again.",
   "Le bouclier sur ta fiche, le rendez-vous, et plus de profils par jour": "The shield on your profile, dates, and more profiles each day",
+
+  // Choisir son pays sans passer par le menu du système : l'écran de recherche.
+  "Choisir": "Choose",
+  "Où veux-tu rencontrer ?": "Where do you want to meet?",
+  "Ton pays": "Your country",
+  "Chercher un pays": "Search for a country",
+  "Aucun pays ne correspond": "No country matches",
+  "Vérifie l'orthographe, ou fais défiler la liste.": "Check the spelling, or scroll the list.",
+  "Proposés": "Suggested",
+  "Tous les pays": "All countries",
+  "{n} pays trouvé": "{n} country found",
+  "{n} pays trouvés": "{n} countries found",
 };
