@@ -60,85 +60,82 @@ l'accessibilité.
 
 ## 3. Ce qui rentre dans le pass
 
-### La règle qui décide
+Cette section a été refaite **après avoir lu le code**, et non depuis le souvenir de ce que
+l'app fait. Deux propositions précédentes ne tenaient pas ; elles sont corrigées plus bas.
 
-Trois questions, dans cet ordre. Une seule réponse « oui » suffit à refuser.
+### Inventaire : ce que le code offre, et ce qui est verrouillable
 
-1. **Est-ce que ça relève de la sécurité ou de la réciprocité ?** Alors c'est gratuit — C21 le
-   note 0 autrement.
-2. **Est-ce que ça retire quelque chose à ceux qui ne paient pas ?** Alors non : un avantage
-   qui dégrade le produit des autres se paie en départs.
-3. **Est-ce que ça vend quelque chose qui appartient à quelqu'un d'autre ?** Alors non — la
-   vie privée d'un membre n'est pas un stock.
+| Capacité | Où | Aujourd'hui | Verrouillable ? |
+|---|---|---|---|
+| **Vue Liste** — tous les profils compatibles d'un coup | `GET /api/profiles`, `S.discoverMode` | **50 profils**, et parcourir ne consomme **aucun quota** | **Oui**, sans rien casser |
+| Vue Cartes | `GET /api/discover` | 10 cartes par requête | c'est le cœur |
+| Zone de recherche | `filters.zone`, `dansLaZone()` | une ville **ou tout le pays** | **Oui** |
+| « J'aime » par jour | `config.dailyProfiles` | 20 (5 sans badge) | **Oui**, au-dessus de 20 |
+| Photos | `PHOTO_SLOTS = [1, 2, 3]` | 3 | **Oui** |
+| Questions du profil | `QUESTIONS` (cinq), `promptQ`/`promptA` | **1 sur 5** | **Oui** |
+| Présentation vocale | `voix.js`, `DUREE_MAX_S` | 15 s | **Oui** |
+| Filtres | âge, genre, vérifiés seulement | — | partiellement |
+| « Qui t'a aimé » | `GET /api/likes` | 20 | techniquement oui — **refusé**, voir plus bas |
+| Activité d'un profil | `activityBucket()`, `routes.js:638` | **arrondie** à « cette semaine » avant le match | refusé : donnée d'autrui |
+| Contacts dans la discussion | `config.contactUnlockAfter` | après 10 messages | **jamais** : sécurité |
+| Signaler, bloquer, personne de confiance | `/blocks`, `/reports`, `/me/confiance` | — | **jamais** : sécurité |
+| Limites de débit | `limites.js`, `REGLES` | 20 messages/min, 60 balayages/min… | **jamais** : ce sont des digues anti-abus, pas des paliers produit |
 
-Ce qui reste est du **confort** et de **l'expression**. C'est peu, et c'est exprès.
+### Ce que la lecture du code a corrigé
 
-### Odo Plus
+**1. « Plusieurs villes » était une fausse bonne idée.** `dansLaZone()` traite une ville nulle
+comme « tout le pays » (`routes.js:480`) : **le gratuit cherche déjà dans le pays entier**.
+Vendre « plusieurs villes » revenait à vendre *moins* que ce qui est déjà donné. Le vrai levier
+est l'inverse : le gratuit se limite à **sa ville**, et le pays entier passe dans le pass.
 
-| | Gratuit | Plus |
+**2. La vue Liste avait été oubliée.** C'est la fonction la plus généreuse de l'app et personne
+ne l'avait comptée : cinquante profils compatibles d'un coup, avec leur statut, **sans
+consommer un seul « J'aime »**. Le paquet de cartes en montre dix à la fois et chaque « J'aime »
+compte. La Liste est un outil de puissance — c'est le meilleur candidat au pass, et il ne
+coûte rien à personne : qui ne paie pas voit exactement les mêmes gens, une carte à la fois.
+
+### Le partage
+
+| | **Gratuit** | **Odo Plus** |
 |---|---|---|
-| **Zone de recherche** | une ville, ou tout son pays | **plusieurs villes de son pays** |
-| **Filtres** | âge, genre (selon `MATCH_POLICY`), vérifiés seulement | **+ langues parlées** |
-| **Ton profil** | une question sur cinq, une réponse | **trois questions, trois réponses** |
-| **Présentation vocale** | 15 s | **30 s** |
+| Parcourir | Cartes, dix à la fois | **+ vue Liste : 50 profils d'un coup** |
+| « J'aime » par jour | **10** (5 sans badge) | **illimités** |
+| Zone | **sa ville** | **tout le pays** |
+| Photos | **2** | **6** |
+| Questions sur la fiche | 1 | **3** |
+| Présentation vocale | 15 s | **30 s** |
+| Filtrer par langue parlée | — | **oui** |
+| Ordre du paquet | imposé | **au choix** |
 
-**La zone** est l'avantage le plus réel : dans un vivier mince, pouvoir chercher à Yaoundé *et*
-à Douala change vraiment ce qu'on voit. Aujourd'hui c'est tout ou rien — une ville, ou le pays
-entier, sans milieu.
+Le gratuit perd quatre choses par rapport à aujourd'hui : la vue Liste, la moitié de son quota,
+le pays entier, et une photo. Il garde tout ce qui fait qu'il y a du monde dans la salle.
 
-**Trois questions au lieu d'une** est la version honnête du « boost ». Le payeur gagne de
-l'attention **parce qu'il en dit plus**, pas parce qu'il passe devant. Ça ne réordonne le
-paquet de personne, ça ne coûte rien à servir, et les cinq questions existent déjà
-(`QUESTIONS` dans `public/app.js`) : seule la fiche n'en porte qu'une.
+**La règle qui ne bouge jamais : payer ne lève pas le quota d'un non-vérifié.** Il reste à 5
+tant qu'un humain ne l'a pas regardé, pass ou pas. Sinon on vend le contournement d'une
+barrière anti-faux-comptes, et c'est exactement ce que `DAILY_PROFILES_UNVERIFIED` empêche.
 
-**Trente secondes de voix** double le temps d'écoute de la modération par payeur. C'est
-négligeable à l'échelle d'une bêta, mais c'est une fonction qui **augmente le coût variable à
-chaque vente** : à surveiller si le nombre de payeurs monte.
-
-### Ce qui ne rentre pas, et pourquoi
+### Ce qui ne bougera pas, et pourquoi
 
 | Refusé | La raison |
 |---|---|
-| **« Qui t'a aimé »** | C21 = 0. C'est le seul signal qui protège d'un vivier vide, et la recette qui fait vivre les concurrents est justement celle qu'Odo ne peut pas prendre |
-| **Le quota de « J'aime »** | C'est un **levier de sécurité** (5 sans badge, 20 avec) qui ralentit un faux compte avant qu'un humain l'ait vu. Le vendre convertit une barrière en revenu. Et dans un vivier mince, personne n'épuise ses 20 : il ne vaut rien |
-| **Le filtre « vérifiés seulement »** | Filtre de sécurité. Gratuit |
-| **L'activité précise avant le match** | La carte arrondit à « cette semaine » **exprès** (`routes.js:638`). Vendre la précision, c'est vendre la vie privée d'un autre membre à un tiers |
-| **Les réponses de compatibilité comme filtre** | CLAUDE.md est explicite : « affichées sur la carte, **jamais un filtre** : elles renseignent, elles ne trient pas ». Revenir dessus est une décision du propriétaire, pas un arbitrage de prix |
-| **Plus de trois photos** | Chacune passe par la modération : vendre ce qui coûte plus cher à chaque vente |
+| **« Qui t'a aimé »** | Le bot envoie « tu as plu à quelqu'un ». Verrouiller l'écran derrière un paiement, c'est créer l'envie puis facturer la réponse : C21 le note **0 sur 2**. Et ce serait du théâtre — les likers passent **déjà en tête du paquet** (`routes.js`, tri de `/discover`), donc le gratuit les voit de toute façon |
+| **L'activité précise** | Elle est arrondie **exprès** avant le match. La vendre, c'est vendre la vie privée d'un autre membre à un tiers |
+| **Le filtre « vérifiés seulement »** | Filtre de sécurité. C21 = 0 |
+| **Contacts avant 10 messages** | `contactUnlockAfter` est une barrière anti-arnaque. Le vendre serait vendre le contournement de la promesse centrale du produit |
+| **Les limites de débit** | Ce sont des digues anti-abus. Les desserrer contre paiement, c'est vendre la capacité de nuire plus vite |
 | **Les boosts de visibilité** | Jeu à somme nulle : ce qu'un payeur gagne, un autre membre le perd |
-| **Plusieurs personnes de confiance** | Sécurité. Gratuit, et tant mieux |
 
-### Et surtout : pas plusieurs **pays**
+### Le risque à garder en tête
 
-La zone élargie s'arrête à la frontière, et ce n'est pas un détail de mise en œuvre.
+Le vivier **est** le produit. Un gratuit trop maigre ne convertit pas : il vide la salle, et
+personne ne paie pour entrer dans une pièce vide. Le benchmark le note pour cette région —
+Badoo domine l'Afrique francophone avec « découverte gratuite très large, faible barrière à
+l'entrée ».
 
-Vendre la découverte à l'étranger, c'est vendre exactement la configuration où vit l'arnaque
-sentimentale : quelqu'un de loin, qu'on ne rencontrera jamais, avec qui la relation n'existe
-que par écrit. C'est aussi rendre inatteignable la promesse du produit — « les premiers
-rendez-vous se font dans des lieux publics ». On vendrait un avantage qui éloigne du but.
-
-Un membre à Bruxelles cherche à Bruxelles. Un membre à Yaoundé cherche à Yaoundé, à Douala,
-à Bafoussam. La diaspora paie le même pass, pour le même usage : rencontrer **là où elle est**.
-
-### Ce qui manquerait pour que ça vaille clairement 3 000 FCFA
-
-Il faut le dire : cette liste est du confort, et 3 000 FCFA font 5 % du SMIG. Le seul levier
-qui justifierait clairement ce prix — et que le marché prouve que les gens achètent — est
-**le mot joint au « J'aime »** : quelques lignes que la personne lit en ouvrant « qui t'a
-aimé », avant de décider.
-
-**Ce qu'il coûterait.** Odo a aujourd'hui une propriété qu'aucun concurrent n'a : **aucun
-inconnu ne peut mettre du texte devant toi**. Un like est muet tant qu'il n'est pas rendu. Le
-mot dépense cette propriété. Les garde-fous existent — l'anti-arnaque filtre argent, numéros
-et liens ; le mot n'apparaît que dans une liste qu'on a ouverte soi-même ; signaler et bloquer
-marchent — mais ça reste du texte d'un inconnu, chez une cible où c'est précisément ce dont on
-veut protéger les membres.
-
-**Recommandation : pas pour la bêta fermée.** Sortir le pass avec les quatre éléments de
-confort, regarder la conversion, et rouvrir la question du mot quand on aura un vrai signal
-sur le harcèlement — on saura alors ce qu'on dépense. Et si la conversion est mauvaise à
-3 000 FCFA, la réponse n'est pas d'ajouter le mot : c'est que le pass est prématuré, et que
-la ligne B2B (une fois le code tournant posé) aligne bien mieux le revenu sur le coût.
+Les huit lignes ci-dessus tiennent parce qu'elles **ajoutent à Plus** au moins autant qu'elles
+**retirent au gratuit** : la vue Liste et les « J'aime » illimités ne coûtent rien à qui ne
+paie pas. Descendre plus bas — une photo, cinq « J'aime », pas de vue d'ensemble — ferait un
+gratuit qui ne donne plus envie de rester assez longtemps pour payer.
 
 ## 4. La grille : un prix posé, et la règle qui donne l'autre
 
