@@ -24,6 +24,9 @@ const S = {
   chat: null,
   chatTimer: null,
   summaryTimer: null,
+  // Est-on collé au bas de la discussion ? Mis à jour au défilement, lu quand la fenêtre change
+  // de taille : on ne recolle en bas que quelqu'un qui y était.
+  chatEnBas: true,
   summary: { unread: 0, newMatches: 0 },
   pendingTimer: null,
   lastMatch: null,
@@ -264,6 +267,12 @@ function go(screen, params = {}) {
   S.avatarObserver?.disconnect();
   tg.closingConfirmation(false);
   S.screen = screen;
+  // L'écran de match renverse toute la palette : le bouton natif change de couleur **et** de
+  // libellé au même instant, et Telegram Android fond alors les deux états — « J'aime » et
+  // « Écrire à … » s'affichaient l'un sur l'autre. On l'efface avant la bascule, et l'écran
+  // d'arrivée repose le sien sur un bouton déjà masqué. Uniquement là : masquer à chaque
+  // navigation ferait clignoter la barre sur tout le reste de l'app.
+  if ((screen === 'match') !== document.body.classList.contains('match-mode')) tg.setButtons(null);
   // La discussion occupe toute la hauteur de l'écran, champ de saisie fixé en bas
   document.body.classList.toggle('chat-mode', screen === 'chat');
   // Le match est un écran d'encre dans les deux thèmes : le moment signature, pas une page de l'app
@@ -1663,17 +1672,43 @@ function renderChat() {
     </div>
   `);
   loadAvatar(c.other);
+  // #messages est reconstruit à chaque ouverture : l'écouteur suit le nouvel élément.
+  document.getElementById('messages').addEventListener('scroll', () => {
+    S.chatEnBas = enBas(document.getElementById('messages'));
+  }, { passive: true });
   updateChat({ scroll: true });
 }
 
 function updateChat({ scroll = false } = {}) {
   const box = document.getElementById('messages');
   if (!box || !S.chat) return;
-  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+  const nearBottom = enBas(box);
   box.innerHTML = chatBody(S.chat);
   document.getElementById('chat-notice').innerHTML = S.chat.notice ? `<div class="notice notice-warn" role="alert">${icon('alert', 18)}<span>${esc(S.chat.notice)}</span></div>` : '';
-  if (scroll || nearBottom) box.scrollTop = box.scrollHeight;
+  if (scroll || nearBottom) collerEnBas({ force: true });
 }
+
+const enBas = (box) => box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+
+// Le clavier réduit la fenêtre : la zone des messages rétrécit, mais sa position de défilement ne
+// bouge pas. Le message qu'on vient d'envoyer passe alors sous le champ de saisie, et il faut
+// défiler pour le revoir — c'est le premier geste de toute discussion, et il était cassé.
+//
+// On ne recolle que quelqu'un qui était déjà en bas : remonter l'historique pendant que l'autre
+// écrit ne doit pas se faire annuler. Et on le fait deux fois, maintenant et à l'image suivante :
+// quand l'événement arrive, la fenêtre a changé de taille mais la mise en page pas toujours.
+function collerEnBas({ force = false } = {}) {
+  const box = document.getElementById('messages');
+  if (!box || S.screen !== 'chat') return;
+  if (!force && !S.chatEnBas) return;
+  box.scrollTop = box.scrollHeight;
+  S.chatEnBas = true;
+  requestAnimationFrame(() => {
+    const encore = document.getElementById('messages');
+    if (encore && S.screen === 'chat' && S.chatEnBas) encore.scrollTop = encore.scrollHeight;
+  });
+}
+tg.onViewport(() => collerEnBas());
 
 async function pollChat() {
   if (S.screen !== 'chat' || !S.chat || document.hidden) return;

@@ -95,3 +95,49 @@ test('un message qui arrive pendant la frappe ne ferme pas le clavier', async ({
   await expect(champ).toHaveValue('je suis en train d\'écrire');
   await expect(champ).toBeFocused();
 });
+
+// Le clavier qui s'ouvre réduit la fenêtre : la zone des messages rétrécit, mais sa position de
+// défilement ne bouge pas, et le message qu'on vient d'envoyer passe sous le champ de saisie.
+// Il fallait défiler pour le revoir — au moment précis où l'on écrit la suite.
+//
+// Playwright ne sait pas ouvrir un clavier ; il sait rétrécir la fenêtre, et c'est exactement ce
+// que le clavier fait au document : visualViewport change de taille, --tg-viewport-height suit.
+test('le dernier message reste visible quand le clavier réduit la fenêtre', async ({ page }) => {
+  const grand = page.viewportSize();
+  await membreVerifie(page, 'Yolande');
+  await aimerUnProfil(page);
+  await ouvrirLaDiscussion(page);
+
+  // De quoi remplir l'écran : sans historique, tout tient et le défaut ne se voit pas.
+  for (const texte of ['Salut', 'Tu es de quel quartier ?', 'Moi je suis à Bastos', 'Et toi tu fais quoi le samedi ?', 'On pourrait se croiser au marché']) {
+    await champMessage(page).fill(texte);
+    await boutonEnvoyer(page).click();
+    await expect(page.locator('#messages')).toContainText(texte);
+  }
+
+  const dernierVisible = async () => page.evaluate(() => {
+    const box = document.getElementById('messages');
+    const bulles = box.querySelectorAll('.bubble');
+    const derniere = bulles[bulles.length - 1].getBoundingClientRect();
+    const cadre = box.getBoundingClientRect();
+    // Deux pixels de tolérance : les arrondis de mise en page ne sont pas un défaut.
+    return { visible: derniere.bottom <= cadre.bottom + 2 && derniere.top >= cadre.top - 2, manque: Math.round(derniere.bottom - cadre.bottom) };
+  });
+
+  const avant = await dernierVisible();
+  expect(avant.visible, `avant le clavier, le dernier message doit être visible (${avant.manque} px dessous)`).toBe(true);
+
+  // Le clavier prend un peu plus de la moitié de la hauteur : c'est ce que fait un clavier Android.
+  await page.setViewportSize({ width: grand.width, height: Math.round(grand.height * 0.45) });
+  await page.waitForTimeout(400);
+
+  const apres = await dernierVisible();
+  expect(apres.visible, `le clavier ouvert, le dernier message doit rester visible (${apres.manque} px sous le cadre)`).toBe(true);
+
+  // Et quelqu'un qui remonte l'historique ne doit pas être ramené de force en bas.
+  await page.locator('#messages').evaluate((box) => { box.scrollTop = 0; });
+  await page.waitForTimeout(100);
+  await page.setViewportSize({ width: grand.width, height: grand.height });
+  await page.waitForTimeout(400);
+  expect(await page.locator('#messages').evaluate((box) => box.scrollTop)).toBeLessThan(120);
+});

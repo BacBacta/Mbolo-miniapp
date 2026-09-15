@@ -34,3 +34,26 @@ test("une discussion fermée arrête l'interrogation, et l'app en arrière-plan 
   assert.match(entre('async function pollChat() {', 'async function sendMessage('), /MATCH_NOT_FOUND[^\n]*BLOCKED[\s\S]*clearInterval\(S\.chatTimer\)/);
   assert.match(entre('async function refreshSummary() {', 'const avatar ='), /if \(document\.hidden\) return;/);
 });
+
+// Sur un téléphone, l'écran de match affichait « J'aime » et « Écrire à … » l'un sur l'autre :
+// il renverse toute la palette, donc le bouton natif de Telegram changeait de couleur et de
+// libellé au même instant, et le client Android fond alors les deux états. On l'efface avant la
+// bascule — et seulement là : masquer à chaque navigation ferait clignoter la barre partout.
+test("les boutons sont effacés quand l'écran de match renverse la palette", () => {
+  const f = entre('function go(screen, params = {}) {', 'async function refreshSummary');
+  const ligne = /if \(\(screen === 'match'\) !== document\.body\.classList\.contains\('match-mode'\)\) tg\.setButtons\(null\);/;
+  assert.match(f, ligne, 'effacés à l\'entrée comme à la sortie du match');
+  assert.ok(f.indexOf('tg.setButtons(null)') < f.indexOf("classList.toggle('match-mode'"),
+    'avant la bascule de la palette, sinon le bouton reprend déjà les nouvelles couleurs');
+  assert.equal((f.match(/tg\.setButtons\(null\)/g) || []).length, 1, 'une seule fois : go() ne masque rien d\'autre');
+});
+
+// Le clavier réduit la fenêtre : sans écouteur, la zone des messages rétrécit et le dernier
+// message passe dessous. Le parcours navigateur le rejoue pour de vrai (e2e/discussion.spec.js) ;
+// ici on refuse seulement que l'écouteur disparaisse.
+test('la discussion se recolle en bas quand la fenêtre change de taille', () => {
+  assert.match(app, /tg\.onViewport\(\(\) => collerEnBas\(\)\)/);
+  const f = entre('function collerEnBas(', 'tg.onViewport(');
+  assert.match(f, /if \(!force && !S\.chatEnBas\) return;/, 'qui remonte l\'historique n\'est pas ramené de force');
+  assert.match(entre('function renderChat() {', 'function updateChat'), /addEventListener\('scroll'/, 'et on sait s\'il y était');
+});
