@@ -14,11 +14,11 @@ export const LANGUE_SOURCE = 'fr';
 
 const EN = {
   // Bot
-  'Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans jamais te demander d\'argent.\n\nRéservé aux 18 ans et plus.':
-    'Hi {nom}. {app} introduces you to verified people near you, and never asks you for money.\n\nFor ages 18 and over.',
+  'Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans rien te faire payer pour ça.\n\nRéservé aux 18 ans et plus.':
+    'Hi {nom}. {app} introduces you to verified people near you, and charges you nothing for it.\n\nFor ages 18 and over.',
   'Ouvrir {app}': 'Open {app}',
-  '{app} ne te demandera jamais d\'argent. Si quelqu\'un le fait, signale-le depuis la discussion dans l\'app.\n\nPour supprimer ton compte : Paramètres dans l\'app, puis « Supprimer mon compte ».':
-    '{app} will never ask you for money. If someone does, report them from the chat in the app.\n\nTo delete your account: Settings in the app, then "Delete my account".',
+  '{app} ne te demandera jamais d\'argent par message. Si quelqu\'un le fait, même en son nom, c\'est une arnaque : signale-le depuis la discussion dans l\'app.\n\nPour supprimer ton compte : Paramètres dans l\'app, puis « Supprimer mon compte ».':
+    '{app} will never ask you for money by message. If someone does, even in our name, it is a scam: report them from the chat in the app.\n\nTo delete your account: Settings in the app, then "Delete my account".',
   'Identifiant de cette discussion : {id}': 'Chat ID: {id}',
   // Personne de confiance
   "{nom} te choisit comme personne de confiance sur {app}.\n\nSi tu acceptes, tu recevras un message quand {nom} part à un rendez-vous, avec le lieu et l'heure, et un autre quand {nom} arrive sur place. Tu ne verras rien d'autre : ni avec qui, ni les discussions.\n\nOn garde ton prénom et ton compte Telegram, rien de plus, et tu peux te retirer quand tu veux avec /retirer.":
@@ -78,9 +78,9 @@ const EN = {
 };
 
 const ES = {
-  "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans jamais te demander d'argent.\n\nRéservé aux 18 ans et plus.": "Hola {nom}. {app} te presenta a personas verificadas de tu ciudad, y nunca te pide dinero.\n\nSolo para mayores de 18 años.",
+  "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans rien te faire payer pour ça.\n\nRéservé aux 18 ans et plus.": "Hola {nom}. {app} te presenta a personas verificadas de tu ciudad, y no te cobra nada por ello.\n\nSolo para mayores de 18 años.",
   "Ouvrir {app}": "Abrir {app}",
-  "{app} ne te demandera jamais d'argent. Si quelqu'un le fait, signale-le depuis la discussion dans l'app.\n\nPour supprimer ton compte : Paramètres dans l'app, puis « Supprimer mon compte ».": "{app} nunca te pedirá dinero. Si alguien lo hace, denúncialo desde la conversación en la app.\n\nPara eliminar tu cuenta: Ajustes en la app, y después « Eliminar mi cuenta ».",
+  "{app} ne te demandera jamais d'argent par message. Si quelqu'un le fait, même en son nom, c'est une arnaque : signale-le depuis la discussion dans l'app.\n\nPour supprimer ton compte : Paramètres dans l'app, puis « Supprimer mon compte ».": "{app} nunca te pedirá dinero por mensaje. Si alguien lo hace, incluso en nuestro nombre, es una estafa: denúncialo desde la conversación en la app.\n\nPara eliminar tu cuenta: Ajustes en la app, y después « Eliminar mi cuenta ».",
   "Identifiant de cette discussion : {id}": "Identificador de esta conversación: {id}",
   "{nom} te choisit comme personne de confiance sur {app}.\n\nSi tu acceptes, tu recevras un message quand {nom} part à un rendez-vous, avec le lieu et l'heure, et un autre quand {nom} arrive sur place. Tu ne verras rien d'autre : ni avec qui, ni les discussions.\n\nOn garde ton prénom et ton compte Telegram, rien de plus, et tu peux te retirer quand tu veux avec /retirer.": "{nom} te elige como su persona de confianza en {app}.\n\nSi aceptas, recibirás un mensaje cuando {nom} salga hacia una cita, con el lugar y la hora, y otro cuando {nom} llegue. No verás nada más: ni con quién, ni las conversaciones.\n\nGuardamos tu nombre y tu cuenta de Telegram, nada más, y puedes retirarte cuando quieras con /retirer.",
   "J'accepte": "Acepto",
@@ -124,9 +124,9 @@ const ES = {
 };
 
 const PT = {
-  "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans jamais te demander d'argent.\n\nRéservé aux 18 ans et plus.": "Olá {nom}. A {app} apresenta-te pessoas verificadas da tua cidade, e nunca te pede dinheiro.\n\nApenas para maiores de 18 anos.",
+  "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans rien te faire payer pour ça.\n\nRéservé aux 18 ans et plus.": "Olá {nom}. A {app} apresenta-te pessoas verificadas da tua cidade, e não te cobra nada por isso.\n\nApenas para maiores de 18 anos.",
   "Ouvrir {app}": "Abrir {app}",
-  "{app} ne te demandera jamais d'argent. Si quelqu'un le fait, signale-le depuis la discussion dans l'app.\n\nPour supprimer ton compte : Paramètres dans l'app, puis « Supprimer mon compte ».": "A {app} nunca te vai pedir dinheiro. Se alguém o fizer, denuncia a partir da conversa na app.\n\nPara eliminar a tua conta: Definições na app, e depois « Eliminar a minha conta ».",
+  "{app} ne te demandera jamais d'argent par message. Si quelqu'un le fait, même en son nom, c'est une arnaque : signale-le depuis la discussion dans l'app.\n\nPour supprimer ton compte : Paramètres dans l'app, puis « Supprimer mon compte ».": "A {app} nunca te vai pedir dinheiro por mensagem. Se alguém o fizer, mesmo em nosso nome, é uma burla: denuncia a partir da conversa na app.\n\nPara eliminar a tua conta: Definições na app, e depois « Eliminar a minha conta ».",
   "Identifiant de cette discussion : {id}": "Identificador desta conversa: {id}",
   "{nom} te choisit comme personne de confiance sur {app}.\n\nSi tu acceptes, tu recevras un message quand {nom} part à un rendez-vous, avec le lieu et l'heure, et un autre quand {nom} arrive sur place. Tu ne verras rien d'autre : ni avec qui, ni les discussions.\n\nOn garde ton prénom et ton compte Telegram, rien de plus, et tu peux te retirer quand tu veux avec /retirer.": "{nom} escolhe-te como pessoa de confiança na {app}.\n\nSe aceitares, vais receber uma mensagem quando {nom} sair para um encontro, com o local e a hora, e outra quando {nom} chegar. Não verás mais nada: nem com quem, nem as conversas.\n\nGuardamos o teu nome e a tua conta de Telegram, mais nada, e podes retirar-te quando quiseres com /retirer.",
   "J'accepte": "Aceito",
@@ -170,9 +170,9 @@ const PT = {
 };
 
 const SW = {
-  "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans jamais te demander d'argent.\n\nRéservé aux 18 ans et plus.": "Habari {nom}. {app} inakuunganisha na watu waliothibitishwa wa mji wako, na haikuombi pesa kamwe.\n\nKwa wenye miaka 18 na zaidi tu.",
+  "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans rien te faire payer pour ça.\n\nRéservé aux 18 ans et plus.": "Habari {nom}. {app} inakuunganisha na watu waliothibitishwa wa mji wako, bila kukutoza chochote.\n\nKwa wenye miaka 18 na zaidi tu.",
   "Ouvrir {app}": "Fungua {app}",
-  "{app} ne te demandera jamais d'argent. Si quelqu'un le fait, signale-le depuis la discussion dans l'app.\n\nPour supprimer ton compte : Paramètres dans l'app, puis « Supprimer mon compte ».": "{app} haitakuomba pesa kamwe. Mtu akifanya hivyo, mripoti kutoka kwenye mazungumzo ndani ya programu.\n\nKufuta akaunti yako: Mipangilio ndani ya programu, kisha « Futa akaunti yangu ».",
+  "{app} ne te demandera jamais d'argent par message. Si quelqu'un le fait, même en son nom, c'est une arnaque : signale-le depuis la discussion dans l'app.\n\nPour supprimer ton compte : Paramètres dans l'app, puis « Supprimer mon compte ».": "{app} haitakuomba pesa kwa ujumbe kamwe. Mtu akifanya hivyo, hata kwa jina letu, ni ulaghai: mripoti kutoka kwenye mazungumzo ndani ya programu.\n\nKufuta akaunti yako: Mipangilio ndani ya programu, kisha « Futa akaunti yangu ».",
   "Identifiant de cette discussion : {id}": "Kitambulisho cha mazungumzo haya: {id}",
   "{nom} te choisit comme personne de confiance sur {app}.\n\nSi tu acceptes, tu recevras un message quand {nom} part à un rendez-vous, avec le lieu et l'heure, et un autre quand {nom} arrive sur place. Tu ne verras rien d'autre : ni avec qui, ni les discussions.\n\nOn garde ton prénom et ton compte Telegram, rien de plus, et tu peux te retirer quand tu veux avec /retirer.": "{nom} anakuchagua uwe mtu anayemwamini kwenye {app}.\n\nUkikubali, utapokea ujumbe {nom} anapoondoka kwenda kwenye mkutano, wenye mahali na saa, na mwingine {nom} anapofika. Hutaona kitu kingine: wala na nani, wala mazungumzo.\n\nTunahifadhi jina lako na akaunti yako ya Telegram, si zaidi, na unaweza kujiondoa wakati wowote kwa /retirer.",
   "J'accepte": "Nakubali",
@@ -217,11 +217,11 @@ const SW = {
 
 const RU = {
   // Bot
-  'Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans jamais te demander d\'argent.\n\nRéservé aux 18 ans et plus.':
-    'Привет, {nom}. {app} знакомит тебя с проверенными людьми из твоего города и никогда не просит денег.\n\nТолько с 18 лет.',
+  'Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans rien te faire payer pour ça.\n\nRéservé aux 18 ans et plus.':
+    'Привет, {nom}. {app} знакомит тебя с проверенными людьми из твоего города и ничего за это не берёт.\n\nТолько с 18 лет.',
   'Ouvrir {app}': 'Открыть {app}',
-  '{app} ne te demandera jamais d\'argent. Si quelqu\'un le fait, signale-le depuis la discussion dans l\'app.\n\nPour supprimer ton compte : Paramètres dans l\'app, puis « Supprimer mon compte ».':
-    '{app} никогда не попросит у тебя денег. Если кто-то просит, пожалуйся на него прямо из переписки в приложении.\n\nЧтобы удалить аккаунт: «Настройки» в приложении, затем «Удалить мой аккаунт».',
+  '{app} ne te demandera jamais d\'argent par message. Si quelqu\'un le fait, même en son nom, c\'est une arnaque : signale-le depuis la discussion dans l\'app.\n\nPour supprimer ton compte : Paramètres dans l\'app, puis « Supprimer mon compte ».':
+    '{app} никогда не попросит у тебя денег в сообщении. Если кто-то просит, даже от нашего имени, это мошенничество: пожалуйся на него прямо из переписки в приложении.\n\nЧтобы удалить аккаунт: «Настройки» в приложении, затем «Удалить мой аккаунт».',
   'Identifiant de cette discussion : {id}': 'Идентификатор этого чата: {id}',
   // Personne de confiance
   "{nom} te choisit comme personne de confiance sur {app}.\n\nSi tu acceptes, tu recevras un message quand {nom} part à un rendez-vous, avec le lieu et l'heure, et un autre quand {nom} arrive sur place. Tu ne verras rien d'autre : ni avec qui, ni les discussions.\n\nOn garde ton prénom et ton compte Telegram, rien de plus, et tu peux te retirer quand tu veux avec /retirer.":
@@ -282,11 +282,11 @@ const RU = {
 
 const UK = {
   // Bot
-  'Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans jamais te demander d\'argent.\n\nRéservé aux 18 ans et plus.':
-    'Привіт, {nom}. {app} знайомить тебе з перевіреними людьми з твого міста і ніколи не просить грошей.\n\nЛише від 18 років.',
+  'Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans rien te faire payer pour ça.\n\nRéservé aux 18 ans et plus.':
+    'Привіт, {nom}. {app} знайомить тебе з перевіреними людьми з твого міста і нічого за це не бере.\n\nЛише від 18 років.',
   'Ouvrir {app}': 'Відкрити {app}',
-  '{app} ne te demandera jamais d\'argent. Si quelqu\'un le fait, signale-le depuis la discussion dans l\'app.\n\nPour supprimer ton compte : Paramètres dans l\'app, puis « Supprimer mon compte ».':
-    '{app} ніколи не попросить у тебе грошей. Якщо хтось просить, поскаржся на нього просто з листування в застосунку.\n\nЩоб видалити акаунт: «Налаштування» у застосунку, потім «Видалити мій акаунт».',
+  '{app} ne te demandera jamais d\'argent par message. Si quelqu\'un le fait, même en son nom, c\'est une arnaque : signale-le depuis la discussion dans l\'app.\n\nPour supprimer ton compte : Paramètres dans l\'app, puis « Supprimer mon compte ».':
+    '{app} ніколи не попросить у тебе грошей у повідомленні. Якщо хтось просить, навіть від нашого імені, це шахрайство: поскаржся на нього просто з листування в застосунку.\n\nЩоб видалити акаунт: «Налаштування» у застосунку, потім «Видалити мій акаунт».',
   'Identifiant de cette discussion : {id}': 'Ідентифікатор цього чату: {id}',
   // Personne de confiance
   "{nom} te choisit comme personne de confiance sur {app}.\n\nSi tu acceptes, tu recevras un message quand {nom} part à un rendez-vous, avec le lieu et l'heure, et un autre quand {nom} arrive sur place. Tu ne verras rien d'autre : ni avec qui, ni les discussions.\n\nOn garde ton prénom et ton compte Telegram, rien de plus, et tu peux te retirer quand tu veux avec /retirer.":
