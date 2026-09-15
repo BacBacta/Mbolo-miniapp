@@ -508,4 +508,14 @@ export default {
   "Filtrer par langue parlée": "Filtrar por idioma hablado",
   "Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.": "Ver solo a las personas que hablan tu idioma, o el que estás aprendiendo.",
   "Réponds à chaque question que tu as choisie, ou retire-la.": "Responde a cada pregunta que elegiste, o retírala.",
+  // Ordre du paquet
+  "Ordre du paquet": "Orden del mazo",
+  "Conseillé": "Recomendado",
+  "Les plus actifs": "Más activos",
+  "Les nouveaux": "Nuevos",
+  "Mon quartier": "Mi barrio",
+  "Qui t'a aimé passe toujours devant, quel que soit l'ordre.": "Quien te dio «me gusta» siempre va primero, sea cual sea el orden.",
+  "Choisir l'ordre du paquet": "Elegir el orden del mazo",
+  "L'ordre du paquet au choix": "El orden del mazo a tu gusto",
+  "Conseillé, les plus actifs, les nouveaux, ou ton quartier d'abord.": "Recomendado, los más activos, los nuevos, o tu barrio primero.",
 };

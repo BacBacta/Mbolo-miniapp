@@ -508,4 +508,14 @@ export default {
   "Filtrer par langue parlée": "Фільтр за мовою",
   "Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.": "Показувати лише тих, хто говорить твоєю мовою або тією, яку ти вчиш.",
   "Réponds à chaque question que tu as choisie, ou retire-la.": "Дай відповідь на кожне вибране запитання або прибери його.",
+  // Ordre du paquet
+  "Ordre du paquet": "Порядок колоди",
+  "Conseillé": "Рекомендований",
+  "Les plus actifs": "Найактивніші",
+  "Les nouveaux": "Новачки",
+  "Mon quartier": "Мій район",
+  "Qui t'a aimé passe toujours devant, quel que soit l'ordre.": "Кому сподобалася твоя анкета — завжди перші, за будь-якого порядку.",
+  "Choisir l'ordre du paquet": "Вибрати порядок колоди",
+  "L'ordre du paquet au choix": "Порядок колоди на твій вибір",
+  "Conseillé, les plus actifs, les nouveaux, ou ton quartier d'abord.": "Рекомендований, найактивніші, новачки або спочатку твій район.",
 };

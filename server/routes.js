@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { config, runtime, genreAuChoix, entreeLibre, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT } from './config.js';
-import { estPlus, etatDuPass, palier, PALIERS, DROITS_DU_PASS } from './plus.js';
+import { estPlus, etatDuPass, palier, PALIERS, DROITS_DU_PASS, ORDRES, ORDRE_DEFAUT } from './plus.js';
 import { arrondir, dansLaFenetre, discret, MAX_FICHES } from './vues.js';
 import { codeValide } from './lieux.js';
 import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
@@ -272,6 +272,8 @@ api.get('/me', async (req, res) => {
       // Ce que la vérification décide sur ce serveur : une porte (false) ou un badge (true).
       // L'interface en tire tout le reste — les onglets, l'écran d'arrivée, ce qu'elle promet.
       entreeLibre: entreeLibre(),
+      // Les ordres du paquet qu'un pass permet de choisir. Des clés ; les libellés sont à l'interface.
+      ordres: ORDRES,
       defaultCountry: config.defaultCountry,
       // Pays déduit du fuseau envoyé par le navigateur (?tz=). Il n'est ni stocké ni journalisé :
       // il sert à préremplir le menu, puis il est oublié. null si le fuseau est inconnu.
@@ -538,7 +540,25 @@ api.delete('/me/photos/:n', async (req, res) => {
 // de rencontre, où le rayon de chacun ne s'impose qu'à lui.
 // « Vérifiés seulement » : le paquet ne montre alors que les profils au badge. Sous « gate »,
 // tout le monde en a un, et le réglage ne change rien — il n'est proposé que sous « badge ».
-const DEFAULT_FILTERS = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, langue: '' };
+const DEFAULT_FILTERS = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, langue: '', ordre: ORDRE_DEFAUT };
+
+// L'ordre du paquet. Sans pass, c'est l'ordre conseillé, quoi qu'on ait rangé : le réglage dort,
+// comme la zone et la langue. Les clés secondaires ne lisent que ce que la carte montre déjà.
+const ordreChoisi = (me) => (estPlus(me) && ORDRES.includes(filtersOf(me).ordre) ? filtersOf(me).ordre : ORDRE_DEFAUT);
+const ACTIVITE_RANG = { recent: 3, today: 2, week: 1 };
+const rangActivite = (u) => ACTIVITE_RANG[activityBucket(u.lastActiveAt)] || 0;
+const estNouveau = (u) => !u.demo && Date.now() - u.createdAt < 7 * 86400e3;
+function trierLePaquet(me, rel, liste) {
+  const conseille = (a, b) => Number(verifie(b)) - Number(verifie(a)) || sameArea(me, b) - sameArea(me, a);
+  const suite = {
+    defaut: conseille,
+    actifs: (a, b) => rangActivite(b) - rangActivite(a) || conseille(a, b),
+    nouveaux: (a, b) => Number(estNouveau(b)) - Number(estNouveau(a)) || conseille(a, b),
+    proches: (a, b) => sameArea(me, b) - sameArea(me, a) || Number(verifie(b)) - Number(verifie(a)),
+  }[ordreChoisi(me)];
+  // Qui t'a aimé d'abord, dans tous les ordres. Ensuite seulement, le choix.
+  return liste.sort((a, b) => Number(rel.maLike.has(b.id)) - Number(rel.maLike.has(a.id)) || suite(a, b));
+}
 
 // « Français, anglais, ewondo » est un champ libre, et c'est voulu : aucune liste fermée ne couvre
 // les langues d'Afrique. Filtrer dessus demande donc une clé de comparaison par langue, faite
@@ -633,7 +653,15 @@ api.put('/me/filters', async (req, res) => {
   let langue = filtersOf(req.user).langue || '';
   if ('langue' in (req.body || {})) langue = String(req.body.langue || '').trim().slice(0, 30);
 
-  const filters = { ageMin, ageMax, zone, gender, verifiesSeulement, langue };
+  // Liste fermée : une valeur inventée est refusée, jamais rangée telle quelle.
+  let ordre = filtersOf(req.user).ordre || ORDRE_DEFAUT;
+  if ('ordre' in (req.body || {})) {
+    const o = String(req.body.ordre || ORDRE_DEFAUT);
+    if (!ORDRES.includes(o)) return fail(res, 400, 'FILTERS_INVALID', "Choisis un ordre dans la liste.");
+    ordre = o;
+  }
+
+  const filters = { ageMin, ageMax, zone, gender, verifiesSeulement, langue, ordre };
   await store.updateUser(req.user.id, { filters });
   res.json({ filters });
 });
@@ -745,12 +773,10 @@ api.get('/discover', requireMembre, async (req, res) => {
   }
   // Le tri passe avant la mise en forme : publicProfile n'est appelé que sur les dix cartes
   // envoyées, au lieu de l'être sur tout le vivier pour en jeter la plus grande part.
-  const retenus = tous
-    .filter((u) => candidat(me, rel, u) && !rel.monSwipe.has(u.id) && inAgeRange(me, u))
-    // Ceux qui t'ont liké, puis les profils vérifiés, puis ton quartier. Le badge passe devant
-    // sans exclure personne : c'est ce qui distingue un modèle ouvert d'une porte fermée.
-    .sort((a, b) => Number(rel.maLike.has(b.id)) - Number(rel.maLike.has(a.id))
-      || Number(verifie(b)) - Number(verifie(a)) || sameArea(me, b) - sameArea(me, a))
+  // Ceux qui t'ont liké, puis — par défaut — les profils vérifiés, puis ton quartier. Le badge
+  // passe devant sans exclure personne : c'est ce qui distingue un modèle ouvert d'une porte
+  // fermée. Avec un pass, la suite de l'ordre se choisit (trierLePaquet).
+  const retenus = trierLePaquet(me, rel, tous.filter((u) => candidat(me, rel, u) && !rel.monSwipe.has(u.id) && inAgeRange(me, u)))
     // Dix cartes, quel que soit le quota restant. Le paquet était coupé à `remaining`, ce qui se
     // voyait à peine tant que le quota valait vingt ; à cinq, il envoyait cinq cartes, puis quatre.
     // Or **passer ne consomme rien** (`swipesToday` ne compte que les « J'aime ») : le nombre de

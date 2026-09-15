@@ -61,6 +61,9 @@ const QUESTIONS = {
   chanson: 'Ma chanson du moment',
   rire: 'Ce qui me fait rire',
 };
+// Les ordres du paquet, par clé du serveur (`options.ordres`). Les libellés vivent ici, dans
+// t(), pour que le test des langues les voie ; les clés, elles, ne sont jamais montrées.
+const ORDRES_LABELS = { defaut: 'Conseillé', actifs: 'Les plus actifs', nouveaux: 'Les nouveaux', proches: 'Mon quartier' };
 // Retirée de l'inscription, mais gardée ici : la question est rangée sur le profil par sa clé,
 // et des comptes portent encore « plat ». Sans cette ligne, leur carte afficherait « plat » en
 // clair — on ne fait pas payer à quelqu'un un choix de produit qu'il n'a pas fait. Sa phrase
@@ -741,6 +744,7 @@ async function saveFilters(values) {
     verifiesSeulement: form?.verifiesSeulement ? form.verifiesSeulement.checked : !!S.me.filters?.verifiesSeulement,
     // Sans le champ à l'écran (pas de pass), on renvoie ce qui est rangé : il dort, on n'efface pas.
     langue: form?.langue ? form.langue.value.trim() : (S.me.filters?.langue || ''),
+    ordre: S.ordreDraft ?? (S.me.filters?.ordre || 'defaut'),
   };
   const ok = (n) => Number.isInteger(n) && n >= 18 && n <= 99;
   if (!ok(v.ageMin) || !ok(v.ageMax)) return showError(new Error(t('Indique des âges entre 18 et 99 ans.')));
@@ -751,6 +755,7 @@ async function saveFilters(values) {
     S.me.filters = r.filters;
     S.zoneDraft = null;
     S.genreDraft = null;
+    S.ordreDraft = null;
     S.filtresDraft = null;
     S.profiles = [];
     S.people = [];
@@ -1102,7 +1107,8 @@ const SCREENS = {
   filters() {
     // Le brouillon en dernier : ce qui a été tapé sans être enregistré l'emporte sur ce qui est
     // rangé, sinon aller choisir un pays remettrait les âges à leur valeur d'avant.
-    const f = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, langue: '', ...(S.me.filters || {}), ...(S.filtresDraft || {}) };
+    const f = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, langue: '', ordre: 'defaut', ...(S.me.filters || {}), ...(S.filtresDraft || {}) };
+    const ordre = S.ordreDraft ?? f.ordre;
     if (S.genreDraft != null) f.gender = S.genreDraft;
     // Qui choisit le genre recherché.
     //
@@ -1151,6 +1157,12 @@ const SCREENS = {
           <label class="field"><span class="label">${t('De')}</span><input name="ageMin" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMin)}"></label>
           <label class="field"><span class="label">${t('À')}</span><input name="ageMax" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMax)}"></label>
         </div>
+        <span class="eyebrow">${t('Ordre du paquet')}</span>
+        ${limite('ordreDuPaquet') ? `
+        <div class="seg seg-ordre" aria-label="${t('Ordre du paquet')}">${(S.me.options.ordres || []).map((k) => `
+          <button type="button" data-action="ordre" data-ordre="${esc(k)}" aria-pressed="${k === ordre}">${t(ORDRES_LABELS[k] || k)}</button>`).join('')}</div>
+        <p class="fine">${icon('info', 14)}<span>${t("Qui t'a aimé passe toujours devant, quel que soit l'ordre.")}</span></p>` : `
+        <div class="list">${listRow({ iconName: 'lock', title: t("Choisir l'ordre du paquet"), sub: t('Avec un pass'), action: 'plus' })}</div>`}
         <span class="eyebrow">${t('Langue parlée')}</span>
         ${limite('filtreLangue') ? `
         <label class="field"><span class="label">${t('Ne voir que les personnes qui parlent')} <span class="opt">${t('facultatif')}</span></span>
@@ -1493,6 +1505,7 @@ const SCREENS = {
         ${listRow({ iconName: 'mic', title: t('Une présentation vocale de {n} secondes', { n: S.me?.limites?.avecPass?.voixSecondes || 30 }), sub: t('Sans pass, {n} secondes.', { n: limite('voixSecondes') || 15 }) })}
         ${listRow({ iconName: 'sparkles', title: t('{n} questions sur ta fiche', { n: S.me?.limites?.avecPass?.questions || 3 }), sub: t('Sans pass, {n}.', { n: limite('questions') || 1 }) })}
         ${listRow({ iconName: 'globe', title: t('Filtrer par langue parlée'), sub: t('Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.') })}
+        ${listRow({ iconName: 'sliders', title: t("L'ordre du paquet au choix"), sub: t("Conseillé, les plus actifs, les nouveaux, ou ton quartier d'abord.") })}
       </div>
       ${etat.actif ? '' : `<p class="fine">${icon('info', 14)}<span>${t("Le pass n'est pas encore en vente. Il le sera dans {app}, jamais par message.", { app: APP })}</span></p>`}`);
     tg.setBack(() => go(S.plusRetour || 'me'));
@@ -2335,6 +2348,12 @@ app.addEventListener('click', async (e) => {
       break;
     }
     case 'extra-remove': tg.haptic('select'); S.form.extras.splice(Number(el.dataset.i), 1); SCREENS.profile(); break;
+    case 'ordre':
+      tg.haptic('light');
+      garderLesFiltres();
+      S.ordreDraft = el.dataset.ordre;
+      SCREENS.filters();
+      break;
     case 'zone-mode':
       garderLesFiltres();
       // « Tout le pays » demande un pass : on emmène à l'écran qui l'explique, sans toucher au

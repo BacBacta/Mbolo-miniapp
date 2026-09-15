@@ -508,4 +508,14 @@ export default {
   "Filtrer par langue parlée": "Filtrar por língua falada",
   "Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.": "Ver só as pessoas que falam a tua língua, ou a que estás a aprender.",
   "Réponds à chaque question que tu as choisie, ou retire-la.": "Responde a cada pergunta que escolheste, ou retira-a.",
+  // Ordre du paquet
+  "Ordre du paquet": "Ordem do baralho",
+  "Conseillé": "Recomendado",
+  "Les plus actifs": "Mais ativos",
+  "Les nouveaux": "Novos",
+  "Mon quartier": "O meu bairro",
+  "Qui t'a aimé passe toujours devant, quel que soit l'ordre.": "Quem gostou de ti vem sempre primeiro, seja qual for a ordem.",
+  "Choisir l'ordre du paquet": "Escolher a ordem do baralho",
+  "L'ordre du paquet au choix": "A ordem do baralho à tua escolha",
+  "Conseillé, les plus actifs, les nouveaux, ou ton quartier d'abord.": "Recomendado, os mais ativos, os novos, ou o teu bairro primeiro.",
 };

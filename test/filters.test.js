@@ -46,13 +46,13 @@ test.after(() => server.close());
 test('la tranche d\'âge se règle, se relit, et refuse l\'absurde', async () => {
   await makeUser('7401', 'Aline', 'femme');
   // Par défaut : tous les âges, et la zone est la ville du profil
-  assert.deepEqual((await call('7401', '/me')).body.filters, { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, langue: '', zone: { country: 'CM', city: 'Douala' } }, 'par défaut : tout le monde, dans ma ville, toutes les langues');
+  assert.deepEqual((await call('7401', '/me')).body.filters, { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, langue: '', ordre: 'defaut', zone: { country: 'CM', city: 'Douala' } }, 'par défaut : tout le monde, dans ma ville, toutes les langues');
   assert.equal((await call('7401', '/me/filters', 'PUT', { ageMin: 30, ageMax: 25 })).status, 400, 'min > max');
   assert.equal((await call('7401', '/me/filters', 'PUT', { ageMin: 17, ageMax: 25 })).status, 400, 'jamais de mineur');
   assert.equal((await call('7401', '/me/filters', 'PUT', { ageMin: 'x', ageMax: 25 })).status, 400);
   const r = await call('7401', '/me/filters', 'PUT', { ageMin: 24, ageMax: 30 });
   assert.equal(r.status, 200);
-  assert.deepEqual((await call('7401', '/me')).body.filters, { ageMin: 24, ageMax: 30, gender: '', verifiesSeulement: false, langue: '', zone: { country: 'CM', city: 'Douala' } }, "une requête sans zone ne touche pas à la zone");
+  assert.deepEqual((await call('7401', '/me')).body.filters, { ageMin: 24, ageMax: 30, gender: '', verifiesSeulement: false, langue: '', ordre: 'defaut', zone: { country: 'CM', city: 'Douala' } }, "une requête sans zone ne touche pas à la zone");
 });
 
 test('cartes et liste respectent la tranche ; un like reçu l\'ignore', async () => {

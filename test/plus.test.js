@@ -282,10 +282,10 @@ test('sans pass, la zone est sa ville ; le réglage dort au lieu de disparaître
 test('les paliers voyagent jusqu\'à l\'interface, qui ne les recopie pas', async () => {
   await membre('9260', 'Pia', 'femme', 22);
   const sans = (await call('9260', '/me')).body.limites;
-  assert.deepEqual(sans, { photos: 2, voixSecondes: 15, questions: 1, liste: false, paysEntier: false, filtreLangue: false, avecPass: { photos: 6, voixSecondes: 30, questions: 3 } });
+  assert.deepEqual(sans, { photos: 2, voixSecondes: 15, questions: 1, liste: false, paysEntier: false, filtreLangue: false, ordreDuPaquet: false, avecPass: { photos: 6, voixSecondes: 30, questions: 3 } });
   await donnerLePass('9260');
   const avec = (await call('9260', '/me')).body.limites;
-  assert.deepEqual(avec, { photos: 6, voixSecondes: 30, questions: 3, liste: true, paysEntier: true, filtreLangue: true, avecPass: { photos: 6, voixSecondes: 30, questions: 3 } });
+  assert.deepEqual(avec, { photos: 6, voixSecondes: 30, questions: 3, liste: true, paysEntier: true, filtreLangue: true, ordreDuPaquet: true, avecPass: { photos: 6, voixSecondes: 30, questions: 3 } });
 });
 
 // ---------- Trois questions, et le filtre par langue ----------
@@ -366,4 +366,28 @@ test('les nouveaux paliers et droits voyagent jusqu\'à l\'interface', async () 
   const avec = (await call('9290', '/me')).body.limites;
   assert.equal(avec.questions, 3);
   assert.equal(avec.filtreLangue, true);
+});
+
+// ---------- L'ordre du paquet ----------
+
+test("l'ordre du paquet est une liste fermée, dort sans pass, et garde qui t'a aimé devant", async () => {
+  await membre('9300', 'Zara', 'femme', 46);
+  await store.updateUser('9300', { profile: { ...(await store.getUser('9300')).profile, area: 'Bonapriso' } });
+  // Trois hommes de 46 ans : un du quartier, un vérifié d'ailleurs qui a aimé Zara, un ni l'un ni l'autre.
+  await membre('9301', 'Ali', 'homme', 46);
+  await store.updateUser('9301', { profile: { ...(await store.getUser('9301')).profile, area: 'Bonapriso' } });
+  await membre('9302', 'Ben', 'homme', 46);
+  await call('9302', '/swipes', 'POST', { targetId: await pid('9300'), action: 'like' });
+  await membre('9303', 'Cyp', 'homme', 46);
+  const noms = async () => (await call('9300', '/discover')).body.profiles.map((p) => p.name);
+
+  assert.equal((await call('9300', '/me/filters', 'PUT', { ageMin: 46, ageMax: 46, ordre: 'aleatoire' })).status, 400, 'liste fermée (règle 5.1)');
+  assert.equal((await call('9300', '/me/filters', 'PUT', { ageMin: 46, ageMax: 46, ordre: 'proches' })).status, 200, 'accepté sans pass : rangé');
+  assert.equal((await call('9300', '/me')).body.filters.ordre, 'proches');
+  assert.equal((await noms())[0], 'Ben', "mais il dort : sans pass, l'ordre conseillé — et qui t'a aimé passe devant");
+
+  await donnerLePass('9300');
+  assert.deepEqual((await noms()).slice(0, 2), ['Ben', 'Ali'], "avec le pass, « mon quartier » d'abord — mais Ben, qui a aimé, reste premier quel que soit l'ordre");
+  assert.ok((await call('9300', '/me')).body.limites.ordreDuPaquet, 'et le droit voyage jusqu\'à l\'interface');
+  assert.deepEqual((await call('9300', '/me')).body.options.ordres, ['defaut', 'actifs', 'nouveaux', 'proches'], 'les clés viennent du serveur, les libellés sont à l\'écran');
 });

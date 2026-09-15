@@ -519,4 +519,14 @@ export default {
   "Filtrer par langue parlée": "Filter by spoken language",
   "Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.": "Only see people who speak your language, or the one you are learning.",
   "Réponds à chaque question que tu as choisie, ou retire-la.": "Answer every question you picked, or remove it.",
+  // Ordre du paquet
+  "Ordre du paquet": "Deck order",
+  "Conseillé": "Recommended",
+  "Les plus actifs": "Most active",
+  "Les nouveaux": "Newcomers",
+  "Mon quartier": "My neighbourhood",
+  "Qui t'a aimé passe toujours devant, quel que soit l'ordre.": "Whoever liked you always comes first, whatever the order.",
+  "Choisir l'ordre du paquet": "Choose the deck order",
+  "L'ordre du paquet au choix": "The deck order, your way",
+  "Conseillé, les plus actifs, les nouveaux, ou ton quartier d'abord.": "Recommended, most active, newcomers, or your neighbourhood first.",
 };

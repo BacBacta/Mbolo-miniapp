@@ -508,4 +508,14 @@ export default {
   "Filtrer par langue parlée": "Фильтр по языку",
   "Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.": "Показывать только тех, кто говорит на твоём языке или на том, который ты учишь.",
   "Réponds à chaque question que tu as choisie, ou retire-la.": "Ответь на каждый выбранный вопрос или убери его.",
+  // Ordre du paquet
+  "Ordre du paquet": "Порядок колоды",
+  "Conseillé": "Рекомендуемый",
+  "Les plus actifs": "Самые активные",
+  "Les nouveaux": "Новички",
+  "Mon quartier": "Мой район",
+  "Qui t'a aimé passe toujours devant, quel que soit l'ordre.": "Кому понравилась твоя анкета — всегда первые, при любом порядке.",
+  "Choisir l'ordre du paquet": "Выбрать порядок колоды",
+  "L'ordre du paquet au choix": "Порядок колоды на твой выбор",
+  "Conseillé, les plus actifs, les nouveaux, ou ton quartier d'abord.": "Рекомендуемый, самые активные, новички или сначала твой район.",
 };

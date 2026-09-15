@@ -508,4 +508,14 @@ export default {
   "Filtrer par langue parlée": "Chuja kwa lugha inayozungumzwa",
   "Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.": "Ona tu watu wanaozungumza lugha yako, au ile unayojifunza.",
   "Réponds à chaque question que tu as choisie, ou retire-la.": "Jibu kila swali ulilochagua, au liondoe.",
+  // Ordre du paquet
+  "Ordre du paquet": "Mpangilio wa rundo",
+  "Conseillé": "Inapendekezwa",
+  "Les plus actifs": "Wenye shughuli zaidi",
+  "Les nouveaux": "Wapya",
+  "Mon quartier": "Mtaa wangu",
+  "Qui t'a aimé passe toujours devant, quel que soit l'ordre.": "Aliyekupenda huwa wa kwanza kila mara, mpangilio wowote ule.",
+  "Choisir l'ordre du paquet": "Chagua mpangilio wa rundo",
+  "L'ordre du paquet au choix": "Mpangilio wa rundo unavyotaka",
+  "Conseillé, les plus actifs, les nouveaux, ou ton quartier d'abord.": "Inapendekezwa, wenye shughuli zaidi, wapya, au mtaa wako kwanza.",
 };
