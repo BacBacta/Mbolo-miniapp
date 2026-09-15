@@ -96,23 +96,56 @@ coûte rien à personne : qui ne paie pas voit exactement les mêmes gens, une c
 
 ### Le partage
 
+Décisions du propriétaire, 15 septembre 2026 : cinq « J'aime » gratuits, le gratuit ne voit
+plus qui l'a aimé, et « qui s'est arrêté sur ta fiche » rejoint le pass.
+
 | | **Gratuit** | **Odo Plus** |
 |---|---|---|
-| Parcourir | Cartes, dix à la fois | **+ vue Liste : 50 profils d'un coup** |
-| « J'aime » par jour | **10** (5 sans badge) | **illimités** |
-| Zone | **sa ville** | **tout le pays** |
-| Photos | **2** | **6** |
+| « J'aime » par jour | **5** (2 sans badge) | **illimités** |
+| Qui t'a aimé | **rien** | **la liste** |
+| Qui s'est arrêté sur ta fiche | **rien** | **compte arrondi + 5 fiches** |
+| Parcourir | Cartes, dix à la fois | **+ vue Liste : 50 d'un coup** |
+| Zone | sa ville | **tout le pays** |
+| Photos | 2 | **6** |
 | Questions sur la fiche | 1 | **3** |
 | Présentation vocale | 15 s | **30 s** |
 | Filtrer par langue parlée | — | **oui** |
 | Ordre du paquet | imposé | **au choix** |
 
-Le gratuit perd quatre choses par rapport à aujourd'hui : la vue Liste, la moitié de son quota,
-le pays entier, et une photo. Il garde tout ce qui fait qu'il y a du monde dans la salle.
+Conception de la dernière ligne nouvelle : `audit/12-profils-consultes.md`.
 
-**La règle qui ne bouge jamais : payer ne lève pas le quota d'un non-vérifié.** Il reste à 5
-tant qu'un humain ne l'a pas regardé, pass ou pas. Sinon on vend le contournement d'une
-barrière anti-faux-comptes, et c'est exactement ce que `DAILY_PROFILES_UNVERIFIED` empêche.
+### Trois conséquences que le code impose
+
+**1. Le badge perd son avantage de quota, sauf à descendre les non-vérifiés.** Aujourd'hui
+`dailyProfilesNonVerifie` vaut 5. Si le gratuit vérifié passe à 5 aussi, se faire vérifier ne
+change plus rien sur cet axe — or c'est ce qui donnait à la vérification un intérêt le jour
+même. **Proposition : 2 sans badge, 5 avec, illimité avec le pass.** Le dégradé reste, et la
+barrière anti-faux-comptes se resserre au passage.
+
+**2. Cacher « qui t'a aimé » demande de fermer quatre portes, pas une.** La liste n'est que la
+plus visible :
+
+| Ce qui fuite | Où |
+|---|---|
+| L'écran « qui t'a aimé » | `GET /api/likes` |
+| **La pastille « T'a liké » sur la carte** | `likedYou` dans `/discover` (`routes.js:638`) et sur la fiche (`app.js:499`) |
+| Le compteur de l'onglet Messages | `likes` dans `GET /api/summary` |
+| **La notification du bot** | « Tu as plu à quelqu'un à {ville}. Ouvre {app} pour découvrir de qui il s'agit. » (`routes.js:745`) |
+
+La pastille est la plus facile à oublier : sans elle, cacher la liste ne cache rien.
+
+**Ce qui ne change pas, et qu'il faut savoir** : le paquet trie **déjà** les likers en tête
+(`/discover`). Un membre gratuit continue donc de **rencontrer** ceux qui l'ont aimé — il ne
+sait simplement pas qu'ils l'ont aimé. La réciprocité n'est pas cassée, seul le raccourci l'est.
+
+**3. La notification du bot doit changer de texte.** Telle qu'elle est écrite, elle promet
+« découvre de qui il s'agit » à quelqu'un qui ne le pourra plus : c'est un mensonge, et si on
+la transforme en « avec Odo Plus, tu verras qui », c'est le motif que le benchmark note **0
+sur 2** (créer l'envie, facturer la réponse). **Proposition, vraie et sans paywall** :
+
+> « Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet. »
+
+C'est exact — le tri le garantit — ça garde la notification utile, et ça ne vend rien.
 
 ### Ce qui ne bougera pas, et pourquoi
 
