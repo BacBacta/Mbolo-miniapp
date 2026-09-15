@@ -473,4 +473,18 @@ export default {
   "Le pass n'est pas encore en vente. Il le sera dans {app}, jamais par message.": "El pase todavía no está a la venta. Se venderá dentro de {app}, nunca por mensaje.",
   "Actif jusqu'au {date}": "Activo hasta el {date}",
   "Ce que le pass enlève, et ce qu'il ne change pas": "Lo que el pase quita, y lo que no cambia",
+  // Se sont arrêtés sur ta fiche
+  "Se sont arrêtés sur ta fiche": "Se detuvieron en tu perfil",
+  "Combien, en gros, et les cinq dernières fiches. Jamais ce qu'elles ont décidé.": "Cuántas, más o menos, y los cinco últimos perfiles. Nunca lo que decidieron.",
+  "Tu t'es retiré de cette liste : tu n'y apparais pas, et tu ne la vois pas non plus.": "Te has retirado de esta lista: no apareces en ella, y tampoco la ves.",
+  "Personne pour l'instant, sur les 30 derniers jours.": "Nadie por ahora, en los últimos 30 días.",
+  "Moins de {n} personnes se sont arrêtées sur ta fiche ces 30 derniers jours.": "Menos de {n} personas se detuvieron en tu perfil en los últimos 30 días.",
+  "Plus de {n} personnes se sont arrêtées sur ta fiche ces 30 derniers jours.": "Más de {n} personas se detuvieron en tu perfil en los últimos 30 días.",
+  "Les derniers": "Los últimos",
+  "On ne montre jamais ce que ces personnes ont décidé, et jamais la liste entière : c'est ce qui empêche de deviner qui n'a pas voulu de toi.": "Nunca mostramos lo que decidieron estas personas, ni la lista entera: es lo que impide adivinar quién no te ha querido.",
+  "Combien, en gros, et les cinq dernières fiches": "Cuántas, más o menos, y los cinco últimos perfiles",
+  "Rester discret": "Mantenerse discreto",
+  "Tu n'apparais pas dans « qui s'est arrêté sur ta fiche », et tu ne la vois pas non plus": "No apareces en «se detuvieron en tu perfil», y tampoco la ves",
+  "Tu n'apparais plus dans « qui s'est arrêté sur ta fiche »": "Ya no apareces en «se detuvieron en tu perfil»",
+  "Tu apparais de nouveau": "Vuelves a aparecer",
 };

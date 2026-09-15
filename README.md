@@ -606,12 +606,27 @@ La personne est prévenue des deux côtés, dans sa langue. Un pass pris pendant
 |---|---|---|
 | « J'aime » par jour | **5** (2 sans le bouclier) | sans limite |
 | Qui t'a aimé | rien — mais ces personnes **passent devant dans le paquet** | la liste, avec les fiches |
+| Se sont arrêtés sur ta fiche | rien | un nombre arrondi, et cinq fiches — jamais ce qu'elles ont décidé |
 
 Le reste de ce que le pass donnera (zone élargie, photos, questions, présentation vocale plus longue) n'est **pas construit**, et l'écran du pass ne l'annonce donc pas : une promesse affichée que rien n'honore est pire qu'une fonction absente, parce que la personne l'a crue — la leçon de « Sortie en duo ».
 
 **Ce que le pass n'enlève jamais, c'est une rencontre.** Les mêmes personnes, la même zone, les mêmes règles ; le paquet place les « J'aime » reçus devant pour tout le monde, avec ou sans pass, et la notification du bot le dit ainsi : « Tu as plu à quelqu'un à Yaoundé. Continue à découvrir : tu le croiseras dans ton paquet. » Ce qui disparaît sans pass est de savoir **lesquels**.
 
 Il faut alors fermer **quatre portes ensemble**, sans quoi les trois autres ne servent à rien : la liste (`GET /api/likes`, 403 `PASS_REQUIS`), la pastille « T'a liké » sur la carte, la même dans la vue Liste, et **le compteur** de l'onglet Messages. Le compteur est le plus bavard des quatre : « une personne t'a aimé », posé à côté d'un paquet qui met cette personne en tête, fait un nom. Il ne vaut pas `0` sans pass — zéro dirait « personne ne t'a aimé », ce qui est faux — il vaut **`null`** : on ne le dit pas, et on ne dit pas le contraire. L'**ordre**, lui, ne change pas d'un compte à l'autre : deux ordres différents se compareraient, et la différence dirait ce que l'étiquette ne dit plus.
+
+#### « Se sont arrêtés sur ta fiche »
+
+La deuxième fonction du pass, et celle qui demandait le plus de précautions — elle montre le comportement de quelqu'un à un tiers. La conception complète est dans `audit/12-profils-consultes.md`, la règle dans `server/vues.js`.
+
+**Aucune collecte nouvelle.** La table `swipes` enregistre depuis toujours `{ from, to, action, at }` : chaque fois que quelqu'un voit une fiche et décide. On ne collecte rien de plus, on montre autrement ce qui est déjà là. D'où le nom : ce n'est pas « qui a vu ta fiche » — personne ne mesure ça — mais **qui s'est arrêté**. Quelqu'un qui fait défiler sans décider n'y est pas.
+
+Trois refus la rendent tenable :
+
+1. **L'issue n'est jamais montrée.** Un « passer » est une décision privée. `dansLaFenetre()` ne recopie même pas l'action, donc aucune ligne en aval ne peut la laisser fuir : c'est le code qui le tient, pas la vigilance.
+2. **Le compte est arrondi et la liste coupée à cinq.** C'est le point le moins évident et le plus important. Un membre avec un pass voit *aussi* qui l'a aimé : si la liste des passages était exhaustive, la soustraire à celle des « J'aime » donnerait **la liste de ceux qui ont refusé**. On fabriquerait une machine à savoir qui ne veut pas de vous. Un palier grossier (« plus de 10 ») et cinq fiches rendent ce calcul impossible sans rendre la fonction inutile.
+3. **On peut s'y opposer, gratuitement et des deux côtés.** `PUT /api/me/discretion`, **sans `requirePlus`, et jamais** : on ne vend pas le droit de ne pas être montré. Le réglage est **symétrique** — qui se retire n'apparaît chez personne, et ne voit pas la liste chez lui non plus, même avec un pass. C'est la seule règle qui ne se retourne pas contre les membres, et le RGPD s'applique depuis que la Belgique est servie.
+
+Fenêtre de **30 jours** : au-delà, « s'est arrêté il y a huit mois » ne veut plus rien dire. `GET /api/vues` **n'appelle pas `allUsers()`** : ce qu'il charge est borné par les balayages reçus, pas par la taille de la table (dette technique n° 3). La page de confidentialité décrit tout cela, et `test/pages-publiques.test.js` vérifie que le délai qu'elle annonce est celui que le serveur applique. `test/vues.test.js` essaie de casser les trois refus, un par un.
 
 `estPlus()` dans `server/plus.js` est le seul endroit qui tranche, comme `entreeLibre()` et `genreAuChoix()`. Le droit vit pour l'instant dans l'objet utilisateur (du jsonb des deux côtés, donc aucune migration) ; la table `entitlements` arrive avec la caisse (P0-6) et cette fonction en deviendra la projection. Une fin de pass absente ou illisible vaut **« pas de pass »**, jamais « pass éternel » : se tromper dans ce sens-là le donnerait à tout le monde le jour d'une écriture ratée. `test/plus.test.js` fige tout cela.
 

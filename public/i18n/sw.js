@@ -473,4 +473,18 @@ export default {
   "Le pass n'est pas encore en vente. Il le sera dans {app}, jamais par message.": "Pasi bado haijauzwa. Itauzwa ndani ya {app}, kamwe si kwa ujumbe.",
   "Actif jusqu'au {date}": "Inatumika hadi {date}",
   "Ce que le pass enlève, et ce qu'il ne change pas": "Pasi inaondoa nini, na haibadilishi nini",
+  // Se sont arrêtés sur ta fiche
+  "Se sont arrêtés sur ta fiche": "Walisimama kwenye wasifu wako",
+  "Combien, en gros, et les cinq dernières fiches. Jamais ce qu'elles ont décidé.": "Ni wangapi, kwa takriban, na wasifu tano wa mwisho. Kamwe si walichoamua.",
+  "Tu t'es retiré de cette liste : tu n'y apparais pas, et tu ne la vois pas non plus.": "Umejiondoa kwenye orodha hii: hutokei humo, na huioni pia.",
+  "Personne pour l'instant, sur les 30 derniers jours.": "Hakuna mtu kwa sasa, katika siku 30 zilizopita.",
+  "Moins de {n} personnes se sont arrêtées sur ta fiche ces 30 derniers jours.": "Chini ya watu {n} walisimama kwenye wasifu wako katika siku 30 zilizopita.",
+  "Plus de {n} personnes se sont arrêtées sur ta fiche ces 30 derniers jours.": "Zaidi ya watu {n} walisimama kwenye wasifu wako katika siku 30 zilizopita.",
+  "Les derniers": "Wa mwisho",
+  "On ne montre jamais ce que ces personnes ont décidé, et jamais la liste entière : c'est ce qui empêche de deviner qui n'a pas voulu de toi.": "Hatuonyeshi kamwe walichoamua watu hawa, wala orodha nzima: ndicho kinachozuia kubaini nani hakukutaka.",
+  "Combien, en gros, et les cinq dernières fiches": "Ni wangapi, kwa takriban, na wasifu tano wa mwisho",
+  "Rester discret": "Kubaki faraghani",
+  "Tu n'apparais pas dans « qui s'est arrêté sur ta fiche », et tu ne la vois pas non plus": "Hutokei katika “walisimama kwenye wasifu wako”, na huioni pia",
+  "Tu n'apparais plus dans « qui s'est arrêté sur ta fiche »": "Hutokei tena katika “walisimama kwenye wasifu wako”",
+  "Tu apparais de nouveau": "Unatokea tena",
 };

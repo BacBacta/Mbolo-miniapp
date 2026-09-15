@@ -3,6 +3,7 @@ import path from 'node:path';
 import express from 'express';
 import { config, runtime, genreAuChoix, entreeLibre, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT } from './config.js';
 import { estPlus, etatDuPass } from './plus.js';
+import { arrondir, dansLaFenetre, discret, MAX_FICHES } from './vues.js';
 import { codeValide } from './lieux.js';
 import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
 import { LANGUES, t as tr } from './i18n.js';
@@ -241,6 +242,8 @@ api.get('/me', async (req, res) => {
     // pouvoir dire le nombre sans que la personne soit passée par Découvrir d'abord. Même
     // contrat que là-bas — `null` veut dire « aucun compte à tenir ».
     quota: auClient(quotaDe(u)),
+    // L'opposition à « qui s'est arrêté sur ta fiche ». Gratuite, donc lue par tout le monde.
+    discretion: discret(u),
     options: {
       intents: INTENTS, genders: GENDERS, compat: COMPAT, criteres: CRITERES, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
       // Qui choisit le genre recherché en « Relation sérieuse » : la politique du serveur, ou la
@@ -745,6 +748,46 @@ api.get('/likes', requireMembre, requirePlus, async (req, res) => {
     return { ...p, activity: p.activity ? 'week' : null, likedYou: true, status: null, matchId: null };
   }));
   res.json({ profiles });
+});
+
+// ---------- Qui s'est arrêté sur ta fiche ----------
+//
+// La règle, les trois refus et l'arrondi vivent dans `server/vues.js` : ici il n'y a que la
+// lecture. Deux choses valent d'être vues en passant :
+//
+//   * **`store.allUsers()` n'est pas appelé.** Ce qu'on charge est borné par le nombre de
+//     personnes qui se sont arrêtées sur ma fiche en trente jours, pas par la taille de la table
+//     (dette technique n° 3). Une recherche par clé primaire par personne, et rien d'autre.
+//   * **L'action du balayage ne quitte jamais `swipes`.** `dansLaFenetre()` ne la recopie pas,
+//     donc aucune ligne d'ici ne peut la laisser fuir : c'est le refus n° 1, tenu par le code et
+//     pas par la vigilance.
+api.get('/vues', requireMembre, requirePlus, async (req, res) => {
+  const me = req.user;
+  // La symétrie : qui se retire n'apparaît nulle part, et ne regarde nulle part non plus.
+  if (discret(me)) return res.json({ discret: true, arrondi: arrondir(0), profiles: [] });
+  const [recus, rel] = await Promise.all([store.swipesTo(me.id), relations(me)]);
+  const arrets = dansLaFenetre(recus, me.id);
+  const gens = await Promise.all(arrets.map(async (a) => ({ at: a.at, u: await store.getUser(a.from) })));
+  // Le même socle que les « J'aime » reçus : joignable, du genre cherché, selon le filtre du
+  // badge. Plus l'opposition de l'autre, qui prime sur tout le reste.
+  const retenus = gens.filter(({ u }) => u && !discret(u) && joignable(me, rel, u) && dansLeGenre(me, u) && selonLeBadge(me, u));
+  // Le compte et la liste sortent **du même ensemble** : deux ensembles différents se
+  // recoupent, et le recoupement est exactement ce que l'arrondi empêche.
+  const profiles = await Promise.all(retenus.slice(0, MAX_FICHES).map(async ({ u }) => {
+    const p = await publicProfile(u);
+    return { ...p, activity: p.activity ? 'week' : null, likedYou: false, status: null, matchId: null };
+  }));
+  res.json({ discret: false, arrondi: arrondir(retenus.length), profiles });
+});
+
+// Le réglage d'opposition. **Pas de `requirePlus` ici, et jamais** : on ne vend pas le droit de
+// ne pas être montré. Il est aussi hors du quota et sans limitation de débit particulière — un
+// membre doit pouvoir se retirer à l'instant où il y pense.
+api.put('/me/discretion', requireMembre, async (req, res) => {
+  const veut = req.body?.discret;
+  if (typeof veut !== 'boolean') return fail(res, 400, 'DISCRETION_INVALIDE', 'Indique si tu veux rester discret ou non.');
+  await store.updateUser(req.user.id, { discretion: veut });
+  res.json({ discretion: veut });
 });
 
 api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {

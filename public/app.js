@@ -274,7 +274,7 @@ const plus = () => !!S.me?.plus?.actif;
 // l'absence de limite pour une limite atteinte, et l'écran le plus ouvert devient le plus fermé.
 const sansLimite = () => S.quota === null;
 
-const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', pays: () => S.pays?.retour || 'me', plus: () => S.plusRetour || 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
+const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', pays: () => S.pays?.retour || 'me', plus: () => S.plusRetour || 'me', vues: () => 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
 const TABS = [['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']];
 
@@ -1431,10 +1431,40 @@ const SCREENS = {
       <div class="list">
         ${listRow({ iconName: 'heart', tile: 'tile-like', title: t('Des « J\'aime » sans compter'), sub: S.me.quota === null ? t('Tu n\'as aucune limite en ce moment.') : t('Sans pass, tu en as {n} par jour.', { n: S.me.quota }) })}
         ${listRow({ iconName: 'sparkles', tile: 'tile-ok', title: t('Qui t\'a aimé'), sub: t('La liste, avec les fiches. Sans pass, ces personnes passent devant dans ton paquet, mais rien ne les nomme.') })}
+        ${listRow({ iconName: 'rows', title: t("Se sont arrêtés sur ta fiche"), sub: t("Combien, en gros, et les cinq dernières fiches. Jamais ce qu'elles ont décidé.") })}
       </div>
       ${etat.actif ? '' : `<p class="fine">${icon('info', 14)}<span>${t("Le pass n'est pas encore en vente. Il le sera dans {app}, jamais par message.", { app: APP })}</span></p>`}`);
     tg.setBack(() => go(S.plusRetour || 'me'));
     tg.setButtons({ main: { text: t('Compris'), onClick: () => go(S.plusRetour || 'me') } });
+  },
+
+  // « Qui s'est arrêté sur ta fiche ». La règle et ses trois refus sont dans `server/vues.js` ;
+  // ici il n'y a qu'un écran, et une phrase à choisir selon le palier que le serveur envoie.
+  // Le serveur n'envoie **pas** de français : il envoie une forme et un nombre (règle 10).
+  async vues() {
+    // Aucun cache : l'écran s'ouvre rarement, et un retrait coché à la ligne du dessus doit se
+    // voir au premier coup d'œil, pas au prochain démarrage.
+    render(`<div class="group"><span class="eyebrow">${t("Se sont arrêtés sur ta fiche")}</span>${skeleton.rows(3)}</div>`);
+    tg.setButtons(null);
+    let vu;
+    try { vu = await api('/vues'); } catch (e) { return renderError(e, () => go('vues')); }
+    if (S.screen !== 'vues') return;
+    const { discret, arrondi, profiles } = vu;
+    const combien = discret ? t("Tu t'es retiré de cette liste : tu n'y apparais pas, et tu ne la vois pas non plus.")
+      : arrondi.forme === 'aucune' ? t("Personne pour l'instant, sur les 30 derniers jours.")
+        : arrondi.forme === 'moins' ? t('Moins de {n} personnes se sont arrêtées sur ta fiche ces 30 derniers jours.', { n: arrondi.n })
+          : t('Plus de {n} personnes se sont arrêtées sur ta fiche ces 30 derniers jours.', { n: arrondi.n });
+    render(`
+      <div class="step-head"><h1>${t("Se sont arrêtés sur ta fiche")}</h1>
+        <p class="lead">${combien}</p></div>
+      ${profiles.length ? `
+      <div class="group"><span class="eyebrow">${t('Les derniers')}</span>
+        <div class="new-strip">${profiles.map((p) => `<button type="button" class="new-item" data-action="person" data-id="${esc(p.id)}">${avatar(p, 'md')}<span>${esc(p.name)}</span></button>`).join('')}</div>
+      </div>` : ''}
+      <p class="fine">${icon('lock', 14)}<span>${t("On ne montre jamais ce que ces personnes ont décidé, et jamais la liste entière : c'est ce qui empêche de deviner qui n'a pas voulu de toi.")}</span></p>`);
+    profiles.forEach((p) => loadAvatar(p));
+    tg.setBack(() => go('me'));
+    tg.setButtons({ main: { text: t('Compris'), onClick: () => go('me') } });
   },
 
   jauge() {
@@ -1588,6 +1618,12 @@ const SCREENS = {
             <span class="tile">${icon('wifi', 20)}</span>
             <div class="body"><div class="title">${t('Économie de data')}</div><div class="sub">${t('Photos chargées seulement si tu les demandes')}</div></div>
             <input type="checkbox" class="switch" name="dataSaver" ${S.dataSaver ? 'checked' : ''}>
+          </label>
+          ${plus() ? listRow({ iconName: 'rows', title: t("Se sont arrêtés sur ta fiche"), sub: t('Combien, en gros, et les cinq dernières fiches'), action: 'go', extra: ' data-screen="vues"' }) : ''}
+          <label class="list-row">
+            <span class="tile">${icon('lock', 20)}</span>
+            <div class="body"><div class="title">${t('Rester discret')}</div><div class="sub">${t("Tu n'apparais pas dans « qui s'est arrêté sur ta fiche », et tu ne la vois pas non plus")}</div></div>
+            <input type="checkbox" class="switch" name="discretion" ${S.me.discretion ? 'checked' : ''}>
           </label>
           ${listRow({ iconName: 'shield', title: t('La jauge de confiance'), sub: t('Ce que les pastilles mesurent, et comment les obtenir'), action: 'go', extra: ' data-screen="jauge"' })}
           ${listRow({ iconName: 'shield', title: t('Personne de confiance'),
@@ -2324,18 +2360,34 @@ app.addEventListener('input', (e) => {
   }
 });
 
+// `el`, et surtout pas `t` : la cible s'appelait `t` ici, ce qui masquait la fonction de
+// traduction dans tout le corps du gestionnaire. Le toast de l'économie de data appelait donc
+// l'élément du DOM comme une fonction et jetait « t is not a function » — le réglage s'appliquait
+// bien, mais sans un mot à l'écran, et avec une promesse rejetée derrière.
 app.addEventListener('change', async (e) => {
-  const t = e.target;
-  if (/^photo-[123]$/.test(t.name) && t.files?.[0]) {
-    try { S.form.photos[t.name.slice(-1)] = await compressImage(t.files[0]); SCREENS.profile(); } catch (err) { showError(err); }
-  } else if (t.name === 'selfie' && t.files?.[0]) {
-    try { S.selfie = await compressImage(t.files[0], 900, 0.85); SCREENS.verify(); } catch (err) { showError(err); }
-  } else if (t.name === 'zoneCity' && S.zoneDraft) {
-    S.zoneDraft.city = t.value;
-  } else if (t.name === 'dataSaver') {
-    S.dataSaver = t.checked;
-    await tg.cloudSet('data_saver', t.checked ? '1' : '0');
-    toast(e.target.checked ? t('Économie de data activée') : t('Économie de data désactivée'), 'ok');
+  const el = e.target;
+  if (/^photo-[123]$/.test(el.name) && el.files?.[0]) {
+    try { S.form.photos[el.name.slice(-1)] = await compressImage(el.files[0]); SCREENS.profile(); } catch (err) { showError(err); }
+  } else if (el.name === 'selfie' && el.files?.[0]) {
+    try { S.selfie = await compressImage(el.files[0], 900, 0.85); SCREENS.verify(); } catch (err) { showError(err); }
+  } else if (el.name === 'zoneCity' && S.zoneDraft) {
+    S.zoneDraft.city = el.value;
+  } else if (el.name === 'dataSaver') {
+    S.dataSaver = el.checked;
+    await tg.cloudSet('data_saver', el.checked ? '1' : '0');
+    toast(el.checked ? t('Économie de data activée') : t('Économie de data désactivée'), 'ok');
+  } else if (el.name === 'discretion') {
+    // Le réglage part au serveur tout de suite : c'est un retrait, il ne doit pas attendre un
+    // autre geste. S'il échoue, l'interrupteur revient où il était — sinon il mentirait.
+    const veut = el.checked;
+    try {
+      await api('/me/discretion', { method: 'PUT', body: { discret: veut } });
+      S.me.discretion = veut;
+      toast(veut ? t('Tu n\'apparais plus dans « qui s\'est arrêté sur ta fiche »') : t('Tu apparais de nouveau'), 'ok');
+    } catch (err) {
+      el.checked = !veut;
+      showError(err);
+    }
   }
 });
 

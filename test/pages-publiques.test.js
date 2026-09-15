@@ -13,6 +13,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const { config } = await import('../server/config.js');
+const { FENETRE_MS } = await import('../server/vues.js');
 
 const portLibre = () => new Promise((resolve) => {
   const s = net.createServer();
@@ -119,6 +120,9 @@ test('la politique de confidentialité dit ce que le code fait vraiment', async 
   const delais = {
     'suppression du selfie': Math.round(config.verificationTtlMs / 86400e3),
     'conservation des événements de mesure': config.eventsRetentionDays,
+    // La fenêtre de « se sont arrêtés sur ta fiche ». Elle est annoncée dans la page, donc elle
+    // entre ici : c'est la seule façon qu'elle ne puisse pas changer d'un côté sans l'autre.
+    'fenêtre des passages sur la fiche': Math.round(FENETRE_MS / 86400e3),
   };
   const attendues = new Set(Object.values(delais).flatMap(formes));
   const citees = [...html.matchAll(/([\wÀ-ÿ]+)\s+jours/g)].map((m) => m[1]).filter(estUnNombre);

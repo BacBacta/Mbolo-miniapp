@@ -484,4 +484,18 @@ export default {
   "Le pass n'est pas encore en vente. Il le sera dans {app}, jamais par message.": "The pass is not on sale yet. It will be sold inside {app}, never by message.",
   "Actif jusqu'au {date}": "Active until {date}",
   "Ce que le pass enlève, et ce qu'il ne change pas": "What the pass removes, and what it leaves alone",
+  // Se sont arrêtés sur ta fiche
+  "Se sont arrêtés sur ta fiche": "Stopped on your profile",
+  "Combien, en gros, et les cinq dernières fiches. Jamais ce qu'elles ont décidé.": "Roughly how many, and the last five profiles. Never what they decided.",
+  "Tu t'es retiré de cette liste : tu n'y apparais pas, et tu ne la vois pas non plus.": "You have opted out of this list: you do not appear in it, and you do not see it either.",
+  "Personne pour l'instant, sur les 30 derniers jours.": "Nobody so far, over the last 30 days.",
+  "Moins de {n} personnes se sont arrêtées sur ta fiche ces 30 derniers jours.": "Fewer than {n} people stopped on your profile in the last 30 days.",
+  "Plus de {n} personnes se sont arrêtées sur ta fiche ces 30 derniers jours.": "More than {n} people stopped on your profile in the last 30 days.",
+  "Les derniers": "The latest",
+  "On ne montre jamais ce que ces personnes ont décidé, et jamais la liste entière : c'est ce qui empêche de deviner qui n'a pas voulu de toi.": "We never show what these people decided, and never the whole list: that is what stops anyone from working out who turned them down.",
+  "Combien, en gros, et les cinq dernières fiches": "Roughly how many, and the last five profiles",
+  "Rester discret": "Stay discreet",
+  "Tu n'apparais pas dans « qui s'est arrêté sur ta fiche », et tu ne la vois pas non plus": "You do not appear in “stopped on your profile”, and you do not see it either",
+  "Tu n'apparais plus dans « qui s'est arrêté sur ta fiche »": "You no longer appear in “stopped on your profile”",
+  "Tu apparais de nouveau": "You appear again",
 };

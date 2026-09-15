@@ -473,4 +473,18 @@ export default {
   "Le pass n'est pas encore en vente. Il le sera dans {app}, jamais par message.": "Пропуск пока не продаётся. Он будет продаваться в {app}, никогда по сообщению.",
   "Actif jusqu'au {date}": "Действует до {date}",
   "Ce que le pass enlève, et ce qu'il ne change pas": "Что убирает пропуск и чего он не меняет",
+  // Se sont arrêtés sur ta fiche
+  "Se sont arrêtés sur ta fiche": "Задержались на твоей анкете",
+  "Combien, en gros, et les cinq dernières fiches. Jamais ce qu'elles ont décidé.": "Сколько примерно и последние пять анкет. Никогда — что они решили.",
+  "Tu t'es retiré de cette liste : tu n'y apparais pas, et tu ne la vois pas non plus.": "Ты вышел из этого списка: тебя в нём нет, и ты его тоже не видишь.",
+  "Personne pour l'instant, sur les 30 derniers jours.": "Пока никого, за последние 30 дней.",
+  "Moins de {n} personnes se sont arrêtées sur ta fiche ces 30 derniers jours.": "Меньше {n} человек задержались на твоей анкете за последние 30 дней.",
+  "Plus de {n} personnes se sont arrêtées sur ta fiche ces 30 derniers jours.": "Больше {n} человек задержались на твоей анкете за последние 30 дней.",
+  "Les derniers": "Последние",
+  "On ne montre jamais ce que ces personnes ont décidé, et jamais la liste entière : c'est ce qui empêche de deviner qui n'a pas voulu de toi.": "Мы никогда не показываем, что решили эти люди, и никогда весь список: именно это не даёт вычислить, кто отказал.",
+  "Combien, en gros, et les cinq dernières fiches": "Сколько примерно и последние пять анкет",
+  "Rester discret": "Остаться незаметным",
+  "Tu n'apparais pas dans « qui s'est arrêté sur ta fiche », et tu ne la vois pas non plus": "Тебя нет в «задержались на твоей анкете», и ты этот список тоже не видишь",
+  "Tu n'apparais plus dans « qui s'est arrêté sur ta fiche »": "Тебя больше нет в «задержались на твоей анкете»",
+  "Tu apparais de nouveau": "Ты снова виден",
 };

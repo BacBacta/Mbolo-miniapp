@@ -45,6 +45,7 @@ server/
   jauge.js      Jauge de confiance : la liste des critères ouverts, et le calcul du score
   lieux.js      Le code d'un lieu : empreinte du secret serveur, jamais servie au client
   plus.js       Odo Plus : estPlus(), le seul endroit qui dit qui a le pass et jusqu'à quand
+  vues.js       Qui s'est arrêté sur ta fiche : la fenêtre, l'arrondi, l'opposition symétrique
   promesses.js  Les promesses que personne n'attend : enveloppe des routeurs, tâches en arrière-plan,
                 filet global — une promesse rejetée sans filet arrêtait le processus
   secrets.js    Les six secrets qui ne partagent jamais une valeur : la liste, et les deux
@@ -104,6 +105,10 @@ test/
   match-policy (le seul fichier qui lève MATCH_POLICY : ce que la personne choisit alors),
   verification-badge (le seul fichier qui lève VERIFICATION_POLICY : ce qu'on peut faire sans
   le badge, et ce qu'il ouvre),
+  plus (un pass sans fin lisible n'en est pas un ; il s'empile ; les quatre portes de
+  « qui t'a aimé » se ferment ensemble, et la place dans le paquet ne bouge pas),
+  vues (l'issue du balayage ne sort jamais ; l'arrondi empêche la soustraction ; l'opposition
+  rend invisible ET aveugle),
   rendezvous, securite, stockage,
   suppression (le compte ne revient pas par le signal de fermeture ; signalements, personne de
   confiance et selfie du groupe partent avec lui), verre, webhook
@@ -113,8 +118,10 @@ e2e/
   inscription (dont : le pays se cherche au lieu de se faire défiler, et taper ne ferme pas le
   clavier), discussion (dont : le dernier message reste visible quand le clavier réduit la
   fenêtre, et envoyer ne fait pas perdre le focus au champ), mesure, pages-publiques, suppression (plus aucune requête après), verre,
-  voix-et-filtres (genre recherché à l'écran, et la présentation vocale proposée à la vérification)
-  (30 tests Playwright, npm run e2e)
+  voix-et-filtres (genre recherché à l'écran, et la présentation vocale proposée à la vérification),
+  pass (sans pass, Messages explique la place laissée vide ; « Rester discret » est offert à tout
+  le monde et survit au rechargement)
+  (32 tests Playwright, npm run e2e)
 scripts/
   chiffres.js    npm run chiffres : entonnoir et contre-métriques, --json pour la machine
   demo-photos.mjs npm run demo-photos : refait les images de démonstration (Chromium, dev seulement)
@@ -168,6 +175,9 @@ identite/
 | Mesure produit | Six horodatages d'entonnoir dans l'objet utilisateur et **onze événements** dans `events` (`server/mesure.js` : `app_opened` ralenti à l'heure, `form_step`, `profile_saved`, `selfie_sent`, `verif_decided` avec `ok`/`auto`/`ms`, `verif_retried`, `deck_served` ralenti à 5 min, `deck_empty`, `quota_hit`, `antiscam_block` — **le code, jamais le libellé ni le texte** —, `account_deleted` sans identifiant). `chargeValide()` refuse toute charge utile qui n'est pas faite de nombres et de mots-clés fermés : la barrière est dans le code, pas dans la discipline de l'appelant. `form_step` passe par `localStorage` et l'ouverture suivante : **zéro requête ajoutée**. `DELETE /api/me` purge, `EVENTS_RETENTION_DAYS` (180, `0` n'écrit rien). **`npm run chiffres`** (`server/chiffres.js`, fonction pure + `scripts/chiffres.js`) : entonnoir, activation à 14 jours, churn dur et silencieux, métrique phare (check-in réciproques entre personnes réelles, par ville), six métriques d'entrée, six contre-métriques. Exclusions **en amont**, et la **paire** exclue quand un profil de démonstration est dedans. Les décisions `auto: true` sortent du délai de modération et de l'activation. Chaque limite est écrite à côté du chiffre : phare falsifiable tant que les codes des lieux sont fixes, départs non datables sans `app_opened`, rien de rétroactif. Plan : `audit/05-mesure-produit.md` |
 | Personne de confiance | `server/confiance.js` : un membre fabrique une invitation (code aléatoire à usage unique, 24 h, limite de 64 caractères du lien `t.me`), la personne l'ouvre, **le bot lui dit ce qu'elle recevra et ce qu'on garde d'elle**, et n'enregistre rien avant son accord explicite. Reçoit : lieu et heure d'un rendez-vous accepté, arrivée confirmée, et « je pars maintenant » depuis la discussion (`POST /api/matches/:id/prevenir`) — **le seul qui marche sans lieu partenaire**. **Jamais le prénom de l'autre membre** : il n'a pas consenti. `direATiers()` dans `bot.js` est le seul chemin vers un non-membre, avec la langue retenue à l'accord. Retrait des deux côtés (`DELETE /api/me/confiance`, `/retirer`). L'identifiant Telegram ne sort jamais du serveur |
 | Pages publiques | `/confidentialite` et `/conditions`, lisibles sans compte, hors de Telegram et sans JavaScript. Servies depuis `server/legal/`, nom de l'app injecté, compressées au démarrage. L'onglet Profil y renvoie par `tg.openLink()`. Un test vérifie que le délai de suppression du selfie qu'elles annoncent est celui que le serveur applique |
+| Odo Plus | **Pass à durée fixe**, pas un abonnement : expiration franche, aucune reconduction tacite (cahier des charges, section 10.2). `server/plus.js` : `estPlus()` est **le seul endroit qui tranche**, comme `entreeLibre()` et `genreAuChoix()`. Le droit vit dans l'objet utilisateur (jsonb des deux côtés, donc aucune migration) ; la table `entitlements` arrive avec la caisse (P0-6) et cette fonction en deviendra la **projection**. Un pass s'**empile** : pris pendant qu'un autre court, il repousse la fin — payer deux fois et ne recevoir qu'une fois est la faute qu'on ne rattrape pas. Une fin absente ou illisible vaut **« pas de pass »**, jamais « pass éternel ». **Pas de caisse, et c'est volontaire** : `/pass <id> <jours>` et `/sanspass <id>` dans le groupe de modération suffisent à savoir si ce qu'il y a derrière change quelque chose pour de vrais membres. Ce qu'il donne aujourd'hui : des « J'aime » **sans limite** (5 par jour sinon, 2 sans le badge), et **qui t'a aimé**. Le pass **n'est pas sur la fiche publique** et n'y entrera pas : un pass visible dirait qui peut voir la liste, donc qui sait |
+| Qui t'a aimé | Réservé au pass, et il faut fermer **quatre portes ensemble** : `GET /api/likes` (403 `PASS_REQUIS`), la pastille « T'a liké » sur la carte, la même dans la vue Liste, et **le compteur** de `/summary`. Le compteur est le plus bavard des quatre — « une personne t'a aimé », posé à côté d'un paquet qui met cette personne en tête, fait un nom. Il vaut donc **`null`** sans pass, jamais `0` : zéro dirait « personne ne t'a aimé », ce qui est faux. **L'ordre, lui, ne change pas** : le paquet place les « J'aime » reçus devant pour tout le monde — deux ordres différents se compareraient d'un compte à l'autre, et la différence dirait ce que l'étiquette ne dit plus. C'est ce que la notification promet dans les sept langues : « Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet. » Le pass n'enlève **aucune rencontre**, il enlève de savoir **lesquelles** |
+| Se sont arrêtés sur ta fiche | `server/vues.js`. **Aucune collecte nouvelle** : la table `swipes` porte déjà `{from, to, action, at}`. D'où le nom — quelqu'un qui fait défiler sans décider n'y est pas. Trois refus : (1) **l'issue n'est jamais montrée**, et elle ne traverse même pas `dansLaFenetre()`, donc aucune ligne en aval ne peut la laisser fuir ; (2) **compte arrondi** (« plus de 10 ») et **cinq fiches au plus** — un membre avec un pass voit *aussi* qui l'a aimé, donc une liste exhaustive, soustraite à celle des « J'aime », donnerait **la liste de ceux qui ont refusé** ; (3) **opposition gratuite et symétrique** (`PUT /api/me/discretion`, sans `requirePlus` : on ne vend pas le droit de ne pas être montré) — qui se retire n'apparaît chez personne et ne voit la liste chez lui non plus. Fenêtre de **30 jours**, `GET /api/vues` réservé au pass, et **`allUsers()` n'est pas appelé** : la charge est bornée par les balayages reçus, pas par la table (dette n° 3). La page de confidentialité le dit, et le délai qu'elle annonce est vérifié par `test/pages-publiques.test.js` |
 | Éléments natifs | MainButton, SecondaryButton, BackButton, SettingsButton, popups, haptique, scanner QR, confirmation de fermeture, CloudStorage, requestWriteAccess, addToHomeScreen |
 
 ## 5. Règles à respecter absolument
