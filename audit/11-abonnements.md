@@ -58,29 +58,87 @@ l'accessibilité.
 
 ---
 
-## 3. Deux niveaux, pas trois
+## 3. Ce qui rentre dans le pass
 
-| | **Gratuit** | **Odo Plus** |
+### La règle qui décide
+
+Trois questions, dans cet ordre. Une seule réponse « oui » suffit à refuser.
+
+1. **Est-ce que ça relève de la sécurité ou de la réciprocité ?** Alors c'est gratuit — C21 le
+   note 0 autrement.
+2. **Est-ce que ça retire quelque chose à ceux qui ne paient pas ?** Alors non : un avantage
+   qui dégrade le produit des autres se paie en départs.
+3. **Est-ce que ça vend quelque chose qui appartient à quelqu'un d'autre ?** Alors non — la
+   vie privée d'un membre n'est pas un stock.
+
+Ce qui reste est du **confort** et de **l'expression**. C'est peu, et c'est exprès.
+
+### Odo Plus
+
+| | Gratuit | Plus |
 |---|---|---|
-| Vérification, badge, jauge | oui | oui |
-| Découvrir, aimer, matcher, écrire | oui | oui |
-| « Qui t'a aimé » | **oui, toujours** | oui |
-| Signaler, bloquer, personne de confiance, rendez-vous | oui | oui |
-| Quota de « J'aime » | 5 sans badge, 20 avec — **jamais à vendre** | identique |
-| Zone de recherche | sa ville, ou tout son pays | **plusieurs villes, plusieurs pays** |
-| Filtres | âge | **langues parlées, activité récente, taille de ville** |
-| Présentation vocale | 15 s | **30 s** |
-| Aperçu des intentions | — | **réponses de compatibilité en premier sur la carte** |
+| **Zone de recherche** | une ville, ou tout son pays | **plusieurs villes de son pays** |
+| **Filtres** | âge, genre (selon `MATCH_POLICY`), vérifiés seulement | **+ langues parlées** |
+| **Ton profil** | une question sur cinq, une réponse | **trois questions, trois réponses** |
+| **Présentation vocale** | 15 s | **30 s** |
 
-Ce qui est gratuit l'est parce que C21 l'exige (sécurité, réciprocité) ou parce que le
-vendre abîmerait le produit pour ceux qui ne paient pas (le quota est un levier de sécurité,
-le boost un jeu à somme nulle). Ce qui est payant est du **confort qui ne retire rien à
-personne** — et dans un vivier mince, la zone élargie est le confort le plus réel.
+**La zone** est l'avantage le plus réel : dans un vivier mince, pouvoir chercher à Yaoundé *et*
+à Douala change vraiment ce qu'on voit. Aujourd'hui c'est tout ou rien — une ville, ou le pays
+entier, sans milieu.
 
-Pourquoi pas un troisième niveau : la cible ne compare pas des paliers, elle compare un prix
-à une recharge data. Deux choix, deux durées. La simplicité est le produit.
+**Trois questions au lieu d'une** est la version honnête du « boost ». Le payeur gagne de
+l'attention **parce qu'il en dit plus**, pas parce qu'il passe devant. Ça ne réordonne le
+paquet de personne, ça ne coûte rien à servir, et les cinq questions existent déjà
+(`QUESTIONS` dans `public/app.js`) : seule la fiche n'en porte qu'une.
 
----
+**Trente secondes de voix** double le temps d'écoute de la modération par payeur. C'est
+négligeable à l'échelle d'une bêta, mais c'est une fonction qui **augmente le coût variable à
+chaque vente** : à surveiller si le nombre de payeurs monte.
+
+### Ce qui ne rentre pas, et pourquoi
+
+| Refusé | La raison |
+|---|---|
+| **« Qui t'a aimé »** | C21 = 0. C'est le seul signal qui protège d'un vivier vide, et la recette qui fait vivre les concurrents est justement celle qu'Odo ne peut pas prendre |
+| **Le quota de « J'aime »** | C'est un **levier de sécurité** (5 sans badge, 20 avec) qui ralentit un faux compte avant qu'un humain l'ait vu. Le vendre convertit une barrière en revenu. Et dans un vivier mince, personne n'épuise ses 20 : il ne vaut rien |
+| **Le filtre « vérifiés seulement »** | Filtre de sécurité. Gratuit |
+| **L'activité précise avant le match** | La carte arrondit à « cette semaine » **exprès** (`routes.js:638`). Vendre la précision, c'est vendre la vie privée d'un autre membre à un tiers |
+| **Les réponses de compatibilité comme filtre** | CLAUDE.md est explicite : « affichées sur la carte, **jamais un filtre** : elles renseignent, elles ne trient pas ». Revenir dessus est une décision du propriétaire, pas un arbitrage de prix |
+| **Plus de trois photos** | Chacune passe par la modération : vendre ce qui coûte plus cher à chaque vente |
+| **Les boosts de visibilité** | Jeu à somme nulle : ce qu'un payeur gagne, un autre membre le perd |
+| **Plusieurs personnes de confiance** | Sécurité. Gratuit, et tant mieux |
+
+### Et surtout : pas plusieurs **pays**
+
+La zone élargie s'arrête à la frontière, et ce n'est pas un détail de mise en œuvre.
+
+Vendre la découverte à l'étranger, c'est vendre exactement la configuration où vit l'arnaque
+sentimentale : quelqu'un de loin, qu'on ne rencontrera jamais, avec qui la relation n'existe
+que par écrit. C'est aussi rendre inatteignable la promesse du produit — « les premiers
+rendez-vous se font dans des lieux publics ». On vendrait un avantage qui éloigne du but.
+
+Un membre à Bruxelles cherche à Bruxelles. Un membre à Yaoundé cherche à Yaoundé, à Douala,
+à Bafoussam. La diaspora paie le même pass, pour le même usage : rencontrer **là où elle est**.
+
+### Ce qui manquerait pour que ça vaille clairement 3 000 FCFA
+
+Il faut le dire : cette liste est du confort, et 3 000 FCFA font 5 % du SMIG. Le seul levier
+qui justifierait clairement ce prix — et que le marché prouve que les gens achètent — est
+**le mot joint au « J'aime »** : quelques lignes que la personne lit en ouvrant « qui t'a
+aimé », avant de décider.
+
+**Ce qu'il coûterait.** Odo a aujourd'hui une propriété qu'aucun concurrent n'a : **aucun
+inconnu ne peut mettre du texte devant toi**. Un like est muet tant qu'il n'est pas rendu. Le
+mot dépense cette propriété. Les garde-fous existent — l'anti-arnaque filtre argent, numéros
+et liens ; le mot n'apparaît que dans une liste qu'on a ouverte soi-même ; signaler et bloquer
+marchent — mais ça reste du texte d'un inconnu, chez une cible où c'est précisément ce dont on
+veut protéger les membres.
+
+**Recommandation : pas pour la bêta fermée.** Sortir le pass avec les quatre éléments de
+confort, regarder la conversion, et rouvrir la question du mot quand on aura un vrai signal
+sur le harcèlement — on saura alors ce qu'on dépense. Et si la conversion est mauvaise à
+3 000 FCFA, la réponse n'est pas d'ajouter le mot : c'est que le pass est prématuré, et que
+la ligne B2B (une fois le code tournant posé) aligne bien mieux le revenu sur le coût.
 
 ## 4. La grille : un prix posé, et la règle qui donne l'autre
 
