@@ -267,6 +267,12 @@ function compressImage(file, max = 720, quality = 0.8) {
 const entreeLibre = () => !!S.me?.options?.entreeLibre;
 const verifie = () => S.me?.verification === 'approved';
 const membre = () => !!S.me?.profile && (entreeLibre() || verifie());
+// Le pass. Comme au-dessus : le serveur tranche, l'interface lit et ne recopie aucune règle.
+const plus = () => !!S.me?.plus?.actif;
+// Le quota du jour, tel que /discover le rend. **`null` veut dire « aucun compte à tenir »** —
+// c'est le contrat posé par `auClient()` côté serveur. Sans cette fonction, `!S.remaining` prend
+// l'absence de limite pour une limite atteinte, et l'écran le plus ouvert devient le plus fermé.
+const sansLimite = () => S.quota === null;
 
 const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', pays: () => S.pays?.retour || 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
@@ -595,7 +601,7 @@ function discoverBar() {
         <button type="button" data-action="mode" data-mode="cards" aria-pressed="${!list}">${icon('card', 15)} ${t('Cartes')}</button>
         <button type="button" data-action="mode" data-mode="list" aria-pressed="${list}">${icon('rows', 15)} ${t('Liste')}</button>
       </div>
-      ${list ? '' : `<span class="quota">${tn('{n} restant', '{n} restants', S.remaining)}</span>`}
+      ${list || sansLimite() ? '' : `<span class="quota">${tn('{n} restant', '{n} restants', S.remaining)}</span>`}
     </div>`;
 }
 
@@ -1001,7 +1007,7 @@ const SCREENS = {
       const ville = zoneLabel(zoneDe());
       const intention = t((S.me.options?.intents || {})[S.me.profile.intent] || '');
       let titre, texte, bouton;
-      if (!S.remaining) {
+      if (!sansLimite() && !S.remaining) {
         titre = t('Ta limite du jour est atteinte');
         // Le nombre vient du serveur : il dépend du badge, et le recopier ici le ferait mentir.
         texte = t('Tu peux aimer {n} profils par jour. Le compteur repart à minuit. Passer un profil ne compte pas.', { n: S.quota || 0 });
@@ -1768,7 +1774,7 @@ async function swipe(action) {
       throwCard(card, action === 'like' ? 1 : -1),
     ]);
     S.profiles.shift();
-    S.remaining = Math.max(0, S.remaining - 1);
+    if (!sansLimite()) S.remaining = Math.max(0, S.remaining - 1);
     S.people = []; // les statuts de la liste ont changé
     if (r.match) {
       S.lastMatch = r.match;

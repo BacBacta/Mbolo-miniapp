@@ -15,7 +15,11 @@ import { store } from './store.js';
 
 // Les seules formes admises dans une charge utile. Tout le reste est un refus : c'est la barrière
 // qui empêche un texte libre d'entrer un jour par inadvertance.
-const VALEUR_OK = (v) => typeof v === 'number' || typeof v === 'boolean' || (typeof v === 'string' && v.length <= 24 && /^[\w.:-]+$/.test(v));
+// `Number.isFinite` et pas `typeof number` : Infinity et NaN sont des nombres pour JavaScript, mais
+// JSON ne sait pas les écrire — ils ressortiraient en `null`, et une charge que le stockage ne sait
+// pas écrire est exactement ce que cette barrière doit arrêter. Un quota sans limite se dit en
+// omettant la clé, pas en envoyant l'infini.
+const VALEUR_OK = (v) => Number.isFinite(v) || typeof v === 'boolean' || (typeof v === 'string' && v.length <= 24 && /^[\w.:-]+$/.test(v));
 
 export function chargeValide(p) {
   if (p === undefined || p === null) return true;

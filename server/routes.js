@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { config, runtime, genreAuChoix, entreeLibre, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT } from './config.js';
+import { estPlus, etatDuPass } from './plus.js';
 import { codeValide } from './lieux.js';
 import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
 import { LANGUES, t as tr } from './i18n.js';
@@ -154,11 +155,21 @@ const requireMembre = (req, res, next) => (membre(req.user) ? next() : fail(res,
 const requireVerifie = (req, res, next) => (verifie(req.user)
   ? next()
   : fail(res, 403, 'BADGE_REQUIS', 'Fais vérifier ton profil pour proposer un rendez-vous. Ça prend un selfie avec un geste.'));
-// Combien de profils par jour. Le badge ouvre le quota entier ; sans lui, il est réduit — un
-// faux compte qui voudrait écrire à cent personnes avant qu'un humain l'ait vu est ralenti, et
-// se faire vérifier a un intérêt le jour même. Sous « gate », personne n'arrive ici sans badge,
-// donc la ligne basse ne sert jamais.
-const quotaDe = (u) => (verifie(u) ? config.dailyProfiles : config.dailyProfilesNonVerifie);
+// Combien de « J'aime » par jour, en trois marches. Le pass les enlève ; le badge ouvre le quota
+// entier ; sans badge il est réduit — un faux compte qui voudrait écrire à cent personnes avant
+// qu'un humain l'ait vu est ralenti, et se faire vérifier a un intérêt le jour même. Sous
+// « gate », personne n'arrive ici sans badge, donc la marche basse ne sert jamais.
+//
+// L'absence de limite est `Infinity`, pas un grand nombre : l'arithmétique en dessous marche
+// toute seule (`max(0, Infinity - n)`, `n >= Infinity`), et rien n'a de valeur plafond à recopier.
+const quotaDe = (u) => {
+  if (estPlus(u)) return Infinity;
+  return verifie(u) ? config.dailyProfiles : config.dailyProfilesNonVerifie;
+};
+// Ce qu'un quota devient dans une réponse JSON. `Infinity` s'y sérialise en `null` tout seul, mais
+// en silence : on le dit ici, pour que le contrat avec l'interface soit lisible des deux côtés —
+// **null veut dire « aucun compte à tenir »**, et surtout pas zéro.
+const auClient = (n) => (Number.isFinite(n) ? n : null);
 
 // Une intention retirée ne peut plus servir à rien : la découverte cherche la même intention
 // chez les autres, donc un compte resté en « Sortie en duo » ne voit plus personne et n'est vu
@@ -205,6 +216,10 @@ api.get('/me', async (req, res) => {
     // La présentation vocale, telle que la personne la voit pour elle-même : son statut et sa
     // durée. Ce que les autres en sauront est décidé ailleurs (publicProfile).
     voix: u.voix ? { status: u.voix.status, duree: u.voix.duree } : null,
+    // Le pass, tel que la personne le voit pour elle-même. Il ne va nulle part ailleurs : il
+    // n'est pas dans `publicProfile`, et il n'y entrera pas. Un pass visible deviendrait un signe
+    // extérieur — et surtout il dirait qui peut voir la liste des « J'aime », donc qui sait.
+    plus: etatDuPass(u),
     options: {
       intents: INTENTS, genders: GENDERS, compat: COMPAT, criteres: CRITERES, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
       // Qui choisit le genre recherché en « Relation sérieuse » : la politique du serveur, ou la
@@ -621,7 +636,7 @@ api.get('/discover', requireMembre, async (req, res) => {
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
   if (!remaining) {
     mesurer('deck_empty', me.id, { why: 'quota' });
-    return res.json({ profiles: [], remaining: 0, quota: quotaDe(me), vivier: vivier(me, rel, tous) });
+    return res.json({ profiles: [], remaining: 0, quota: auClient(quotaDe(me)), vivier: vivier(me, rel, tous) });
   }
   // Le tri passe avant la mise en forme : publicProfile n'est appelé que sur les dix cartes
   // envoyées, au lieu de l'être sur tout le vivier pour en jeter la plus grande part.
@@ -631,7 +646,12 @@ api.get('/discover', requireMembre, async (req, res) => {
     // sans exclure personne : c'est ce qui distingue un modèle ouvert d'une porte fermée.
     .sort((a, b) => Number(rel.maLike.has(b.id)) - Number(rel.maLike.has(a.id))
       || Number(verifie(b)) - Number(verifie(a)) || sameArea(me, b) - sameArea(me, a))
-    .slice(0, Math.min(10, remaining));
+    // Dix cartes, quel que soit le quota restant. Le paquet était coupé à `remaining`, ce qui se
+    // voyait à peine tant que le quota valait vingt ; à cinq, il envoyait cinq cartes, puis quatre.
+    // Or **passer ne consomme rien** (`swipesToday` ne compte que les « J'aime ») : le nombre de
+    // cartes n'a donc rien à voir avec le nombre de « J'aime » restants, et les lier multipliait
+    // les allers-retours au moment précis où le quota se resserre — règle 15.
+    .slice(0, 10);
   const profiles = await Promise.all(retenus.map(async (u) => {
     const p = await publicProfile(u);
     // Avant le match, on ne dit que « cette semaine » ou rien : la tranche fine est réservée aux matchs
@@ -642,10 +662,12 @@ api.get('/discover', requireMembre, async (req, res) => {
   if (!profiles.length) mesurer('deck_empty', me.id, { why: 'vide' });
   // Une ligne par paquet, pas une par carte : n suffit et coûte dix fois moins. Ralenti à cinq
   // minutes, parce que l'écran se recharge à chaque retour et que ça n'apprend rien de plus.
-  else mesurerRalenti('deck_served', me, CINQ_MINUTES, { n: profiles.length, r: remaining });
+  // `r` est le reste du quota, et il n'existe que s'il y a un quota : avec un pass, la clé
+  // disparaît plutôt que de porter un infini que JSON ne sait pas écrire.
+  else mesurerRalenti('deck_served', me, CINQ_MINUTES, Number.isFinite(remaining) ? { n: profiles.length, r: remaining } : { n: profiles.length });
   // Le quota du jour part avec le paquet : l'écran vide doit dire le bon nombre, et ce nombre
   // dépend du badge. Le recopier dans l'interface le ferait mentir au premier changement.
-  res.json({ profiles, remaining, quota: quotaDe(me), vivier: vivier(me, rel, tous) });
+  res.json({ profiles, remaining: auClient(remaining), quota: auClient(quotaDe(me)), vivier: vivier(me, rel, tous) });
 });
 
 // Liste des profils compatibles, balayés ou non : la vue d'ensemble que les cartes n'offrent pas.

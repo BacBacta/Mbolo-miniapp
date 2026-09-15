@@ -8,6 +8,7 @@ import { mesurer } from './mesure.js';
 import { PREFIXE, porteurDuCode, accepter, refuser, retirer, membresQuiMOntChoisi } from './confiance.js';
 import { refusDuree, fichierVoix, DUREE_MAX_S } from './voix.js';
 import { consommer } from './limites.js';
+import { estPlus, prolonger, DUREES } from './plus.js';
 
 export const bot = config.botToken ? new Bot(config.botToken) : null;
 
@@ -119,6 +120,21 @@ async function decisionRefusee(ctx) {
   }
   if (!(await estAdministrateur(ctx.from?.id))) {
     await ctx.answerCallbackQuery({ text: 'Action réservée aux administrateurs du groupe.' }).catch(() => {});
+    return true;
+  }
+  return false;
+}
+
+// Une commande de modération obéit aux mêmes deux conditions qu'un bouton : venir du groupe, et
+// venir d'un administrateur. Elle est répondue plutôt que silencieuse — une commande tapée dans le
+// vide laisse croire à une panne — mais elle ne dit rien de plus que « pas ici ».
+async function commandeRefusee(ctx) {
+  if (String(ctx.chat?.id) !== String(config.adminChatId)) {
+    await ctx.reply('Cette commande ne fonctionne que dans le groupe de modération.').catch(() => {});
+    return true;
+  }
+  if (!(await estAdministrateur(ctx.from?.id))) {
+    await ctx.reply('Cette commande est réservée aux administrateurs du groupe.').catch(() => {});
     return true;
   }
   return false;
@@ -497,6 +513,45 @@ export async function setupBot() {
     await ctx.editMessageReplyMarkup({ reply_markup: boutonBannir(userId) }).catch(() => {});
     await ctx.api.sendMessage(config.adminChatId, `Compte rouvert par ${ctx.from.first_name} (ID ${userId})`).catch(() => {});
     await ctx.answerCallbackQuery({ text: 'Compte rouvert' });
+  });
+
+  // Offrir un pass Odo Plus à la main, depuis le groupe de modération. Il n'y a pas encore de
+  // caisse (P0-6) et c'est volontaire : avant de faire payer quoi que ce soit, il faut savoir si
+  // ce qu'il y a derrière change quelque chose pour de vrais membres. Un pass offert le dit, et
+  // ne demande ni agrégateur ni remboursement.
+  //
+  // La personne est prévenue des deux côtés : recevoir un droit sans le savoir ne sert à rien, et
+  // le voir disparaître sans explication est pire.
+  bot.command('pass', async (ctx) => {
+    if (await commandeRefusee(ctx)) return;
+    const [id, jours] = String(ctx.match || '').trim().split(/\s+/);
+    if (!/^\d+$/.test(id || '')) return ctx.reply('Usage : /pass <identifiant> <jours>. Exemple : /pass 123456789 30. Pour retirer : /sanspass <identifiant>.');
+    const u = await store.getUser(id);
+    if (!u) return ctx.reply(`Aucun compte avec l'identifiant ${id}.`);
+    let plus;
+    try {
+      plus = prolonger(u, { jours: Number(jours || 30), source: 'gift' });
+    } catch (e) {
+      return ctx.reply(`${e.message} Les durées vendues sont ${DUREES.join(' et ')} jours.`);
+    }
+    await store.updateUser(u.id, { plus });
+    // Deux lectrices, deux formats : la modération lit en français, la personne dans sa langue.
+    // Une phrase traduite qui porte une date en français ne serait traduite qu'à moitié.
+    const quand = (lang) => new Date(plus.finLe).toLocaleDateString(lang, { dateStyle: 'long', timeZone: config.modTimezone });
+    await ctx.reply(`Pass ${config.appName} Plus posé sur ${id} jusqu'au ${quand('fr-FR')} (offert par ${ctx.from.first_name}).`);
+    notify(u.id, 'Ton pass {app} Plus est actif jusqu\'au {date}.', { app: config.appName, date: quand(langueDe(u)) }, { label: 'Voir mon profil', params: { screen: 'me' } });
+  });
+
+  bot.command('sanspass', async (ctx) => {
+    if (await commandeRefusee(ctx)) return;
+    const id = String(ctx.match || '').trim();
+    if (!/^\d+$/.test(id)) return ctx.reply('Usage : /sanspass <identifiant>.');
+    const u = await store.getUser(id);
+    if (!u) return ctx.reply(`Aucun compte avec l'identifiant ${id}.`);
+    if (!estPlus(u)) return ctx.reply(`${id} n'a pas de pass en cours : rien n'a été changé.`);
+    await store.updateUser(u.id, { plus: null });
+    await ctx.reply(`Pass retiré à ${id} par ${ctx.from.first_name}.`);
+    notify(u.id, 'Ton pass {app} Plus a été retiré.', { app: config.appName }, { label: 'Voir mon profil', params: { screen: 'me' } });
   });
 
   bot.callbackQuery(/^photo:(approve|reject):(\d+):([123])$/, async (ctx) => {

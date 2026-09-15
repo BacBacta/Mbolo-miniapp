@@ -44,6 +44,7 @@ server/
   confiance.js  Personne de confiance : invitation, accord explicite, retrait des deux côtés
   jauge.js      Jauge de confiance : la liste des critères ouverts, et le calcul du score
   lieux.js      Le code d'un lieu : empreinte du secret serveur, jamais servie au client
+  plus.js       Odo Plus : estPlus(), le seul endroit qui dit qui a le pass et jusqu'à quand
   promesses.js  Les promesses que personne n'attend : enveloppe des routeurs, tâches en arrière-plan,
                 filet global — une promesse rejetée sans filet arrêtait le processus
   secrets.js    Les six secrets qui ne partagent jamais une valeur : la liste, et les deux

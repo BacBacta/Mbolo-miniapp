@@ -75,6 +75,9 @@ const EN = {
   '{nom} a annulé le rendez-vous de {lieu}, {creneau}.': '{nom} cancelled the meet-up at {lieu}, {creneau}.',
   '{nom} est bien arrivé(e) à {lieu}.': '{nom} has arrived at {lieu}.',
   'Ouvrir la discussion': 'Open the chat',
+  // Odo Plus
+  "Ton pass {app} Plus est actif jusqu'au {date}.": 'Your {app} Plus pass is active until {date}.',
+  'Ton pass {app} Plus a été retiré.': 'Your {app} Plus pass has been removed.',
 };
 
 const ES = {
@@ -121,6 +124,9 @@ const ES = {
   "{nom} a annulé le rendez-vous de {lieu}, {creneau}.": "{nom} ha cancelado la cita de {lieu}, {creneau}.",
   "{nom} est bien arrivé(e) à {lieu}.": "{nom} ha llegado a {lieu}.",
   "Ouvrir la discussion": "Abrir la conversación",
+  // Odo Plus
+  "Ton pass {app} Plus est actif jusqu'au {date}.": "Tu pase {app} Plus está activo hasta el {date}.",
+  'Ton pass {app} Plus a été retiré.': "Tu pase {app} Plus ha sido retirado.",
 };
 
 const PT = {
@@ -167,6 +173,9 @@ const PT = {
   "{nom} a annulé le rendez-vous de {lieu}, {creneau}.": "{nom} cancelou o encontro de {lieu}, {creneau}.",
   "{nom} est bien arrivé(e) à {lieu}.": "{nom} chegou a {lieu}.",
   "Ouvrir la discussion": "Abrir a conversa",
+  // Odo Plus
+  "Ton pass {app} Plus est actif jusqu'au {date}.": "O teu passe {app} Plus está ativo até {date}.",
+  'Ton pass {app} Plus a été retiré.': "O teu passe {app} Plus foi retirado.",
 };
 
 const SW = {
@@ -213,6 +222,9 @@ const SW = {
   "{nom} a annulé le rendez-vous de {lieu}, {creneau}.": "{nom} ameghairi mkutano wa {lieu}, {creneau}.",
   "{nom} est bien arrivé(e) à {lieu}.": "{nom} amefika {lieu}.",
   "Ouvrir la discussion": "Fungua mazungumzo",
+  // Odo Plus
+  "Ton pass {app} Plus est actif jusqu'au {date}.": "Pasi yako ya {app} Plus inatumika hadi {date}.",
+  'Ton pass {app} Plus a été retiré.': "Pasi yako ya {app} Plus imeondolewa.",
 };
 
 const RU = {
@@ -278,6 +290,9 @@ const RU = {
   '{nom} a annulé le rendez-vous de {lieu}, {creneau}.': '{nom} отменяет встречу: {lieu}, {creneau}.',
   '{nom} est bien arrivé(e) à {lieu}.': '{nom} на месте: {lieu}.',
   'Ouvrir la discussion': 'Открыть чат',
+  // Odo Plus
+  "Ton pass {app} Plus est actif jusqu'au {date}.": 'Твой пропуск {app} Plus действует до {date}.',
+  'Ton pass {app} Plus a été retiré.': 'Твой пропуск {app} Plus снят.',
 };
 
 const UK = {
@@ -343,6 +358,9 @@ const UK = {
   '{nom} a annulé le rendez-vous de {lieu}, {creneau}.': '{nom} скасовує зустріч: {lieu}, {creneau}.',
   '{nom} est bien arrivé(e) à {lieu}.': '{nom} на місці: {lieu}.',
   'Ouvrir la discussion': 'Відкрити чат',
+  // Odo Plus
+  "Ton pass {app} Plus est actif jusqu'au {date}.": 'Твій пропуск {app} Plus діє до {date}.',
+  'Ton pass {app} Plus a été retiré.': 'Твій пропуск {app} Plus знято.',
 };
 
 const DICTIONNAIRES = { fr: {}, en: EN, es: ES, pt: PT, sw: SW, ru: RU, uk: UK };

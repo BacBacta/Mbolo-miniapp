@@ -577,7 +577,7 @@ La vérification par selfie ne change jamais : un geste tiré au hasard, valable
 | `VERIFICATION_POLICY` | Avant d'être vérifié | Ce que la vérification donne |
 |---|---|---|
 | `gate` (défaut) | **Rien.** Tu ne vois personne, personne ne te voit | L'accès à l'app |
-| `badge` | Découvrir, aimer, matcher, écrire — avec un quota de « J'aime » réduit (`DAILY_PROFILES_UNVERIFIED`, 5 par défaut, contre 20) | Le **bouclier** sur la fiche, le droit de **proposer un rendez-vous** (des deux côtés) et de **confirmer une arrivée**, et le quota entier |
+| `badge` | Découvrir, aimer, matcher, écrire — avec un quota de « J'aime » réduit (`DAILY_PROFILES_UNVERIFIED`, 2 par défaut, contre 5) | Le **bouclier** sur la fiche, le droit de **proposer un rendez-vous** (des deux côtés) et de **confirmer une arrivée**, et le quota entier |
 
 **Cette instance tourne sur la seconde ligne depuis le 15 septembre 2026** (`VERIFICATION_POLICY = "badge"` dans `fly.toml`, décision du propriétaire). La raison n'est pas un choix de produit mais une contrainte d'exploitation : la modération est humaine et l'équipe fait une personne. Sous `gate`, personne ne voit rien tant que ce modérateur n'a pas regardé — un délai de quelques heures la nuit vide l'app de tout le monde en même temps, et c'est le premier écran de quelqu'un qui vient de s'inscrire.
 
