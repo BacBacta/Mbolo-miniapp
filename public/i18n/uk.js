@@ -428,4 +428,23 @@ export default {
   "Choisir mon selfie": "Вибрати селфі",
   "Prends un selfie avec ce geste, puis choisis-le ici.": "Зроби селфі з цим жестом, потім вибери його тут.",
   "Changer": "Замінити",
+
+  // Porte ou badge : ce que la vérification décide (VERIFICATION_POLICY).
+  "Un bouclier vérifié par selfie sur les profils": "Щит перевірки за селфі на профілях",
+  "Le bouclier sur ta fiche": "Щит на твоїй картці",
+  "Les autres voient que ton selfie a été vérifié": "Інші бачать, що твоє селфі перевірено",
+  "Réservé aux profils vérifiés, des deux côtés": "Лише для перевірених профілів, з обох боків",
+  "Plus de profils par jour": "Більше профілів на день",
+  "Ton quota du jour passe au maximum": "Твій денний ліміт піднімається до максимуму",
+  "Faire vérifier mon profil": "Пройти перевірку профілю",
+  "Un profil vérifié en a davantage.": "У перевіреного профілю їх більше.",
+  "Profils vérifiés seulement": "Лише перевірені профілі",
+  "Les profils au bouclier passent déjà en premier. Ici, tu ne vois qu'eux.": "Профілі зі щитом і так ідуть першими. Тут ти бачиш тільки їх.",
+  "Le rendez-vous demande le bouclier": "Для зустрічі потрібен щит",
+  "Fais vérifier ton profil pour proposer un rendez-vous. C'est un selfie avec un geste, regardé par une vraie personne.": "Пройди перевірку профілю, щоб запропонувати зустріч. Це селфі з жестом, яке дивиться жива людина.",
+  "{nom} n'a pas encore fait vérifier son profil. Proposer un rendez-vous demande le bouclier des deux côtés.": "{nom} ще не пройшов перевірку профілю. Щоб запропонувати зустріч, щит потрібен з обох боків.",
+  "Revenir à la discussion": "Повернутися до розмови",
+  "Le bot t'écrit dès que c'est fait": "Бот напише тобі, щойно все буде готово",
+  "Ta dernière tentative a été refusée. Tu peux recommencer.": "Твоя остання спроба відхилена. Можеш почати заново.",
+  "Le bouclier sur ta fiche, le rendez-vous, et plus de profils par jour": "Щит на картці, зустрічі та більше профілів на день",
 };

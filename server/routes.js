@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
-import { config, runtime, genreAuChoix, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT } from './config.js';
+import { config, runtime, genreAuChoix, entreeLibre, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT } from './config.js';
 import { codeValide } from './lieux.js';
 import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
 import { LANGUES, t as tr } from './i18n.js';
@@ -138,8 +138,27 @@ function saveJpeg(dataUrl, file) {
 // propriété de tout objet, donc « vraie », et un genre « constructor » s'enregistrait — puis ne
 // valait ni femme ni homme, ce qui contournait la règle femme/homme (audit/09-revue-code.md, I2).
 const dansLaListe = (liste, cle) => typeof cle === 'string' && Object.hasOwn(liste, cle);
-const isApproved = (u) => u.verification === 'approved' && u.profile && !u.banned;
-const requireApproved = (req, res, next) => (isApproved(req.user) ? next() : fail(res, 403, 'NOT_VERIFIED', 'Vérifie ton profil pour accéder à cette fonction.'));
+// Deux notions que la politique de vérification sépare, et qu'il ne faut plus confondre.
+//
+//   verifie(u) : un humain a regardé son selfie et son geste. C'est le **badge**, et il ne
+//                s'obtient que d'une façon, quelle que soit la politique.
+//   membre(u)  : cette personne a sa place dans l'app. Sous « gate », c'est le badge qui
+//                l'ouvre ; sous « badge », un profil suffit — c'est là toute la différence.
+//
+// Sous la politique par défaut les deux disent la même chose, et rien ne bouge.
+const verifie = (u) => u?.verification === 'approved';
+const membre = (u) => !!u?.profile && !u.banned && (entreeLibre() || verifie(u));
+const requireMembre = (req, res, next) => (membre(req.user) ? next() : fail(res, 403, 'NOT_VERIFIED', 'Vérifie ton profil pour accéder à cette fonction.'));
+// Le rendez-vous, lui, reste réservé aux profils vérifiés **des deux côtés** : c'est le moment
+// où deux personnes se retrouvent en vrai, donc celui où le badge doit avoir été gagné.
+const requireVerifie = (req, res, next) => (verifie(req.user)
+  ? next()
+  : fail(res, 403, 'BADGE_REQUIS', 'Fais vérifier ton profil pour proposer un rendez-vous. Ça prend un selfie avec un geste.'));
+// Combien de profils par jour. Le badge ouvre le quota entier ; sans lui, il est réduit — un
+// faux compte qui voudrait écrire à cent personnes avant qu'un humain l'ait vu est ralenti, et
+// se faire vérifier a un intérêt le jour même. Sous « gate », personne n'arrive ici sans badge,
+// donc la ligne basse ne sert jamais.
+const quotaDe = (u) => (verifie(u) ? config.dailyProfiles : config.dailyProfilesNonVerifie);
 
 // Une intention retirée ne peut plus servir à rien : la découverte cherche la même intention
 // chez les autres, donc un compte resté en « Sortie en duo » ne voit plus personne et n'est vu
@@ -191,6 +210,9 @@ api.get('/me', async (req, res) => {
       // Qui choisit le genre recherché en « Relation sérieuse » : la politique du serveur, ou la
       // personne. L'écran des filtres montre un réglage ou la règle selon ce seul drapeau.
       genreAuChoix: genreAuChoix(),
+      // Ce que la vérification décide sur ce serveur : une porte (false) ou un badge (true).
+      // L'interface en tire tout le reste — les onglets, l'écran d'arrivée, ce qu'elle promet.
+      entreeLibre: entreeLibre(),
       defaultCountry: config.defaultCountry,
       // Pays déduit du fuseau envoyé par le navigateur (?tz=). Il n'est ni stocké ni journalisé :
       // il sert à préremplir le menu, puis il est oublié. null si le fuseau est inconnu.
@@ -421,7 +443,9 @@ api.delete('/me/photos/:n', async (req, res) => {
 // Chaque personne décide de son propre paquet : si je cherche dans tout le pays et que l'autre ne
 // cherche que sa ville, je la vois sans qu'elle me voie. C'est l'usage de toutes les applications
 // de rencontre, où le rayon de chacun ne s'impose qu'à lui.
-const DEFAULT_FILTERS = { ageMin: 18, ageMax: 99, gender: '' };
+// « Vérifiés seulement » : le paquet ne montre alors que les profils au badge. Sous « gate »,
+// tout le monde en a un, et le réglage ne change rien — il n'est proposé que sous « badge ».
+const DEFAULT_FILTERS = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false };
 
 const zoneParDefaut = (u) => ({ country: u.profile?.country || config.defaultCountry, city: u.profile?.city || null });
 const filtersOf = (u) => ({ ...DEFAULT_FILTERS, zone: zoneParDefaut(u), ...(u.filters || {}) });
@@ -445,6 +469,8 @@ const inAgeRange = (me, other) => { const f = filtersOf(me); return other.profil
 const genreDemandable = (u) => u.profile?.intent === 'amitie' || genreAuChoix();
 const genreRecherche = (me) => (genreDemandable(me) ? filtersOf(me).gender || '' : '');
 const dansLeGenre = (me, other) => { const g = genreRecherche(me); return !g || other.profile.gender === g; };
+// Le vœu de ne voir que des profils vérifiés. Il s'applique comme le genre : à mon seul paquet.
+const selonLeBadge = (me, other) => !filtersOf(me).verifiesSeulement || verifie(other);
 
 // La zone de la personne qui cherche s'applique à son seul paquet.
 function dansLaZone(me, other) {
@@ -483,7 +509,11 @@ api.put('/me/filters', async (req, res) => {
   }
   if (!genreDemandable(req.user)) gender = '';
 
-  const filters = { ageMin, ageMax, zone, gender };
+  // Un booléen, et rien d'autre : une requête qui ne le porte pas ne touche pas au réglage.
+  let verifiesSeulement = !!filtersOf(req.user).verifiesSeulement;
+  if ('verifiesSeulement' in (req.body || {})) verifiesSeulement = !!req.body.verifiesSeulement;
+
+  const filters = { ageMin, ageMax, zone, gender, verifiesSeulement };
   await store.updateUser(req.user.id, { filters });
   res.json({ filters });
 });
@@ -510,9 +540,9 @@ async function servePhoto(req, res, n) {
   if (!photo || !fs.existsSync(file)) return fail(res, 404, 'NO_PHOTO', 'Pas de photo.');
   res.set('Cache-Control', 'private, max-age=3600').sendFile(file);
 }
-api.get('/photos/:userId/:n', requireApproved, async (req, res) => await servePhoto(req, res, Number(req.params.n)));
+api.get('/photos/:userId/:n', requireMembre, async (req, res) => await servePhoto(req, res, Number(req.params.n)));
 // Sans numéro : la première photo validée (adresse historique)
-api.get('/photos/:userId', requireApproved, async (req, res) => {
+api.get('/photos/:userId', requireMembre, async (req, res) => {
   const target = await cibleVisible(req);
   const first = target && (await store.photosOf(target)).find((x) => x.status === 'approved');
   await servePhoto(req, res, first ? first.n : 1);
@@ -521,7 +551,7 @@ api.get('/photos/:userId', requireApproved, async (req, res) => {
 // ---------- Présentation vocale (servie uniquement aux membres vérifiés) ----------
 // Même règle que les photos : les autres n'entendent que ce que la modération a validé, et on
 // s'entend soi-même quel que soit l'état — pour se réécouter avant de laisser passer.
-api.get('/voix/:userId', requireApproved, async (req, res) => {
+api.get('/voix/:userId', requireMembre, async (req, res) => {
   const target = await cibleVisible(req);
   if (!target) return fail(res, 404, 'NO_VOICE', 'Pas de présentation vocale.');
   const own = target.id === req.user.id;
@@ -568,10 +598,10 @@ async function relations(me) {
 }
 
 // Joignable : vérifié, pas moi, pas bloqué, même intention. Ce socle vaut pour tout le monde.
-const joignable = (me, rel, u) => u.id !== me.id && isApproved(u) && !rel.bloque.has(u.id) && compatible(me, u);
+const joignable = (me, rel, u) => u.id !== me.id && membre(u) && !rel.bloque.has(u.id) && compatible(me, u);
 // Candidat : joignable et dans la zone que je cherche. La zone filtre ce que JE vais voir ;
 // un like reçu, lui, m'est adressé et la traverse (voir likersOf).
-const candidat = (me, rel, u) => joignable(me, rel, u) && dansLaZone(me, u) && dansLeGenre(me, u);
+const candidat = (me, rel, u) => joignable(me, rel, u) && dansLaZone(me, u) && dansLeGenre(me, u) && selonLeBadge(me, u);
 
 // Un écran vide ne dit rien s'il ne dit pas pourquoi. Trois situations très différentes se
 // ressemblaient : personne d'autre n'est vérifié dans ta ville, tu as déjà tout vu, ou ton quota
@@ -585,20 +615,22 @@ function vivier(me, rel, tous) {
   };
 }
 
-api.get('/discover', requireApproved, async (req, res) => {
+api.get('/discover', requireMembre, async (req, res) => {
   const me = req.user;
-  const remaining = Math.max(0, config.dailyProfiles - await store.swipesToday(me.id));
+  const remaining = Math.max(0, quotaDe(me) - await store.swipesToday(me.id));
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
   if (!remaining) {
     mesurer('deck_empty', me.id, { why: 'quota' });
-    return res.json({ profiles: [], remaining: 0, vivier: vivier(me, rel, tous) });
+    return res.json({ profiles: [], remaining: 0, quota: quotaDe(me), vivier: vivier(me, rel, tous) });
   }
   // Le tri passe avant la mise en forme : publicProfile n'est appelé que sur les dix cartes
   // envoyées, au lieu de l'être sur tout le vivier pour en jeter la plus grande part.
   const retenus = tous
     .filter((u) => candidat(me, rel, u) && !rel.monSwipe.has(u.id) && inAgeRange(me, u))
-    // Ceux qui t'ont liké, puis ton quartier
-    .sort((a, b) => Number(rel.maLike.has(b.id)) - Number(rel.maLike.has(a.id)) || sameArea(me, b) - sameArea(me, a))
+    // Ceux qui t'ont liké, puis les profils vérifiés, puis ton quartier. Le badge passe devant
+    // sans exclure personne : c'est ce qui distingue un modèle ouvert d'une porte fermée.
+    .sort((a, b) => Number(rel.maLike.has(b.id)) - Number(rel.maLike.has(a.id))
+      || Number(verifie(b)) - Number(verifie(a)) || sameArea(me, b) - sameArea(me, a))
     .slice(0, Math.min(10, remaining));
   const profiles = await Promise.all(retenus.map(async (u) => {
     const p = await publicProfile(u);
@@ -611,14 +643,16 @@ api.get('/discover', requireApproved, async (req, res) => {
   // Une ligne par paquet, pas une par carte : n suffit et coûte dix fois moins. Ralenti à cinq
   // minutes, parce que l'écran se recharge à chaque retour et que ça n'apprend rien de plus.
   else mesurerRalenti('deck_served', me, CINQ_MINUTES, { n: profiles.length, r: remaining });
-  res.json({ profiles, remaining, vivier: vivier(me, rel, tous) });
+  // Le quota du jour part avec le paquet : l'écran vide doit dire le bon nombre, et ce nombre
+  // dépend du badge. Le recopier dans l'interface le ferait mentir au premier changement.
+  res.json({ profiles, remaining, quota: quotaDe(me), vivier: vivier(me, rel, tous) });
 });
 
 // Liste des profils compatibles, balayés ou non : la vue d'ensemble que les cartes n'offrent pas.
 // Parcourir ne consomme rien ; seul un « J'aime » compte dans le quota du jour (route /swipes).
 const ACTIVITY_RANK = { recent: 3, today: 2, week: 1 };
 const listRank = (p) => (p.status === 'match' ? 0 : p.status ? 1 : p.likedYou ? 3 : 2);
-api.get('/profiles', requireApproved, async (req, res) => {
+api.get('/profiles', requireMembre, async (req, res) => {
   const me = req.user;
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
   // Le rang et l'activité se calculent sur la personne brute et ses relations : le tri n'a pas
@@ -654,10 +688,10 @@ api.get('/profiles', requireApproved, async (req, res) => {
 // Le genre recherché, lui, s'applique : sous la politique levée c'est une orientation, et une
 // personne réglée sur « femmes » ne doit pas voir des hommes dans « ils t'ont aimée ».
 const likersOf = (me, rel, tous) => tous
-  .filter((u) => joignable(me, rel, u) && dansLeGenre(me, u) && rel.maLike.has(u.id) && !rel.monSwipe.has(u.id))
+  .filter((u) => joignable(me, rel, u) && dansLeGenre(me, u) && selonLeBadge(me, u) && rel.maLike.has(u.id) && !rel.monSwipe.has(u.id))
   .sort((a, b) => rel.maLike.get(b.id).at - rel.maLike.get(a.id).at);
 
-api.get('/likes', requireApproved, async (req, res) => {
+api.get('/likes', requireMembre, async (req, res) => {
   const me = req.user;
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
   const profiles = await Promise.all(likersOf(me, rel, tous).slice(0, 20).map(async (u) => {
@@ -667,7 +701,7 @@ api.get('/likes', requireApproved, async (req, res) => {
   res.json({ profiles });
 });
 
-api.post('/swipes', requireApproved, limiter('swipe'), async (req, res) => {
+api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {
   const me = req.user;
   const { targetId, action } = req.body || {};
   const target = await parIdPublic(targetId);
@@ -681,7 +715,7 @@ api.post('/swipes', requireApproved, limiter('swipe'), async (req, res) => {
   if (!joignable(me, rel, target)) return fail(res, 403, 'SWIPE_INVALID', "Ce profil n'est pas disponible.");
   // Déjà en match : rien à refaire, et surtout rien à renotifier.
   if (rel.match.has(target.id)) return res.json({ match: { id: rel.match.get(target.id).id, other: await publicProfile(target) } });
-  if (await store.swipesToday(me.id) >= config.dailyProfiles) {
+  if (await store.swipesToday(me.id) >= quotaDe(me)) {
     mesurer('quota_hit', me.id, { action });
     return fail(res, 429, 'DAILY_LIMIT', "Tu as vu tous tes profils du jour. Reviens demain.");
   }
@@ -724,7 +758,7 @@ async function loadMatch(req, res) {
   return { m, other: await store.getUser(otherId) };
 }
 
-api.get('/matches', requireApproved, async (req, res) => {
+api.get('/matches', requireMembre, async (req, res) => {
   const me = req.user;
   const bloques = new Set(await store.blocksOf(me.id));
   const lignes = await Promise.all((await store.matchesOf(me.id)).map(async (m) => {
@@ -751,7 +785,7 @@ api.get('/matches', requireApproved, async (req, res) => {
 });
 
 // Compteurs pour les onglets (messages non lus, nouveaux matchs)
-api.get('/summary', requireApproved, async (req, res) => {
+api.get('/summary', requireMembre, async (req, res) => {
   const me = req.user;
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
   let unread = 0, newMatches = 0;
@@ -764,7 +798,7 @@ api.get('/summary', requireApproved, async (req, res) => {
   res.json({ unread, newMatches, likes: likersOf(me, rel, tous).length });
 });
 
-api.get('/matches/:id', requireApproved, async (req, res) => {
+api.get('/matches/:id', requireMembre, async (req, res) => {
   const r = await loadMatch(req, res);
   if (!r) return;
   store.touchPresence(req.user.id, r.m.id);
@@ -794,7 +828,7 @@ api.get('/matches/:id', requireApproved, async (req, res) => {
   res.json(reponse);
 });
 
-api.post('/matches/:id/messages', requireApproved, limiter('message'), async (req, res) => {
+api.post('/matches/:id/messages', requireMembre, limiter('message'), async (req, res) => {
   const r = await loadMatch(req, res);
   if (!r) return;
   const text = String(req.body?.text || '').trim().slice(0, 1000);
@@ -863,7 +897,7 @@ onApproved((userId) => {
 });
 
 // ---------- Rendez-vous ----------
-api.get('/venues', requireApproved, async (req, res) => {
+api.get('/venues', requireMembre, async (req, res) => {
   const villes = new Set([cleVille(req.user.profile.city)]);
   // Les deux personnes d'une discussion peuvent être dans deux villes du même pays : on propose
   // les lieux des deux, chacun portant sa ville, pour qu'on sache où l'on va.
@@ -880,9 +914,16 @@ api.get('/venues', requireApproved, async (req, res) => {
   res.json({ venues: liste, partenairesDansLePays: venues.some((v) => v.country === pays) });
 });
 
-api.post('/matches/:id/dates', requireApproved, limiter('rendezvous'), async (req, res) => {
+api.post('/matches/:id/dates', requireVerifie, limiter('rendezvous'), async (req, res) => {
   const r = await loadMatch(req, res);
   if (!r) return;
+  // Le badge des deux côtés. Se retrouver en vrai est le seul moment où l'app envoie quelqu'un
+  // quelque part : c'est là que le selfie regardé par un humain doit avoir eu lieu, pour l'un
+  // comme pour l'autre. Écrire n'attend pas, un rendez-vous si.
+  if (!verifie(r.other)) {
+    const nom = r.other.profile?.name || 'Cette personne';
+    return fail(res, 403, 'BADGE_REQUIS_AUTRE', `${nom} n'a pas encore fait vérifier son profil. Vous pouvez convenir d'un lieu public dans la discussion en attendant.`);
+  }
   const venue = venues.find((v) => v.id === req.body?.venueId && v.country === (req.user.profile.country || config.defaultCountry));
   const slot = String(req.body?.slot || '').slice(0, 40);
   if (!venue || !slot) return fail(res, 400, 'DATE_INVALID', 'Choisis un lieu et un horaire.');
@@ -917,7 +958,7 @@ const CHANGEMENTS = {
   cancelled: { nom: 'annulé', message: '{nom} a annulé le rendez-vous de {lieu}, {creneau}.' },
 };
 
-api.put('/dates/:id', requireApproved, limiter('rendezvous'), async (req, res) => {
+api.put('/dates/:id', requireMembre, limiter('rendezvous'), async (req, res) => {
   const d = await store.getDate(req.params.id);
   const m = d && await store.getMatch(d.matchId);
   if (!d || !m || !m.users.includes(req.user.id)) return fail(res, 404, 'DATE_NOT_FOUND', 'Rendez-vous introuvable.');
@@ -962,7 +1003,7 @@ api.put('/dates/:id', requireApproved, limiter('rendezvous'), async (req, res) =
   res.json({ date: { ...maj, arrivals: undefined, proposedBy: undefined, proposedByMe: jePropose, venue } });
 });
 
-api.post('/dates/:id/checkin', requireApproved, limiter('checkin'), async (req, res) => {
+api.post('/dates/:id/checkin', requireMembre, limiter('checkin'), async (req, res) => {
   const d = await store.getDate(req.params.id);
   const m = d && await store.getMatch(d.matchId);
   if (!d || !m || !m.users.includes(req.user.id)) return fail(res, 404, 'DATE_NOT_FOUND', 'Rendez-vous introuvable.');
@@ -993,7 +1034,7 @@ api.post('/dates/:id/checkin', requireApproved, limiter('checkin'), async (req, 
 
 // Défaire un match. Sans notification, volontairement : prévenir quelqu'un qu'on le retire
 // expose la personne qui part. La discussion disparaît des deux côtés.
-api.delete('/matches/:id', requireApproved, async (req, res) => {
+api.delete('/matches/:id', requireMembre, async (req, res) => {
   const m = await store.getMatch(req.params.id);
   if (!m || !m.users.includes(req.user.id)) return fail(res, 404, 'MATCH_NOT_FOUND', 'Discussion introuvable.');
   await store.removeMatch(m.id);
@@ -1010,7 +1051,7 @@ api.delete('/matches/:id', requireApproved, async (req, res) => {
 // Bloquer sans accuser. Jusqu'ici, se débarrasser de quelqu'un passait obligatoirement par un
 // signalement, donc par une accusation envoyée à la modération : beaucoup de gens ne le font pas,
 // et restent exposés. Le blocage ferme la discussion, le rendez-vous et le check-in.
-api.post('/blocks', requireApproved, limiter('signalement'), async (req, res) => {
+api.post('/blocks', requireMembre, limiter('signalement'), async (req, res) => {
   const cible = await parIdPublic(req.body?.targetId);
   if (!cible || cible.id === req.user.id) return fail(res, 400, 'BLOCK_INVALID', 'Blocage impossible.');
   await store.block(req.user.id, cible.id);
@@ -1025,7 +1066,7 @@ api.post('/blocks', requireApproved, limiter('signalement'), async (req, res) =>
 //
 // Le message ne porte aucun texte libre et ne nomme pas l'autre personne : celle-ci n'a jamais
 // accepté que son prénom parte chez quelqu'un qu'elle ne connaît pas.
-api.post('/matches/:id/prevenir', requireApproved, limiter('rendezvous'), async (req, res) => {
+api.post('/matches/:id/prevenir', requireMembre, limiter('rendezvous'), async (req, res) => {
   const r = await loadMatch(req, res);
   if (!r) return;
   if (!req.user.confiance) return fail(res, 409, 'PAS_DE_CONFIANCE', "Tu n'as pas encore de personne de confiance. Choisis-en une depuis ton profil.");
@@ -1034,7 +1075,7 @@ api.post('/matches/:id/prevenir', requireApproved, limiter('rendezvous'), async 
 });
 
 // ---------- Signalements ----------
-api.post('/reports', requireApproved, limiter('signalement'), async (req, res) => {
+api.post('/reports', requireMembre, limiter('signalement'), async (req, res) => {
   const { targetId, reason } = req.body || {};
   const target = await parIdPublic(targetId);
   if (!target || target.id === req.user.id) return fail(res, 400, 'REPORT_INVALID', 'Signalement impossible.');

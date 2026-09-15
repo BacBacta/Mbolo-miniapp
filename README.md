@@ -563,6 +563,23 @@ Par défaut (`romance_opposite`), le mode **Relation sérieuse** ne met en relat
 
 Ouvrir la seconde ligne est une décision de déploiement, pas une préférence d'interface : le réglage est **global au serveur**, donc cette instance l'applique à Yaoundé comme à Bruxelles. Ne l'ouvre qu'après validation par un juriste local, et déclare la donnée (loi n° 2024/017, section « Avant d'ouvrir à de vraies personnes »). `genreAuChoix()` dans `server/config.js` est le seul endroit qui tranche ; `test/match-policy.test.js` éprouve le cas ouvert, `test/filters.test.js` le cas par défaut. Ce choix répond au cadre pénal camerounais (article 347-1 du Code pénal et loi de 2010 sur la cybercriminalité) et au risque documenté de pièges tendus via les applications de rencontre : stocker ce type de données pourrait mettre des utilisateurs en danger en cas de fuite ou de réquisition. Si tu déploies dans un autre pays, adapte ce paramètre avec un juriste local. Le mode Amitié n'est pas concerné. Attention : le réglage est global au serveur, pas par pays. Depuis que l'app est ouverte à tous les pays, une même instance applique donc la même règle à quelqu'un qui cherche à Yaoundé et à quelqu'un qui cherche à Paris.
 
+### À propos de `VERIFICATION_POLICY` : porte, ou badge
+
+La vérification par selfie ne change jamais : un geste tiré au hasard, valable dix minutes, à usage unique, **jugé par un humain**. Ce qui se règle ici, c'est ce qu'elle décide.
+
+| `VERIFICATION_POLICY` | Avant d'être vérifié | Ce que la vérification donne |
+|---|---|---|
+| `gate` (défaut) | **Rien.** Tu ne vois personne, personne ne te voit | L'accès à l'app |
+| `badge` | Découvrir, aimer, matcher, écrire — avec un quota de « J'aime » réduit (`DAILY_PROFILES_UNVERIFIED`, 5 par défaut, contre 20) | Le **bouclier** sur la fiche, le droit de **proposer un rendez-vous** (des deux côtés) et de **confirmer une arrivée**, et le quota entier |
+
+**Cette instance tourne sur la seconde ligne depuis le 15 septembre 2026** (`VERIFICATION_POLICY = "badge"` dans `fly.toml`, décision du propriétaire). La raison n'est pas un choix de produit mais une contrainte d'exploitation : la modération est humaine et l'équipe fait une personne. Sous `gate`, personne ne voit rien tant que ce modérateur n'a pas regardé — un délai de quelques heures la nuit vide l'app de tout le monde en même temps, et c'est le premier écran de quelqu'un qui vient de s'inscrire.
+
+Ce qui reste réservé au bouclier est **ce qui met deux personnes en présence**. Écrire n'attend pas ; se retrouver en vrai, si.
+
+Comme pour `MATCH_POLICY`, **les deux pages publiques portent les deux versions**, entre marqueurs, et `selonLaPolitique()` dans `server/index.js` n'en sert qu'une : sous `badge`, la phrase « tant que tu n'es pas vérifié, tu ne vois personne » serait fausse, dans un document opposable. `entreeLibre()` dans `server/config.js` est le seul endroit qui tranche, et `options.entreeLibre` le porte à l'interface, qui n'en garde aucune copie. `test/verification-badge.test.js` éprouve le cas ouvert ; le reste de la suite tourne sur le cas par défaut. Repasser à `gate` referme la porte, et rend aux pages leur promesse d'origine — une ligne de `fly.toml`.
+
+**Ce que `badge` ne change pas** : `AUTO_APPROVE` reste éteint en production, chaque selfie part toujours au groupe de modération, le serveur refuse toujours de démarrer sans `ADMIN_CHAT_ID`, et un compte fermé n'entre pas davantage. Le paquet montre **les profils vérifiés en premier**, et un filtre « vérifiés seulement » est à un geste dans les filtres.
+
 ---
 
 ## Organisation du code

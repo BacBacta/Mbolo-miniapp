@@ -428,4 +428,23 @@ export default {
   "Choisir mon selfie": "Выбрать селфи",
   "Prends un selfie avec ce geste, puis choisis-le ici.": "Сделай селфи с этим жестом, затем выбери его здесь.",
   "Changer": "Заменить",
+
+  // Porte ou badge : ce que la vérification décide (VERIFICATION_POLICY).
+  "Un bouclier vérifié par selfie sur les profils": "Щит проверки по селфи на профилях",
+  "Le bouclier sur ta fiche": "Щит на твоей карточке",
+  "Les autres voient que ton selfie a été vérifié": "Другие видят, что твоё селфи проверено",
+  "Réservé aux profils vérifiés, des deux côtés": "Только для проверенных профилей, с обеих сторон",
+  "Plus de profils par jour": "Больше профилей в день",
+  "Ton quota du jour passe au maximum": "Твой дневной лимит поднимается до максимума",
+  "Faire vérifier mon profil": "Пройти проверку профиля",
+  "Un profil vérifié en a davantage.": "У проверенного профиля их больше.",
+  "Profils vérifiés seulement": "Только проверенные профили",
+  "Les profils au bouclier passent déjà en premier. Ici, tu ne vois qu'eux.": "Профили со щитом и так идут первыми. Здесь ты видишь только их.",
+  "Le rendez-vous demande le bouclier": "Для встречи нужен щит",
+  "Fais vérifier ton profil pour proposer un rendez-vous. C'est un selfie avec un geste, regardé par une vraie personne.": "Пройди проверку профиля, чтобы предложить встречу. Это селфи с жестом, которое смотрит живой человек.",
+  "{nom} n'a pas encore fait vérifier son profil. Proposer un rendez-vous demande le bouclier des deux côtés.": "{nom} пока не прошёл проверку профиля. Чтобы предложить встречу, щит нужен с обеих сторон.",
+  "Revenir à la discussion": "Вернуться к переписке",
+  "Le bot t'écrit dès que c'est fait": "Бот напишет тебе, как только всё будет готово",
+  "Ta dernière tentative a été refusée. Tu peux recommencer.": "Твоя последняя попытка отклонена. Можешь начать заново.",
+  "Le bouclier sur ta fiche, le rendez-vous, et plus de profils par jour": "Щит на карточке, встречи и больше профилей в день",
 };

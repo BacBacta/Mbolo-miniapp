@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
 import express from 'express';
 import QRCode from 'qrcode';
-import { config, venues, secretsPartages, genreAuChoix } from './config.js';
+import { config, venues, secretsPartages, genreAuChoix, entreeLibre } from './config.js';
 import { codeDuLieu } from './lieux.js';
 import { store, modeStockage, pret } from './store.js';
 import { api } from './routes.js';
@@ -170,14 +170,19 @@ app.get('/app.js', precompresser(appJs, 'js', IMMUTABLE));
 // l'orientation de personne n'existe ; sous une politique levée, ce choix est demandé, et une
 // page qui promettrait le contraire mentirait. Les deux versions vivent donc dans le fichier,
 // entre marqueurs, et c'est `genreAuChoix()` qui décide laquelle part — jamais les deux.
-const selonLaPolitique = (html) => {
-  const garder = genreAuChoix() ? 'OUVERT' : 'FERME';
-  const jeter = genreAuChoix() ? 'FERME' : 'OUVERT';
+// La vérification suit la même mécanique : sous « gate » les pages promettent qu'on ne voit
+// personne avant d'être vérifié, sous « badge » cette phrase est fausse et une autre la remplace.
+const bloc = (html, nom, garder) => {
+  const jeter = garder === 'OUVERT' ? 'FERME' : 'OUVERT';
   return html
-    .replaceAll(new RegExp(`<!--SI_GENRE_${jeter}-->[\\s\\S]*?<!--/SI_GENRE_${jeter}-->`, 'g'), '')
-    .replaceAll(`<!--SI_GENRE_${garder}-->`, '')
-    .replaceAll(`<!--/SI_GENRE_${garder}-->`, '');
+    .replaceAll(new RegExp(`<!--SI_${nom}_${jeter}-->[\\s\\S]*?<!--/SI_${nom}_${jeter}-->`, 'g'), '')
+    .replaceAll(`<!--SI_${nom}_${garder}-->`, '')
+    .replaceAll(`<!--/SI_${nom}_${garder}-->`, '');
 };
+const selonLaPolitique = (html) => bloc(
+  bloc(html, 'GENRE', genreAuChoix() ? 'OUVERT' : 'FERME'),
+  'VERIF', entreeLibre() ? 'OUVERT' : 'FERME',
+);
 
 const PAGES_PUBLIQUES = { '/confidentialite': 'confidentialite.html', '/conditions': 'conditions.html' };
 for (const [route, fichier] of Object.entries(PAGES_PUBLIQUES)) {

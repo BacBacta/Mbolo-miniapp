@@ -93,6 +93,28 @@ redevenir sans qu'on s'en aperçoive. Le numéro dit de quel lot elles viennent.
 
 ## 5. Vérification par selfie
 
+> **Cette instance tourne sur `VERIFICATION_POLICY = "badge"`** : la vérification n'est plus une
+> porte mais un badge. Les cases marquées « badge » n'existent que sous ce réglage ; sous `gate`,
+> l'écran de vérification n'a pas de « Plus tard » et rien ne s'ouvre avant la décision.
+
+- [ ] **(badge)** L'écran de vérification annonce ce que le bouclier donne : le bouclier sur la
+      fiche, le rendez-vous, plus de profils par jour.
+- [ ] **(badge)** Il porte un bouton **Plus tard**. Touche-le : tu arrives sur **Découvrir**,
+      avec les onglets, sans être vérifié.
+- [ ] **(badge)** Depuis l'onglet Profil, la ligne **« Faire vérifier mon profil »** est toujours
+      là et ramène ici. Pendant l'attente, elle devient « Vérification en cours ».
+- [ ] **(badge)** Dans **Découvrir**, les profils avec le bouclier passent devant ceux qui ne
+      l'ont pas — mais les deux sont visibles.
+- [ ] **(badge)** Dans **Filtres**, l'interrupteur « Profils vérifiés seulement » ne laisse plus
+      que les profils au bouclier ; le retirer les fait revenir.
+- [ ] **(badge)** Sans bouclier, **Proposer un rendez-vous** mène à un écran qui l'explique et
+      propose de se faire vérifier, jamais à un formulaire qui finit en erreur. Vérifie-toi, puis
+      recommence avec un second compte **non vérifié** : l'écran nomme alors l'autre personne.
+- [ ] **(badge)** Aime cinq profils d'affilée sans être vérifié : le sixième doit dire que la
+      limite du jour est atteinte, et proposer de se faire vérifier.
+- [ ] **(badge)** Ouvre `/conditions` depuis l'onglet Profil : la page ne doit **pas** dire « tant
+      que tu n'es pas vérifié, tu ne vois personne ». Elle doit parler du bouclier.
+
 - [ ] L'écran demande un geste aléatoire et dit l'ordre réel : prendre le selfie **puis** le
       choisir. Le mot « caméra » n'y figure pas.
 - [ ] Le sélecteur ouvre la galerie. *C'est normal : la WebView de Telegram sur Android ignore

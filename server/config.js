@@ -96,6 +96,23 @@ export const config = {
   // Nombre de messages avant d'autoriser liens et numéros dans une discussion
   contactUnlockAfter: 10,
   dailyProfiles: 20,
+  // Le quota de qui n'a pas encore son badge. Plus bas : un faux compte qui voudrait parler à
+  // cent personnes avant qu'un humain l'ait vu est ralenti, et se faire vérifier a un intérêt
+  // immédiat. Sans effet sous la politique « gate », où personne n'entre sans badge.
+  dailyProfilesNonVerifie: Number(process.env.DAILY_PROFILES_UNVERIFIED || 5),
+  // Ce que la vérification par selfie décide.
+  //
+  //   gate  (défaut) : elle est une **porte**. Tant qu'un humain n'a pas tranché, la personne ne
+  //                    voit personne et personne ne la voit. C'est la promesse écrite dans les
+  //                    conditions, et c'est ce qui distingue Odo des applications ordinaires.
+  //   badge          : elle est un **badge**. On entre avec un profil, et le badge dit qui a été
+  //                    vu par un humain. La modération cesse d'être un goulot : c'est le badge
+  //                    qui attend, plus la personne.
+  //
+  // Sous « badge », la vérification garde son humain : AUTO_APPROVE reste éteint en production,
+  // les selfies partent toujours au groupe. Ce qui change est ce qu'on peut faire en attendant.
+  // Les deux pages publiques portent les deux versions et n'en servent qu'une (server/index.js).
+  verificationPolicy: process.env.VERIFICATION_POLICY || 'gate',
   // Limitation de débit par compte. Désactivable pour les tests de charge, jamais en production.
   rateLimit: bool(process.env.RATE_LIMIT, true),
   // Au-delà de ce délai sans décision de modération, le selfie est supprimé et la personne
@@ -119,6 +136,11 @@ export const config = {
 // cherche une femme verrait aussi des hommes — donc la personne doit pouvoir le dire, et ce
 // qu'elle dit est une donnée d'orientation, à déclarer comme telle là où c'est déployé.
 export const genreAuChoix = () => config.matchPolicy !== 'romance_opposite';
+
+// Le seul endroit qui tranche entre la porte et le badge. Comme genreAuChoix() : une fonction,
+// pas une comparaison recopiée, pour qu'un test puisse la lire et qu'un lecteur trouve la règle.
+// Vrai : on entre avec un profil, et la vérification donne un badge. Faux : elle est la porte.
+export const entreeLibre = () => config.verificationPolicy === 'badge';
 
 export const runtime = { botUsername: '' };
 

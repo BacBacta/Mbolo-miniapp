@@ -439,4 +439,23 @@ export default {
   'Présentation vocale': 'Voice intro',
   "Validée · {duree} — les autres peuvent l'écouter": 'Approved · {duree} — others can listen to it',
   "Le bot n'est pas joignable pour l'instant.": "The bot can't be reached right now.",
+
+  // Porte ou badge : ce que la vérification décide (VERIFICATION_POLICY).
+  "Un bouclier vérifié par selfie sur les profils": "Profiles carry a selfie-verified shield",
+  "Le bouclier sur ta fiche": "The shield on your profile",
+  "Les autres voient que ton selfie a été vérifié": "Others can see your selfie was verified",
+  "Réservé aux profils vérifiés, des deux côtés": "Verified profiles only, on both sides",
+  "Plus de profils par jour": "More profiles each day",
+  "Ton quota du jour passe au maximum": "Your daily limit goes up to the maximum",
+  "Faire vérifier mon profil": "Get my profile verified",
+  "Un profil vérifié en a davantage.": "A verified profile gets more.",
+  "Profils vérifiés seulement": "Verified profiles only",
+  "Les profils au bouclier passent déjà en premier. Ici, tu ne vois qu'eux.": "Profiles with a shield already come first. Here you only see them.",
+  "Le rendez-vous demande le bouclier": "A date needs the shield",
+  "Fais vérifier ton profil pour proposer un rendez-vous. C'est un selfie avec un geste, regardé par une vraie personne.": "Get your profile verified to suggest a date. It's a selfie with a gesture, checked by a real person.",
+  "{nom} n'a pas encore fait vérifier son profil. Proposer un rendez-vous demande le bouclier des deux côtés.": "{nom} hasn't had their profile verified yet. Suggesting a date needs the shield on both sides.",
+  "Revenir à la discussion": "Back to the chat",
+  "Le bot t'écrit dès que c'est fait": "The bot writes to you as soon as it’s done",
+  "Ta dernière tentative a été refusée. Tu peux recommencer.": "Your last try was turned down. You can start again.",
+  "Le bouclier sur ta fiche, le rendez-vous, et plus de profils par jour": "The shield on your profile, dates, and more profiles each day",
 };

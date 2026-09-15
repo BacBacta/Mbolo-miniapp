@@ -428,4 +428,23 @@ export default {
   'Présentation vocale': 'Apresentação de voz',
   'Validée · {duree} — les autres peuvent l\'écouter': 'Aprovada · {duree} — os outros podem ouvi-la',
   'Le bot n\'est pas joignable pour l\'instant.': 'Não é possível contactar o bot neste momento.',
+
+  // Porte ou badge : ce que la vérification décide (VERIFICATION_POLICY).
+  "Un bouclier vérifié par selfie sur les profils": "Um escudo verificado por selfie nos perfis",
+  "Le bouclier sur ta fiche": "O escudo na tua ficha",
+  "Les autres voient que ton selfie a été vérifié": "Os outros veem que a tua selfie foi verificada",
+  "Réservé aux profils vérifiés, des deux côtés": "Reservado aos perfis verificados, dos dois lados",
+  "Plus de profils par jour": "Mais perfis por dia",
+  "Ton quota du jour passe au maximum": "O teu limite do dia sobe ao máximo",
+  "Faire vérifier mon profil": "Verificar o meu perfil",
+  "Un profil vérifié en a davantage.": "Um perfil verificado tem mais.",
+  "Profils vérifiés seulement": "Apenas perfis verificados",
+  "Les profils au bouclier passent déjà en premier. Ici, tu ne vois qu'eux.": "Os perfis com escudo já aparecem primeiro. Aqui só vês esses.",
+  "Le rendez-vous demande le bouclier": "O encontro exige o escudo",
+  "Fais vérifier ton profil pour proposer un rendez-vous. C'est un selfie avec un geste, regardé par une vraie personne.": "Manda verificar o teu perfil para propor um encontro. É uma selfie com um gesto, vista por uma pessoa real.",
+  "{nom} n'a pas encore fait vérifier son profil. Proposer un rendez-vous demande le bouclier des deux côtés.": "{nom} ainda não mandou verificar o perfil. Propor um encontro exige o escudo dos dois lados.",
+  "Revenir à la discussion": "Voltar à conversa",
+  "Le bot t'écrit dès que c'est fait": "O bot escreve-te assim que estiver feito",
+  "Ta dernière tentative a été refusée. Tu peux recommencer.": "A tua última tentativa foi recusada. Podes recomeçar.",
+  "Le bouclier sur ta fiche, le rendez-vous, et plus de profils par jour": "O escudo na tua ficha, o encontro e mais perfis por dia",
 };

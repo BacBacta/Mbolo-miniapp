@@ -9,6 +9,7 @@ const S = {
   me: null,
   profiles: [],
   remaining: 0,
+  quota: 0,
   // Découvrir : « cards » (une carte à la fois) ou « list » (tous les profils compatibles)
   discoverMode: 'cards',
   people: [],
@@ -248,7 +249,21 @@ function compressImage(file, max = 720, quality = 0.8) {
 // ============================================================
 // Navigation
 // ============================================================
-const PARENT = { profile: () => (S.me?.verification === 'approved' ? 'me' : 'welcome'), verify: () => 'profile', match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
+// ---------- Porte ou badge : ce que la vérification décide ----------
+//
+// Le serveur tranche, l'interface ne garde aucune copie de la règle : `options.entreeLibre` dit
+// laquelle des deux politiques tourne, et tout le reste s'en déduit.
+//
+//   verifie()  : un humain a regardé mon selfie et mon geste. C'est le **badge**.
+//   membre()   : j'ai ma place dans l'app — onglets, découverte, messages. Sous « gate », c'est
+//                le badge qui l'ouvre ; sous « badge », un profil suffit.
+//
+// Sous la politique par défaut les deux disent la même chose, et rien ne bouge.
+const entreeLibre = () => !!S.me?.options?.entreeLibre;
+const verifie = () => S.me?.verification === 'approved';
+const membre = () => !!S.me?.profile && (entreeLibre() || verifie());
+
+const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
 const TABS = [['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']];
 
@@ -282,7 +297,7 @@ function go(screen, params = {}) {
   showTabs(screen);
   window.scrollTo(0, 0);
   SCREENS[screen](params);
-  if (TAB_SCREENS.includes(screen) && S.me?.verification === 'approved') {
+  if (TAB_SCREENS.includes(screen) && membre()) {
     refreshSummary();
     S.summaryTimer = setInterval(refreshSummary, 20000);
   }
@@ -313,7 +328,7 @@ function buildTabs() {
 }
 
 function showTabs(screen) {
-  const on = TAB_SCREENS.includes(screen) && S.me?.verification === 'approved';
+  const on = TAB_SCREENS.includes(screen) && membre();
   document.getElementById('topbar').hidden = !on;
   document.body.classList.toggle('has-tabs', on);
   if (!on) return;
@@ -640,7 +655,12 @@ async function saveFilters(values) {
   const zone = S.zoneDraft
     ? { country: form?.zoneCountry?.value || S.zoneDraft.country, city: S.zoneDraft.city === null ? null : (form?.zoneCity?.value ?? S.zoneDraft.city) }
     : undefined;
-  const v = values || { ageMin: Number(form?.ageMin.value), ageMax: Number(form?.ageMax.value), zone, gender: S.genreDraft ?? (S.me.filters?.gender || '') };
+  const v = values || {
+    ageMin: Number(form?.ageMin.value), ageMax: Number(form?.ageMax.value), zone,
+    gender: S.genreDraft ?? (S.me.filters?.gender || ''),
+    // Le réglage n'existe que sous « badge » : ailleurs on renvoie ce qui est déjà rangé.
+    verifiesSeulement: form?.verifiesSeulement ? form.verifiesSeulement.checked : !!S.me.filters?.verifiesSeulement,
+  };
   const ok = (n) => Number.isInteger(n) && n >= 18 && n <= 99;
   if (!ok(v.ageMin) || !ok(v.ageMax)) return showError(new Error(t('Indique des âges entre 18 et 99 ans.')));
   if (v.ageMin > v.ageMax) return showError(new Error(t("L'âge minimum doit être inférieur ou égal au maximum.")));
@@ -735,7 +755,7 @@ const SCREENS = {
         <h1 class="display accueil-h"><span>${t('Des rencontres vérifiées,')}</span> <em>${t('face à face.')}</em></h1>
       </section>
       <ul class="promesses">
-        ${promesse('shield', t('Profils vérifiés par selfie'), 'promesse-or')}
+        ${promesse('shield', entreeLibre() ? t('Un bouclier vérifié par selfie sur les profils') : t('Profils vérifiés par selfie'), 'promesse-or')}
         ${promesse('ban', t("Demandes d'argent bloquées"))}
         ${promesse('coffee', t('Premier rendez-vous dans un lieu public'))}
         ${promesse('wifi', t('Léger en data'))}
@@ -864,9 +884,21 @@ const SCREENS = {
       }
       if (S.screen !== 'verify') return;
     }
+    // Ce que la vérification donne dépend de la politique du serveur. Sous « gate », elle ouvre
+    // l'app : rien avant elle. Sous « badge », l'app est déjà ouverte et elle donne le bouclier,
+    // le rendez-vous et le quota entier. Annoncer la mauvaise des deux, c'est mentir.
+    const gains = entreeLibre()
+      ? `
+      <div class="list">
+        ${listRow({ iconName: 'shield', tile: 'tile-ok', title: t('Le bouclier sur ta fiche'), sub: t('Les autres voient que ton selfie a été vérifié') })}
+        ${listRow({ iconName: 'coffee', title: t('Proposer un rendez-vous'), sub: t('Réservé aux profils vérifiés, des deux côtés') })}
+        ${listRow({ iconName: 'heart', tile: 'tile-like', title: t('Plus de profils par jour'), sub: t('Ton quota du jour passe au maximum') })}
+      </div>`
+      : '';
     render(`
       ${head}
       <p class="lead">${t("Un selfie avec le geste demandé. Seule l'équipe de vérification le voit, puis il est supprimé.")}</p>
+      ${gains}
       ${S.selfie ? `
         <div class="preview-wrap">
           <img class="preview" src="${S.selfie}" alt="${t('Aperçu du selfie')}">
@@ -887,7 +919,11 @@ const SCREENS = {
       </div>
       <p id="form-error" class="error" role="alert"></p>
     `);
-    tg.setButtons(S.selfie ? { main: { text: t('Envoyer pour vérification'), onClick: sendSelfie } } : null);
+    // « Plus tard » n'existe que sous « badge » : sous « gate », il n'y a nulle part où aller.
+    const plusTard = entreeLibre() ? { secondary: { text: t('Plus tard'), onClick: () => go('discover') } } : {};
+    tg.setButtons(S.selfie
+      ? { main: { text: t('Envoyer pour vérification'), onClick: sendSelfie }, ...plusTard }
+      : (entreeLibre() ? { main: { text: t('Plus tard'), onClick: () => go('discover') } } : null));
   },
 
   pending() {
@@ -917,6 +953,7 @@ const SCREENS = {
         const r = await api('/discover');
         S.profiles = r.profiles;
         S.remaining = r.remaining;
+        S.quota = r.quota;
         S.vivier = r.vivier;
       } catch (e) {
         return renderError(e, () => go('discover'));
@@ -932,8 +969,12 @@ const SCREENS = {
       let titre, texte, bouton;
       if (!S.remaining) {
         titre = t('Ta limite du jour est atteinte');
-        texte = t('Tu peux aimer {n} profils par jour. Le compteur repart à minuit. Passer un profil ne compte pas.', { n: 20 });
-        bouton = { text: t('Voir mes messages'), onClick: () => go('matches') };
+        // Le nombre vient du serveur : il dépend du badge, et le recopier ici le ferait mentir.
+        texte = t('Tu peux aimer {n} profils par jour. Le compteur repart à minuit. Passer un profil ne compte pas.', { n: S.quota || 0 });
+        bouton = verifie() || !entreeLibre()
+          ? { text: t('Voir mes messages'), onClick: () => go('matches') }
+          : { text: t('Faire vérifier mon profil'), onClick: () => go('verify') };
+        if (entreeLibre() && !verifie()) texte += ` ${t('Un profil vérifié en a davantage.')}`;
       } else if (!v.total) {
         titre = t("Personne d'autre dans cette zone pour l'instant");
         // La zone entre parenthèses : « à {zone} » donnait « à États-Unis ». Un article correct
@@ -971,7 +1012,7 @@ const SCREENS = {
   },
 
   filters() {
-    const f = { ageMin: 18, ageMax: 99, gender: '', ...(S.me.filters || {}) };
+    const f = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, ...(S.me.filters || {}) };
     if (S.genreDraft != null) f.gender = S.genreDraft;
     // Qui choisit le genre recherché.
     //
@@ -1019,12 +1060,19 @@ const SCREENS = {
           <label class="field"><span class="label">${t('De')}</span><input name="ageMin" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMin)}"></label>
           <label class="field"><span class="label">${t('À')}</span><input name="ageMax" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.ageMax)}"></label>
         </div>
+        ${entreeLibre() ? `
+        <span class="eyebrow">${t('Vérification')}</span>
+        <label class="list-row">
+          <span class="tile ${f.verifiesSeulement ? 'tile-ok' : ''}">${icon('shield', 20)}</span>
+          <div class="body"><div class="title">${t('Profils vérifiés seulement')}</div><div class="sub">${t('Les profils au bouclier passent déjà en premier. Ici, tu ne vois qu\'eux.')}</div></div>
+          <input type="checkbox" class="switch" name="verifiesSeulement" ${f.verifiesSeulement ? 'checked' : ''}>
+        </label>` : ''}
         <p class="error" id="form-error"></p>
       </form>
       <p class="fine">${icon('users', 14)}<span>${t('Ta zone ne vaut que pour toi : elle décide de qui tu vois, pas de qui te voit.')}</span></p>
       <p class="fine">${icon('info', 14)}<span>${t('Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.')}</span></p>`);
     document.getElementById('filters-form').addEventListener('submit', (e) => { e.preventDefault(); saveFilters(); });
-    tg.setButtons({ main: { text: t('Enregistrer'), onClick: () => saveFilters() }, secondary: { text: t('Tout voir'), onClick: () => saveFilters({ ageMin: 18, ageMax: 99, gender: '', zone: { ...zoneDe(), city: null } }) } });
+    tg.setButtons({ main: { text: t('Enregistrer'), onClick: () => saveFilters() }, secondary: { text: t('Tout voir'), onClick: () => saveFilters({ ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, zone: { ...zoneDe(), city: null } }) } });
   },
 
   person({ id }) {
@@ -1139,6 +1187,25 @@ const SCREENS = {
 
   async date() {
     if (!S.chat) return go('matches');
+    // Le badge des deux côtés. Se retrouver en vrai est le seul moment où l'app envoie quelqu'un
+    // quelque part : c'est là que le selfie regardé par un humain doit avoir eu lieu, pour l'un
+    // comme pour l'autre. Le serveur refuse de toute façon (BADGE_REQUIS) ; l'écran le dit avant,
+    // et propose le geste qui débloque plutôt qu'un formulaire qui finira en erreur.
+    if (!verifie() || !S.chat.other.verified) {
+      const moi = !verifie();
+      render(`
+        <div class="step-head">
+          <p class="eyebrow">${t('Avec {nom}', { nom: esc(S.chat.other.name) })}</p>
+          <h1>${t('Le rendez-vous demande le bouclier')}</h1>
+          <p class="lead">${moi
+            ? t("Fais vérifier ton profil pour proposer un rendez-vous. C'est un selfie avec un geste, regardé par une vraie personne.")
+            : t("{nom} n'a pas encore fait vérifier son profil. Proposer un rendez-vous demande le bouclier des deux côtés.", { nom: esc(S.chat.other.name) })}</p>
+        </div>
+        <div class="notice notice-info">${icon('coffee', 18)}<span>${t("Vous pouvez convenir d'un lieu public dans la discussion, et prévenir chacun une personne de confiance.")}</span></div>`);
+      return tg.setButtons(moi
+        ? { main: { text: t('Faire vérifier mon profil'), onClick: () => go('verify') }, secondary: { text: t('Revenir à la discussion'), onClick: () => go('chat', { id: S.chat.id }) } }
+        : { main: { text: t('Revenir à la discussion'), onClick: () => go('chat', { id: S.chat.id }) } });
+    }
     if (!S.venues.length) {
       try {
         const r = await api(`/venues?match=${encodeURIComponent(S.chat.id)}`);
@@ -1373,6 +1440,14 @@ const SCREENS = {
           <div class="c"><span class="chip ${status[1]}">${S.me.verification === 'approved' ? icon('shield', 13) : ''}${status[0]}</span>${pp ? `<span>${icon('pin', 13)} ${esc(pp.city)}</span>` : ''}</div>
         </div>
       </div>
+      ${pp && !verifie() ? `
+      <div class="list">
+        ${S.me.verification === 'pending'
+          ? listRow({ iconName: 'clock', title: t('Vérification en cours'), sub: t("Le bot t'écrit dès que c'est fait"), action: 'go', extra: ' data-screen="pending"' })
+          : listRow({ iconName: 'shield', tile: 'tile-ok', title: t('Faire vérifier mon profil'),
+            sub: S.me.verification === 'rejected' ? t('Ta dernière tentative a été refusée. Tu peux recommencer.') : t('Le bouclier sur ta fiche, le rendez-vous, et plus de profils par jour'),
+            action: 'go', extra: ' data-screen="verify"' })}
+      </div>` : ''}
       ${pp && completion().pct < 100 ? `
       <div class="group"><span class="eyebrow">${t('Ton profil')}</span>
         <div class="completion">
@@ -1505,7 +1580,7 @@ async function saveProfile() {
     S.me = await api(ME());
     oublierLesPhotos();
     tg.haptic('success');
-    if (S.me.verification === 'approved') {
+    if (verifie()) {
       toast(t('Profil mis à jour'), 'ok');
       go('me');
     } else if (!local?.getItem(JAUGE_VUE)) {
@@ -1542,7 +1617,7 @@ async function refreshStatus() {
   try {
     const me = await api(ME());
     S.me = me;
-    if (me.verification === 'approved') {
+    if (verifie()) {
       tg.haptic('success');
       // Une seule fois, au moment où le compte vient d'être vérifié : c'est là qu'on a une fiche
       // à compléter et l'envie de s'en servir. Retenu dans le navigateur, comme la jauge — aucune
@@ -2125,16 +2200,18 @@ async function boot() {
   tg.onSettings(() => go('me'));
 
   const params = tg.launchParams();
-  const approved = S.me.verification === 'approved';
   if (!S.me.profile) return go('welcome');
+  // Sous « gate », la vérification est le seul chemin : tant qu'elle n'a pas abouti, l'app n'a
+  // qu'un écran à montrer. Sous « badge », elle est une étape parmi d'autres, et l'app s'ouvre
+  // dès qu'il y a un profil — c'est là toute la différence entre les deux politiques.
+  if (!membre()) return go(S.me.verification === 'pending' ? 'pending' : 'verify');
   // Les paramètres de lancement viennent de l'adresse ou de start_param, sans vérification :
   // un écran de vérification sur un compte vérifié bouclait sur une erreur, et un identifiant de
   // discussion libre composait un chemin d'API. On ne prend que ce qui a la bonne forme.
-  if ((params.screen === 'verify' && !approved) || S.me.verification === 'none' || S.me.verification === 'rejected') return go('verify');
-  if (S.me.verification === 'pending') return go('pending');
-  if (approved && params.screen === 'chat' && /^[a-f0-9]{16}$/.test(params.match || '')) return go('chat', { id: params.match });
-  if (approved && params.screen === 'matches') return go('matches');
-  if (approved && params.screen === 'me') return go('me');
+  if (params.screen === 'verify' && !verifie()) return go(S.me.verification === 'pending' ? 'pending' : 'verify');
+  if (params.screen === 'chat' && /^[a-f0-9]{16}$/.test(params.match || '')) return go('chat', { id: params.match });
+  if (params.screen === 'matches') return go('matches');
+  if (params.screen === 'me') return go('me');
   go('discover');
 }
 

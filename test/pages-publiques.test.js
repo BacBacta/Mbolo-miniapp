@@ -217,3 +217,49 @@ test('la page dit la vérité de la politique sous laquelle le serveur tourne', 
     ouvert.kill();
   }
 });
+
+// Même mécanique, pour la vérification. Sous « gate », les conditions promettent qu'on ne voit
+// personne tant qu'un humain n'a pas tranché ; sous « badge », cette phrase est fausse — on entre
+// avec un profil, et le selfie vérifié donne un bouclier. Un document opposable qui garderait la
+// promesse d'origine décrirait un autre produit que celui qui tourne.
+test('les conditions disent la vérité de la politique de vérification', async () => {
+  const lire = async (politique) => {
+    const port = await portLibre();
+    const proc = spawn(process.execPath, ['server/index.js'], {
+      stdio: 'ignore',
+      env: {
+        ...process.env,
+        DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), `rencontres-pages-verif-${politique}-`)),
+        BOT_TOKEN: '123456:TEST_TOKEN', WEBAPP_URL: 'https://exemple.test', APP_NAME,
+        SEED_DEMO: 'false', USE_WEBHOOK: 'false', NODE_ENV: 'development',
+        ADMIN_CHAT_ID: '', DATABASE_URL: '', PORT: String(port), VERIFICATION_POLICY: politique,
+      },
+    });
+    try {
+      let html = '';
+      for (let i = 0; i < 60 && !html; i++) {
+        await new Promise((r) => setTimeout(r, 200));
+        html = await fetch(`http://127.0.0.1:${port}/conditions`).then((r) => r.text()).catch(() => '');
+      }
+      assert.ok(html, `le serveur doit répondre (${politique})`);
+      return html;
+    } finally {
+      proc.kill();
+    }
+  };
+
+  const porte = await lire('gate');
+  assert.match(porte, /tu ne vois personne et personne ne te voit/i, 'la porte, telle qu\'elle est promise par défaut');
+  assert.ok(!/bouclier/i.test(porte), 'et pas un mot du badge, qui n\'existe pas sous cette politique');
+
+  const badge = await lire('badge');
+  assert.ok(!/tu ne vois personne et personne ne te voit/i.test(badge), 'sous « badge », cette promesse serait fausse');
+  assert.match(badge, /sans être vérifié/i, 'la page doit dire ce qu\'on peut faire sans le badge');
+  assert.match(badge, /proposer un rendez-vous/i, 'et ce qu\'il faut le badge pour faire');
+
+  for (const html of [porte, badge]) {
+    assert.ok(!/SI_VERIF/.test(html), 'aucun marqueur ne doit fuir dans la page');
+    assert.ok(!/SI_GENRE/.test(html), 'ni ceux de l\'autre politique');
+    assert.match(html, /18 ans/, 'les promesses qui ne dépendent pas de la politique tiennent toujours');
+  }
+});
