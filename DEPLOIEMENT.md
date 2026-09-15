@@ -91,6 +91,11 @@ Ouvre ton bot, `/start`, puis **Ouvrir Odo**. Crée un profil, envoie un selfie 
 
 Tant que tu n'as pas fait ce test, tu ne sais pas si l'inscription fonctionne.
 
+**Après un déploiement qui touche l'interface, le bot ou la modération**, passe la liste complète :
+[`CONTROLES-TELEPHONE.md`](CONTROLES-TELEPHONE.md). Elle couvre ce que les tests automatiques ne
+peuvent pas voir — la WebView de Telegram, le vrai bot, les notifications, le groupe de
+modération — écran par écran, en quarante minutes la première fois.
+
 ---
 
 ## En ligne de commande

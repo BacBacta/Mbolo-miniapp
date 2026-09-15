@@ -119,6 +119,10 @@ scripts/
   test-pg.js     La suite complète sur PostgreSQL, un schéma par fichier de test
 basculer-postgres.sh  Bascule vers PostgreSQL en deux temps : preparer, basculer, verifier
 DEPLOIEMENT.md  Guide pas à pas de mise en ligne : secrets, contrôles, PostgreSQL, pannes
+CONTROLES-TELEPHONE.md  La recette manuelle, écran par écran : ce que les tests ne voient pas
+                (WebView de Telegram, vrai bot, notifications, groupe de modération). Les cases
+                marquées « revue » viennent d'audit/09-revue-code.md : ce sont les chemins qui
+                étaient cassés, et qui ne doivent pas le redevenir en silence
 audit/
   Dossier d'audit du parcours : benchmark, mesures, constats, risques, plan.
   09-revue-code.md : revue du code du 14 septembre 2026 — cinq constats critiques, quinze
