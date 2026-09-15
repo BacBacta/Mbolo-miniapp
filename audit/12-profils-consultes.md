@@ -78,12 +78,12 @@ seule qui ne se retourne pas contre les membres.
 | `public/app.js` | un écran, une ligne dans l'onglet Profil, l'interrupteur dans les réglages |
 | `server/legal/confidentialite.html` | **obligatoire** : dire que la décision de s'arrêter sur une fiche est montrée, de façon arrondie, aux membres Plus de cette fiche, et comment s'y opposer |
 | `server/store.*.js` | rien — `swipesTo` existe |
+| `test/` | l'opposition rend invisible **et** aveugle ; l'issue ne sort jamais ; l'arrondi ne permet pas la soustraction ; un gratuit reçoit 403 |
 
 **Tout est écrit.** Une seule chose a bougé en route : la fenêtre de trente jours s'éprouve sur
 la fonction pure, pas à travers la route. Le stockage ne sait pas antidater un balayage, et lui
 apprendre à le faire pour la commodité d'un test ouvrirait une porte — une date de balayage
 qu'un appelant choisit est une date qu'un appelant peut mentir.
-| `test/` | l'opposition rend invisible **et** aveugle ; l'issue ne sort jamais ; l'arrondi ne permet pas la soustraction ; un gratuit reçoit 403 |
 
 **Rétention.** Les `swipes` ne sont jamais purgés aujourd'hui (audit 09, exploitation). La
 fonction ne lira que les **30 derniers jours** : au-delà, « s'est arrêté il y a huit mois » ne
