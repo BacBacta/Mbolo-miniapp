@@ -322,7 +322,7 @@ export default {
   'Vérifié': 'Verificado',
   'Zone de recherche': 'Zona de búsqueda',
   'facultatif': 'opcional',
-  'jusqu\'à 3, facultatif': 'hasta 3, opcional',
+  "jusqu'à {n}, facultatif": "hasta {n}, opcional",
   '{app} est réservé aux 18 ans et plus.': '{app} es solo para mayores de 18 años.',
   '{app} ne te demandera jamais d\'argent': '{app} nunca te pedirá dinero',
   '{nom} et toi, vous vous plaisez': 'A {nom} y a ti os gustáis',
@@ -487,4 +487,13 @@ export default {
   "Tu n'apparais pas dans « qui s'est arrêté sur ta fiche », et tu ne la vois pas non plus": "No apareces en «se detuvieron en tu perfil», y tampoco la ves",
   "Tu n'apparais plus dans « qui s'est arrêté sur ta fiche »": "Ya no apareces en «se detuvieron en tu perfil»",
   "Tu apparais de nouveau": "Vuelves a aparecer",
+  // Ce que le pass ouvre
+  "Sans pass, tu vois les profils de ta ville. Un pass ouvre le pays entier.": "Sin pase, ves los perfiles de tu ciudad. El pase abre todo el país.",
+  "La vue Liste": "La vista Lista",
+  "Cinquante profils d'un coup, avec leur statut. Les mêmes personnes que dans tes cartes.": "Cincuenta perfiles de una vez, con su estado. Las mismas personas que en tus tarjetas.",
+  "Sans pass, tu vois les profils de ta ville.": "Sin pase, ves los perfiles de tu ciudad.",
+  "{n} photos": "{n} fotos",
+  "Sans pass, {n}.": "Sin pase, {n}.",
+  "Une présentation vocale de {n} secondes": "Una presentación de voz de {n} segundos",
+  "Sans pass, {n} secondes.": "Sin pase, {n} segundos.",
 };

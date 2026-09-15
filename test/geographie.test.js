@@ -42,7 +42,10 @@ async function creer(id, name, gender, country, city, extra = {}) {
   await store.updateUser(id, { verification: 'approved' });
   return r.body.profile;
 }
-const vus = async (id) => (await call(id, '/discover')).body.profiles.map((p) => p.name);
+// Chercher au-delà de sa ville demande un pass depuis le 15 septembre 2026. Ces tests portent sur
+// la géographie — quel pays, quelle ville, quelle clé de comparaison — pas sur le pass : on le
+// donne, sinon ils éprouveraient la porte au lieu de la carte.
+const vus = async (id) => { await passer(id); return (await call(id, '/discover')).body.profiles.map((p) => p.name); };
 
 // Un pass offert : la liste des « J'aime » reçus est ce qu'il ouvre.
 const passer = async (id) => store.updateUser(id, { plus: { source: 'gift', depuisLe: Date.now(), finLe: Date.now() + 30 * 24 * 3600 * 1000 } });

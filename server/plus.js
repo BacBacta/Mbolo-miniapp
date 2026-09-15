@@ -15,6 +15,26 @@
 // de moyen de paiement gardée pour la suite. Un pass a une fin franche, et il faut un geste pour
 // en reprendre un (section 10.2). C'est plus cher en réachat, et c'est le prix de la promesse.
 
+// ---------- Ce que le pass ouvre, chiffre par chiffre ----------
+//
+// Une table plutôt que des constantes éparpillées, pour la même raison que `CRITERES` dans
+// `jauge.js` : la carte, l'interface et le serveur lisent tous la même ligne, et deux endroits qui
+// décrivent la même chose finissent toujours par diverger. L'interface ne recopie aucun de ces
+// nombres — `GET /api/me` les lui envoie.
+//
+// Ce qui n'est **pas** ici, et n'y sera pas : les limites de débit (des digues anti-abus), le
+// déverrouillage des contacts avant dix messages (une barrière anti-arnaque), et l'activité
+// précise d'un autre membre (elle est arrondie exprès). Vendre l'un de ces trois-là reviendrait à
+// vendre la capacité de nuire, ou la vie privée de quelqu'un d'autre.
+export const PALIERS = {
+  photos: { sans: 2, avec: 6 },
+  voixSecondes: { sans: 15, avec: 30 },
+};
+
+// Le palier qui s'applique à cette personne. `estPlus()` reste le seul endroit qui tranche : cette
+// fonction ne fait que lire la table à la lumière de sa réponse.
+export const palier = (nom, user, maintenant = Date.now()) => PALIERS[nom][estPlus(user, maintenant) ? 'avec' : 'sans'];
+
 // Les sources possibles, reprises telles quelles de la table `entitlements` (section 10.4), pour
 // que la migration soit une recopie et pas une traduction.
 export const SOURCES = ['momo', 'stars', 'sponsor', 'gift'];

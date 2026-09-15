@@ -327,7 +327,7 @@ export default {
   'Vérifié': 'Verified',
   'Zone de recherche': 'Search area',
   'facultatif': 'optional',
-  'jusqu\'à 3, facultatif': 'up to 3, optional',
+  "jusqu'à {n}, facultatif": "up to {n}, optional",
   '{app} est réservé aux 18 ans et plus.': '{app} is for ages 18 and over.',
   '{app} ne te demandera jamais d\'argent': '{app} will never ask you for money',
   '{nom} et toi, vous vous plaisez': '{nom} and you like each other',
@@ -498,4 +498,13 @@ export default {
   "Tu n'apparais pas dans « qui s'est arrêté sur ta fiche », et tu ne la vois pas non plus": "You do not appear in “stopped on your profile”, and you do not see it either",
   "Tu n'apparais plus dans « qui s'est arrêté sur ta fiche »": "You no longer appear in “stopped on your profile”",
   "Tu apparais de nouveau": "You appear again",
+  // Ce que le pass ouvre
+  "Sans pass, tu vois les profils de ta ville. Un pass ouvre le pays entier.": "Without the pass, you see profiles from your city. The pass opens the whole country.",
+  "La vue Liste": "The List view",
+  "Cinquante profils d'un coup, avec leur statut. Les mêmes personnes que dans tes cartes.": "Fifty profiles at once, with their status. The same people as in your cards.",
+  "Sans pass, tu vois les profils de ta ville.": "Without the pass, you see profiles from your city.",
+  "{n} photos": "{n} photos",
+  "Sans pass, {n}.": "Without the pass, {n}.",
+  "Une présentation vocale de {n} secondes": "A {n}-second voice intro",
+  "Sans pass, {n} secondes.": "Without the pass, {n} seconds.",
 };

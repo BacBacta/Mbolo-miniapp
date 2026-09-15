@@ -169,9 +169,9 @@ test("sans pass, les quatre portes de « qui t'a aimé » sont fermées", async 
   assert.ok(carte, 'la carte est bien là : le pass ne retire aucune rencontre');
   assert.equal(carte.likedYou, false);
 
-  // 3. La pastille dans la liste des profils.
-  const profils = await call('9140', '/profiles');
-  assert.equal(profils.body.profiles.find((p) => p.name === 'Fabrice').likedYou, false);
+  // 3. La pastille dans la liste des profils — laquelle demande elle-même un pass désormais,
+  // donc la porte se referme deux fois sur le même chemin.
+  assert.equal((await call('9140', '/profiles')).status, 403, 'la vue Liste est elle-même fermée');
 
   // 4. Le compteur. `null`, pas `0` : zéro dirait « personne ne t'a aimé », et ce serait faux.
   const resume = await call('9140', '/summary');
@@ -181,7 +181,9 @@ test("sans pass, les quatre portes de « qui t'a aimé » sont fermées", async 
   await donnerLePass('9140');
   assert.deepEqual((await call('9140', '/likes')).body.profiles.map((p) => p.name), ['Fabrice']);
   assert.equal((await call('9140', '/discover')).body.profiles.find((p) => p.name === 'Fabrice').likedYou, true);
-  assert.equal((await call('9140', '/profiles')).body.profiles.find((p) => p.name === 'Fabrice').likedYou, true);
+  const avecListe = await call('9140', '/profiles');
+  assert.equal(avecListe.status, 200);
+  assert.equal(avecListe.body.profiles.find((p) => p.name === 'Fabrice').likedYou, true);
   assert.equal((await call('9140', '/summary')).body.likes, 1);
 });
 
@@ -234,4 +236,54 @@ test('buter sur le quota dit désormais quel mur on a rencontré', async () => {
   assert.ok(mur, 'la butée est enregistrée');
   assert.equal(mur.p.q, config.dailyProfiles, 'avec le palier touché, pas seulement le fait de buter');
   assert.equal(mur.p.action, 'like');
+});
+
+// ---------- Les quatre lignes du §3 posées le 15 septembre 2026 ----------
+
+// Une tranche d'âge à part isole ces deux-là : le stockage porte déjà des dizaines de comptes
+// des tests précédents, et le paquet n'en rend que dix. Sans cet isolement, le test dirait
+// « absent » là où la vraie réponse est « onzième ».
+test('la vue Liste est ce que le pass ouvre, et elle ne retire aucune rencontre', async () => {
+  await membre('9240', 'Lina', 'femme', 41);
+  await membre('9241', 'Idriss', 'homme', 41);
+  await call('9240', '/me/filters', 'PUT', { ageMin: 41, ageMax: 41 });
+
+  const ferme = await call('9240', '/profiles');
+  assert.equal(ferme.status, 403);
+  assert.equal(ferme.body.code, 'PASS_REQUIS');
+  // Ce qui compte : la personne est **quand même** dans le paquet de cartes. Le pass donne une
+  // vue d'ensemble, il ne donne accès à personne de plus.
+  assert.ok((await call('9240', '/discover')).body.profiles.some((p) => p.name === 'Idriss'),
+    'les mêmes gens sont là, dix à la fois');
+
+  await donnerLePass('9240');
+  assert.ok((await call('9240', '/profiles')).body.profiles.some((p) => p.name === 'Idriss'));
+});
+
+// La ligne qui **retire** au gratuit, et la seule du lot : sans pass, on cherche dans sa ville.
+// Le réglage de la personne n'est pas effacé pour autant — il dort, et reprend avec le pass.
+test('sans pass, la zone est sa ville ; le réglage dort au lieu de disparaître', async () => {
+  await membre('9250', 'Nadia', 'femme', 42);
+  await membre('9251', 'Omar', 'homme', 42);
+  // Omar vit dans une autre ville : c'est tout l'objet du test.
+  await call('9251', '/me/profile', 'PUT', { name: 'Omar', age: 42, gender: 'homme', intent: 'amitie', city: 'Yaoundé', promptA: 'Le poisson braisé' });
+
+  const elargir = await call('9250', '/me/filters', 'PUT', { ageMin: 42, ageMax: 42, zone: { country: 'CM', city: null } });
+  assert.equal(elargir.status, 200, 'le réglage est accepté et rangé : on ne punit personne pour une règle changée sous lui');
+  assert.deepEqual((await call('9250', '/me')).body.filters.zone, { country: 'CM', city: null }, 'et il se relit tel quel');
+  assert.ok(!(await call('9250', '/discover')).body.profiles.some((p) => p.name === 'Omar'),
+    "mais il ne s'applique pas : sans pass, c'est sa ville");
+
+  await donnerLePass('9250');
+  assert.ok((await call('9250', '/discover')).body.profiles.some((p) => p.name === 'Omar'),
+    'le pass réveille le réglage déjà posé, sans rien redemander');
+});
+
+test('les paliers voyagent jusqu\'à l\'interface, qui ne les recopie pas', async () => {
+  await membre('9260', 'Pia', 'femme', 22);
+  const sans = (await call('9260', '/me')).body.limites;
+  assert.deepEqual(sans, { photos: 2, voixSecondes: 15, liste: false, paysEntier: false, avecPass: { photos: 6, voixSecondes: 30 } });
+  await donnerLePass('9260');
+  const avec = (await call('9260', '/me')).body.limites;
+  assert.deepEqual(avec, { photos: 6, voixSecondes: 30, liste: true, paysEntier: true, avecPass: { photos: 6, voixSecondes: 30 } });
 });

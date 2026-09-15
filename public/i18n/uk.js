@@ -322,7 +322,7 @@ export default {
   "Vérifié": "Перевірений",
   "Zone de recherche": "Зона пошуку",
   "facultatif": "необов'язково",
-  "jusqu'à 3, facultatif": "до 3, необов'язково",
+  "jusqu'à {n}, facultatif": "до {n}, необов'язково",
   "{app} est réservé aux 18 ans et plus.": "{app} — лише для тих, кому виповнилося 18.",
   "{app} ne te demandera jamais d'argent": "{app} ніколи не проситиме в тебе грошей",
   "{nom} et toi, vous vous plaisez": "{nom} і ти — ви сподобалися одне одному",
@@ -487,4 +487,13 @@ export default {
   "Tu n'apparais pas dans « qui s'est arrêté sur ta fiche », et tu ne la vois pas non plus": "Тебе немає в «затрималися на твоїй анкеті», і ти цей список теж не бачиш",
   "Tu n'apparais plus dans « qui s'est arrêté sur ta fiche »": "Тебе більше немає в «затрималися на твоїй анкеті»",
   "Tu apparais de nouveau": "Ти знову видимий",
+  // Ce que le pass ouvre
+  "Sans pass, tu vois les profils de ta ville. Un pass ouvre le pays entier.": "Без пропуску ти бачиш анкети свого міста. Пропуск відкриває всю країну.",
+  "La vue Liste": "Вигляд «Список»",
+  "Cinquante profils d'un coup, avec leur statut. Les mêmes personnes que dans tes cartes.": "П'ятдесят анкет одразу, з їхнім статусом. Ті самі люди, що й у картках.",
+  "Sans pass, tu vois les profils de ta ville.": "Без пропуску ти бачиш анкети свого міста.",
+  "{n} photos": "{n} фото",
+  "Sans pass, {n}.": "Без пропуску — {n}.",
+  "Une présentation vocale de {n} secondes": "Голосова візитівка на {n} секунд",
+  "Sans pass, {n} secondes.": "Без пропуску — {n} секунд.",
 };

@@ -208,7 +208,7 @@ un ordre de grandeur public, à confirmer au même moment.
 **Ce qui coûte.**
 - Hébergement : une machine de 256 Mo et une base sur Fly — de l'ordre de 6 000 FCFA par mois
   (*ordre de grandeur, à lire sur la facture*). Fixe.
-- Modération : selfie, jusqu'à trois photos, une présentation vocale — **par nouveau membre**,
+- Modération : selfie, jusqu'à six photos (deux sans pass), une présentation vocale — **par nouveau membre**,
   du temps humain. Personne ne l'a chronométré ; l'hypothèse de départ est de trois minutes
   par membre. Variable, et **croît avec les inscriptions, pas avec les payeurs**.
 - Intermédiaires : ~35 % sur les Stars, ~3 % sur le mobile money.
@@ -287,9 +287,8 @@ permet de **mesurer** si Odo Plus vaut quelque chose avant de lui donner un prix
 
 ## 8. Ce qui est construit, au 15 septembre 2026
 
-Le socle et les deux premières fonctions. Le reste du tableau du §3 (zone élargie, photos,
-questions, voix de 30 secondes, filtre par langue, ordre du paquet) **n'est pas écrit**, et
-l'écran du pass ne l'annonce donc pas : la leçon de « Sortie en duo » tient en une ligne — une
+Le socle et sept des dix lignes du §3. Les trois qui restent (trois questions, filtre par
+langue, ordre du paquet) **ne sont pas écrites**, et l'écran du pass ne les annonce donc pas : la leçon de « Sortie en duo » tient en une ligne — une
 promesse affichée que rien n'honore est pire qu'une fonction absente, parce que la personne l'a
 crue.
 
@@ -301,6 +300,8 @@ crue.
 | Quota : 2 sans badge, 5 gratuit, sans limite avec le pass | oui | `config.dailyProfiles`, `quotaDe()` |
 | Qui t'a aimé, les quatre portes | oui | `voitSesLikes()`, `requirePlus` |
 | Se sont arrêtés sur ta fiche | oui | `server/vues.js`, `audit/12-profils-consultes.md` |
+| Vue Liste, tout le pays, 6 photos, 30 s de voix | oui | `PALIERS` dans `server/plus.js`, `zoneCherchee()`, `test/plus.test.js` |
+| Trois questions, filtre par langue, ordre du paquet | **non** | à venir |
 | La caisse (mobile money, Stars) | **non** | P0-6, `CLAUDE.md` §10 |
 
 **Pas de caisse, et c'est volontaire.** Avant de faire payer, il faut savoir si ce qu'il y a

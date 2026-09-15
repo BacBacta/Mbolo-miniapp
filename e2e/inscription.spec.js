@@ -211,9 +211,12 @@ test('les photos du profil ne demandent pas la caméra', async ({ page }) => {
   await actionPrincipale(page).click();
   await expect(titre(page)).toHaveText(/Ta touche personnelle/);
 
+  // Deux emplacements sans pass — le nombre vient du serveur (`me.limites.photos`), et l'écran
+  // ne doit pas en dessiner un de plus : un troisième cadre qu'on ne peut pas remplir est une
+  // promesse affichée que rien n'honore.
   const photos = page.locator('input[type=file][name^=photo-]');
-  await expect(photos).toHaveCount(3);
-  for (let i = 0; i < 3; i += 1) {
+  await expect(photos).toHaveCount(2);
+  for (let i = 0; i < 2; i += 1) {
     await expect(photos.nth(i)).not.toHaveAttribute('capture', /.*/);
   }
 });

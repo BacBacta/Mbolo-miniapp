@@ -41,16 +41,47 @@ async function makeUser(id, name, gender) {
 }
 const JPEG = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==';
 const file = (id, n) => path.join(DATA_DIR, 'uploads', `${id}-photo-${n}.jpg`);
-const photosSeenBy = async (viewer, id) => { const p = await pid(id); return (await call(viewer, '/profiles')).body.profiles.find((x) => x.id === p)?.photos; };
+const photosSeenBy = async (viewer, id) => { await passer(viewer); const p = await pid(id); return (await call(viewer, '/profiles')).body.profiles.find((x) => x.id === p)?.photos; };
+
+// La vue Liste et le pays entier demandent un pass. Ces tests portent sur autre chose : on leur
+// en donne un plutôt que de réécrire ce qu'ils éprouvent.
+const passer = (id) => store.updateUser(id, { plus: { source: 'gift', depuisLe: Date.now(), finLe: Date.now() + 30 * 24 * 3600 * 1000 } });
 
 test.after(() => server.close());
 
-test('un emplacement hors de 1..3 ou une image invalide sont refusés', async () => {
+// Deux refus qu'il ne faut pas confondre, depuis que le pass ouvre six emplacements : un
+// emplacement qui **n'existe pas** (400, et il n'existera jamais) et un emplacement qui existe
+// mais que **cette personne** n'a pas (403, et un pass l'ouvre). Les mélanger ferait dire à
+// l'app « ça n'existe pas » là où la vraie réponse est « pas encore pour toi ».
+test("un emplacement inexistant est refusé, un emplacement fermé l'est autrement", async () => {
   await makeUser('7501', 'Aline', 'femme');
-  assert.equal((await call('7501', '/me/photos/0', 'PUT', { photo: JPEG })).status, 400);
-  assert.equal((await call('7501', '/me/photos/4', 'PUT', { photo: JPEG })).status, 400);
+  assert.equal((await call('7501', '/me/photos/0', 'PUT', { photo: JPEG })).status, 400, "l'emplacement 0 n'existe pas");
+  assert.equal((await call('7501', '/me/photos/7', 'PUT', { photo: JPEG })).status, 400, "ni le 7");
+
+  const ferme = await call('7501', '/me/photos/3', 'PUT', { photo: JPEG });
+  assert.equal(ferme.status, 403, "le 3 existe, mais il demande un pass");
+  assert.equal(ferme.body.code, 'PASS_REQUIS');
+  await passer('7501');
+  assert.equal((await call('7501', '/me/photos/6', 'PUT', { photo: JPEG })).status, 200, 'et le pass va jusqu\'au sixième');
+  await call('7501', '/me/photos/6', 'DELETE');
+
   assert.equal((await call('7501', '/me/photos/1', 'PUT', { photo: 'data:text/plain;base64,QUJD' })).status, 400);
   assert.equal((await call('7501', '/me/photos/1', 'PUT', {})).status, 400);
+});
+
+// Le palier s'applique à l'envoi, jamais à l'affichage : des comptes portent trois photos d'un
+// temps où trois était la limite pour tout le monde. Les cacher aujourd'hui retirerait à
+// quelqu'un ce qu'il avait, parce que la règle a changé sous lui.
+test('une photo au-delà du palier reste visible, et reste supprimable', async () => {
+  await makeUser('7510', 'Zoe', 'femme');
+  await passer('7510');
+  assert.equal((await call('7510', '/me/photos/3', 'PUT', { photo: JPEG })).status, 200);
+  await store.updateUser('7510', { plus: null });
+
+  const mien = (await call('7510', '/me')).body.photos.map((x) => x.n);
+  assert.ok(mien.includes(3), "la troisième photo ne disparaît pas quand le pass s'arrête");
+  assert.equal((await call('7510', '/me/photos/3', 'PUT', { photo: JPEG })).status, 403, 'on ne peut plus la remplacer');
+  assert.equal((await call('7510', '/me/photos/3', 'DELETE')).status, 200, "mais on peut toujours s'en débarrasser");
 });
 
 test('une photo ajoutée attend la modération : visible pour soi, pas pour les autres', async () => {
@@ -96,6 +127,7 @@ test('retirer sa photo, être bloqué, supprimer son compte', async () => {
   assert.deepEqual(r.body.photos, []);
   assert.ok(!fs.existsSync(file('7501', 1)));
   const p7501b = await pid('7501');
+  await passer('7502');
   assert.equal((await call('7502', '/profiles')).body.profiles.find((p) => p.id === p7501b).hasPhoto, false);
 
   await call('7501', '/me/photos/1', 'PUT', { photo: JPEG });

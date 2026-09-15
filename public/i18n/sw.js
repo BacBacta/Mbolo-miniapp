@@ -322,7 +322,7 @@ export default {
   'Vérifié': 'Imethibitishwa',
   'Zone de recherche': 'Eneo la utafutaji',
   'facultatif': 'hiari',
-  'jusqu\'à 3, facultatif': 'hadi 3, hiari',
+  "jusqu'à {n}, facultatif": "hadi {n}, hiari",
   '{app} est réservé aux 18 ans et plus.': '{app} ni kwa wenye miaka 18 na zaidi tu.',
   '{app} ne te demandera jamais d\'argent': '{app} haitakuomba pesa kamwe',
   '{nom} et toi, vous vous plaisez': 'Wewe na {nom} mnapendana',
@@ -487,4 +487,13 @@ export default {
   "Tu n'apparais pas dans « qui s'est arrêté sur ta fiche », et tu ne la vois pas non plus": "Hutokei katika “walisimama kwenye wasifu wako”, na huioni pia",
   "Tu n'apparais plus dans « qui s'est arrêté sur ta fiche »": "Hutokei tena katika “walisimama kwenye wasifu wako”",
   "Tu apparais de nouveau": "Unatokea tena",
+  // Ce que le pass ouvre
+  "Sans pass, tu vois les profils de ta ville. Un pass ouvre le pays entier.": "Bila pasi, unaona wasifu wa jiji lako. Pasi inafungua nchi nzima.",
+  "La vue Liste": "Mwonekano wa Orodha",
+  "Cinquante profils d'un coup, avec leur statut. Les mêmes personnes que dans tes cartes.": "Wasifu hamsini kwa mara moja, pamoja na hali yao. Watu wale wale walio kwenye kadi zako.",
+  "Sans pass, tu vois les profils de ta ville.": "Bila pasi, unaona wasifu wa jiji lako.",
+  "{n} photos": "Picha {n}",
+  "Sans pass, {n}.": "Bila pasi, {n}.",
+  "Une présentation vocale de {n} secondes": "Utangulizi wa sauti wa sekunde {n}",
+  "Sans pass, {n} secondes.": "Bila pasi, sekunde {n}.",
 };

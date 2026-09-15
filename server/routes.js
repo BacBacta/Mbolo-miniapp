@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { config, runtime, genreAuChoix, entreeLibre, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT } from './config.js';
-import { estPlus, etatDuPass } from './plus.js';
+import { estPlus, etatDuPass, palier, PALIERS } from './plus.js';
 import { arrondir, dansLaFenetre, discret, MAX_FICHES } from './vues.js';
 import { codeValide } from './lieux.js';
 import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
@@ -252,6 +252,17 @@ api.get('/me', async (req, res) => {
     quota: auClient(quotaDe(u)),
     // L'opposition à « qui s'est arrêté sur ta fiche ». Gratuite, donc lue par tout le monde.
     discretion: discret(u),
+    // Les paliers qui s'appliquent à cette personne, et ceux qu'un pass ouvrirait. L'interface ne
+    // recopie aucun de ces nombres : elle les affiche. Deux endroits qui portent le même chiffre
+    // finissent par diverger, et c'est l'interface qui se met à mentir.
+    limites: {
+      photos: palier('photos', u),
+      voixSecondes: palier('voixSecondes', u),
+      // La vue Liste et le pays entier : deux droits, pas deux nombres.
+      liste: estPlus(u),
+      paysEntier: estPlus(u),
+      avecPass: { photos: PALIERS.photos.avec, voixSecondes: PALIERS.voixSecondes.avec },
+    },
     options: {
       intents: INTENTS, genders: GENDERS, compat: COMPAT, criteres: CRITERES, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
       // Qui choisit le genre recherché en « Relation sérieuse » : la politique du serveur, ou la
@@ -441,7 +452,13 @@ api.delete('/me', async (req, res) => {
 });
 
 // ---------- Photos : jusqu'à trois, chacune modérée avant d'être montrée ----------
-const PHOTO_SLOTS = [1, 2, 3];
+// Six emplacements existent ; **deux sont ouverts sans pass** (`palier('photos', …)`).
+//
+// La borne s'applique à l'**envoi**, pas à l'affichage. Des comptes portent déjà trois photos,
+// d'un temps où trois était la limite pour tout le monde : les cacher aujourd'hui reviendrait à
+// retirer à quelqu'un ce qu'il avait, parce que la règle a changé sous lui. Elles restent
+// visibles, et restent supprimables ; c'est le prochain envoi au-delà du palier qui est refusé.
+const PHOTO_SLOTS = [1, 2, 3, 4, 5, 6];
 // Renvoie `{ photos }` quand tout s'est bien passé, sinon `{ code, message }` prêt pour fail().
 // La liste vient du stockage et non de req.user : cette copie de la personne date du début de la
 // requête, et l'enregistrement qu'on vient de faire ne s'y trouve pas.
@@ -469,16 +486,23 @@ const slotOf = (req) => (PHOTO_SLOTS.includes(Number(req.params.n)) ? Number(req
 
 api.put('/me/photos/:n', limiter('photo'), async (req, res) => {
   const n = slotOf(req);
-  if (!n) return fail(res, 400, 'PHOTO_SLOT', 'Trois photos au plus.');
+  if (!n) return fail(res, 400, 'PHOTO_SLOT', `${PHOTO_SLOTS.length} photos au plus.`);
   if (!req.user.profile) return fail(res, 400, 'PROFILE_REQUIRED', 'Crée ton profil avant d\'ajouter des photos.');
+  const combien = palier('photos', req.user);
+  if (n > combien) {
+    mesurer('pass_refuse', req.user.id, { quoi: 'photos' });
+    return fail(res, 403, 'PASS_REQUIS', `Tu peux mettre ${combien} photos. Un pass en ouvre ${PALIERS.photos.avec}.`);
+  }
   const r = await acceptPhoto(req.user, n, req.body?.photo);
   if (r.code) return fail(res, r.code === 'PHOTO_INVALID' ? 400 : 503, r.code, r.message);
   res.json({ photos: r.photos });
 });
 
+// Supprimer n'est jamais refusé, même au-delà du palier : c'est par là qu'on se débarrasse d'une
+// photo qu'on ne pourrait plus renvoyer.
 api.delete('/me/photos/:n', async (req, res) => {
   const n = slotOf(req);
-  if (!n) return fail(res, 400, 'PHOTO_SLOT', 'Trois photos au plus.');
+  if (!n) return fail(res, 400, 'PHOTO_SLOT', `${PHOTO_SLOTS.length} photos au plus.`);
   res.json({ photos: await store.removePhoto(req.user.id, n) });
 });
 
@@ -519,9 +543,19 @@ const dansLeGenre = (me, other) => { const g = genreRecherche(me); return !g || 
 // Le vœu de ne voir que des profils vérifiés. Il s'applique comme le genre : à mon seul paquet.
 const selonLeBadge = (me, other) => !filtersOf(me).verifiesSeulement || verifie(other);
 
+// La zone réellement cherchée. **Sans pass, c'est sa ville** ; le pays entier est ce que le pass
+// ouvre. Le réglage de la personne n'est pas effacé pour autant — il est seulement sans effet tant
+// qu'elle n'a pas de pass, et il reprend le jour où elle en a un. Effacer aurait demandé de le
+// refaire, et aurait puni quelqu'un pour un changement de règle qu'il n'a pas décidé.
+//
+// C'est la ligne qui **retire** le plus au gratuit, et la seule du lot. À surveiller en premier
+// dans les chiffres : sur un vivier de quelques dizaines de comptes, une ville peut être vide, et
+// un paquet vide ne convertit personne — il fait partir.
+const zoneCherchee = (me) => (estPlus(me) ? (filtersOf(me).zone || zoneParDefaut(me)) : zoneParDefaut(me));
+
 // La zone de la personne qui cherche s'applique à son seul paquet.
 function dansLaZone(me, other) {
-  const zone = filtersOf(me).zone || zoneParDefaut(me);
+  const zone = zoneCherchee(me);
   const b = other.profile;
   if ((b.country || config.defaultCountry) !== zone.country) return false;
   if (!zone.city) return true;
@@ -706,7 +740,10 @@ api.get('/discover', requireMembre, async (req, res) => {
 // Parcourir ne consomme rien ; seul un « J'aime » compte dans le quota du jour (route /swipes).
 const ACTIVITY_RANK = { recent: 3, today: 2, week: 1 };
 const listRank = (p) => (p.status === 'match' ? 0 : p.status ? 1 : p.likedYou ? 3 : 2);
-api.get('/profiles', requireMembre, async (req, res) => {
+// La vue d'ensemble est ce que le pass ouvre de plus large, et **elle ne retire aucune rencontre**
+// à qui ne l'a pas : les mêmes personnes sont dans le paquet de cartes, dix à la fois. C'est un
+// outil de puissance — cinquante profils d'un coup, avec leur statut, sans consommer un « J'aime ».
+api.get('/profiles', requireMembre, requirePlus('liste'), async (req, res) => {
   const me = req.user;
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
   // Le rang et l'activité se calculent sur la personne brute et ses relations : le tri n'a pas

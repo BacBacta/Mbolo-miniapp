@@ -6,9 +6,9 @@ import { t, langueDe, LANGUES } from './i18n.js';
 import { store } from './store.js';
 import { mesurer } from './mesure.js';
 import { PREFIXE, porteurDuCode, accepter, refuser, retirer, membresQuiMOntChoisi } from './confiance.js';
-import { refusDuree, fichierVoix, DUREE_MAX_S } from './voix.js';
+import { refusDuree, fichierVoix } from './voix.js';
 import { consommer } from './limites.js';
-import { estPlus, prolonger, DUREES } from './plus.js';
+import { estPlus, prolonger, palier, DUREES } from './plus.js';
 
 export const bot = config.botToken ? new Bot(config.botToken) : null;
 
@@ -306,9 +306,12 @@ export async function decideVoice(userId, approved) {
 async function expliquerLaVoix(ctx, lang) {
   const user = await store.getUser(ctx.from?.id);
   if (!user?.profile) return ctx.reply(t(lang, "Crée d'abord ton profil dans l'app, puis reviens enregistrer ta présentation."));
+  // La durée annoncée est **celle de cette personne**, pas la borne du produit : quelqu'un avec un
+  // pass à qui l'on dirait « quinze secondes » enregistrerait court pour rien, et l'inverse ferait
+  // refuser ce qu'on vient de lui promettre.
   return ctx.reply(t(lang,
     "Appuie sur le micro, en bas de cette discussion, et parle.\n\n{max} secondes au plus. Dis qui tu es et ce que tu cherches. Ne donne ni numéro, ni pseudo, ni rendez-vous : la modération l'écoute avant les autres, et la refuserait.\n\nPour la retirer plus tard : /sansvoix.",
-    { max: DUREE_MAX_S }));
+    { max: palier('voixSecondes', user) }));
 }
 
 export async function decideVerification(userId, approved) {
@@ -429,7 +432,7 @@ export async function setupBot() {
     if (!user?.profile) return ctx.reply(t(lang, "Crée d'abord ton profil dans l'app, puis reviens enregistrer ta présentation."));
     if (user.banned) return ctx.reply(t(lang, "Ton compte a été fermé par l'équipe de {app}. Si tu penses que c'est une erreur, écris /aide.", { app: config.appName }));
 
-    const refus = refusDuree(ctx.message.voice?.duration);
+    const refus = refusDuree(ctx.message.voice?.duration, palier('voixSecondes', user));
     if (refus) return ctx.reply(t(lang, refus.cle, refus.vars));
 
     const attente = await consommer(user.id, 'voix');
@@ -558,7 +561,9 @@ export async function setupBot() {
     notify(u.id, 'Ton pass {app} Plus a été retiré.', { app: config.appName }, { label: 'Voir mon profil', params: { screen: 'me' } });
   });
 
-  bot.callbackQuery(/^photo:(approve|reject):(\d+):([123])$/, async (ctx) => {
+  // Six emplacements depuis que le pass en ouvre six : un bouton posé sur la photo 4 et refusé
+  // ici aurait laissé une photo en attente que personne ne pouvait trancher.
+  bot.callbackQuery(/^photo:(approve|reject):(\d+):([1-6])$/, async (ctx) => {
     if (await decisionRefusee(ctx)) return;
     const [, action, userId, n] = ctx.match;
     await decidePhoto(userId, Number(n), action === 'approve');
