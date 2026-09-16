@@ -167,3 +167,50 @@ test('envoyer un message ne fait pas perdre le focus au champ, donc le clavier n
   expect(mouvements, `le focus ne doit pas bouger : ${mouvements.join(', ')}`).toEqual([]);
   expect(await page.evaluate(() => document.activeElement?.name)).toBe('message');
 });
+
+// La bulle doit apparaître **avant** la réponse du serveur. C'est le geste le plus fréquent de
+// l'app, et il était le plus lent : un aller-retour vers Amsterdam, soit une à deux secondes de
+// rien du tout sur un réseau ordinaire. Aucun test unitaire ne peut voir ça — il faut un vrai
+// navigateur, une vraie réponse retenue, et regarder l'écran pendant qu'elle est retenue.
+test("la bulle apparaît avant la réponse du serveur, et se confirme ensuite", async ({ page }) => {
+  await membreVerifie(page, 'Nina');
+  await aimerUnProfil(page);
+  await ouvrirLaDiscussion(page);
+
+  // On retient la réponse du serveur : c'est exactement ce que fait un réseau lent.
+  let relacher;
+  const retenue = new Promise((r) => { relacher = r; });
+  await page.route('**/api/matches/*/messages', async (route) => { await retenue; await route.continue(); });
+
+  await champMessage(page).fill('Bonjour, tu connais le quartier ?');
+  await boutonEnvoyer(page).click();
+
+  // Pendant que le serveur ne répond pas : la bulle est là, marquée en cours, et le champ est
+  // déjà vide — on peut enchaîner sans attendre.
+  const bulle = page.locator('.bubble.mine', { hasText: 'tu connais le quartier' });
+  await expect(bulle).toBeVisible({ timeout: 3000 });
+  await expect(bulle).toHaveClass(/encours/);
+  await expect(champMessage(page)).toHaveValue('');
+
+  relacher();
+  // Confirmée : la marque disparaît et l'heure remplace l'horloge.
+  await expect(bulle).not.toHaveClass(/encours/, { timeout: 15_000 });
+  await expect(bulle.locator('.time')).toHaveText(/\d/);
+});
+
+// Un message refusé ne doit jamais avoir eu l'air d'être parti — sur une app anti-arnaque, c'est
+// le mensonge à ne pas faire. Et le texte doit revenir dans le champ : le perdre ferait retaper.
+test("un message bloqué retire sa bulle et rend le texte au champ", async ({ page }) => {
+  await membreVerifie(page, 'Olga');
+  await aimerUnProfil(page);
+  await ouvrirLaDiscussion(page);
+
+  const texte = 'Envoie-moi 5000 FCFA par Orange Money';
+  await champMessage(page).fill(texte);
+  await boutonEnvoyer(page).click();
+
+  // L'anti-arnaque refuse : plus aucune bulle ne porte ce texte.
+  await expect(page.locator('.notice-warn')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.bubble', { hasText: 'Orange Money' })).toHaveCount(0);
+  await expect(champMessage(page)).toHaveValue(texte);
+});

@@ -1152,7 +1152,13 @@ api.get('/matches/:id', requireMembre, async (req, res) => {
     arrivedMe: !!arrivals[req.user.id],
     arrivedOther: Object.keys(arrivals).some((id) => id !== req.user.id),
   }));
-  const reponse = { id: r.m.id, messages };
+  // Qui écrit. Le mot arrive dans l'interrogation qui partait déjà, et repart pareil : aucune
+  // requête ajoutée, aucune ligne écrite nulle part. C'est une carte en mémoire qui meurt avec
+  // le processus — une hésitation au-dessus d'un clavier n'a pas à survivre à un redémarrage.
+  // Symétrique par construction : on ne voit la frappe de l'autre que dans une discussion
+  // qu'on a le droit d'ouvrir, et `loadMatch` l'a déjà vérifié.
+  if (req.query.ecrit) store.touchTyping(req.user.id, r.m.id);
+  const reponse = { id: r.m.id, messages, ecrit: store.isTyping(r.other.id, r.m.id) };
   if (premierAppel) Object.assign(reponse, { other: await publicProfile(r.other), dates, unlockAfter: config.contactUnlockAfter });
   // Un rendez-vous peut naître ou changer entre deux interrogations : on renvoie les rendez-vous
   // aussi quand l'un d'eux a bougé depuis le dernier appel.

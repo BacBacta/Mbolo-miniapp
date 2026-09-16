@@ -520,4 +520,5 @@ export default {
   "Des rencontres vérifiées sur {app}, sans arnaques.": "Watu waliothibitishwa kwenye {app}, bila ulaghai.",
   "Les vignettes des listes ne se chargent pas. La fiche que tu regardes garde sa photo.": "Picha ndogo za orodha hazipakiwi. Wasifu unaotazama unabaki na picha yake.",
   "Villes connues": "Miji inayojulikana",
+  "{nom} écrit…": "{nom} anaandika…",
 };

@@ -520,4 +520,5 @@ export default {
   "Des rencontres vérifiées sur {app}, sans arnaques.": "Pessoas verificadas no {app}, sem burlas.",
   "Les vignettes des listes ne se chargent pas. La fiche que tu regardes garde sa photo.": "As miniaturas das listas não carregam. O perfil que estás a ver mantém a foto.",
   "Villes connues": "Cidades conhecidas",
+  "{nom} écrit…": "{nom} está a escrever…",
 };

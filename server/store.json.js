@@ -26,6 +26,7 @@ if (fs.existsSync(file)) {
 
 // Présence en mémoire : qui regarde quelle discussion en ce moment (évite les notifications inutiles)
 const presence = new Map();
+const frappe = new Map();
 
 let timer = null;
 // Écriture atomique, et durable : le fichier puis le dossier sont synchronisés sur le disque
@@ -388,9 +389,23 @@ export const store = {
 
   leavePresence: (userId) => { for (const k of presence.keys()) if (k.startsWith(`${userId}:`)) presence.delete(k); },
   // La carte ne rétrécissait que sur /presence/leave : une app fermée sans le dire y restait.
-  purgerPresence: async (delaiMs = 10 * 60 * 1000) => { const limite = Date.now() - delaiMs; for (const [k, at] of presence) if (at < limite) presence.delete(k); },
+  purgerPresence: async (delaiMs = 10 * 60 * 1000) => {
+    const limite = Date.now() - delaiMs;
+    for (const [k, at] of presence) if (at < limite) presence.delete(k);
+    // La frappe vit six secondes : tout ce qui traîne ici est mort depuis longtemps.
+    for (const [k, at] of frappe) if (at < limite) frappe.delete(k);
+  },
 
   isViewing: (userId, matchId, withinMs = 10000) => Date.now() - (presence.get(`${userId}:${matchId}`) || 0) < withinMs,
+
+  // ---------- Qui est en train d'écrire ----------
+  //
+  // Éphémère par construction, et **jamais stocké** : une carte en mémoire, comme la présence,
+  // qui meurt avec le processus. Savoir qu'une personne hésite au-dessus de son clavier n'a
+  // aucune raison de survivre à un redémarrage, et encore moins de finir dans une sauvegarde.
+  // Le mot arrive par l'interrogation qui partait déjà (`?ecrit=1`) : aucune requête de plus.
+  touchTyping: (userId, matchId) => frappe.set(`${userId}:${matchId}`, Date.now()),
+  isTyping: (userId, matchId, withinMs = 6000) => Date.now() - (frappe.get(`${userId}:${matchId}`) || 0) < withinMs,
 
   // ---------- Activité ----------
   // Un seul horodatage par personne, jamais exposé brut : les autres ne voient qu'une tranche

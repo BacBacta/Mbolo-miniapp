@@ -682,6 +682,29 @@ body.chat-mode main > * { animation: none; }
 .bubble.theirs.cont { border-top-left-radius: 5px; }
 .bubble.gap { margin-top: 9px; }
 .bubble .time { float: right; font-size: 10.5px; opacity: .6; margin: 7px -3px -2px 10px; }
+.bubble .time svg { vertical-align: -1px; }
+/* Partie, pas encore confirmée. Elle doit se **voir** comme telle : un message refusé par
+   l'anti-arnaque ou par la limite de débit disparaîtra, et rien ne doit lui avoir donné l'air
+   d'être arrivé. L'écart est volontairement franc — une bulle à peine plus pâle ne se lit pas
+   sur un écran au soleil. */
+.bubble.encours { opacity: .58; }
+/* La bulle arrive. C'est possible depuis que le fil s'allonge au lieu de se refaire : avec une
+   reconstruction complète, le DOM était neuf à chaque message et rien ne pouvait « entrer ». */
+@keyframes bulle-entre { from { opacity: 0; transform: translateY(7px) scale(.97); } to { opacity: 1; transform: none; } }
+.bubble.neuve { animation: bulle-entre .18s var(--ease) both; }
+.bubble.neuve.encours { animation: bulle-entre .18s var(--ease) both; opacity: .58; }
+@media (prefers-reduced-motion: reduce) { .bubble.neuve { animation: none; } }
+
+/* « … écrit » : sous le fil et jamais dedans. Une ligne qui apparaît et disparaît au milieu des
+   bulles fait sauter la lecture à chaque fois que l'autre personne hésite. */
+.chat-frappe:empty { display: none; }
+.frappe { display: flex; align-items: center; gap: 8px; padding: 6px 4px 2px; font-size: 12.5px; color: var(--hint); }
+.frappe .pts { display: inline-flex; gap: 3px; }
+.frappe .pts i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: frappe-point 1.1s infinite; }
+.frappe .pts i:nth-child(2) { animation-delay: .18s; }
+.frappe .pts i:nth-child(3) { animation-delay: .36s; }
+@keyframes frappe-point { 0%, 60%, 100% { opacity: .3; } 30% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .frappe .pts i { animation: none; opacity: .6; } }
 .system { align-self: center; text-align: center; font-size: 13px; line-height: 1.45; color: var(--hint); max-width: 88%; padding: 10px 0; }
 .unlock { align-self: center; width: min(100%, 300px); display: grid; gap: 7px; padding: 10px 14px; margin: 4px 0; background: var(--bg); border-radius: 16px; box-shadow: var(--shadow-1); font-size: 12px; color: var(--hint); }
 .unlock .head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }

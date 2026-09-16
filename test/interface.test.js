@@ -11,7 +11,10 @@ test('la discussion porte un jeton de requête, et un seul minuteur', () => {
   const chat = entre('  async chat({ id }) {', '  async date() {');
   assert.match(chat, /S\.chatJeton = \(S\.chatJeton \|\| 0\) \+ 1/, 'un jeton par ouverture');
   assert.match(chat, /jeton !== S\.chatJeton/, 'et la réponse d\'une discussion quittée est ignorée');
-  assert.match(chat, /clearInterval\(S\.chatTimer\);\s*S\.chatTimer = setInterval\(pollChat/, 'jamais deux minuteurs');
+  // Le minuteur se réarme à chaque tour depuis que la cadence suit l'activité du fil : c'est
+  // exactement la situation où un second minuteur orphelin s'installe. Une seule porte l'arme,
+  // et elle éteint avant — l'invariant est tenu dans test/discussion.test.js.
+  assert.match(chat, /relancerLePoll\(\)/, 'un seul chemin arme l\'interrogation');
 });
 
 test("l'écran du rendez-vous et celui du selfie ne remplacent pas un écran quitté pendant l'attente", () => {
@@ -36,7 +39,7 @@ test("les paramètres de lancement n'ouvrent une discussion que sur un identifia
 });
 
 test("une discussion fermée arrête l'interrogation, et l'app en arrière-plan n'interroge plus /summary", () => {
-  assert.match(entre('async function pollChat() {', 'async function sendMessage('), /MATCH_NOT_FOUND[^\n]*BLOCKED[\s\S]*clearInterval\(S\.chatTimer\)/);
+  assert.match(entre('async function pollChat() {', 'function montrerLaFrappe() {'), /MATCH_NOT_FOUND[^\n]*BLOCKED[\s\S]*arreterLePoll\(\)/);
   assert.match(entre('async function refreshSummary() {', 'const avatar ='), /if \(document\.hidden\) return;/);
 });
 

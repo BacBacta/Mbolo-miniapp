@@ -531,4 +531,5 @@ export default {
   "Des rencontres vérifiées sur {app}, sans arnaques.": "Verified people on {app}, no scams.",
   "Les vignettes des listes ne se chargent pas. La fiche que tu regardes garde sa photo.": "List thumbnails do not load. The profile you are looking at keeps its photo.",
   "Villes connues": "Known cities",
+  "{nom} écrit…": "{nom} is typing…",
 };
