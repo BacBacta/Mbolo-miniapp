@@ -358,6 +358,7 @@ jour où tu en auras besoin, tu ne voudras pas découvrir la procédure.
 | L'app s'ouvre mais reste sur « Chargement… » | `WEBAPP_URL` faux, ou pas d'IP publique | `flyctl ips list -a ton-app` |
 | Les photos ne s'affichent pas | `DATA_DIR` relatif, ou volume non monté | `DATA_DIR` doit être absolu — `/data` chez Fly |
 | Personne ne peut être vérifié | Le groupe est injoignable | Voir la ligne 2 |
+| **Le bot ne répond à rien**, et `getWebhookInfo` semble parfait | Le domaine de la mini app n'est pas déclaré dans BotFather : Telegram refuse les boutons `web_app`. Le journal dit `BUTTON_TYPE_INVALID` | BotFather, `/mybots`, ton bot, **Bot Settings, Configure Mini App**, avec ton `WEBAPP_URL`. Depuis le 16 septembre 2026 le message part quand même **sans son bouton**, et le groupe de modération reçoit l'alerte — mais le bouton ne revient qu'une fois la case cochée |
 | `Error: unauthorized` à l'étape « Application » | Jeton limité à l'app, qui ne peut pas créer d'app | **Normal**, le script continue |
 
 Le journal en direct : `flyctl logs -a ton-app`. L'état des machines : `flyctl status -a ton-app`.
