@@ -4,6 +4,7 @@ import express from 'express';
 import { config, runtime, genreAuChoix, entreeLibre, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT } from './config.js';
 import { estPlus, etatDuPass, palier, PALIERS, DROITS_DU_PASS, ORDRES, ORDRE_DEFAUT } from './plus.js';
 import { arrondir, dansLaFenetre, discret, MAX_FICHES } from './vues.js';
+import { quiPrevenir, RALENTI_MS } from './nouveaux.js';
 import { codeValide } from './lieux.js';
 import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_CONNUES, nomPays } from './geo.js';
 import { LANGUES, t as tr } from './i18n.js';
@@ -362,6 +363,11 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
   }
   await store.updateUser(req.user.id, maj);
   mesurer('profile_saved', req.user.id);
+  // Premier enregistrement : sous « badge », c'est l'instant où cette personne devient visible
+  // des autres, donc celui où la nouvelle est vraie. Sous « gate » elle ne l'est pas encore, et
+  // `annoncerLArrivee` le verra et ne fera rien — c'est la validation qui s'en chargera.
+  // Sans await : personne n'attend une notification, et le filet de promesses.js tient le reste.
+  if (!req.user.profileSavedAt) annoncerLArrivee(req.user.id);
   res.json({ profile });
 });
 
@@ -751,6 +757,20 @@ const joignable = (me, rel, u) => u.id !== me.id && membre(u) && !rel.bloque.has
 // un like reçu, lui, m'est adressé et la traverse (voir likersOf).
 const candidat = (me, rel, u) => joignable(me, rel, u) && dansLaZone(me, u) && dansLeGenre(me, u) && selonLeBadge(me, u) && dansLaLangue(me, u);
 
+// « Est-ce que {me} verrait {autre} dans son paquet ? », sans consulter les relations.
+//
+// C'est `candidat()` amputé de ce qui demande le stockage — blocages et balayages déjà faits —
+// et augmenté de la tranche d'âge, que `/discover` applique à part. Il sert à une seule chose :
+// décider qui prévenir quand quelqu'un arrive (`server/nouveaux.js`). Cette amputation est sans
+// risque **là et seulement là** : on ne prévient que des gens qui n'ont pas ouvert l'app depuis
+// l'arrivée, donc qui n'ont pas pu balayer l'arrivant, et un blocage suppose un match, donc une
+// rencontre qui n'a pas eu lieu. Ailleurs, c'est `candidat()` qu'il faut.
+export const peutVoir = (me, autre) => !!me?.profile && !!autre?.profile
+  && String(me.id) !== String(autre.id)
+  && membre(autre) && compatible(me, autre)
+  && dansLaZone(me, autre) && dansLeGenre(me, autre) && selonLeBadge(me, autre) && dansLaLangue(me, autre)
+  && inAgeRange(me, autre);
+
 // Un écran vide ne dit rien s'il ne dit pas pourquoi. Trois situations très différentes se
 // ressemblaient : personne d'autre n'est vérifié dans ta ville, tu as déjà tout vu, ou ton quota
 // du jour est épuisé. On renvoie donc de quoi les distinguer et proposer le bon geste.
@@ -943,13 +963,21 @@ api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {
       notify(target.id, 'Nouveau match : {nom} et toi, vous vous plaisez.', { nom: me.profile.name }, { label: 'Écrire', params: { screen: 'chat', match: match.id } });
       return res.json({ match: { id: match.id, other: await publicProfile(target) } });
     }
-    // Like non réciproque : on prévient la personne sans révéler qui (au plus une fois par jour)
-    // Écran Messages, pas Découvrir : qui t'a liké apparaît dans /likes, qui ignore le filtre d'âge,
-    // alors que /discover l'applique. La notification envoyait donc parfois vers un écran vide.
+    // Like non réciproque : on prévient la personne sans révéler qui (au plus une fois par jour).
+    //
+    // **Vers Découvrir**, depuis que la liste des « J'aime » reçus demande un pass : c'est là que
+    // la personne croisera celle qui l'a aimée, puisque le paquet la place devant. Le commentaire
+    // d'avant envoyait vers Messages et n'avait pas suivi la fermeture des portes.
+    //
+    // **Sans ville.** Le message disait « à {ville} » en donnant celle du destinataire — vrai tant
+    // que tout le monde cherchait dans sa ville, faux depuis qu'un pass ouvre le pays entier. Et
+    // mettre celle du liker serait pire : « quelqu'un de Kribi t'a aimé », plus une carte de Kribi
+    // dans le paquet, fait un nom. La notification ne doit rien apprendre que l'app n'apprend pas.
+    //
     // Sauf si la personne m'a déjà balayé (« passer », ou un match qu'elle a défait) : mon like
     // n'apparaîtra pas dans sa liste, et la prévenir l'enverrait vers un écran vide.
     if (await store.swipeOf(target.id, me.id) || !dansLeGenre(target, me)) return res.json({ match: null });
-    notify(target.id, "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.", { ville: target.profile.city }, { label: 'Découvrir', params: { screen: 'discover' } }, 'likes', 24 * 3600 * 1000);
+    notify(target.id, "Tu as plu à quelqu'un. Continue à découvrir : tu le croiseras dans ton paquet.", {}, { label: 'Découvrir', params: { screen: 'discover' } }, 'likes', 24 * 3600 * 1000);
   }
   res.json({ match: null });
 });
@@ -1088,6 +1116,42 @@ api.post('/matches/:id/messages', requireMembre, limiter('message'), async (req,
   res.json({ message: { ...msg, from: undefined, mine: true } });
 });
 
+// ---------- « Quelqu'un vient d'arriver » ----------
+//
+// La règle — qui prévenir, et les trois freins qui empêchent d'en faire un envoi de masse — vit
+// dans `server/nouveaux.js`. Ici il n'y a que la lecture, l'envoi, et la garde qui fait que ça
+// n'arrive qu'une fois.
+async function annoncerLArrivee(userId) {
+  try {
+    const arrivant = await store.getUser(userId);
+    // Une seule annonce dans la vie d'un compte. Une re-vérification, un profil réenregistré ou
+    // un changement de politique ne doivent pas rejouer la nouvelle — « quelqu'un vient
+    // d'arriver » dit deux fois de la même personne est un mensonge la seconde fois.
+    if (!arrivant || arrivant.demo || arrivant.annonceLe || !membre(arrivant)) return;
+    // Posée **avant** l'envoi : deux chemins mènent ici (le premier profil sous « badge », la
+    // validation sous « gate »), et entre les deux fautes possibles on choisit la moins chère —
+    // une annonce perdue plutôt qu'une annonce double.
+    await store.updateUser(arrivant.id, { annonceLe: Date.now() });
+    const prevenus = quiPrevenir({ arrivant, tous: await store.allUsers(), peutVoir });
+    for (const u of prevenus) {
+      notify(u.id, "Quelqu'un vient d'arriver à {ville} et correspond à ce que tu cherches.",
+        { ville: arrivant.profile.city }, { label: 'Découvrir', params: { screen: 'discover' } }, 'nouveaux', RALENTI_MS);
+    }
+    // Une ligne par arrivée, pas une par destinataire : `n` dit à combien de personnes la
+    // nouvelle a été utile. Ce que ça ne dit pas, et qu'il faudra regarder autrement : si elles
+    // sont revenues.
+    mesurer('arrivee_dite', arrivant.id, { n: prevenus.length });
+  } catch (e) {
+    // Une annonce ratée ne doit ni couler l'enregistrement d'un profil, ni la décision de
+    // modération qui l'a déclenchée.
+    console.warn(`Arrivée non annoncée pour ${userId} : ${e.message}`);
+  }
+}
+
+// Sous « gate », c'est la validation qui rend visible. Le crochet accepte plusieurs abonnés
+// depuis aujourd'hui — avant, celui-ci aurait effacé celui de la démo, juste en dessous.
+onApproved(annoncerLArrivee);
+
 // ---------- Démo : quelqu'un te « like » pendant ton absence ----------
 onApproved((userId) => {
   if (!config.seedDemo) return;
@@ -1100,7 +1164,7 @@ onApproved((userId) => {
     const demo = tous.find((u) => u.demo && compatible(me, u) && dansLaZone(me, u) && dansLeGenre(me, u) && !dejaTranche.has(u.id));
     if (!demo) return;
     await store.addSwipe(demo.id, me.id, 'like');
-    notify(me.id, "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.", { ville: me.profile.city }, { label: 'Découvrir', params: { screen: 'discover' } }, 'likes', 24 * 3600 * 1000);
+    notify(me.id, "Tu as plu à quelqu'un. Continue à découvrir : tu le croiseras dans ton paquet.", {}, { label: 'Découvrir', params: { screen: 'discover' } }, 'likes', 24 * 3600 * 1000);
   }, config.demoLikeDelayMs);
 });
 

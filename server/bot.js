@@ -75,9 +75,23 @@ export async function direATiers(chatId, lang, cle, vars) {
   }
 }
 
-// Permet aux routes de réagir à une validation (ex. profil de démo qui « like » le nouveau membre)
-let approvedHook = null;
-export const onApproved = (fn) => { approvedHook = fn; };
+// Permet aux routes de réagir à une validation (ex. profil de démo qui « like » le nouveau membre,
+// ou l'annonce d'une arrivée aux personnes que ça intéresse).
+//
+// **Une liste, pas une case.** C'était `approvedHook = fn` : un second abonné effaçait le premier
+// **en silence**, et le seul symptôme aurait été une fonction qui cesse de marcher sans que rien
+// ne le dise. Un crochet qui n'accepte qu'un client est un piège tendu au prochain qui en veut un.
+const abonnesValidation = [];
+export const onApproved = (fn) => { abonnesValidation.push(fn); };
+// Chaque abonné est isolé : celui qui jette ne doit pas empêcher les suivants de tourner, et
+// aucun ne doit couler la décision de modération qui vient de l'appeler.
+const direQueValide = (userId) => abonnesValidation.forEach((fn) => {
+  try {
+    Promise.resolve(fn(userId)).catch((e) => console.warn(`Réaction à une validation en échec : ${e.message}`));
+  } catch (e) {
+    console.warn(`Réaction à une validation en échec : ${e.message}`);
+  }
+});
 
 // Qui a le droit de décider : les administrateurs du groupe de modération, demandés à Telegram.
 // Le cache est court exprès : quelqu'un qu'on retire des administrateurs perd l'accès dans la
@@ -335,7 +349,7 @@ export async function decideVerification(userId, approved) {
   const file = path.join(config.uploadsDir, `${userId}-selfie.jpg`);
   if (fs.existsSync(file)) fs.unlinkSync(file);
   if (approved) {
-    approvedHook?.(userId);
+    direQueValide(userId);
     await notify(userId, 'Ton profil est vérifié. Ton badge est visible, tu peux découvrir des profils.', null, { label: 'Voir des profils', params: { screen: 'discover' } });
   } else {
     await notify(userId, "Ta vérification n'a pas abouti : le geste ou le visage n'était pas assez visible. Tu peux réessayer.", null, { label: 'Réessayer', params: { screen: 'verify' } });

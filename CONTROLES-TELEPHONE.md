@@ -157,6 +157,15 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
 - [ ] **(revue, lot 3)** La photo **disparaît** du groupe, remplacée par une ligne de texte
       « Vérification validée par … ». Aucune image ne reste dans la discussion.
 - [ ] La personne reçoit la notification « Ton profil est vérifié ».
+- [ ] **Une arrivée s'annonce.** Un **autre** compte, de la même ville et de la même intention,
+      qui n'a pas ouvert l'app depuis une demi-heure, reçoit « quelqu'un vient d'arriver à … et
+      correspond à ce que tu cherches ». Le bouton ouvre **Découvrir**, et la carte y est.
+      *Les trois pièges, dans l'ordre où ils se manifestent :* un compte qui vient d'ouvrir l'app
+      ne doit **rien** recevoir (la carte arrive seule dans son paquet) ; une deuxième arrivée le
+      même jour ne doit **pas** faire un second message (48 h entre deux) ; et la nouvelle ne doit
+      **nommer personne** — ni prénom, ni photo.
+- [ ] Refais valider le **même** selfie après l'avoir remis en attente : personne ne reçoit
+      « quelqu'un vient d'arriver » une seconde fois. *Une arrivée ne s'annonce qu'une fois.*
 
 ---
 
