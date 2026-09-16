@@ -885,7 +885,22 @@ api.get('/profiles', requireMembre, requirePlus('liste'), async (req, res) => {
 // parfois à un écran vide.
 // Le genre recherché, lui, s'applique : sous la politique levée c'est une orientation, et une
 // personne réglée sur « femmes » ne doit pas voir des hommes dans « ils t'ont aimée ».
-const likersOf = (me, rel, tous) => tous
+// Ceux qui m'ont aimé sont **déjà nommés** par `rel.maLike`, que `relations()` vient de remplir
+// depuis `swipesTo(me.id)`. Les chercher dans toute la table revenait à charger des milliers de
+// comptes pour en garder trois, et `/summary` le faisait **toutes les vingt secondes dans chaque
+// app ouverte** — une charge de fond proportionnelle à comptes × apps ouvertes, sur une machine
+// de 256 Mo (dette technique n° 3).
+//
+// Ce qui est chargé est maintenant borné par les « J'aime » reçus, jamais par la taille de la
+// table. Le vrai chantier de la dette reste entier : la découverte, elle, filtre toujours en
+// mémoire, et il lui faudra un `candidats(me, filtres)` descendu en SQL.
+const likersDe = (rel) => store.usersByIds([...rel.maLike.keys()]);
+
+// Le filtre ne change pas d'un iota : `rel.maLike.has(u.id)` y reste, bien qu'il soit désormais
+// vrai par construction. C'est ce qui permet à cette fonction de rendre le même résultat qu'on
+// lui donne les likers ou toute la table — et à la bascule d'être lisible comme une optimisation
+// plutôt que comme un changement de règle.
+const likersOf = (me, rel, candidats) => candidats
   .filter((u) => joignable(me, rel, u) && dansLeGenre(me, u) && selonLeBadge(me, u) && rel.maLike.has(u.id) && !rel.monSwipe.has(u.id))
   .sort((a, b) => rel.maLike.get(b.id).at - rel.maLike.get(a.id).at);
 
@@ -894,8 +909,8 @@ api.get('/likes', requireMembre, requirePlus('likes'), async (req, res) => {
   // L'usage, pas seulement le droit : un pass dont personne ne se sert ne vaut rien. Ralenti à
   // cinq minutes — l'écran se recharge à chaque retour sur l'onglet Messages.
   mesurerRalenti('pass_usage', me, CINQ_MINUTES, { quoi: 'likes' });
-  const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
-  const profiles = await Promise.all(likersOf(me, rel, tous).slice(0, 20).map(async (u) => {
+  const rel = await relations(me);
+  const profiles = await Promise.all(likersOf(me, rel, await likersDe(rel)).slice(0, 20).map(async (u) => {
     const p = await publicProfile(u);
     return { ...p, activity: p.activity ? 'week' : null, likedYou: true, status: null, matchId: null };
   }));
@@ -1039,9 +1054,12 @@ api.get('/matches', requireMembre, async (req, res) => {
 });
 
 // Compteurs pour les onglets (messages non lus, nouveaux matchs)
+// Appelé **toutes les vingt secondes par app ouverte** (`setInterval` dans public/app.js). C'est
+// la route la plus chaude du serveur, et la seule dont le coût croît avec le nombre de comptes
+// *et* le nombre d'apps ouvertes en même temps. Elle ne charge donc plus que ce qu'elle compte.
 api.get('/summary', requireMembre, async (req, res) => {
   const me = req.user;
-  const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
+  const rel = await relations(me);
   let unread = 0, newMatches = 0;
   for (const m of rel.match.values()) {
     const otherId = m.users.find((x) => x !== me.id);
@@ -1049,8 +1067,10 @@ api.get('/summary', requireMembre, async (req, res) => {
     unread += await store.unreadCount(m.id, me.id);
     if (!(await store.hasOpened(m.id, me.id))) newMatches += 1;
   }
-  // `null` et pas `0` : zéro dirait « personne ne t'a aimé », ce qui est faux la plupart du temps.
-  res.json({ unread, newMatches, likes: voitSesLikes(me) ? likersOf(me, rel, tous).length : null });
+  // Sans pass, la réponse est `null` quoi qu'il arrive : on ne charge donc personne. `null` et pas
+  // `0` : zéro dirait « personne ne t'a aimé », ce qui est faux la plupart du temps.
+  const likes = voitSesLikes(me) ? likersOf(me, rel, await likersDe(rel)).length : null;
+  res.json({ unread, newMatches, likes });
 });
 
 api.get('/matches/:id', requireMembre, async (req, res) => {

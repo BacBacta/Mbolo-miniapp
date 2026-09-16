@@ -70,6 +70,11 @@ export const store = {
   getUser: async (id) => db.users[String(id)] || null,
   userByPid: async (pid) => (pid ? Object.values(db.users).find((u) => u.pid === pid) || null : null),
 
+  // Charger quelques comptes nommés, plutôt que toute la table pour en garder trois. Sur ce
+  // stockage c'est une lecture de map ; c'est côté PostgreSQL que la différence se paie, et
+  // c'est là-bas qu'il faut lire le commentaire.
+  usersByIds: async (ids) => (ids || []).map((id) => db.users[String(id)]).filter(Boolean),
+
   // À l'arrêt : ce qui attendait le minuteur part tout de suite.
   async arreter() { if (timer) ecrireMaintenant(); },
 
