@@ -775,6 +775,63 @@ const joignable = (me, rel, u) => u.id !== me.id && membre(u) && !rel.bloque.has
 // Candidat : joignable et dans la zone que je cherche. La zone filtre ce que JE vais voir ;
 // un like reçu, lui, m'est adressé et la traverse (voir likersOf).
 const candidat = (me, rel, u) => joignable(me, rel, u) && dansLaZone(me, u) && dansLeGenre(me, u) && selonLeBadge(me, u) && dansLaLangue(me, u);
+// Ce que le paquet montre, exactement : candidat, pas encore balayé, dans la tranche d'âge. C'est
+// la seule ligne que /discover et pourquoiPas() ont le droit de lire pour dire « visible » — deux
+// lignes qui décrivent la même chose finissent par diverger.
+export const dansLePaquet = (me, rel, u) => candidat(me, rel, u) && !rel.monSwipe.has(u.id) && inAgeRange(me, u);
+
+// Pourquoi A ne voit pas B — ou la preuve qu'il le verrait.
+//
+// La question revient à chaque nouveau membre : « elle est vérifiée, pourquoi je ne la vois pas ? ».
+// Jusqu'ici la seule réponse était de deviner, ou de modifier son propre profil pour tester — la
+// file de vérification ne montre ni la ville ni l'intention. `/pourquoi <A> <B>` dans le groupe de
+// modération répond porte par porte.
+//
+// Chaque porte lit **le même prédicat** que le paquet : pas une recopie, sinon un jour les deux
+// divergent et l'outil ment. Ce que le paquet montre est `dansLePaquet()`, la ligne que /discover
+// lit, et `test/pourquoi.test.js` tient l'égalité **contre la vraie route** sur des paires tirées
+// au hasard : ajouter un filtre à la découverte sans l'ajouter ici fait tomber le test.
+//
+// Le détail nomme les deux valeurs comparées (« yaounde / yaounde cameroun »), parce qu'un
+// « non » sans les valeurs renverrait à deviner. Il ne sort que dans le groupe de modération,
+// jamais vers un membre : « tu ne vois pas X parce que X cherche l'Amitié » dirait à quelqu'un
+// l'intention d'une personne qui ne l'a pas choisi pour lui.
+export function pourquoiPas(me, rel, autre) {
+  const a = me.profile || {}, b = autre.profile || {};
+  const zone = zoneCherchee(me);
+  const f = filtersOf(me);
+  const g = genreRecherche(me);
+  const k = langueCherchee(me);
+  const intention = (i) => INTENTS[i] || INTENTS_RETIRES[i] || i || '—';
+  const cleZone = (pays, ville) => `${pays || config.defaultCountry}·${ville || '(tout le pays)'}`;
+  const bloque = rel.bloque.has(autre.id);
+  const balaye = rel.monSwipe.get(autre.id);
+  const memeIntention = !!a.intent && a.intent === b.intent;
+  return [
+    { porte: 'soi-même', ok: autre.id !== me.id, detail: autre.id === me.id ? 'les deux identifiants sont les mêmes' : '' },
+    { porte: 'membre', ok: membre(autre), detail: membre(autre) ? '' : (!autre.profile ? 'pas de profil' : autre.banned ? 'compte fermé' : 'pas vérifié, et la vérification est une porte ici') },
+    { porte: 'bloqué', ok: !bloque, detail: bloque ? "un blocage, dans un sens ou dans l'autre" : '' },
+    { porte: 'intention', ok: compatible(me, autre),
+      detail: !memeIntention ? `A cherche « ${intention(a.intent)} », B « ${intention(b.intent)} »`
+        : !compatible(me, autre) ? 'même genre en relation sérieuse, et la politique de mise en relation est femme/homme' : intention(a.intent) },
+    { porte: 'zone', ok: dansLaZone(me, autre), detail: `A cherche ${cleZone(zone.country, cleVille(zone.city))}, B est ${cleZone(b.country, b.cityKey || cleVille(b.city))}` },
+    { porte: 'genre', ok: dansLeGenre(me, autre), detail: g ? `A cherche ${g}, B est ${b.gender || '—'}` : 'A cherche tout le monde' },
+    { porte: 'badge', ok: selonLeBadge(me, autre), detail: f.verifiesSeulement ? (verifie(autre) ? 'B est vérifié' : 'A ne veut que des vérifiés, B ne l\'est pas') : 'A ne filtre pas sur le badge' },
+    { porte: 'langue', ok: dansLaLangue(me, autre), detail: k ? `A cherche « ${k} », B parle ${clesLangues(b).join(', ') || '—'}` : 'A ne filtre pas sur la langue' },
+    { porte: 'âge', ok: inAgeRange(me, autre), detail: `B a ${b.age ?? '?'} ans, A cherche ${f.ageMin}–${f.ageMax}` },
+    { porte: 'déjà balayé', ok: !balaye, detail: balaye ? `A a déjà ${balaye.action === 'like' ? 'aimé' : 'passé'} B : une carte ne revient pas` : '' },
+  ];
+}
+
+// La même chose, depuis deux identifiants : ce que la commande du bot appelle.
+export async function expliquerLaDecouverte(idA, idB) {
+  const [me, autre] = await Promise.all([store.getUser(idA), store.getUser(idB)]);
+  if (!me || !autre) return { manque: !me ? idA : idB };
+  if (!me.profile) return { manque: null, sansProfil: idA };
+  const rel = await relations(me);
+  const portes = pourquoiPas(me, rel, autre);
+  return { portes, verrait: portes.every((p) => p.ok) };
+}
 
 // « Est-ce que {me} verrait {autre} dans son paquet ? », sans consulter les relations.
 //
@@ -815,7 +872,7 @@ api.get('/discover', requireMembre, async (req, res) => {
   // Ceux qui t'ont liké, puis — par défaut — les profils vérifiés, puis ton quartier. Le badge
   // passe devant sans exclure personne : c'est ce qui distingue un modèle ouvert d'une porte
   // fermée. Avec un pass, la suite de l'ordre se choisit (trierLePaquet).
-  const retenus = trierLePaquet(me, rel, tous.filter((u) => candidat(me, rel, u) && !rel.monSwipe.has(u.id) && inAgeRange(me, u)))
+  const retenus = trierLePaquet(me, rel, tous.filter((u) => dansLePaquet(me, rel, u)))
     // Dix cartes, quel que soit le quota restant. Le paquet était coupé à `remaining`, ce qui se
     // voyait à peine tant que le quota valait vingt ; à cinq, il envoyait cinq cartes, puis quatre.
     // Or **passer ne consomme rien** (`swipesToday` ne compte que les « J'aime ») : le nombre de

@@ -661,6 +661,48 @@ Comme pour `MATCH_POLICY`, **les deux pages publiques portent les deux versions*
 
 ---
 
+### « Elle est vérifiée, pourquoi je ne la vois pas ? » : `/pourquoi`
+
+La question revient à chaque nouveau membre, et la file de vérification n'y répond pas : elle
+montre le prénom, l'âge et le geste, ni la ville ni l'intention. Depuis le groupe de modération :
+
+```
+/pourquoi 123456789 987654321     est-ce que A verrait B dans son paquet, et sinon quelle porte ferme
+```
+
+La réponse tient en un verdict et une ligne par porte, dans l'ordre où le paquet les ferme :
+
+```
+123456789 ne voit pas 987654321 : intention.
+
+✓ soi-même
+✓ membre
+✓ bloqué
+✗ intention — A cherche « Relation sérieuse », B « Amitié »
+✓ zone — A cherche CM·yaounde, B est CM·yaounde
+✓ genre — A cherche tout le monde
+✓ badge — A ne filtre pas sur le badge
+✓ langue — A ne filtre pas sur la langue
+✓ âge — B a 27 ans, A cherche 18–99
+✓ déjà balayé
+```
+
+Chaque porte lit **le même prédicat que le paquet** (`pourquoiPas()` est posée à côté de `candidat()`
+dans `server/routes.js`, et `/discover` lit `dansLePaquet()`, la même ligne). Ce n'est pas une
+recopie des règles : `test/pourquoi.test.js` tient l'égalité **contre la vraie route**, sur des
+paires tirées au hasard — un filtre ajouté à la découverte sans être ajouté à l'explication fait
+tomber le test. Le détail nomme les deux valeurs comparées, parce qu'un « non » sans elles
+renverrait à deviner : c'est ainsi qu'on voit qu'une ville écrite « Yaoundé, Cameroun » n'est pas
+« Yaoundé ».
+
+**Ce qu'elle montre, et à qui.** La réponse porte la ville, l'intention et l'âge de deux membres —
+des champs que la modération ne voyait pas jusque-là. Elle ne sort que dans le groupe, aux
+administrateurs, et la page de confidentialité le dit. **Aucune version pour les membres**, et il
+n'y en aura pas : « tu ne vois pas X parce que X cherche l'Amitié » dirait à quelqu'un l'intention
+d'une personne qui ne l'a pas choisi pour lui.
+
+---
+
 ### Odo Plus : le pass, et ce qu'il enlève
 
 Le modèle économique est un **pass à durée fixe** — pas un abonnement : aucune reconduction tacite, aucune empreinte de moyen de paiement gardée pour la suite, une fin franche et un geste pour reprendre. Le raisonnement complet est dans `audit/11-abonnements.md` ; le cahier des charges du paiement est la section 10 de `CLAUDE.md`.

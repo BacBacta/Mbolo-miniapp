@@ -562,6 +562,27 @@ export async function setupBot() {
     notify(u.id, 'Ton pass {app} Plus est actif jusqu\'au {date}.', { app: config.appName, date: quand(langueDe(u)) }, { label: 'Voir mon profil', params: { screen: 'me' } });
   });
 
+  // Pourquoi A ne voit pas B dans son paquet. Réservé au groupe de modération : la réponse nomme
+  // la ville, l'intention et l'âge de deux membres, ce que la file de vérification ne montre pas.
+  // La règle vit dans routes.js (pourquoiPas), à côté du paquet qu'elle explique.
+  //
+  // L'import est différé parce que routes.js importe déjà ce fichier (notify, onApproved…) : un
+  // import statique dans l'autre sens ferait un cycle, qui marche en ESM tant que l'ordre
+  // d'évaluation ne bouge pas — c'est-à-dire jusqu'au jour où il bouge.
+  bot.command('pourquoi', async (ctx) => {
+    if (await commandeRefusee(ctx)) return;
+    const [idA, idB] = String(ctx.match || '').trim().split(/\s+/);
+    if (!/^\d+$/.test(idA || '') || !/^\d+$/.test(idB || '')) return ctx.reply('Usage : /pourquoi <identifiant A> <identifiant B> — est-ce que A verrait B dans son paquet, et sinon quelle porte ferme.');
+    const { expliquerLaDecouverte } = await import('./routes.js');
+    const r = await expliquerLaDecouverte(idA, idB);
+    if (r.manque) return ctx.reply(`Aucun compte avec l'identifiant ${r.manque}.`);
+    if (r.sansProfil) return ctx.reply(`${r.sansProfil} n'a pas encore de profil : il ne voit personne, et personne ne le voit.`);
+    const lignes = r.portes.map((p) => `${p.ok ? '✓' : '✗'} ${p.porte}${p.detail ? ` — ${p.detail}` : ''}`);
+    const fermees = r.portes.filter((p) => !p.ok).map((p) => p.porte);
+    const verdict = r.verrait ? `${idA} verrait ${idB} dans son paquet.` : `${idA} ne voit pas ${idB} : ${fermees.join(', ')}.`;
+    await ctx.reply(`${verdict}\n\n${lignes.join('\n')}`);
+  });
+
   bot.command('sanspass', async (ctx) => {
     if (await commandeRefusee(ctx)) return;
     const id = String(ctx.match || '').trim();
