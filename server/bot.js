@@ -18,6 +18,49 @@ export function appUrl(params = {}) {
   return `${config.webAppUrl}/${qs ? `?${qs}` : ''}`;
 }
 
+// Un bouton est un accessoire ; le texte est le message.
+//
+// **Ce que ce garde-fou a coûté avant d'exister.** Le 16 septembre 2026, le bot a cessé de
+// répondre à tout le monde. Cause : un bouton `web_app` n'est accepté par Telegram que si le
+// domaine de la mini app est déclaré dans BotFather. Il ne l'était pas, Telegram refusait le
+// bouton — `400: BUTTON_TYPE_INVALID` — et **refusait le message entier avec lui**. `/start`
+// répondait le silence, et chaque notification (match, message, « tu as plu », arrivée) mourait
+// de la même façon. Vu de Telegram, le webhook était en parfaite santé : aucune erreur de
+// livraison, aucune mise à jour en attente. Il a fallu lire les journaux de la machine pour
+// trouver la ligne. Une case non cochée chez BotFather ressemblait à un bot mort.
+//
+// Désormais : si Telegram refuse le **bouton**, on renvoie le **texte seul**. Le bot reste
+// utilisable même mal configuré, et l'exploitant est prévenu là où il regarde — le groupe de
+// modération — plutôt que dans un journal que personne n'ouvre.
+const BOUTON_REFUSE = /BUTTON_TYPE_INVALID|BUTTON_URL_INVALID|BUTTON_DATA_INVALID|WEB_APP_URL_INVALID/i;
+// Une alerte par heure : la panne touche tous les envois à la fois, et inonder le groupe de
+// modération d'un message par notification refusée ne dirait rien de plus.
+const ALERTE_BOUTON_MS = 3600e3;
+let derniereAlerteBouton = 0;
+
+function prevenirBoutonRefuse(raison) {
+  console.warn(`Bouton refusé par Telegram (${raison}) : le message est parti sans lui.`);
+  if (Date.now() - derniereAlerteBouton < ALERTE_BOUTON_MS) return;
+  derniereAlerteBouton = Date.now();
+  // Sans await : prévenir ne doit jamais retarder ni faire échouer l'envoi qu'on vient de sauver.
+  notifyAdmin(`Telegram refuse les boutons d'ouverture de l'app (${raison}).\n\nLes messages partent sans bouton. À corriger dans BotFather : /mybots, ce bot, Bot Settings, Configure Mini App, avec l'adresse ${config.webAppUrl || '(WEBAPP_URL non défini)'}.`);
+}
+
+// Envoie, et si c'est le bouton que Telegram refuse, renvoie sans lui. Toute autre erreur
+// remonte telle quelle : un compte qui a bloqué le bot n'est pas un bouton invalide.
+async function envoyerMessage(chatId, text, reply_markup) {
+  try {
+    await bot.api.sendMessage(chatId, text, { reply_markup });
+    return { sent: true };
+  } catch (e) {
+    const raison = e.description || e.message || '';
+    if (!reply_markup || !BOUTON_REFUSE.test(raison)) throw e;
+    await bot.api.sendMessage(chatId, text);
+    prevenirBoutonRefuse(raison);
+    return { sent: true, sansBouton: true };
+  }
+}
+
 // Envoie un message du bot avec un bouton qui ouvre directement le bon écran de la mini app.
 // throttleKey + throttleMs évitent d'inonder l'utilisateur (ex. une notification par discussion toutes les 2 minutes).
 // Renvoie { sent: true } ou { sent: false, reason }.
@@ -48,8 +91,7 @@ async function notifierVraiment(userId, cle, vars, button, throttleKey, throttle
   }
   const reply_markup = button && config.webAppUrl ? new InlineKeyboard().webApp(t(lang, button.label, { app: config.appName }), appUrl(button.params)) : undefined;
   try {
-    await bot.api.sendMessage(userId, text, { reply_markup });
-    return { sent: true };
+    return await envoyerMessage(userId, text, reply_markup);
   } catch (e) {
     // L'utilisateur a peut-être bloqué le bot : on ne plante pas le serveur
     console.warn(`Notification impossible pour ${userId} : ${e.description || e.message}`);
@@ -411,7 +453,9 @@ export async function setupBot() {
     if (String(ctx.match || '') === 'voix') return expliquerLaVoix(ctx, lang);
     const text = t(lang, "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans rien te faire payer pour ça.\n\nRéservé aux 18 ans et plus.", { nom: ctx.from?.first_name || '', app: config.appName });
     const reply_markup = config.webAppUrl ? new InlineKeyboard().webApp(t(lang, 'Ouvrir {app}', { app: config.appName }), appUrl()) : undefined;
-    await ctx.reply(text, { reply_markup });
+    // Pas ctx.reply : c'est envoyerMessage qui sait renvoyer le texte seul si Telegram refuse le
+    // bouton. Sans ça, une case non cochée dans BotFather rend le bot muet à /start.
+    await envoyerMessage(ctx.chat.id, text, reply_markup);
   });
 
   // Permet de connaître l'identifiant de la discussion à mettre dans ADMIN_CHAT_ID
