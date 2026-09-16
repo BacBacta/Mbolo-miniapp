@@ -326,6 +326,10 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
   border: 1.5px solid var(--line); transition: background .2s, color .2s, border-color .2s;
 }
 .chips button[aria-pressed="true"] { background: var(--button); color: var(--button-text); border-color: var(--button); }
+/* Les villes connues se collent au champ qu'elles remplissent : la gouttière ordinaire de
+   `.stack` les aurait fait flotter entre deux champs, donc appartenir à aucun des deux. */
+.chips-villes { margin-top: -3px; }
+.chips-villes button { height: 34px; padding: 0 12px; font-size: 13px; }
 
 /* Recherche d'un pays : collée en haut, la liste défile dessous. La bande déborde les gouttières
    de `main` pour que rien ne se voie passer derrière ses coins. */
@@ -402,27 +406,6 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .card-photo .dots span.on { background: var(--on-photo); }
 .card-photo:has(.dots) .corners { top: 18px; }
 .card-photo[data-action="photo-nav"] { cursor: pointer; }
-/* Une carte sans visage ressemble à une panne. Elle n'en est pas une : c'est l'économie de data,
-   que la personne a activée. Le bouton seul ne le disait pas — le propriétaire lui-même n'a pas
-   reconnu son propre réglage — donc la ligne dit **pourquoi** et **où le défaire**. Sans elle, on
-   conclut que l'app est cassée, ou que personne n'a de photo. */
-.card-photo .reveal-wrap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2;
-  display: grid; justify-items: center; gap: 9px;
-  /* `max-content` sur la colonne, sinon la boîte se rétrécit et **le bouton se casse en deux
-     lignes** : la largeur est alors dictée par la place, pas par le texte. La borne garde la
-     légende à l'intérieur de la carte sur un téléphone étroit. */
-  width: max-content; max-width: calc(100% - 44px); }
-.card-photo .reveal { white-space: nowrap; }
-/* La même pastille de verre que « Nouveau » et « démo », et pour la même raison que `.tag-demo` :
-   un texte posé à même le dégradé, même à pleine opacité, tombe à 3,9:1 sur le point le plus
-   clair (--photo-a) — sous AA pour du 12 px. Sur le verre, le pire cas mesure **11,6:1**. La
-   légende reste discrète par sa taille, pas par sa transparence. */
-.card-photo .reveal-why { max-width: 100%; white-space: normal; text-align: center;
-  /* Elle ressemble à un bouton sans en être un. `pointer-events: none` fait passer le geste à la
-     carte dessous plutôt que de ne rien faire : une pastille qui avale un appui sans répondre est
-     pire qu'une pastille inerte, surtout au milieu d'une carte qu'on balaie. */
-  pointer-events: none; }
-
 /* Compatibilité : posée sous la réponse libre, en petits blocs question-réponse. Jamais une
    couleur à elle : ce sont des faits déclarés, pas des signaux à mettre en avant. */
 .card-body .compat { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
@@ -438,7 +421,6 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .card-body .voix .voix-icone { display: inline-flex; }
 .card-body .voix.joue { background: color-mix(in srgb, var(--like) 16%, var(--bg3)); border-color: color-mix(in srgb, var(--like) 40%, var(--line)); }
 .card-body .voix.charge { opacity: .6; pointer-events: none; }
-.card-photo:has(.reveal) .initial { opacity: .12; }
 .overlay { position: absolute; left: 20px; right: 20px; bottom: 20px; display: grid; gap: 7px; color: var(--on-photo); }
 .overlay .name { font-family: var(--font-display); font-size: 38px; font-weight: 400; letter-spacing: -.015em; line-height: 1; display: flex; align-items: baseline; gap: 9px; text-shadow: 0 1px 2px rgb(0 0 0 / .25); }
 .overlay .name .shield { align-self: center; color: var(--gold); display: inline-flex; margin-left: -2px; }

@@ -60,11 +60,37 @@ test("les boutons sont effacés quand l'écran de match renverse la palette", ()
 // et refuse surtout que la recherche reconstruise son propre champ : sur Android, le clavier se
 // refermerait à chaque caractère (même cause que la règle 16 dans la discussion).
 test("aucun menu du système ne revient, et la recherche ne refait pas son champ", () => {
-  assert.ok(!/<select/.test(app.replace(/\/\/[^\n]*/g, '')),
+  const sansCommentaires = app.replace(/\/\/[^\n]*/g, '');
+  assert.ok(!/<select/.test(sansCommentaires),
     "plus aucun <select> : le menu du système ne se met ni à notre typographie, ni à nos couleurs, et n'a pas de recherche");
+  // Un `<datalist>` est le même piège par une autre porte : le navigateur en tire une boîte du
+  // système. Sur la WebView de Telegram Android elle se dessine par-dessus l'écran, sans fond,
+  // jusque sur le clavier. Les villes connues sont des pastilles, visibles d'un coup.
+  assert.ok(!/<datalist|\slist="/.test(sansCommentaires),
+    'plus aucun <datalist> : sa boîte se dessinait par-dessus les champs et le clavier');
+  assert.match(app, /const villesProposees = \(pays, champ, valeur\) =>/, 'les villes connues passent par des pastilles');
+  const poser = entre('function poserLaVille(', '// Les lignes de la liste des pays');
+  assert.ok(!/render\(|SCREENS\./.test(poser), 'une pastille ne refait pas l\'écran : le clavier se fermerait');
   const recherche = entre("S.screen === 'pays' && name === 'recherche-pays'", "S.screen === 'chat' && name === 'message'");
   assert.match(recherche, /liste\.innerHTML = listeDesPays\(/, 'seule la liste est reconstruite');
   assert.ok(!/render\(/.test(recherche), 'jamais render() : il refait le champ, donc ferme le clavier');
+});
+
+// L'économie de data cachait la photo de la carte derrière un bouton. Or c'est sur cette photo
+// qu'on décide d'aimer ou de passer, et elle ne coûtait qu'une image : la découverte ne charge
+// que la carte du dessus (`loadCardPhoto(p)` une fois par balayage), jamais la suivante. Le
+// réglage ne retenait donc presque rien, et il coûtait la décision. Il retient désormais les
+// **vignettes des listes**, là où l'économie est réelle : cinquante images d'un coup.
+test("la fiche qu'on décide garde sa photo, et l'économie de data reste sur les vignettes", () => {
+  assert.ok(!/S\.dataSaver/.test(entre('function loadCardPhoto(p, {', 'photoUrl(p.id')),
+    "la photo d'une fiche part toujours : une carte grise ne se juge pas");
+  assert.match(entre('function loadAvatar(p, {', 'photoUrl(p.id'), /S\.dataSaver/,
+    "les vignettes, elles, restent retenues : c'est là que l'économie existe");
+  assert.match(entre('function lazyAvatars() {', 'async function changerLangue'),
+    /if \(S\.dataSaver \|\| !\('IntersectionObserver' in window\)\) return;/,
+    "et la liste ne va même pas les chercher");
+  // Ce qui a disparu avec le bouton : il ne doit pas revenir par un coin de l'app.
+  assert.ok(!/S\.revealed|data-action="reveal"/.test(app), 'plus de geste « Afficher la photo »');
 });
 
 // Le clavier réduit la fenêtre : sans écouteur, la zone des messages rétrécit et le dernier
