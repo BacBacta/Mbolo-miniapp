@@ -65,11 +65,17 @@ async function ouvrir(user, matchId) {
     }
     return texte;
   };
-  return { res, attendre, fermer: () => stop.abort(), recu: () => texte };
+  const f = { res, attendre, fermer: () => { stop.abort(); ouverts.delete(f); }, recu: () => texte };
+  ouverts.add(f);
+  return f;
 }
 const tick = (ms = 60) => new Promise((r) => setTimeout(r, ms));
 
-test.after(() => server.close());
+// Un flux ouvert porte deux minuteurs : si une assertion échoue avant `fermer()`, ils tiendraient
+// le processus en vie et le fichier ne finirait jamais — c'est arrivé sur PostgreSQL le
+// 17 septembre 2026. Les flux ouverts se ferment quoi qu'il arrive, et le serveur coupe le reste.
+const ouverts = new Set();
+test.after(() => { for (const f of ouverts) f.fermer(); server.closeAllConnections(); server.close(); });
 
 test("le flux s'ouvre avec l'en-tête d'authentification, jamais avec un jeton dans l'adresse", async () => {
   await creer('9301', 'Awa', 'femme');

@@ -1184,11 +1184,14 @@ api.get('/matches/:id/flux', requireMembre, async (req, res) => {
     Connection: 'keep-alive',
     'X-Accel-Buffering': 'no',
   });
-  res.flushHeaders();
-  res.write(': ok\n\n');
+  // Tout ce qui attend une base passe **avant** le prélude, et l'abonnement aussi : « ok » veut
+  // dire « tu es abonné ». Écrit avant, sur PostgreSQL le client lisait le prélude pendant que
+  // `markRead` faisait son aller-retour, et un signal parti dans cet intervalle était perdu.
   store.touchPresence(req.user.id, r.m.id);
   await store.markRead(r.m.id, req.user.id);
   const desabonner = abonner(r.m.id, req.user.id, res);
+  res.flushHeaders();
+  res.write(': ok\n\n');
   const presence = setInterval(() => store.touchPresence(req.user.id, r.m.id), PRESENCE_MS);
   // Le proxy coupe une connexion muette ; un commentaire ne réveille personne côté client.
   const vie = setInterval(() => { try { res.write(': ping\n\n'); } catch { /* fermé */ } }, KEEPALIVE_MS);
