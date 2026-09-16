@@ -63,8 +63,11 @@ const EN = {
     '{app} notifications are working. Matches and messages will reach you here.',
   'Nouveau match : {nom} et toi, vous vous plaisez.': 'New match: {nom} and you like each other.',
   'Écrire': 'Write',
-  "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.":
-    'Someone in {ville} likes your profile. Keep browsing: you will come across them in your deck.',
+  "Tu as plu à quelqu'un. Continue à découvrir : tu le croiseras dans ton paquet.":
+    "Someone likes your profile. Keep browsing: you will come across them in your deck.",
+  // Une arrivée qui correspond
+  "Quelqu'un vient d'arriver à {ville} et correspond à ce que tu cherches.":
+    "Someone new just joined in {ville} and matches what you are looking for.",
   'Découvrir': 'Discover',
   "{nom} t'a écrit : « {extrait} »": '{nom} wrote to you: "{extrait}"',
   'Répondre': 'Reply',
@@ -113,7 +116,11 @@ const ES = {
   "Les notifications {app} fonctionnent. Tu seras prévenu(e) ici des matchs et des messages.": "Las notificaciones de {app} funcionan. Aquí te avisaremos de los matchs y los mensajes.",
   "Nouveau match : {nom} et toi, vous vous plaisez.": "Nuevo match: a {nom} y a ti os gustáis.",
   "Écrire": "Escribir",
-  "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.": "Le gustas a alguien de {ville}. Sigue descubriendo: te lo cruzarás en tu mazo.",
+  "Tu as plu à quelqu'un. Continue à découvrir : tu le croiseras dans ton paquet.":
+    "Le gustas a alguien. Sigue descubriendo: te lo cruzarás en tu mazo.",
+  // Une arrivée qui correspond
+  "Quelqu'un vient d'arriver à {ville} et correspond à ce que tu cherches.":
+    "Alguien acaba de llegar a {ville} y encaja con lo que buscas.",
   "Découvrir": "Descubrir",
   "{nom} t'a écrit : « {extrait} »": "{nom} te ha escrito: « {extrait} »",
   "Répondre": "Responder",
@@ -162,7 +169,11 @@ const PT = {
   "Les notifications {app} fonctionnent. Tu seras prévenu(e) ici des matchs et des messages.": "As notificações da {app} funcionam. Vais ser avisado aqui dos matchs e das mensagens.",
   "Nouveau match : {nom} et toi, vous vous plaisez.": "Novo match: tu e {nom} gostam um do outro.",
   "Écrire": "Escrever",
-  "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.": "Alguém em {ville} gostou do teu perfil. Continua a descobrir: vais cruzar-te com essa pessoa no teu baralho.",
+  "Tu as plu à quelqu'un. Continue à découvrir : tu le croiseras dans ton paquet.":
+    "Alguém gostou do teu perfil. Continua a descobrir: vais cruzar-te com essa pessoa no teu baralho.",
+  // Une arrivée qui correspond
+  "Quelqu'un vient d'arriver à {ville} et correspond à ce que tu cherches.":
+    "Alguém acabou de chegar a {ville} e corresponde ao que procuras.",
   "Découvrir": "Descobrir",
   "{nom} t'a écrit : « {extrait} »": "{nom} escreveu-te: « {extrait} »",
   "Répondre": "Responder",
@@ -211,7 +222,11 @@ const SW = {
   "Les notifications {app} fonctionnent. Tu seras prévenu(e) ici des matchs et des messages.": "Arifa za {app} zinafanya kazi. Utaarifiwa hapa kuhusu match na ujumbe.",
   "Nouveau match : {nom} et toi, vous vous plaisez.": "Match mpya: wewe na {nom} mnapendana.",
   "Écrire": "Andika",
-  "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.": "Mtu mmoja {ville} amependa wasifu wako. Endelea kutazama: utamkuta kwenye rundo lako.",
+  "Tu as plu à quelqu'un. Continue à découvrir : tu le croiseras dans ton paquet.":
+    "Mtu mmoja amependa wasifu wako. Endelea kutazama: utamkuta kwenye rundo lako.",
+  // Une arrivée qui correspond
+  "Quelqu'un vient d'arriver à {ville} et correspond à ce que tu cherches.":
+    "Mtu mpya amejiunga {ville} na analingana na unachotafuta.",
   "Découvrir": "Gundua",
   "{nom} t'a écrit : « {extrait} »": "{nom} amekuandikia: « {extrait} »",
   "Répondre": "Jibu",
@@ -278,8 +293,11 @@ const RU = {
     'Уведомления {app} работают. Здесь ты будешь узнавать о мэтчах и сообщениях.',
   'Nouveau match : {nom} et toi, vous vous plaisez.': 'Новый мэтч: {nom} и ты понравились друг другу.',
   'Écrire': 'Написать',
-  "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.":
-    'Кому-то в городе {ville} понравилась твоя анкета. Смотри дальше: эта анкета попадётся тебе в колоде.',
+  "Tu as plu à quelqu'un. Continue à découvrir : tu le croiseras dans ton paquet.":
+    "Кому-то понравилась твоя анкета. Смотри дальше: эта анкета попадётся тебе в колоде.",
+  // Une arrivée qui correspond
+  "Quelqu'un vient d'arriver à {ville} et correspond à ce que tu cherches.":
+    "В городе {ville} появился кто-то новый, и он подходит под то, что ты ищешь.",
   'Découvrir': 'Смотреть',
   "{nom} t'a écrit : « {extrait} »": '{nom} пишет тебе: «{extrait}»',
   'Répondre': 'Ответить',
@@ -346,8 +364,11 @@ const UK = {
     'Сповіщення {app} працюють. Тут ти дізнаватимешся про метчі та повідомлення.',
   'Nouveau match : {nom} et toi, vous vous plaisez.': 'Новий метч: {nom} і ти сподобалися одне одному.',
   'Écrire': 'Написати',
-  "Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet.":
-    'Комусь у місті {ville} сподобалася твоя анкета. Дивись далі: ця анкета трапиться тобі в колоді.',
+  "Tu as plu à quelqu'un. Continue à découvrir : tu le croiseras dans ton paquet.":
+    "Комусь сподобалася твоя анкета. Дивись далі: ця анкета трапиться тобі в колоді.",
+  // Une arrivée qui correspond
+  "Quelqu'un vient d'arriver à {ville} et correspond à ce que tu cherches.":
+    "У місті {ville} з'явився хтось новий, і він підходить під те, що ти шукаєш.",
   'Découvrir': 'Дивитися',
   "{nom} t'a écrit : « {extrait} »": '{nom} пише тобі: «{extrait}»',
   'Répondre': 'Відповісти',

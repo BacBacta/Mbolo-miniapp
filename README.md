@@ -110,6 +110,7 @@ Sur ton téléphone :
    - Onglet **Profil** → **Tester les notifications** : le bot t'écrit tout de suite.
    - Envoie un message à un profil de démo, puis **ferme immédiatement Odo** : environ 15 secondes plus tard, le bot te prévient de sa réponse, avec un bouton qui rouvre la bonne discussion.
    - Une minute après la validation de ton selfie, un profil de démo te « like » : le bot t'annonce que tu as plu à quelqu'un, et ce profil apparaît en premier dans Découvrir.
+   - **Une arrivée** : avec un second compte (autre téléphone, ou `?dev_user=` dans un navigateur), crée un profil de la même ville et de la même intention, et fais-le vérifier. Le premier compte reçoit « quelqu'un vient d'arriver à … et correspond à ce que tu cherches » — **à condition de ne pas avoir ouvert l'app depuis une demi-heure**, sans quoi il n'y a rien à annoncer : la carte arrive déjà dans le paquet.
 
 ### Profils de démonstration : qui sert à quoi
 
@@ -622,6 +623,26 @@ La personne est prévenue des deux côtés, dans sa langue. Un pass pris pendant
 **Ce que le pass n'enlève jamais, c'est une rencontre.** Les mêmes personnes, la même zone, les mêmes règles ; le paquet place les « J'aime » reçus devant pour tout le monde, avec ou sans pass, et la notification du bot le dit ainsi : « Tu as plu à quelqu'un à Yaoundé. Continue à découvrir : tu le croiseras dans ton paquet. » Ce qui disparaît sans pass est de savoir **lesquels**.
 
 Il faut alors fermer **quatre portes ensemble**, sans quoi les trois autres ne servent à rien : la liste (`GET /api/likes`, 403 `PASS_REQUIS`), la pastille « T'a liké » sur la carte, la même dans la vue Liste, et **le compteur** de l'onglet Messages. Le compteur est le plus bavard des quatre : « une personne t'a aimé », posé à côté d'un paquet qui met cette personne en tête, fait un nom. Il ne vaut pas `0` sans pass — zéro dirait « personne ne t'a aimé », ce qui est faux — il vaut **`null`** : on ne le dit pas, et on ne dit pas le contraire. L'**ordre**, lui, ne change pas d'un compte à l'autre : deux ordres différents se compareraient, et la différence dirait ce que l'étiquette ne dit plus.
+
+### Ce que le bot annonce, et ce qu'il tait
+
+Le bot écrit à chacun dans **sa** langue. Quatre nouvelles peuvent lui arriver sans qu'il ait ouvert l'app : un match, un message, « tu as plu à quelqu'un », et « quelqu'un vient d'arriver ». Les deux dernières obéissent à la même règle que « qui t'a aimé » — **une notification ne doit rien apprendre qu'ouvrir l'app n'apprendrait**.
+
+**« Tu as plu à quelqu'un »**, au plus une fois par jour, sans dire qui. Elle ne dit **plus la ville** : elle donnait celle du destinataire, ce qui était vrai tant que tout le monde cherchait dans sa ville, et devient faux depuis qu'un pass ouvre le pays entier. Et mettre celle de la personne qui a aimé serait pire — « quelqu'un de Kribi t'a aimé », plus une carte de Kribi dans le paquet, fait un nom. Elle mène vers **Découvrir**, où le paquet place cette personne devant.
+
+**« Quelqu'un vient d'arriver à {ville} et correspond à ce que tu cherches »** (`server/nouveaux.js`). Elle ne nomme personne : l'arrivant est déjà dans le paquet de qui reçoit, avec sa ville sur sa carte et son badge « Nouveau » pendant une semaine. Elle part **à l'instant où quelqu'un devient visible** — le premier profil sous `badge`, la validation sous `gate` — et pas par un balayage sur minuterie : c'est plus juste, et ça épargne un `allUsers()` toutes les six heures sur une machine de 256 Mo.
+
+Trois freins l'empêchent de devenir un envoi de masse, parce que réveiller des comptes endormis à chaque inscription est le réflexe qui fait désinstaller une app de rencontres :
+
+| Frein | Pourquoi |
+|---|---|
+| Personne d'actif depuis moins de **30 min** | Il a l'app ouverte : la carte arrive dans son paquet toute seule |
+| Au plus une annonce par **48 h** et par personne | Une arrivée par jour ferait un message par jour, et un message par jour se coupe |
+| **20 destinataires au plus** par arrivée | La limite de débit de Telegram, et l'idée qu'une notification se mérite. Ce sont les **plus récemment actifs** qui la reçoivent : on parle à qui revient déjà plutôt qu'à ceux qui sont partis |
+
+Et **une seule annonce par compte dans sa vie** (`annonceLe`) : une re-vérification ou un profil réenregistré ne rejouent pas la nouvelle — « quelqu'un vient d'arriver », dit deux fois de la même personne, est un mensonge la seconde fois. La marque est posée **avant** l'envoi : entre une annonce perdue et une annonce double, on choisit la moins chère.
+
+`npm run chiffres` compte une ligne `arrivee_dite {n}` **par arrivée**, pas par destinataire : combien de personnes la nouvelle a touchées. Ce qu'elle ne dit pas, et qu'il faudra regarder autrement : si elles sont revenues.
 
 #### « Se sont arrêtés sur ta fiche »
 

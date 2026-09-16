@@ -28,6 +28,8 @@ import { store } from './store.js';
 //   pass_refuse {quoi}   · **la demande** : qui bute sur le mur sans pass. Sans caisse, c'est la
 //                          seule façon de savoir si ce qu'il y a derrière intéresse quelqu'un
 //   pass_usage {quoi}    · l'usage réel, ralenti : un pass dont personne ne se sert ne vaut rien
+//   arrivee_dite {n}     · une ligne **par arrivée**, pas par destinataire : à combien de personnes
+//                          la nouvelle a été utile. Ce qu'elle ne dit pas : si elles sont revenues
 
 // Les seules formes admises dans une charge utile. Tout le reste est un refus : c'est la barrière
 // qui empêche un texte libre d'entrer un jour par inadvertance.
