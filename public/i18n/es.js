@@ -521,4 +521,5 @@ export default {
   "Les vignettes des listes ne se chargent pas. La fiche que tu regardes garde sa photo.": "Las miniaturas de las listas no se cargan. La ficha que miras conserva su foto.",
   "Villes connues": "Ciudades conocidas",
   "{nom} écrit…": "{nom} está escribiendo…",
+  "Vous vous êtes plu. Vous pouvez vous écrire.": "Os habéis gustado. Podéis escribiros.",
 };

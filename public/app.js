@@ -19,7 +19,9 @@ const S = {
   discoverMode: 'cards',
   people: [],
   person: null,
+  personFrom: null,
   likes: [],
+  vues: null,
   avatarObserver: null,
   photoUrls: {},
   voixUrls: {},
@@ -288,7 +290,7 @@ function emplacementsPhoto() {
   return Array.from({ length: Math.max(ouverts, occupes) }, (_, i) => i + 1);
 }
 
-const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', pays: () => S.pays?.retour || 'me', plus: () => S.plusRetour || 'me', vues: () => 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
+const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => S.personFrom || 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', pays: () => S.pays?.retour || 'me', plus: () => S.plusRetour || 'me', vues: () => 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
 const TABS = [['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']];
 
@@ -395,8 +397,12 @@ async function refreshSummary() {
 // ============================================================
 const avatar = (p, size = 'sm') => `<span class="avatar ${size}${p.verified ? ' verified' : ''}" data-avatar="${esc(p.id)}">${esc(p.name?.[0] || '?')}</span>`;
 
-function loadAvatar(p, { own = false } = {}) {
-  if (!p?.hasPhoto || (!own && S.dataSaver)) return;
+// L'économie de data retient les **listes** — cinquante vignettes qui partent d'un coup. Un
+// avatar **seul**, celui de la personne à qui l'on écrit, n'est pas une liste : le retenir
+// faisait un en-tête vide dans une discussion ouverte, donc un écran qui a l'air cassé, pour
+// une image. Même raisonnement que la photo de la fiche qu'on décide.
+function loadAvatar(p, { own = false, dansUneListe = true } = {}) {
+  if (!p?.hasPhoto || (!own && dansUneListe && S.dataSaver)) return;
   photoUrl(p.id, p.photos?.[0] || 1).then((url) => {
     if (!url) return;
     document.querySelectorAll(`[data-avatar="${CSS.escape(p.id)}"]`).forEach((el) => {
@@ -515,6 +521,16 @@ const ME = () => {
 const paysDevine = () => S.me?.profile?.country || S.me?.options?.suggestedCountry || S.me?.options?.defaultCountry || 'CM';
 const zoneDe = () => S.me?.filters?.zone || { country: paysDevine(), city: S.me?.profile?.city || null };
 const activityChip = (p, cls = 'chip') => (ACTIVITY_LABELS()[p.activity] ? `<span class="${cls} act-${p.activity}">${ACTIVITY_LABELS()[p.activity]}</span>` : '');
+
+// **Toutes les portes qui mènent à une fiche.** `S.people` — le paquet et la vue Liste — était la
+// seule consultée, alors que trois autres écrans ouvrent une fiche : « qui t'a aimé »,
+// « se sont arrêtés sur ta fiche », et l'en-tête de la discussion. Depuis les deux derniers,
+// l'appui **renvoyait silencieusement sur Découvrir** : un bouton qui ramène ailleurs se lit
+// comme une panne, et c'en était une. Une porte de plus s'ajoute ici, une seule fois.
+const profilConnu = (id) => S.people.find((x) => x.id === id)
+  || S.likes.find((x) => x.id === id)
+  || (S.vues || []).find((x) => x.id === id)
+  || (S.chat?.other?.id === id ? S.chat.other : null);
 
 // Carte de profil, partagée entre la découverte et l'aperçu de son propre profil.
 // cls = 'top' (carte manipulable) ou 'next' (carte suivante, en retrait)
@@ -1204,14 +1220,20 @@ const SCREENS = {
   },
 
   person({ id }) {
-    const p = S.people.find((x) => x.id === id) || S.likes.find((x) => x.id === id);
+    const p = profilConnu(id);
     if (!p) return go('discover');
     S.person = p;
-    const note = p.status === 'liked' ? `${icon('heart', 14)}<span>${t('Tu as déjà aimé ce profil. Le bot te prévient en cas de match.')}</span>`
-      : p.status === 'passed' ? `${icon('clock', 14)}<span>${t('Tu avais passé ce profil. Tu peux revenir sur ta décision.')}</span>` : '';
+    // Venu de la discussion : c'est un match, donc ni « J'aime » ni « Passer » — les deux gestes
+    // n'ont plus de sens, et « Passer » aurait l'air de défaire le match. On propose de revenir
+    // écrire, parce que c'est la seule chose qu'on puisse faire d'ici.
+    const match = S.personFrom === 'chat' && S.chat?.other?.id === id;
+    const note = match ? `${icon('heart', 14)}<span>${t('Vous vous êtes plu. Vous pouvez vous écrire.')}</span>`
+      : p.status === 'liked' ? `${icon('heart', 14)}<span>${t('Tu as déjà aimé ce profil. Le bot te prévient en cas de match.')}</span>`
+        : p.status === 'passed' ? `${icon('clock', 14)}<span>${t('Tu avais passé ce profil. Tu peux revenir sur ta décision.')}</span>` : '';
     render(`<div class="deck">${profileCard(p, { cls: 'top' })}</div>${note ? `<p class="fine">${note}</p>` : ''}`);
     loadCardPhoto(p);
-    if (p.status === 'liked') tg.setButtons(null);
+    if (match) tg.setButtons({ main: { text: t('Écrire à {nom}', { nom: p.name }), onClick: () => go('chat', { id: S.chat.id }) } });
+    else if (p.status === 'liked') tg.setButtons(null);
     else if (p.status === 'passed') tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipePerson('like') } });
     else tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipePerson('like') }, secondary: { text: t('Passer'), onClick: () => swipePerson('pass') } });
   },
@@ -1554,6 +1576,8 @@ const SCREENS = {
         <div class="new-strip">${profiles.map((p) => `<button type="button" class="new-item" data-action="person" data-id="${esc(p.id)}">${avatar(p, 'md')}<span>${esc(p.name)}</span></button>`).join('')}</div>
       </div>` : ''}
       <p class="fine">${icon('lock', 14)}<span>${t("On ne montre jamais ce que ces personnes ont décidé, et jamais la liste entière : c'est ce qui empêche de deviner qui n'a pas voulu de toi.")}</span></p>`);
+    // Sans ça, toucher un de ces visages ouvrait Découvrir : `profilConnu()` n'a que ce qu'on range.
+    S.vues = profiles;
     profiles.forEach((p) => loadAvatar(p));
     tg.setBack(() => go('me'));
     tg.setButtons({ main: { text: t('Compris'), onClick: () => go('me') } });
@@ -2084,7 +2108,7 @@ function renderChat() {
       </form>
     </div>
   `);
-  loadAvatar(c.other);
+  loadAvatar(c.other, { dansUneListe: false });
   // #messages est reconstruit à chaque ouverture : l'écouteur suit le nouvel élément.
   document.getElementById('messages').addEventListener('scroll', () => {
     S.chatEnBas = enBas(document.getElementById('messages'));

@@ -214,3 +214,42 @@ test("un message bloqué retire sa bulle et rend le texte au champ", async ({ pa
   await expect(page.locator('.bubble', { hasText: 'Orange Money' })).toHaveCount(0);
   await expect(champMessage(page)).toHaveValue(texte);
 });
+
+// Deux pannes signalées depuis le téléphone, sur le même en-tête.
+//
+// L'avatar restait vide : l'économie de data retenait aussi cette image-là, alors que c'est **une**
+// image, celle de la personne à qui l'on écrit — pas une liste de cinquante vignettes.
+//
+// Et l'appui ne menait nulle part : `SCREENS.person` ne cherchait la fiche que dans le paquet et
+// dans « qui t'a aimé », jamais dans la discussion ouverte. Il tombait donc sur le repli
+// `go('discover')` et renvoyait sur Découvrir **sans un mot**.
+test("l'en-tête de la discussion montre la photo et ouvre bien la fiche", async ({ page }) => {
+  await membreVerifie(page, 'Pia');
+
+  // Économie de data activée : c'est le réglage qui rendait l'avatar invisible.
+  await onglet(page, /Profil/).click();
+  await page.locator('input[name="dataSaver"]').check();
+  await expect(page.locator('.toast, #toast')).toContainText(/Économie de data activée/);
+
+  const nom = await aimerUnProfil(page);
+  await ouvrirLaDiscussion(page);
+
+  // La photo est là malgré le réglage : un en-tête vide dans une discussion ouverte se lit
+  // comme une panne, et ça n'économise qu'une image.
+  const entete = page.locator('.chat-head .head-profil');
+  await expect(entete.locator('.avatar img')).toBeVisible({ timeout: 15_000 });
+
+  // L'appui ouvre la fiche, et pas Découvrir.
+  await entete.click();
+  // Une fiche, une seule carte — Découvrir en pose deux. Sans ce compte, le test passerait
+  // encore en étant renvoyé sur le paquet, ce qui est précisément la panne.
+  await expect(page.locator('main .card')).toHaveCount(1, { timeout: 10_000 });
+  await expect(page.locator('main .card')).toContainText(nom.split(',')[0]);
+  // Un match ne s'aime ni ne se passe : les deux gestes n'ont plus de sens ici.
+  await expect(actionPrincipale(page)).toHaveText(/Écrire à/);
+  await expect(page.locator('#fallback-bar button', { hasText: /^Passer$/ })).toHaveCount(0);
+
+  // Et le retour ramène à la discussion, pas au paquet.
+  await actionPrincipale(page).click();
+  await expect(champMessage(page)).toBeVisible({ timeout: 10_000 });
+});

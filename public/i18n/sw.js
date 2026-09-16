@@ -521,4 +521,5 @@ export default {
   "Les vignettes des listes ne se chargent pas. La fiche que tu regardes garde sa photo.": "Picha ndogo za orodha hazipakiwi. Wasifu unaotazama unabaki na picha yake.",
   "Villes connues": "Miji inayojulikana",
   "{nom} écrit…": "{nom} anaandika…",
+  "Vous vous êtes plu. Vous pouvez vous écrire.": "Mmependana. Mnaweza kuandikiana.",
 };
