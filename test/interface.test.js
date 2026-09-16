@@ -79,21 +79,15 @@ test("aucun menu du système ne revient, et la recherche ne refait pas son champ
   assert.ok(!/render\(/.test(recherche), 'jamais render() : il refait le champ, donc ferme le clavier');
 });
 
-// L'économie de data cachait la photo de la carte derrière un bouton. Or c'est sur cette photo
-// qu'on décide d'aimer ou de passer, et elle ne coûtait qu'une image : la découverte ne charge
-// que la carte du dessus (`loadCardPhoto(p)` une fois par balayage), jamais la suivante. Le
-// réglage ne retenait donc presque rien, et il coûtait la décision. Il retient désormais les
-// **vignettes des listes**, là où l'économie est réelle : cinquante images d'un coup.
-test("la fiche qu'on décide garde sa photo, et l'économie de data reste sur les vignettes", () => {
-  assert.ok(!/S\.dataSaver/.test(entre('function loadCardPhoto(p, {', 'photoUrl(p.id')),
-    "la photo d'une fiche part toujours : une carte grise ne se juge pas");
-  assert.match(entre('function loadAvatar(p, {', 'photoUrl(p.id'), /S\.dataSaver/,
-    "les vignettes, elles, restent retenues : c'est là que l'économie existe");
-  assert.match(entre('function lazyAvatars() {', 'async function changerLangue'),
-    /if \(S\.dataSaver \|\| !\('IntersectionObserver' in window\)\) return;/,
-    "et la liste ne va même pas les chercher");
-  // Ce qui a disparu avec le bouton : il ne doit pas revenir par un coin de l'app.
-  assert.ok(!/S\.revealed|data-action="reveal"/.test(app), 'plus de geste « Afficher la photo »');
+// L'« économie de data » a été retirée le 17 septembre 2026, après que chacun de ses effets a été
+// signalé comme une panne : la carte grise, l'en-tête vide de la discussion, puis la liste
+// Messages sans visages. Aucun réglage ne doit revenir retenir une photo. La seule économie qui
+// reste est la bonne : une vignette de liste ne se charge que quand sa ligne apparaît à l'écran.
+test("aucun réglage ne retient une photo, et les vignettes se chargent à l'apparition", () => {
+  assert.ok(!/dataSaver|data_saver|dansUneListe/.test(app), "l'économie de data ne revient pas");
+  assert.ok(!/S\.\w+/.test(entre('function loadCardPhoto(p, {', 'photoUrl(p.id')), 'la fiche ne consulte aucun réglage');
+  assert.ok(!/S\.\w+/.test(entre('function loadAvatar(p, {', 'photoUrl(p.id')), "l'avatar non plus");
+  assert.match(entre('function lazyAvatars() {', 'async function changerLangue'), /IntersectionObserver/);
 });
 
 // Trois écrans ouvrent une fiche de profil, et `SCREENS.person` n'en connaissait qu'un. Depuis
@@ -119,15 +113,6 @@ test("la fiche d'un match ne propose ni « J'aime » ni « Passer »", () => {
   const ecran = entre('  person({ id }) {', '  async chat({ id }) {');
   assert.match(ecran, /const match = S\.personFrom === 'chat' && S\.chat\?\.other\?\.id === id;/);
   assert.match(ecran, /if \(match\) tg\.setButtons\(\{ main: \{ text: t\('Écrire à \{nom\}'/);
-});
-
-// L'économie de data retient les listes. L'avatar de la personne à qui l'on écrit n'en est pas
-// une : un en-tête vide dans une discussion ouverte se lit comme une panne, pour une image.
-test("l'avatar de la discussion ne dépend pas de l'économie de data", () => {
-  assert.match(entre('function loadAvatar(p, {', 'photoUrl(p.id'), /dansUneListe && S\.dataSaver/);
-  assert.match(app, /loadAvatar\(c\.other, \{ dansUneListe: false \}\)/);
-  // Les vraies listes, elles, la respectent toujours.
-  assert.match(entre('function lazyAvatars() {', 'async function changerLangue'), /if \(S\.dataSaver \|\|/);
 });
 
 // Le clavier réduit la fenêtre : sans écouteur, la zone des messages rétrécit et le dernier

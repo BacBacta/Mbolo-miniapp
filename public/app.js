@@ -26,7 +26,6 @@ const S = {
   photoUrls: {},
   voixUrls: {},
   voixEnCours: null,
-  dataSaver: false,
   matches: [],
   chat: null,
   chatTimer: null,
@@ -397,12 +396,15 @@ async function refreshSummary() {
 // ============================================================
 const avatar = (p, size = 'sm') => `<span class="avatar ${size}${p.verified ? ' verified' : ''}" data-avatar="${esc(p.id)}">${esc(p.name?.[0] || '?')}</span>`;
 
-// L'économie de data retient les **listes** — cinquante vignettes qui partent d'un coup. Un
-// avatar **seul**, celui de la personne à qui l'on écrit, n'est pas une liste : le retenir
-// faisait un en-tête vide dans une discussion ouverte, donc un écran qui a l'air cassé, pour
-// une image. Même raisonnement que la photo de la fiche qu'on décide.
-function loadAvatar(p, { own = false, dansUneListe = true } = {}) {
-  if (!p?.hasPhoto || (!own && dansUneListe && S.dataSaver)) return;
+// **Aucun réglage ne retient une photo.** L'« économie de data » a été retirée le 17 septembre
+// 2026 : après avoir cessé de cacher la fiche qu'on décide, puis l'avatar de la discussion, elle
+// ne retenait plus que les vignettes des listes — et c'est là que le propriétaire l'a vue comme
+// une panne une troisième fois. Un interrupteur dont chaque effet se lit comme un défaut n'est
+// pas une économie ; et posé dans le CloudStorage, il suivait la personne d'un appareil à
+// l'autre après un appui par mégarde. Ce qui économise vraiment reste : lazyAvatars() ne charge
+// une vignette que quand sa ligne apparaît à l'écran, et ça n'a jamais eu besoin d'un bouton.
+function loadAvatar(p, { own = false } = {}) {
+  if (!p?.hasPhoto) return;
   photoUrl(p.id, p.photos?.[0] || 1).then((url) => {
     if (!url) return;
     document.querySelectorAll(`[data-avatar="${CSS.escape(p.id)}"]`).forEach((el) => {
@@ -735,11 +737,11 @@ async function renderPeople() {
   lazyAvatars();
 }
 
-// Vignettes de la liste : chargées seulement quand la ligne apparaît à l'écran, et jamais en
-// économie de data (loadAvatar s'en assure). Cinquante photos d'un coup coûteraient trop cher.
+// Vignettes de la liste : chargées seulement quand la ligne apparaît à l'écran. Cinquante photos
+// d'un coup coûteraient trop cher, et c'est la seule économie de data qui reste — la bonne.
 function lazyAvatars() {
   S.avatarObserver?.disconnect();
-  if (S.dataSaver || !('IntersectionObserver' in window)) return;
+  if (!('IntersectionObserver' in window)) return;
   S.avatarObserver = new IntersectionObserver((entries) => {
     for (const e of entries) {
       if (!e.isIntersecting) continue;
@@ -1730,11 +1732,6 @@ const SCREENS = {
             action: 'plus' })}
           ${listRow({ iconName: 'globe', title: t('Langue'), sub: LANGUES[langue()], action: 'go', extra: ` data-screen="langue"` })}
           ${listRow({ iconName: 'bell', title: t('Tester les notifications'), sub: t("Le bot t'envoie un message dans Telegram"), action: 'test-notif' })}
-          <label class="list-row">
-            <span class="tile">${icon('wifi', 20)}</span>
-            <div class="body"><div class="title">${t('Économie de data')}</div><div class="sub">${t("Les vignettes des listes ne se chargent pas. La fiche que tu regardes garde sa photo.")}</div></div>
-            <input type="checkbox" class="switch" name="dataSaver" ${S.dataSaver ? 'checked' : ''}>
-          </label>
           ${plus() ? listRow({ iconName: 'rows', title: t("Se sont arrêtés sur ta fiche"), sub: t('Combien, en gros, et les cinq dernières fiches'), action: 'go', extra: ' data-screen="vues"' }) : ''}
           <label class="list-row">
             <span class="tile">${icon('lock', 20)}</span>
@@ -2108,7 +2105,7 @@ function renderChat() {
       </form>
     </div>
   `);
-  loadAvatar(c.other, { dansUneListe: false });
+  loadAvatar(c.other);
   // #messages est reconstruit à chaque ouverture : l'écouteur suit le nouvel élément.
   document.getElementById('messages').addEventListener('scroll', () => {
     S.chatEnBas = enBas(document.getElementById('messages'));
@@ -2693,10 +2690,6 @@ app.addEventListener('change', async (e) => {
     try { S.selfie = await compressImage(el.files[0], 900, 0.85); SCREENS.verify(); } catch (err) { showError(err); }
   } else if (el.name === 'zoneCity' && S.zoneDraft) {
     S.zoneDraft.city = el.value;
-  } else if (el.name === 'dataSaver') {
-    S.dataSaver = el.checked;
-    await tg.cloudSet('data_saver', el.checked ? '1' : '0');
-    toast(el.checked ? t('Économie de data activée') : t('Économie de data désactivée'), 'ok');
   } else if (el.name === 'discretion') {
     // Le réglage part au serveur tout de suite : c'est un retrait, il ne doit pas attendre un
     // autre geste. S'il échoue, l'interrupteur revient où il était — sinon il mentirait.
@@ -2773,7 +2766,6 @@ async function boot() {
   }
   // Le compte porte peut-être un choix de langue explicite, qui l'emporte sur celle de Telegram
   if (langueVoulue() !== langue()) { await chargerLangue(langueVoulue()); buildTabs(); }
-  S.dataSaver = (await tg.cloudGet('data_saver')) === '1';
   S.discoverMode = (await tg.cloudGet('discover_mode')) === 'list' ? 'list' : 'cards';
   tg.onSettings(() => go('me'));
 
