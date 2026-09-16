@@ -483,15 +483,34 @@ const fuseau = () => { try { return Intl.DateTimeFormat().resolvedOptions().time
 const ETAPE = 'form_step';
 const JAUGE_VUE = 'jauge_vue';
 const VOIX_VUE = 'voix_vue';
+// D'où la personne est arrivée, le temps d'un aller-retour. Même canal que l'étape du formulaire,
+// et pour la même raison : la requête existe déjà, le mot y monte sans en coûter une seconde.
+//
+// Il passe par localStorage et **pas seulement par la mémoire**, parce que l'inscription n'a
+// presque jamais lieu à l'ouverture qui portait le lien : on clique une affiche lundi, on regarde,
+// on referme, on crée son profil jeudi. Sans cette ligne, tous ces gens seraient comptés comme
+// venus de nulle part, et le canal qui marche le mieux serait justement celui qu'on ne verrait pas.
+const SOURCE = 'venu_de';
 const local = (() => { try { return window.localStorage; } catch { return null; } })();
 function noterEtape(n) {
   try { if (Number(local?.getItem(ETAPE) || 0) < n) local.setItem(ETAPE, String(n)); } catch { /* stockage refusé : on ne mesure pas, l'app marche */ }
 }
 const etapeEnAttente = () => { try { return Number(local?.getItem(ETAPE)) || 0; } catch { return 0; } };
 const oublierEtape = () => { try { local?.removeItem(ETAPE); } catch { /* sans importance */ } };
+// La première vue gagne, côté navigateur comme côté serveur : deux gardes plutôt qu'une, parce que
+// celle du serveur est la seule qui compte et celle-ci évite d'écrire pour rien à chaque ouverture.
+function noterSource(mot) {
+  try { if (mot && !local?.getItem(SOURCE)) local.setItem(SOURCE, String(mot)); } catch { /* stockage refusé : on ne mesure pas */ }
+}
+const sourceEnAttente = () => { try { return local?.getItem(SOURCE) || ''; } catch { return ''; } };
+const oublierSource = () => { try { local?.removeItem(SOURCE); } catch { /* sans importance */ } };
+// Le mot n'est pas vérifié ici : la liste fermée vit sur le serveur (SOURCES), qui refuse ce qu'il
+// ne connaît pas. La recopier ici ferait deux listes à tenir, donc un jour deux listes différentes.
+// On borne seulement la forme, pour ne pas composer une adresse avec n'importe quoi.
 const ME = () => {
   const e = etapeEnAttente();
-  return `/me?tz=${encodeURIComponent(fuseau())}${e ? `&form_step=${e}` : ''}`;
+  const src = sourceEnAttente();
+  return `/me?tz=${encodeURIComponent(fuseau())}${e ? `&form_step=${e}` : ''}${/^[a-z]{1,16}$/.test(src) ? `&source=${src}` : ''}`;
 };
 // Pays deviné : celui du profil, sinon celui du fuseau, sinon celui de la configuration.
 const paysDevine = () => S.me?.profile?.country || S.me?.options?.suggestedCountry || S.me?.options?.defaultCountry || 'CM';
@@ -1704,6 +1723,7 @@ const SCREENS = {
             sub: S.me.confiance ? t('{prenom} est prévenu quand tu vas à un rendez-vous', { prenom: esc(S.me.confiance.prenom) }) : t("Quelqu'un qui sait où tu es quand tu vas à un rendez-vous"),
             action: 'go', extra: ' data-screen="confiance"' })}
           ${listRow({ iconName: 'heart', tile: 'tile-like', title: t('Inviter une amie ou un ami'), sub: t("Plus il y a de profils vérifiés près de toi, mieux c'est"), action: 'invite', trailing: `<span class="chev">${icon('share', 18)}</span>` })}
+          ${tg.canShareToStory() ? listRow({ iconName: 'sparkles', title: t('Partager en story'), sub: t('Ton profil n\'y apparaît pas'), action: 'story', trailing: `<span class="chev">${icon('share', 18)}</span>` }) : ''}
           ${tg.canAddToHome() ? listRow({ iconName: 'home', title: t("Ajouter à l'écran d'accueil"), action: 'home' }) : ''}
         </div>
       </div>
@@ -2409,8 +2429,21 @@ app.addEventListener('click', async (e) => {
       break;
     }
     case 'invite': {
-      const url = S.me.botUsername ? `https://t.me/${S.me.botUsername}` : location.origin;
+      // `startapp` et pas `start` : seul le premier remplit start_param dans la mini app, donc seul
+      // le premier permet de savoir que l'arrivée vient d'un partage. Il demande que la mini app
+      // soit déclarée dans BotFather (/newapp) ; sans ça le lien ouvre simplement le bot, ce qui
+      // marche — on perd l'attribution, pas l'invitation.
+      //
+      // `ref_membre` dit « quelqu'un a partagé l'app ». Pas qui : voir SOURCES dans config.js.
+      const url = S.me.botUsername ? `https://t.me/${S.me.botUsername}?startapp=ref_membre` : location.origin;
       tg.share(url, t("Je t'invite sur {app} : des rencontres avec des profils vérifiés, sans arnaques.", { app: APP }));
+      break;
+    }
+    // La story ne montre que la marque : pas de photo, pas de prénom, rien du profil. Publier
+    // qu'on cherche quelqu'un se choisit ; publier à quoi on ressemble en le faisant, non.
+    case 'story': {
+      const lien = S.me.botUsername ? `https://t.me/${S.me.botUsername}?startapp=ref_story` : location.origin;
+      tg.shareToStory('/story.jpg', t("Des rencontres vérifiées sur {app}, sans arnaques.", { app: APP }), { url: lien, name: APP });
       break;
     }
     case 'home': tg.addToHome(); break;
@@ -2528,6 +2561,10 @@ for (const lien of document.querySelectorAll('link[data-differe]')) lien.media =
 
 async function boot() {
   tg.init();
+  // La provenance se note **avant** le premier appel, et c'est tout l'intérêt de ces deux lignes :
+  // les paramètres de lancement étaient lus plus bas, après api(ME()), donc la toute première
+  // ouverture — celle qui porte justement le lien de diffusion — partait sans sa source.
+  noterSource(tg.launchParams().ref);
   // Le flou d'arrière-plan est coupé si l'appareil le rend mal. Sans await : la décision retenue
   // s'applique tout de suite, la mesure se poursuit pendant que l'app se charge.
   reglerLeVerre();
@@ -2536,8 +2573,10 @@ async function boot() {
   buildTabs();
   try {
     S.me = await api(ME());
-    // Reçue : on l'oublie, sinon la même étape repartirait à chaque ouverture.
+    // Reçue : on l'oublie, sinon la même étape repartirait à chaque ouverture. La provenance part
+    // avec elle : le serveur l'a rangée ou l'a refusée, dans les deux cas elle est dépensée.
     oublierEtape();
+    oublierSource();
   } catch (e) {
     // 401 : la personne n'est pas passée par Telegram, il faut lui dire par où entrer.
     // Réseau ou serveur : c'est passager, il faut un bouton Réessayer, pas un écran figé.

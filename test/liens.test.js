@@ -33,14 +33,25 @@ test('aucun lien t.me ne part par openLink', () => {
 
 test("les liens t.me de l'app passent bien par openTelegramLink ou share", () => {
   const app = sansCommentaires(lire('app.js'));
-  // Chaque ligne qui fabrique une adresse t.me doit la remettre à l'une des deux portes —
+  // Chaque ligne qui fabrique une adresse t.me doit la remettre à l'une des portes connues —
   // soit tout de suite, soit dans une variable que la ligne suivante confie à tg.share().
+  //
+  // Il y en a **trois**, et la troisième n'est pas une navigation : le `widget_link` d'une story
+  // n'est pas ouvert par l'app, il est remis à Telegram qui le dessine dans la story. Personne
+  // n'est envoyé nulle part au moment du partage, donc la distinction openLink / openTelegramLink
+  // ne s'y applique pas — mais l'adresse doit quand même être tracée jusqu'à elle, sans quoi la
+  // porte deviendrait la fissure par où un lien t.me repartirait un jour dans un navigateur.
   const lignes = app.split('\n').filter((l) => ADRESSE.test(l));
   assert.ok(lignes.length >= 2, 'le dépôt en a plusieurs : le bot et le partage');
   for (const ligne of lignes) {
-    assert.match(ligne, /openTelegramLink|tg\.share|const url =/,
+    assert.match(ligne, /openTelegramLink|tg\.share|const url =|const lien =/,
       `cette ligne fabrique un lien Telegram sans le confier à la bonne méthode : ${ligne.trim()}`);
   }
+  // Et la variable de la story va bien à shareToStory, pas ailleurs.
+  const debut = app.indexOf("case 'story'");
+  const story = app.slice(debut, app.indexOf("case '", debut + 20));
+  assert.match(story, /tg\.shareToStory\(/);
+  assert.ok(!/openLink\(/.test(story), 'un lien t.me ne part jamais dans un navigateur');
 });
 
 // Les deux méthodes existent et se distinguent dans tg.js : c'est le seul endroit qui touche au

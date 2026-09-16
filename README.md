@@ -33,7 +33,7 @@ Ce dépôt contient tout ce qu'il faut pour la tester sur ton propre téléphone
 | Se protéger | Trois gestes de gravité croissante, tous sans que la personne soit prévenue : **retirer le match** (la discussion disparaît des deux côtés, définitivement), **bloquer** sans rien signaler, ou **signaler** avec six motifs (argent, chantage, comportement déplacé, usurpation, personne mineure, violence). Jusqu'ici, se débarrasser de quelqu'un passait obligatoirement par une accusation |
 | Fermer un compte | La modération ferme un compte depuis le groupe Telegram, avec le bouton « Fermer ce compte » posé sous chaque signalement et sous chaque message bloqué par l'anti-arnaque. Le compte fermé perd l'accès à l'API (403, avec la marche à suivre), disparaît de la découverte et des listes, et **tous ses matchs sont défaits**. Rouvrir se fait du même endroit : une erreur se répare sans laisser de trace. La marque garde qui a décidé, quand et pourquoi — c'est ce qui permet de reconnaître la personne si elle revient, comme les conditions l'annoncent |
 | Espace de modération | `/moderation` dans le groupe Telegram : le bot envoie **en privé** un lien à usage unique, valable dix minutes, qui ouvre une session web de douze heures (cookie signé, `HttpOnly`, `SameSite=Lax`). Le droit d'entrer, c'est **être administrateur du groupe** — demandé à Telegram (`getChatAdministrators`, cache d'une minute) à la création du lien, à son échange, **et à chaque requête** : quelqu'un qu'on retire des administrateurs perd l'accès dans la minute, pas à l'expiration de sa session. Quatre vues **sans JavaScript ni image** : accueil chiffré, file d'attente de vérification, signalements, comptes fermés. **Jamais un selfie** — il reste au groupe Telegram. Ouvrir un signalement affiche **le fil de la discussion signalée, et elle seule** : ni les autres conversations de la personne, ni celles de qui a signalé. Sans le fil, un signalement se réduit à un motif choisi dans une liste, invérifiable. **Chaque lecture est enregistrée** sur le signalement (qui, quand) et le compte est affiché. Une discussion défaite par un blocage ou une fermeture de compte n'est plus lisible : ses messages sont partis, il n'en existe aucune copie. Sans `WEB_SESSION_SECRET`, cette porte seule répond 503 en disant quoi faire ; le reste de l'app tourne |
-| Mesure produit | Six horodatages d'entonnoir dans l'objet utilisateur (`profileSavedAt`, `verificationSentAt`, `verifDecidedAt`, `firstLikeAt`, `firstMatchAt`, `firstMessageAt`) et **quinze événements** dans la table `events` (la liste se lit en tête de `server/mesure.js`) : `app_opened` (une par heure), `form_step`, `profile_saved`, `selfie_sent`, `verif_decided` (avec `ok`, `auto` et le délai), `verif_retried`, `deck_served` (une par cinq minutes) et `deck_empty` (`quota` ou `vide`), `quota_hit` (avec le **palier touché**), `antiscam_block` (**le code seul**, jamais le texte ni la règle), `account_deleted`, et quatre pour le pass : `pass_pose`, `pass_retire`, **`pass_refuse`** (qui bute sur une porte fermée) et `pass_usage`. **Aucun texte** — un garde-fou refuse toute charge utile qui n'est pas faite de nombres et de mots-clés fermés. L'étape du formulaire est retenue sur l'appareil et jointe à l'ouverture suivante : **zéro requête ajoutée**. `DELETE /api/me` emporte tout, `EVENTS_RETENTION_DAYS` (180 jours, `0` n'écrit rien) purge le reste. Marqueur `devUser` sur les comptes de test. **`npm run chiffres`** sort l'entonnoir, l'activation, le churn, la métrique phare, les six métriques d'entrée, les six contre-métriques et une **section Odo Plus** — la demande (combien butent sur une porte fermée, en gestes **et en personnes**) et l'usage (la part de ceux qui ont reçu un pass et s'en servent), avec l'avertissement qui va avec : sans caisse, un refus mesure une curiosité, jamais un consentement à payer —, avec les exclusions **en amont** (démonstration, développement, comptes fermés — et la **paire** exclue, pas seulement l'auteur) et les avertissements qui disent ce que les chiffres ne peuvent pas dire. `npm run --silent chiffres -- --json` pour en faire autre chose. Voir `audit/05-mesure-produit.md` |
+| Mesure produit | Six horodatages d'entonnoir dans l'objet utilisateur (`profileSavedAt`, `verificationSentAt`, `verifDecidedAt`, `firstLikeAt`, `firstMatchAt`, `firstMessageAt`) et **seize événements** dans la table `events` (la liste se lit en tête de `server/mesure.js`) : `app_opened` (une par heure), **`venu_de`** (le canal d'arrivée, une par compte à vie), `form_step`, `profile_saved`, `selfie_sent`, `verif_decided` (avec `ok`, `auto` et le délai), `verif_retried`, `deck_served` (une par cinq minutes) et `deck_empty` (`quota` ou `vide`), `quota_hit` (avec le **palier touché**), `antiscam_block` (**le code seul**, jamais le texte ni la règle), `account_deleted`, et quatre pour le pass : `pass_pose`, `pass_retire`, **`pass_refuse`** (qui bute sur une porte fermée) et `pass_usage`. **Aucun texte** — un garde-fou refuse toute charge utile qui n'est pas faite de nombres et de mots-clés fermés. L'étape du formulaire est retenue sur l'appareil et jointe à l'ouverture suivante : **zéro requête ajoutée**. `DELETE /api/me` emporte tout, `EVENTS_RETENTION_DAYS` (180 jours, `0` n'écrit rien) purge le reste. Marqueur `devUser` sur les comptes de test. **`npm run chiffres`** sort l'entonnoir, l'activation, le churn, la métrique phare, les six métriques d'entrée, les six contre-métriques, une **section Provenance** (l'entonnoir redécoupé par canal de diffusion — voir « Diffuser l'application ») et une **section Odo Plus** — la demande (combien butent sur une porte fermée, en gestes **et en personnes**) et l'usage (la part de ceux qui ont reçu un pass et s'en servent), avec l'avertissement qui va avec : sans caisse, un refus mesure une curiosité, jamais un consentement à payer —, avec les exclusions **en amont** (démonstration, développement, comptes fermés — et la **paire** exclue, pas seulement l'auteur) et les avertissements qui disent ce que les chiffres ne peuvent pas dire. `npm run --silent chiffres -- --json` pour en faire autre chose. Voir `audit/05-mesure-produit.md` |
 | Personne de confiance | Quelqu'un qui sait quand tu vas à un rendez-vous. **Elle accepte elle-même**, dans Telegram, après avoir lu ce qu'elle recevra : l'app fabrique une invitation, rien n'est enregistré avant son accord — un bot ne peut de toute façon pas écrire à qui ne lui a jamais parlé, et garder l'identité d'un tiers qui n'a rien demandé serait une donnée sans consentement. Elle reçoit le lieu et l'heure du rendez-vous accepté, le moment de l'arrivée, et un « je pars maintenant » déclenché depuis la discussion — **ce dernier ne dépend d'aucun lieu partenaire, donc il marche dès le premier jour**. Elle n'apprend **jamais avec qui** : l'autre personne n'a pas consenti à ce que son prénom sorte. Retrait des deux côtés : depuis le profil, ou par `/retirer` dans le bot. L'identifiant Telegram de la personne de confiance ne sort jamais du serveur — celui de personne, d'ailleurs : l'API désigne chaque membre par un identifiant public aléatoire, sans lien avec Telegram |
 | Données personnelles | Suppression complète du compte depuis les paramètres |
 
@@ -170,15 +170,84 @@ navigateur** : il n'existe que sur le serveur et sur la feuille imprimée.
 3. Dans `.env` : `ADMIN_CHAT_ID=-1001234567890` et `AUTO_APPROVE=false`. En production, ces deux réglages sont imposés : `AUTO_APPROVE` y est sans effet, et `ADMIN_CHAT_ID` y est obligatoire.
 4. Redémarre. Chaque nouveau selfie arrive dans le groupe avec le geste demandé et deux boutons : **Valider** ou **Refuser**. Le selfie est supprimé du serveur dès la décision. Chaque **photo de profil** arrive de la même façon : validée, elle devient visible ; refusée, elle est supprimée et la personne est prévenue par le bot.
 
-## Étape 7 (facultative) : faire d'Odo l'app principale du bot
+## Étape 7 : faire d'Odo l'app principale du bot
 
-Dans @BotFather : `/mybots` → ton bot → **Bot Settings** → **Configure Mini App** → active-la avec ton `WEBAPP_URL`. Tu obtiens :
+Elle a longtemps été marquée « facultative » ici. Elle ne l'est plus dès que tu veux **diffuser** :
+sans elle, ton lien ouvre une conversation avec un bot et il faut appuyer sur un bouton de plus.
+
+Dans @BotFather : `/mybots` → ton bot → **Bot Settings** → **Configure Mini App** → active-la avec
+ton `WEBAPP_URL`, puis `/newapp` pour lui donner un nom court. Tu obtiens :
 
 - un bouton « Ouvrir l'app » sur le profil du bot ;
-- des liens directs `https://t.me/TON_BOT?startapp=ref_123` à partager ;
+- un lien `https://t.me/TON_BOT/odo` qui **ouvre l'app directement** ;
+- des liens de diffusion `https://t.me/TON_BOT?startapp=ref_campus` (voir plus bas) ;
 - la personnalisation de l'écran de chargement (icône, couleurs).
 
 Pense aussi à renseigner ta **politique de confidentialité** dans BotFather (obligatoire dès que tu collectes des données).
+
+---
+
+## Diffuser l'application
+
+### Savoir par où les gens arrivent
+
+Un lien de diffusion porte un mot : `https://t.me/TON_BOT?startapp=ref_campus`. Ce mot est rangé
+sur le compte à la première ouverture, **une seule fois à vie**, et `npm run chiffres` redécoupe
+l'entonnoir entier par canal — pas seulement les arrivées, mais **la part de ceux qui restent**.
+Un canal qui amène cent curieux dont aucun ne crée de profil vaut moins qu'un canal qui en amène
+dix dont six s'activent, et le total d'arrivées ne permet pas de les distinguer.
+
+La liste est **fermée** (`SOURCES` dans `server/config.js`) : `membre`, `campus`, `whatsapp`,
+`groupe`, `affiche`, `story`. Un mot qu'elle ne connaît pas n'est pas rangé — et pas non plus
+corrigé en « autre » : un fourre-tout attire tout ce qui ne va nulle part, et on croit mesurer un
+canal. La rallonger est une ligne, mais **un mot ajouté après coup ne rattrape pas les gens déjà
+venus**.
+
+> **Ce n'est pas un parrainage, et c'est délibéré.** On retient un **canal**, jamais une personne :
+> `membre` dit qu'un membre a partagé l'app, il ne dit pas lequel. Retenir *qui a invité qui*
+> fabriquerait un graphe social — sur une app de rencontres, savoir que X a invité Y est
+> précisément ce qui fait mal en cas de fuite ou de réquisition. C'est le raisonnement de
+> `MATCH_POLICY` sur l'orientation, appliqué à une autre colonne. Aucune récompense n'est attachée
+> au partage non plus : une prime au parrainage ferait revenir le besoin de savoir qui parraine.
+> `test/provenance.test.js` nomme les champs interdits, pour qu'on ait à les effacer sciemment.
+
+**L'attribution est falsifiable** : n'importe qui peut ouvrir `?startapp=ref_campus` sans avoir vu
+le campus. C'est un chiffre de pilotage, jamais une facture — `npm run chiffres` l'écrit à côté du
+tableau, comme la borne haute de la métrique phare. Et rien n'est rétroactif : les comptes d'avant
+sont rangés sous « — », qui n'est pas un canal mais l'absence de canal.
+
+### Les canaux
+
+| Canal | Ce qu'il coûte, ce qu'il rend |
+|---|---|
+| **Lien direct de mini app** | Gratuit, dix minutes de BotFather (étape 7). À faire avant tout le reste |
+| **Telegram Apps Center** (`@tapps_bot`) | L'annuaire officiel des mini apps, soumission gratuite. Vérifie leur politique sur le contenu 18+ avant de soumettre |
+| **Partage par les membres** | Le seul levier qui compose. Bouton « Inviter une amie ou un ami » dans l'onglet Profil (`ref_membre`), et **partage en story** là où Telegram le permet (`ref_story`) |
+| **Telegram Ads** | Ticket d'entrée élevé, et une politique publicitaire qui restreint le contenu de rencontre. À vérifier chez eux avant d'y compter |
+
+Le **partage en story** ne montre que la marque : `public/story.jpg`, fabriqué par `npm run identite`
+depuis `identite/source/story.html`. **Aucune photo, aucun prénom, rien du profil** — publier qu'on
+cherche quelqu'un se choisit, publier à quoi on ressemble en le faisant, non. L'image ne porte
+**aucune phrase** non plus : l'app se lit en sept langues, une phrase gravée dans un JPEG en ferait
+sept. Les mots voyagent dans le texte de la story, traduit chez la personne.
+
+### Deux choses à savoir avant de diffuser largement
+
+**Telegram n'est pas le réseau dominant au Cameroun — WhatsApp l'est.** La diffusion ne se fera
+donc probablement pas *dans* Telegram : le lien voyagera par WhatsApp, Facebook, les groupes de
+campus, et **atterrira** dans Telegram. La friction est « installer Telegram + créer un compte »
+avant même de voir un profil, et aucun réglage de BotFather ne la baisse.
+
+**Diffuse par grappes, pas largement.** Un campus, un quartier. 500 inscrits répartis sur dix
+villes font dix apps vides ; 150 sur un seul campus font un produit qui marche — la découverte
+cherche dans la même ville, un vivier dispersé ne se voit pas. Et le goulot n'est pas
+l'acquisition mais **la modération** : chaque selfie part au groupe, l'équipe fait une personne.
+Sous « badge » un afflux ne bloque plus personne à l'entrée, mais les badges ne se posent plus,
+donc le quota reste à 2 « J'aime » par jour pour tout le monde.
+
+Et avant d'ouvrir à de vraies personnes, les trois points de la section du même nom plus bas —
+pages publiques dans BotFather, relecture juridique, déclaration du traitement — ne sont pas des
+formalités à rattraper après.
 
 ---
 

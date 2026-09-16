@@ -201,6 +201,16 @@ for (const [nom, type] of Object.entries(FICHIERS_COMPRESSES)) {
   const source = nom.endsWith('.js') ? versionImports(fs.readFileSync(chemin, 'utf8'), assetV) : fs.readFileSync(chemin, 'utf8');
   app.get(`/${nom}`, precompresser(source, type, IMMUTABLE));
 }
+// Le visuel de partage en story est le seul fichier du navigateur dont l'adresse **ne porte pas
+// d'empreinte** : c'est Telegram qui va la chercher, depuis un client qu'on ne contrôle pas, et
+// une adresse à rallonge dans un partage se recopie mal. Il ne peut donc pas être `immutable`
+// comme le reste : APP_NAME est dessiné dessus, et un renommage laisserait l'ancien nom circuler
+// pendant un an. Une journée suffit à éviter de le retransférer à chaque partage.
+app.get('/story.jpg', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.sendFile(path.join(config.publicDir, 'story.jpg'));
+});
+
 // Les adresses portent une empreinte du contenu (?v=), donc le navigateur peut les garder
 // longtemps : une nouvelle version change l'adresse. index.html, lui, n'est jamais versionné.
 app.use(express.static(config.publicDir, {

@@ -207,7 +207,7 @@ test('--json sort du JSON et rien d\'autre sur la sortie standard', async () => 
     env: { ...process.env, DATA_DIR: dossier, DATABASE_URL: '', SEED_DEMO: 'false', BOT_TOKEN: '' },
   });
   const r = JSON.parse(stdout);
-  assert.deepEqual(Object.keys(r).sort(), ['activation', 'avertissements', 'churn', 'contre', 'entonnoir', 'entree', 'exclus', 'phare', 'plus']);
+  assert.deepEqual(Object.keys(r).sort(), ['activation', 'avertissements', 'churn', 'contre', 'entonnoir', 'entree', 'exclus', 'phare', 'plus', 'provenance']);
   assert.equal(r.entonnoir.comptes, 0, 'une base neuve ne compte personne');
   assert.ok(r.avertissements.length > 0, 'et dit quand même ce qui limite la lecture');
 });

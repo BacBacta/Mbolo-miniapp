@@ -518,4 +518,7 @@ export default {
   "Choisir l'ordre du paquet": "Выбрать порядок колоды",
   "L'ordre du paquet au choix": "Порядок колоды на твой выбор",
   "Conseillé, les plus actifs, les nouveaux, ou ton quartier d'abord.": "Рекомендуемый, самые активные, новички или сначала твой район.",
+  "Partager en story": "Поделиться в истории",
+  "Ton profil n'y apparaît pas": "Твой профиль в ней не показывается",
+  "Des rencontres vérifiées sur {app}, sans arnaques.": "Проверенные знакомства в {app}, без мошенников.",
 };

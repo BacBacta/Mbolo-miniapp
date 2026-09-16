@@ -518,4 +518,7 @@ export default {
   "Choisir l'ordre du paquet": "Escolher a ordem do baralho",
   "L'ordre du paquet au choix": "A ordem do baralho à tua escolha",
   "Conseillé, les plus actifs, les nouveaux, ou ton quartier d'abord.": "Recomendado, os mais ativos, os novos, ou o teu bairro primeiro.",
+  "Partager en story": "Partilhar na tua story",
+  "Ton profil n'y apparaît pas": "O teu perfil não aparece nela",
+  "Des rencontres vérifiées sur {app}, sans arnaques.": "Pessoas verificadas no {app}, sem burlas.",
 };
