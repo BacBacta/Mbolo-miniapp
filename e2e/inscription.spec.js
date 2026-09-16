@@ -236,6 +236,7 @@ test('les villes connues sont des pastilles, pas une boîte du système', async 
   await page.locator('main button', { hasText: /Femme/ }).first().click();
   await actionPrincipale(page).click();
   await expect(titre(page)).toHaveText(/Ce que tu cherches/);
+  await page.locator('main button', { hasText: /Amitié/ }).first().click();
 
   // Rien qui ouvre un menu du système, ni ici ni ailleurs dans l'écran.
   await expect(page.locator('datalist')).toHaveCount(0);
@@ -254,8 +255,13 @@ test('les villes connues sont des pastilles, pas une boîte du système', async 
   await expect(ville).toHaveValue('Douala');
   await expect(page.locator('.chips-villes button', { hasText: /^Douala$/ })).toHaveAttribute('aria-pressed', 'true');
 
-  // Ce que la pastille a écrit part vraiment avec le profil : elle ne décore pas le champ.
+  // La pastille a écrit dans le formulaire, pas seulement dans le champ à l'écran. La preuve :
+  // on avance d'une étape, on revient, et l'écran se redessine depuis l'état — si elle n'avait
+  // touché que le DOM, la ville serait repartie avec lui.
   await page.locator('input[name=area]').fill('Akwa');
   await actionPrincipale(page).click();
   await expect(titre(page)).toHaveText(/Ta touche personnelle/);
+  await page.locator('main button', { hasText: /Retour/ }).first().click();
+  await expect(titre(page)).toHaveText(/Ce que tu cherches/);
+  await expect(page.locator('input[name=city]')).toHaveValue('Douala');
 });
