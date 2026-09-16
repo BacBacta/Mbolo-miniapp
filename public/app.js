@@ -1327,7 +1327,7 @@ const SCREENS = {
     try {
       const data = await api(`/matches/${encodeURIComponent(id)}`);
       if (perime()) return;
-      S.chat = { id, other: data.other, messages: data.messages, dates: data.dates, unlockAfter: data.unlockAfter, notice: null, tete: null, rendus: 0, bouge: Date.now(), ecritDepuis: 0 };
+      S.chat = { id, other: data.other, messages: data.messages, dates: data.dates, unlockAfter: data.unlockAfter, notice: null, tete: null, rendus: 0, bouge: Date.now(), ecritDepuis: 0, depuis: data.depuis, amorce: null };
     } catch (e) {
       if (perime()) return;
       return renderError(e, () => go('chat', { id }));
@@ -2011,6 +2011,63 @@ async function swipe(action) {
 }
 
 // ---------- Discussion ----------
+// **Le silence après le match est le risque principal du produit** (routes.js le dit depuis
+// longtemps, et `firstMessageAt` le mesure). Le haut d'une discussion vide est l'endroit exact où
+// le combattre : au lieu d'un vide et d'une consigne, une carte qui rappelle qu'on s'est plu et
+// propose deux ou trois questions tirées de ce que l'autre a **déjà écrit** sur sa fiche. Rien
+// n'est envoyé à la place de la personne : une amorce remplit le champ, elle ne part pas seule.
+// La carte disparaît au premier message qu'on envoie — le silence est rompu, elle n'a plus rien
+// à dire.
+const AMORCES_QUESTION = {
+  coin: 'Ton coin préféré, c\'est « {a} ». Qu\'est-ce que tu y aimes ?',
+  weekend: 'Ton week-end idéal, c\'est « {a} ». Le dernier, c\'était comment ?',
+  supporte: 'Tu supportes {a}. Depuis quand ?',
+  chanson: 'Ta chanson du moment, c\'est « {a} ». Elle te rappelle quoi ?',
+  rire: 'Tu écris que « {a} » te fait rire. Qu\'est-ce qui t\'a fait rire cette semaine ?',
+};
+// Une réponse de fiche peut faire trois lignes : coupée pour tenir dans une pastille, et c'est le
+// texte coupé qui part dans le champ — ce que l'on voit est ce que l'on envoie.
+const courte = (s, n = 48) => (String(s || '').length > n ? `${String(s).slice(0, n - 1).trimEnd()}…` : String(s || ''));
+
+function amorcesPour(p) {
+  const liste = [];
+  if (p.promptA) {
+    const a = courte(p.promptA);
+    const gabarit = AMORCES_QUESTION[p.promptQ];
+    liste.push({ k: 'question', texte: gabarit ? t(gabarit, { a }) : t('Tu écris « {a} ». Raconte-moi.', { a }) });
+  }
+  const lieu = p.area || p.city;
+  if (lieu) liste.push({ k: 'quartier', texte: t('Tu es à {lieu}. C\'est comment, par là ?', { lieu }) });
+  liste.push({ k: 'profil', texte: t('Qu\'est-ce qui t\'a fait dire oui à mon profil ?') });
+  return liste.slice(0, 3);
+}
+
+function ouverture(c) {
+  if (c.messages.some((m) => m.mine)) return '';
+  const quand = c.depuis ? dayLabel(c.depuis, t, langue()) : '';
+  return `
+    <div class="ouverture">
+      <span class="eyebrow">${icon('heart', 13, { fill: true })} ${t('Vous vous êtes plu')}${quand ? ` · ${esc(quand.charAt(0).toLowerCase() + quand.slice(1))}` : ''}</span>
+      <p class="lead">${t('Une question suffit à commencer. En voici tirées de sa fiche :')}</p>
+      <div class="chips amorces" role="group" aria-label="${t('Amorces')}">${amorcesPour(c.other).map((a) => `
+        <button type="button" data-action="amorce" data-k="${esc(a.k)}" data-texte="${esc(a.texte)}">${esc(a.texte)}</button>`).join('')}</div>
+      <p class="fine">${icon('lock', 13)}<span>${t('Ton pseudo et ton numéro Telegram restent masqués.')}</span></p>
+    </div>`;
+}
+
+// Une amorce remplit le champ **sans refaire l'écran** (même raison que les villes et la règle 16)
+// et sans envoyer : la personne relit, corrige, et c'est elle qui appuie. Le mot-clé accompagne
+// l'envoi pour que `npm run chiffres` sache si les amorces font écrire — le texte, lui, n'y va pas.
+function poserLAmorce(k, texte) {
+  const input = app.querySelector('.composer input[name="message"]');
+  if (!input) return;
+  input.value = texte;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.focus();
+  S.chat.amorce = k;
+  tg.haptic('select');
+}
+
 function chatTete(c) {
   const dateCards = c.dates.map((d) => {
     const clos = d.status === 'declined' || d.status === 'cancelled';
@@ -2037,7 +2094,7 @@ function chatTete(c) {
     </div>`;
   }).join('');
 
-  return `${dateCards}<div class="spacer"></div>${barreDeDeblocage(c)}`;
+  return `${dateCards}<div class="spacer"></div>${ouverture(c)}${barreDeDeblocage(c)}`;
 }
 
 // **La barre compte l'échange, pas le total.** Le serveur débloque sur `Math.min(les miens, les
@@ -2064,7 +2121,6 @@ function barreDeDeblocage(c) {
 // refait plus à chaque message, on lui ajoute ce qui manque. Le regroupement lit le message
 // précédent, y compris quand il est déjà à l'écran — d'où l'indice plutôt qu'une sous-liste.
 function chatBulles(c, depuis = 0, { neuves = false } = {}) {
-  if (!c.messages.length) return `<p class="system">${t('Commence par une question sur son profil. Ton pseudo et ton numéro Telegram restent masqués.')}</p>`;
   let out = '';
   for (let i = depuis; i < c.messages.length; i += 1) {
     const m = c.messages[i];
@@ -2293,7 +2349,9 @@ async function sendMessage(input) {
   tg.haptic('light');
   updateChat({ scroll: true });
   try {
-    const { message } = await api(`/matches/${encodeURIComponent(S.chat.id)}/messages`, { method: 'POST', body: { text } });
+    const amorce = S.chat.amorce;
+    S.chat.amorce = null;
+    const { message } = await api(`/matches/${encodeURIComponent(S.chat.id)}/messages`, { method: 'POST', body: { text, ...(amorce ? { amorce } : {}) } });
     // L'heure du serveur remplace celle du téléphone, et la bulle se pose sans que rien ne bouge
     // autour : deux écritures dans le DOM valent mieux qu'un fil reconstruit.
     // La marque est relue **avant** d'être effacée, et depuis le brouillon : deux envois rapprochés
@@ -2484,6 +2542,7 @@ app.addEventListener('click', async (e) => {
       break;
     }
     case 'ville': poserLaVille(el.dataset.champ, el.dataset.value); tg.haptic('select'); break;
+    case 'amorce': poserLAmorce(el.dataset.k, el.dataset.texte); break;
     case 'report-profile': go('protection', { id: el.dataset.id }); break;
     case 'report-chat': go('protection', { id: S.chat.other.id, matchId: S.chat.id }); break;
     case 'signaler': signaler(el.dataset.motif); break;

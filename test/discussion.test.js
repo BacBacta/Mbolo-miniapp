@@ -102,6 +102,45 @@ test("un inconnu ne peut pas se déclarer en train d'écrire chez les autres", a
   assert.equal((await call('9108', `/matches/${m}?suivi=1`)).body.ecrit, false);
 });
 
+// ---------- Les amorces ----------
+//
+// « Les amorces font-elles écrire ? » est la seule question qu'elles posent. On ne compte donc que
+// ce qui y répond : le premier message de chaque personne dans un fil, parti d'une amorce connue,
+// et jamais face à un profil de démonstration, dont les réponses ne prouvent rien.
+
+const amorces = async () => (await store.events({ k: 'amorce' })).length;
+
+test("une amorce ne se compte qu'au premier message, et seulement si le mot est connu", async () => {
+  await creer('9201', 'Hawa', 'femme');
+  await creer('9202', 'Idris', 'homme');
+  const m = await matcher('9201', '9202');
+  const avant = await amorces();
+  // Un mot inconnu n'est pas une amorce : rien n'est posé, et le message part quand même.
+  let r = await call('9202', `/matches/${m}/messages`, 'POST', { text: 'Salut', amorce: 'nimporte' });
+  assert.equal(r.status, 200);
+  assert.equal(await amorces(), avant);
+  // Le premier message d'Hawa part d'une amorce : compté.
+  r = await call('9201', `/matches/${m}/messages`, 'POST', { text: 'Tu es à Bastos. C\'est comment, par là ?', amorce: 'quartier' });
+  assert.equal(r.status, 200);
+  assert.equal(await amorces(), avant + 1);
+  // Son deuxième, même avec le mot : plus un premier message, pas compté.
+  await call('9201', `/matches/${m}/messages`, 'POST', { text: 'Et sinon ?', amorce: 'profil' });
+  assert.equal(await amorces(), avant + 1);
+  // La charge utile porte le mot, jamais le texte.
+  const e = (await store.events({ k: 'amorce' })).at(-1);
+  assert.deepEqual(e.p, { k: 'quartier' });
+});
+
+test("la date du match arrive avec la discussion, et le texte d'une amorce n'est pas stocké à part", async () => {
+  await creer('9203', 'Jo', 'femme');
+  await creer('9204', 'Karim', 'homme');
+  const m = await matcher('9203', '9204');
+  const r = await call('9203', `/matches/${m}`);
+  assert.ok(Number.isFinite(r.body.depuis) && Date.now() - r.body.depuis < 60_000, 'depuis = création du match');
+  // L'interrogation suivante ne la renvoie pas : elle ne change jamais, et chaque octet compte.
+  assert.equal((await call('9203', `/matches/${m}?suivi=1`)).body.depuis, undefined);
+});
+
 // ---------- Ce que fait l'interface avant la réponse du serveur ----------
 
 const app_js = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
@@ -125,6 +164,18 @@ test("l'horodatage d'un message provisoire ne sert jamais de repère au serveur"
   // `at` d'un provisoire vient de l'horloge du téléphone. Prise comme `after`, une horloge en
   // avance ferait sauter de vrais messages — ils ne reviendraient jamais.
   assert.match(poll, /messages\.filter\(\(m\) => !m\.enCours\)\.at\(-1\)/);
+});
+
+test("une amorce remplit le champ sans envoyer, et la carte s'efface au premier message envoyé", () => {
+  const pose = entre('function poserLAmorce(', 'function chatTete(c) {');
+  assert.match(pose, /input\.value = texte/);
+  assert.ok(!/api\(|sendMessage\(|requestSubmit/.test(pose), "une amorce n'envoie rien : c'est la personne qui appuie");
+  assert.ok(!/render\(|SCREENS\./.test(pose), "et ne refait pas l'écran : le clavier se fermerait");
+  const carte = entre('function ouverture(c) {', 'function poserLAmorce(');
+  assert.match(carte, /if \(c\.messages\.some\(\(m\) => m\.mine\)\) return '';/, 'la carte disparaît dès que j\'ai écrit');
+  // Le mot accompagne l'envoi, une fois, puis s'efface : un deuxième message ne le porte pas.
+  const envoi = entre('async function sendMessage(input) {', 'async function sendDate() {');
+  assert.match(envoi, /const amorce = S\.chat\.amorce;\s*S\.chat\.amorce = null;/);
 });
 
 test('une bulle en cours se voit comme telle', () => {

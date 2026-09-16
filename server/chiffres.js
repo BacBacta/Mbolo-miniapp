@@ -137,6 +137,12 @@ export function calculer({ users, events, reports = [], matches = [], messages =
   const longues = matchsReels.filter((m) => (messages.get(m.id) || []).length > 10);
   const longuesAvecRdv = longues.filter((m) => dates.some((d) => d.matchId === m.id)).length;
   const acceptes = rdvReels.filter((d) => d.status === 'accepted' || d.acceptedAt).length;
+  // Les amorces font-elles écrire ? Un « premier message » est le premier de **chaque** personne
+  // dans un fil réel : deux par match au plus. Le numérateur vient de l'événement `amorce`, posé
+  // par le serveur au premier message seulement, et jamais face à un profil de démonstration —
+  // les deux côtés de la fraction excluent donc les mêmes fils.
+  const premiersMessages = matchsReels.reduce((n, m) => n + new Set((messages.get(m.id) || []).map((x) => x.from)).size, 0);
+  const depuisUneAmorce = evts('amorce').length;
 
   const entree = {
     verifiesActifsParVille: parVilleVerifies,
@@ -144,6 +150,7 @@ export function calculer({ users, events, reports = [], matches = [], messages =
     delaiModerationMesuresSur: delais.length,
     partDecouvertesServies: part(servis, servis + vides),
     partMatchsAvecMessage48h: part(avecMessageEn48h, matchsReels.length),
+    partPremiersMessagesDepuisAmorce: part(depuisUneAmorce, premiersMessages),
     partLonguesAvecProposition: part(longuesAvecRdv, longues.length),
     partPropositionsAcceptees: part(acceptes, rdvReels.length),
   };

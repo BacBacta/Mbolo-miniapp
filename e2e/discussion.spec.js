@@ -245,3 +245,32 @@ test("l'en-tête de la discussion montre la photo et ouvre bien la fiche", async
   await actionPrincipale(page).click();
   await expect(champMessage(page)).toBeVisible({ timeout: 10_000 });
 });
+
+// Le silence après le match est le risque principal du produit. Le haut d'une discussion vide
+// propose maintenant des amorces tirées de la fiche de l'autre. Ce qu'un test unitaire ne peut
+// pas voir : qu'une amorce **remplit le champ sans envoyer**, que la personne garde la main, et
+// que la carte s'efface une fois le premier message parti.
+test("une amorce remplit le champ sans l'envoyer, et la carte s'efface au premier message", async ({ page }) => {
+  await membreVerifie(page, 'Rita');
+  await aimerUnProfil(page);
+  await ouvrirLaDiscussion(page);
+
+  const carte = page.locator('.ouverture');
+  await expect(carte).toBeVisible();
+  await expect(carte).toContainText(/Vous vous êtes plu/);
+  const amorces = carte.locator('.amorces button');
+  await expect(amorces.first()).toBeVisible();
+
+  // L'amorce va dans le champ, et rien ne part.
+  const texte = (await amorces.first().textContent()).trim();
+  await amorces.first().click();
+  await expect(champMessage(page)).toHaveValue(texte);
+  await expect(page.locator('.bubble.mine')).toHaveCount(0);
+  await expect(carte).toBeVisible();
+
+  // La personne peut corriger avant d'envoyer : c'est le sien, pas le nôtre.
+  await champMessage(page).fill(`${texte} Moi c'est le calme.`);
+  await boutonEnvoyer(page).click();
+  await expect(page.locator('.bubble.mine')).toHaveCount(1);
+  await expect(carte).toHaveCount(0);
+});

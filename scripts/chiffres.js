@@ -65,6 +65,7 @@ console.log(liste(r.entree.verifiesActifsParVille));
 console.log(ligne('délai médian de modération', duree(r.entree.delaiModerationMedianMs), `sur ${r.entree.delaiModerationMesuresSur} décision(s) humaine(s)`));
 console.log(ligne('découvertes qui rendent une carte', pct(r.entree.partDecouvertesServies)));
 console.log(ligne('matchs avec un message en 48 h', pct(r.entree.partMatchsAvecMessage48h)));
+console.log(ligne("premiers messages partis d'une amorce", pct(r.entree.partPremiersMessagesDepuisAmorce)));
 console.log(ligne('discussions longues avec proposition', pct(r.entree.partLonguesAvecProposition)));
 console.log(ligne('propositions acceptées', pct(r.entree.partPropositionsAcceptees)));
 

@@ -695,6 +695,15 @@ body.chat-mode main > * { animation: none; }
 .bubble.neuve.encours { animation: bulle-entre .18s var(--ease) both; opacity: .58; }
 @media (prefers-reduced-motion: reduce) { .bubble.neuve { animation: none; } }
 
+/* La carte d'ouverture : en haut d'une discussion vide, à la place du vide. Même surface que les
+   cartes de rendez-vous, l'aura en moins — on s'est plu, ce moment-là a déjà eu sa scène. */
+.ouverture { display: grid; gap: 10px; padding: 14px; margin: 6px 0; background: var(--bg); border-radius: 18px; border: 1px solid var(--line); box-shadow: var(--shadow-1); }
+.ouverture .eyebrow { display: inline-flex; align-items: center; gap: 6px; color: var(--like); }
+.ouverture .lead { margin: 0; font-size: 14px; color: var(--hint); }
+/* Une amorce est une phrase, pas un mot : elle revient à la ligne, à gauche, comme un message. */
+.ouverture .amorces button { height: auto; min-height: 40px; padding: 8px 14px; text-align: left; white-space: normal; line-height: 1.3; font-weight: 500; border-radius: 16px; }
+.ouverture .fine { margin: 0; }
+
 /* « … écrit » : sous le fil et jamais dedans. Une ligne qui apparaît et disparaît au milieu des
    bulles fait sauter la lecture à chaque fois que l'autre personne hésite. */
 .chat-frappe:empty { display: none; }

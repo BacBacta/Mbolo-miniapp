@@ -1159,12 +1159,17 @@ api.get('/matches/:id', requireMembre, async (req, res) => {
   // qu'on a le droit d'ouvrir, et `loadMatch` l'a déjà vérifié.
   if (req.query.ecrit) store.touchTyping(req.user.id, r.m.id);
   const reponse = { id: r.m.id, messages, ecrit: store.isTyping(r.other.id, r.m.id) };
-  if (premierAppel) Object.assign(reponse, { other: await publicProfile(r.other), dates, unlockAfter: config.contactUnlockAfter });
+  if (premierAppel) Object.assign(reponse, { other: await publicProfile(r.other), dates, unlockAfter: config.contactUnlockAfter, depuis: r.m.createdAt });
   // Un rendez-vous peut naître ou changer entre deux interrogations : on renvoie les rendez-vous
   // aussi quand l'un d'eux a bougé depuis le dernier appel.
   else if (dates.some((d) => (d.updatedAt || d.createdAt || 0) > after)) reponse.dates = dates;
   res.json(reponse);
 });
+
+// Les trois familles d'amorces que l'interface sait fabriquer : depuis la question de la fiche,
+// depuis le quartier, ou une question qui vaut pour tout le monde. La liste est fermée ici et
+// recopiée nulle part : un mot inconnu est simplement ignoré.
+const AMORCES = ['question', 'quartier', 'profil'];
 
 api.post('/matches/:id/messages', requireMembre, limiter('message'), async (req, res) => {
   const r = await loadMatch(req, res);
@@ -1195,9 +1200,18 @@ api.post('/matches/:id/messages', requireMembre, limiter('message'), async (req,
     return fail(res, 422, check.code, check.message, { categorie: check.categorie, unlockAfter: config.contactUnlockAfter });
   }
 
+  // Lu **avant** l'ajout : sur le stockage fichier, `messagesOf()` rend le tableau vivant, et le
+  // message qu'on vient de pousser s'y trouverait déjà — le premier passerait pour un deuxième.
+  const premierIci = !messages.some((x) => x.from === req.user.id);
   const msg = await store.addMessage(r.m.id, req.user.id, text);
   // Le silence après le match est le risque principal du produit : ce champ le mesure directement.
   if (!req.user.firstMessageAt) await store.updateUser(req.user.id, { firstMessageAt: Date.now() });
+  // Une amorce est une question proposée en haut d'une discussion vide, tirée de la fiche de
+  // l'autre. On ne mesure que ce qui répond à la question posée — « les amorces font-elles
+  // écrire ? » — donc **le premier message** de cette personne dans ce fil, et **jamais avec un
+  // profil de démonstration** : ses réponses sont automatiques, elles ne prouvent rien.
+  // Le mot est une liste fermée, comme toute charge utile (mesure.js) ; le texte, lui, n'y va pas.
+  if (premierIci && !r.other.demo && AMORCES.includes(req.body?.amorce)) mesurer('amorce', req.user.id, { k: req.body.amorce });
   if (!store.isViewing(r.other.id, r.m.id)) {
     notify(r.other.id, "{nom} t'a écrit : « {extrait} »", { nom: req.user.profile.name, extrait: `${text.slice(0, 60)}${text.length > 60 ? '…' : ''}` }, { label: 'Répondre', params: { screen: 'chat', match: r.m.id } }, `msg:${r.m.id}`);
   }
