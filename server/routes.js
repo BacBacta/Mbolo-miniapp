@@ -16,6 +16,7 @@ import { checkMessage } from './antiscam.js';
 import { limiter, consommer } from './limites.js';
 import { notify, direATiers, notifyAdmin, boutonBannir, sendSelfieToModeration, sendPhotoToModeration, decideVerification, onApproved, retirerSelfieDuGroupe } from './bot.js';
 import { mesurer, mesurerRalenti, semaineIso, HEURE, CINQ_MINUTES } from './mesure.js';
+import { abonner, signaler, nombreDeFlux, PLAFOND, KEEPALIVE_MS, PRESENCE_MS } from './flux.js';
 import { creerInvitation, retirer, membresQuiMOntChoisi, PREFIXE } from './confiance.js';
 import { envelopper } from './promesses.js';
 import { DEMO_REPLIES } from './seed.js';
@@ -1166,6 +1167,47 @@ api.get('/matches/:id', requireMembre, async (req, res) => {
   res.json(reponse);
 });
 
+// ---------- Le temps réel ----------
+//
+// Un flux par discussion ouverte (server/flux.js). Le client l'ouvre avec `fetch()` et le même
+// en-tête d'authentification que tout le reste : un `EventSource` ne porte pas d'en-tête, et le
+// jeton serait parti dans l'adresse, donc dans les journaux — la leçon du 14 septembre 2026.
+// Tant que le flux est ouvert, la présence est renouvelée d'ici : c'est elle qui retient les
+// notifications pendant qu'on lit, et sans interrogation régulière elle expirerait en dix secondes.
+api.get('/matches/:id/flux', requireMembre, async (req, res) => {
+  const r = await loadMatch(req, res);
+  if (!r) return;
+  if (nombreDeFlux() >= PLAFOND) return fail(res, 503, 'FLUX_SATURE', 'Trop de discussions ouvertes en même temps. L\'app continue sans le temps réel.');
+  res.status(200).set({
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  // Tout ce qui attend une base passe **avant** le prélude, et l'abonnement aussi : « ok » veut
+  // dire « tu es abonné ». Écrit avant, sur PostgreSQL le client lisait le prélude pendant que
+  // `markRead` faisait son aller-retour, et un signal parti dans cet intervalle était perdu.
+  store.touchPresence(req.user.id, r.m.id);
+  await store.markRead(r.m.id, req.user.id);
+  const desabonner = abonner(r.m.id, req.user.id, res);
+  res.flushHeaders();
+  res.write(': ok\n\n');
+  const presence = setInterval(() => store.touchPresence(req.user.id, r.m.id), PRESENCE_MS);
+  // Le proxy coupe une connexion muette ; un commentaire ne réveille personne côté client.
+  const vie = setInterval(() => { try { res.write(': ping\n\n'); } catch { /* fermé */ } }, KEEPALIVE_MS);
+  req.on('close', () => { clearInterval(presence); clearInterval(vie); desabonner(); });
+});
+
+// « J'écris » quand le flux est ouvert : le mot ne voyage plus dans une interrogation qui ne part
+// plus toutes les deux secondes. Rien n'est stocké — même carte en mémoire que `?ecrit=1`.
+api.post('/matches/:id/ecrit', requireMembre, limiter('frappe'), async (req, res) => {
+  const r = await loadMatch(req, res);
+  if (!r) return;
+  store.touchTyping(req.user.id, r.m.id);
+  signaler(r.m.id, 'ecrit', '1', { sauf: req.user.id });
+  res.json({ ok: true });
+});
+
 // Les trois familles d'amorces que l'interface sait fabriquer : depuis la question de la fiche,
 // depuis le quartier, ou une question qui vaut pour tout le monde. La liste est fermée ici et
 // recopiée nulle part : un mot inconnu est simplement ignoré.
@@ -1204,6 +1246,8 @@ api.post('/matches/:id/messages', requireMembre, limiter('message'), async (req,
   // message qu'on vient de pousser s'y trouverait déjà — le premier passerait pour un deuxième.
   const premierIci = !messages.some((x) => x.from === req.user.id);
   const msg = await store.addMessage(r.m.id, req.user.id, text);
+  // Qui a écrit va déjà relire tout de suite après l'envoi : on ne réveille que l'autre.
+  signaler(r.m.id, 'signal', 'message', { sauf: req.user.id });
   // Le silence après le match est le risque principal du produit : ce champ le mesure directement.
   if (!req.user.firstMessageAt) await store.updateUser(req.user.id, { firstMessageAt: Date.now() });
   // Une amorce est une question proposée en haut d'une discussion vide, tirée de la fiche de
@@ -1224,6 +1268,7 @@ api.post('/matches/:id/messages', requireMembre, limiter('message'), async (req,
     setTimeout(async () => {
       demoPending.set(r.m.id, demoPending.get(r.m.id) - 1);
       const reply = await store.addMessage(r.m.id, r.other.id, DEMO_REPLIES[demoReplies]);
+      signaler(r.m.id, 'signal', 'message');
       if (!store.isViewing(me.id, r.m.id)) {
         notify(me.id, "{nom} t'a écrit : « {extrait} »", { nom: r.other.profile.name, extrait: `${reply.text.slice(0, 60)}${reply.text.length > 60 ? '…' : ''}` }, { label: 'Répondre', params: { screen: 'chat', match: r.m.id } }, `msg:${r.m.id}`);
       }
@@ -1328,6 +1373,7 @@ api.post('/matches/:id/dates', requireVerifie, limiter('rendezvous'), async (req
   // Sur PostgreSQL, l'index partiel refuse un second rendez-vous vivant né au même instant.
   if (!d) return fail(res, 409, 'DATE_EXISTS', 'Un rendez-vous est déjà en cours dans cette discussion.');
   notify(r.other.id, '{nom} te propose un rendez-vous : {lieu} ({quartier}), {creneau}.', { nom: req.user.profile.name, lieu: venue.name, quartier: venue.area, creneau: slot }, { label: 'Voir la proposition', params: { screen: 'chat', match: r.m.id } });
+  signaler(d.matchId, 'signal', 'dates', { sauf: req.user.id });
   res.json({ date: { ...d, venue: { ...venue, code: undefined } } });
 });
 
@@ -1388,6 +1434,7 @@ api.put('/dates/:id', requireMembre, limiter('rendezvous'), async (req, res) => 
       }
     }
   }
+  signaler(d.matchId, 'signal', 'dates', { sauf: req.user.id });
   res.json({ date: { ...maj, arrivals: undefined, proposedBy: undefined, proposedByMe: jePropose, venue } });
 });
 
@@ -1417,6 +1464,7 @@ api.post('/dates/:id/checkin', requireMembre, limiter('checkin'), async (req, re
   if (req.user.confiance) {
     direATiers(req.user.confiance.id, req.user.confiance.lang, '{nom} est bien arrivé(e) à {lieu}.', { nom: req.user.profile.name, lieu: venue.name });
   }
+  signaler(d.matchId, 'signal', 'dates', { sauf: req.user.id });
   res.json({ arrived: true, venue: { name: venue.name, perk: venue.perk } });
 });
 

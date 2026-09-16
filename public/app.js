@@ -29,6 +29,8 @@ const S = {
   matches: [],
   chat: null,
   chatTimer: null,
+  chatFlux: null,
+  fluxVivant: false,
   summaryTimer: null,
   // Est-on collé au bas de la discussion ? Mis à jour au défilement, lu quand la fenêtre change
   // de taille : on ne recolle en bas que quelqu'un qui y était.
@@ -304,6 +306,7 @@ function go(screen, params = {}) {
   // n'a réglés — et « Enregistrer » les aurait pris pour un choix.
   if (S.screen === 'filters' && screen !== 'pays') S.filtresDraft = null;
   arreterLePoll();
+  fermerLeFlux();
   clearInterval(S.pendingTimer);
   clearInterval(S.summaryTimer);
   arreterLaVoix();
@@ -1342,6 +1345,7 @@ const SCREENS = {
     });
     // Jamais deux minuteurs : une réponse tardive en posait un second, orphelin pour toujours.
     relancerLePoll();
+    ouvrirLeFlux();
   },
 
   async date() {
@@ -2255,7 +2259,12 @@ tg.onViewport(() => {
 // regarde. Les paliers partent du dernier mouvement du fil : [depuis, délai].
 const RYTHMES = [[30_000, 1500], [180_000, 4000], [Infinity, 10_000]];
 
+// Flux ouvert : l'interrogation ne sert plus qu'à rattraper ce qu'un signal aurait pu manquer —
+// une seconde instance, une coupure entre deux reconnexions. Trente secondes, pas zéro.
+const SECURITE_FLUX_MS = 30_000;
+
 function delaiDuPoll() {
+  if (S.fluxVivant) return SECURITE_FLUX_MS;
   // Tant que l'autre personne écrit, son message est imminent : on reste au rythme rapide.
   if (S.chat?.ecritDepuis && Date.now() - S.chat.ecritDepuis < 10_000) return RYTHMES[0][1];
   // Et tant que **moi** j'écris : c'est cette interrogation-là qui porte le mot à l'autre, donc
@@ -2303,6 +2312,7 @@ async function pollChat() {
     // Match défait par l'autre, ou blocage : l'écran restait ouvert et interrogeait pour rien.
     if (e.code === 'MATCH_NOT_FOUND' || e.code === 'BLOCKED') {
       arreterLePoll();
+      fermerLeFlux();
       toast(e.message);
       return go('matches');
     }
@@ -2317,13 +2327,80 @@ async function pollChat() {
 function montrerLaFrappe() {
   const zone = document.getElementById('chat-frappe');
   if (!zone) return;
-  const actif = !!S.chat.ecritDepuis;
+  // Par le flux, personne ne vient dire « elle a arrêté » : le signal expire de lui-même.
+  const actif = !!S.chat.ecritDepuis && Date.now() - S.chat.ecritDepuis < 8000;
+  if (actif) { clearTimeout(S.frappeTimer); S.frappeTimer = setTimeout(montrerLaFrappe, 8100); }
   if (actif === (zone.childElementCount > 0)) return;
   const enBasAvant = enBas(document.getElementById('messages'));
   zone.innerHTML = actif
     ? `<div class="frappe"><span class="pts"><i></i><i></i><i></i></span>${t('{nom} écrit…', { nom: esc(S.chat.other.name) })}</div>`
     : '';
   if (enBasAvant) collerEnBas({ force: true });
+}
+
+// ---------- Le temps réel ----------
+//
+// Le flux dit qu'il s'est passé quelque chose ; il ne dit jamais quoi. À chaque `signal`, on
+// relance l'interrogation tout de suite — le chemin qui marchait déjà reste le seul qui écrive
+// dans le fil, donc rien à réconcilier. Il s'ouvre avec `fetch()` et l'en-tête d'authentification
+// de tout le reste : un `EventSource` aurait mis le jeton dans l'adresse. S'il ne s'ouvre pas, ou
+// s'il tombe, l'app continue exactement comme avant lui : c'est l'interrogation qui reprend son
+// rythme, et le flux réessaie derrière, de plus en plus lentement.
+function fermerLeFlux() {
+  S.chatFlux?.abort();
+  S.chatFlux = null;
+  S.fluxVivant = false;
+  clearTimeout(S.fluxRetour);
+}
+
+async function ouvrirLeFlux(tentative = 0) {
+  fermerLeFlux();
+  if (S.screen !== 'chat' || !S.chat || typeof ReadableStream === 'undefined') return;
+  const id = S.chat.id;
+  const stop = new AbortController();
+  S.chatFlux = stop;
+  const reprendre = () => {
+    if (S.chatFlux !== stop) return;
+    S.fluxVivant = false;
+    S.chatFlux = null;
+    if (S.screen !== 'chat' || S.chat?.id !== id) return;
+    relancerLePoll();
+    S.fluxRetour = setTimeout(() => ouvrirLeFlux(tentative + 1), Math.min(30_000, 2000 * 2 ** tentative));
+  };
+  try {
+    const res = await fetch(`/api/matches/${encodeURIComponent(id)}/flux`, { headers: authHeaders(), signal: stop.signal });
+    if (!res.ok || !res.body) return reprendre();
+    S.fluxVivant = true;
+    relancerLePoll();
+    tentative = 0;
+    const lecteur = res.body.getReader();
+    const dec = new TextDecoder();
+    let reste = '';
+    for (;;) {
+      const { value, done } = await lecteur.read();
+      if (done) break;
+      reste += dec.decode(value, { stream: true });
+      let coupe;
+      while ((coupe = reste.indexOf('\n\n')) >= 0) {
+        const bloc = reste.slice(0, coupe); reste = reste.slice(coupe + 2);
+        const type = /^event: (.+)$/m.exec(bloc)?.[1];
+        if (S.screen !== 'chat' || S.chat?.id !== id) return;
+        if (type === 'signal') relancerLePoll({ tout_de_suite: true });
+        else if (type === 'ecrit') { S.chat.ecritDepuis = Date.now(); montrerLaFrappe(); }
+      }
+    }
+  } catch { /* coupé : on reprend plus bas */ }
+  reprendre();
+}
+
+// « J'écris », par le flux : un appel toutes les 2,5 s au plus, tant que le champ n'est pas vide.
+// Sans flux, le mot voyage dans l'interrogation, comme avant — et aucun appel ne part d'ici.
+function direQueJEcris() {
+  if (!S.fluxVivant || !S.chat) return;
+  const maintenant = Date.now();
+  if (maintenant - (S.chat.frappeDite || 0) < 2500) return;
+  S.chat.frappeDite = maintenant;
+  api(`/matches/${encodeURIComponent(S.chat.id)}/ecrit`, { method: 'POST' }).catch(() => {});
 }
 
 // **La bulle part avant le serveur.** Attendre l'aller-retour, c'est une à deux secondes de rien
@@ -2734,6 +2811,7 @@ app.addEventListener('input', (e) => {
     // Le bouton Envoyer ne s'active qu'avec du texte ; le champ lui-même n'est jamais reconstruit
     const send = e.target.nextElementSibling;
     if (send) send.disabled = !value.trim();
+    if (value.trim()) direQueJEcris();
   }
 });
 

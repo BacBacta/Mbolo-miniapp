@@ -21,6 +21,8 @@ import { store } from './store.js';
 export const REGLES = {
   message: { max: 20, fenetreMs: 60_000, message: "Tu écris trop vite. Attends un instant avant d'envoyer le message suivant." },
   swipe: { max: 60, fenetreMs: 60_000, message: 'Tu vas trop vite. Reprends dans une minute.' },
+  // « J'écris » par le flux : le client n'en envoie qu'un toutes les 2,5 s, la règle laisse de la marge
+  frappe: { max: 40, fenetreMs: 60_000, message: 'Trop de signaux envoyés. Attends un instant.' },
   verification: { max: 5, fenetreMs: 3_600_000, message: 'Trop de tentatives de vérification. Réessaie dans une heure.' },
   photo: { max: 12, fenetreMs: 3_600_000, message: 'Trop de photos envoyées. Réessaie dans une heure.' },
   voix: { max: 6, fenetreMs: 3_600_000, message: 'Trop de présentations vocales envoyées. Réessaie dans une heure.' },
