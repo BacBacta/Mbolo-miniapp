@@ -122,6 +122,15 @@ export const store = {
   },
   userByPid: async (pid) => (pid ? versUser(await un(`select * from users where data->>'pid' = $1`, [pid])) : null),
 
+  // Charger quelques comptes nommés. **Une requête, pas une par identifiant** : sur une base
+  // qui vit sur une autre machine, vingt getUser() font vingt allers-retours, et c'est pire que
+  // le allUsers() qu'on cherchait à éviter. `any($1)` prend le tableau tel quel.
+  //
+  // Le tableau vide ne part pas en base : `any('{}')` est une requête qui ne peut rien rendre.
+  usersByIds: async (ids) => ((ids || []).length
+    ? (await q('select * from users where id = any($1)', [ids.map(String)])).map(versUser)
+    : []),
+
   // À l'arrêt : rendre les connexions, pour que PostgreSQL ne garde pas des sessions mortes.
   async arreter() { await pool.end().catch(() => {}); },
 

@@ -484,6 +484,8 @@ npm test
 
 Vérifie la validation de la signature Telegram (données modifiées, expirées, mauvais jeton), le filtre anti-arnaque et les notifications (avec un faux Telegram : match, message, présence, non lus, likes, réponses de démo).
 
+Un fichier sort du lot : `test/charge.test.js` **compte les appels au stockage** au lieu de vérifier des réponses. C'est ce qui tient le correctif de la dette n° 3 — `/summary` tourne toutes les 20 secondes dans chaque app ouverte, et il ne doit jamais recharger toute la table. Les réponses étaient identiques avant et après le correctif : sans ce fichier, rien n'empêcherait `allUsers()` d'y revenir en silence.
+
 La même suite tourne aussi sur PostgreSQL, avec une base à part et un schéma par fichier de test :
 
 ```powershell
