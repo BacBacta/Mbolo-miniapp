@@ -11,7 +11,10 @@ test('la discussion porte un jeton de requête, et un seul minuteur', () => {
   const chat = entre('  async chat({ id }) {', '  async date() {');
   assert.match(chat, /S\.chatJeton = \(S\.chatJeton \|\| 0\) \+ 1/, 'un jeton par ouverture');
   assert.match(chat, /jeton !== S\.chatJeton/, 'et la réponse d\'une discussion quittée est ignorée');
-  assert.match(chat, /clearInterval\(S\.chatTimer\);\s*S\.chatTimer = setInterval\(pollChat/, 'jamais deux minuteurs');
+  // Le minuteur se réarme à chaque tour depuis que la cadence suit l'activité du fil : c'est
+  // exactement la situation où un second minuteur orphelin s'installe. Une seule porte l'arme,
+  // et elle éteint avant — l'invariant est tenu dans test/discussion.test.js.
+  assert.match(chat, /relancerLePoll\(\)/, 'un seul chemin arme l\'interrogation');
 });
 
 test("l'écran du rendez-vous et celui du selfie ne remplacent pas un écran quitté pendant l'attente", () => {
@@ -36,7 +39,7 @@ test("les paramètres de lancement n'ouvrent une discussion que sur un identifia
 });
 
 test("une discussion fermée arrête l'interrogation, et l'app en arrière-plan n'interroge plus /summary", () => {
-  assert.match(entre('async function pollChat() {', 'async function sendMessage('), /MATCH_NOT_FOUND[^\n]*BLOCKED[\s\S]*clearInterval\(S\.chatTimer\)/);
+  assert.match(entre('async function pollChat() {', 'function montrerLaFrappe() {'), /MATCH_NOT_FOUND[^\n]*BLOCKED[\s\S]*arreterLePoll\(\)/);
   assert.match(entre('async function refreshSummary() {', 'const avatar ='), /if \(document\.hidden\) return;/);
 });
 
@@ -91,6 +94,40 @@ test("la fiche qu'on décide garde sa photo, et l'économie de data reste sur le
     "et la liste ne va même pas les chercher");
   // Ce qui a disparu avec le bouton : il ne doit pas revenir par un coin de l'app.
   assert.ok(!/S\.revealed|data-action="reveal"/.test(app), 'plus de geste « Afficher la photo »');
+});
+
+// Trois écrans ouvrent une fiche de profil, et `SCREENS.person` n'en connaissait qu'un. Depuis
+// l'en-tête de la discussion et depuis « se sont arrêtés sur ta fiche », l'appui tombait sur le
+// `if (!p) return go('discover')` : on était **renvoyé sur Découvrir sans un mot**. Un bouton qui
+// ramène ailleurs se lit comme une panne, et c'en était une.
+test('une fiche s\'ouvre depuis toutes les portes qui y mènent, pas seulement le paquet', () => {
+  const lookup = entre('const profilConnu = (id) =>', '// Carte de profil');
+  for (const porte of ['S.people', 'S.likes', 'S.vues', 'S.chat?.other']) {
+    assert.ok(lookup.includes(porte), `${porte} doit être une porte vers une fiche`);
+  }
+  assert.match(entre('  person({ id }) {', '    S.person = p;'), /profilConnu\(id\)/,
+    "l'écran doit lire la liste des portes, pas en rouvrir une à lui");
+  // « Se sont arrêtés sur ta fiche » ne range rien de lui-même : la porte reste fermée sans ça.
+  assert.match(entre('  async vues() {', '    tg.setBack(() => go(\'me\'));'), /S\.vues = profiles;/);
+  // Et le retour ne renvoie plus au paquet : on revient d'où l'on est venu.
+  assert.match(app, /person: \(\) => S\.personFrom \|\| 'discover'/);
+});
+
+// Un match n'est ni à aimer ni à passer. « Passer » sur quelqu'un avec qui on discute aurait l'air
+// de défaire le match — et ne l'aurait pas fait, ce qui est pire.
+test("la fiche d'un match ne propose ni « J'aime » ni « Passer »", () => {
+  const ecran = entre('  person({ id }) {', '  async chat({ id }) {');
+  assert.match(ecran, /const match = S\.personFrom === 'chat' && S\.chat\?\.other\?\.id === id;/);
+  assert.match(ecran, /if \(match\) tg\.setButtons\(\{ main: \{ text: t\('Écrire à \{nom\}'/);
+});
+
+// L'économie de data retient les listes. L'avatar de la personne à qui l'on écrit n'en est pas
+// une : un en-tête vide dans une discussion ouverte se lit comme une panne, pour une image.
+test("l'avatar de la discussion ne dépend pas de l'économie de data", () => {
+  assert.match(entre('function loadAvatar(p, {', 'photoUrl(p.id'), /dansUneListe && S\.dataSaver/);
+  assert.match(app, /loadAvatar\(c\.other, \{ dansUneListe: false \}\)/);
+  // Les vraies listes, elles, la respectent toujours.
+  assert.match(entre('function lazyAvatars() {', 'async function changerLangue'), /if \(S\.dataSaver \|\|/);
 });
 
 // Le clavier réduit la fenêtre : sans écouteur, la zone des messages rétrécit et le dernier

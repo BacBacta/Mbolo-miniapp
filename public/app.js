@@ -19,7 +19,9 @@ const S = {
   discoverMode: 'cards',
   people: [],
   person: null,
+  personFrom: null,
   likes: [],
+  vues: null,
   avatarObserver: null,
   photoUrls: {},
   voixUrls: {},
@@ -288,7 +290,7 @@ function emplacementsPhoto() {
   return Array.from({ length: Math.max(ouverts, occupes) }, (_, i) => i + 1);
 }
 
-const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', pays: () => S.pays?.retour || 'me', plus: () => S.plusRetour || 'me', vues: () => 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
+const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => S.personFrom || 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', pays: () => S.pays?.retour || 'me', plus: () => S.plusRetour || 'me', vues: () => 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
 const TABS = [['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']];
 
@@ -302,7 +304,7 @@ function go(screen, params = {}) {
   // longtemps ferait ressortir, à la prochaine ouverture des filtres, des âges que personne
   // n'a réglés — et « Enregistrer » les aurait pris pour un choix.
   if (S.screen === 'filters' && screen !== 'pays') S.filtresDraft = null;
-  clearInterval(S.chatTimer);
+  arreterLePoll();
   clearInterval(S.pendingTimer);
   clearInterval(S.summaryTimer);
   arreterLaVoix();
@@ -395,8 +397,12 @@ async function refreshSummary() {
 // ============================================================
 const avatar = (p, size = 'sm') => `<span class="avatar ${size}${p.verified ? ' verified' : ''}" data-avatar="${esc(p.id)}">${esc(p.name?.[0] || '?')}</span>`;
 
-function loadAvatar(p, { own = false } = {}) {
-  if (!p?.hasPhoto || (!own && S.dataSaver)) return;
+// L'économie de data retient les **listes** — cinquante vignettes qui partent d'un coup. Un
+// avatar **seul**, celui de la personne à qui l'on écrit, n'est pas une liste : le retenir
+// faisait un en-tête vide dans une discussion ouverte, donc un écran qui a l'air cassé, pour
+// une image. Même raisonnement que la photo de la fiche qu'on décide.
+function loadAvatar(p, { own = false, dansUneListe = true } = {}) {
+  if (!p?.hasPhoto || (!own && dansUneListe && S.dataSaver)) return;
   photoUrl(p.id, p.photos?.[0] || 1).then((url) => {
     if (!url) return;
     document.querySelectorAll(`[data-avatar="${CSS.escape(p.id)}"]`).forEach((el) => {
@@ -515,6 +521,16 @@ const ME = () => {
 const paysDevine = () => S.me?.profile?.country || S.me?.options?.suggestedCountry || S.me?.options?.defaultCountry || 'CM';
 const zoneDe = () => S.me?.filters?.zone || { country: paysDevine(), city: S.me?.profile?.city || null };
 const activityChip = (p, cls = 'chip') => (ACTIVITY_LABELS()[p.activity] ? `<span class="${cls} act-${p.activity}">${ACTIVITY_LABELS()[p.activity]}</span>` : '');
+
+// **Toutes les portes qui mènent à une fiche.** `S.people` — le paquet et la vue Liste — était la
+// seule consultée, alors que trois autres écrans ouvrent une fiche : « qui t'a aimé »,
+// « se sont arrêtés sur ta fiche », et l'en-tête de la discussion. Depuis les deux derniers,
+// l'appui **renvoyait silencieusement sur Découvrir** : un bouton qui ramène ailleurs se lit
+// comme une panne, et c'en était une. Une porte de plus s'ajoute ici, une seule fois.
+const profilConnu = (id) => S.people.find((x) => x.id === id)
+  || S.likes.find((x) => x.id === id)
+  || (S.vues || []).find((x) => x.id === id)
+  || (S.chat?.other?.id === id ? S.chat.other : null);
 
 // Carte de profil, partagée entre la découverte et l'aperçu de son propre profil.
 // cls = 'top' (carte manipulable) ou 'next' (carte suivante, en retrait)
@@ -1204,14 +1220,20 @@ const SCREENS = {
   },
 
   person({ id }) {
-    const p = S.people.find((x) => x.id === id) || S.likes.find((x) => x.id === id);
+    const p = profilConnu(id);
     if (!p) return go('discover');
     S.person = p;
-    const note = p.status === 'liked' ? `${icon('heart', 14)}<span>${t('Tu as déjà aimé ce profil. Le bot te prévient en cas de match.')}</span>`
-      : p.status === 'passed' ? `${icon('clock', 14)}<span>${t('Tu avais passé ce profil. Tu peux revenir sur ta décision.')}</span>` : '';
+    // Venu de la discussion : c'est un match, donc ni « J'aime » ni « Passer » — les deux gestes
+    // n'ont plus de sens, et « Passer » aurait l'air de défaire le match. On propose de revenir
+    // écrire, parce que c'est la seule chose qu'on puisse faire d'ici.
+    const match = S.personFrom === 'chat' && S.chat?.other?.id === id;
+    const note = match ? `${icon('heart', 14)}<span>${t('Vous vous êtes plu. Vous pouvez vous écrire.')}</span>`
+      : p.status === 'liked' ? `${icon('heart', 14)}<span>${t('Tu as déjà aimé ce profil. Le bot te prévient en cas de match.')}</span>`
+        : p.status === 'passed' ? `${icon('clock', 14)}<span>${t('Tu avais passé ce profil. Tu peux revenir sur ta décision.')}</span>` : '';
     render(`<div class="deck">${profileCard(p, { cls: 'top' })}</div>${note ? `<p class="fine">${note}</p>` : ''}`);
     loadCardPhoto(p);
-    if (p.status === 'liked') tg.setButtons(null);
+    if (match) tg.setButtons({ main: { text: t('Écrire à {nom}', { nom: p.name }), onClick: () => go('chat', { id: S.chat.id }) } });
+    else if (p.status === 'liked') tg.setButtons(null);
     else if (p.status === 'passed') tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipePerson('like') } });
     else tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipePerson('like') }, secondary: { text: t('Passer'), onClick: () => swipePerson('pass') } });
   },
@@ -1303,7 +1325,7 @@ const SCREENS = {
     try {
       const data = await api(`/matches/${encodeURIComponent(id)}`);
       if (perime()) return;
-      S.chat = { id, other: data.other, messages: data.messages, dates: data.dates, unlockAfter: data.unlockAfter, notice: null };
+      S.chat = { id, other: data.other, messages: data.messages, dates: data.dates, unlockAfter: data.unlockAfter, notice: null, tete: null, rendus: 0, bouge: Date.now(), ecritDepuis: 0 };
     } catch (e) {
       if (perime()) return;
       return renderError(e, () => go('chat', { id }));
@@ -1317,8 +1339,7 @@ const SCREENS = {
       ...(S.me.confiance ? { secondary: { text: t('Je pars au rendez-vous'), onClick: prevenirConfiance } } : {}),
     });
     // Jamais deux minuteurs : une réponse tardive en posait un second, orphelin pour toujours.
-    clearInterval(S.chatTimer);
-    S.chatTimer = setInterval(pollChat, 4000);
+    relancerLePoll();
   },
 
   async date() {
@@ -1555,6 +1576,8 @@ const SCREENS = {
         <div class="new-strip">${profiles.map((p) => `<button type="button" class="new-item" data-action="person" data-id="${esc(p.id)}">${avatar(p, 'md')}<span>${esc(p.name)}</span></button>`).join('')}</div>
       </div>` : ''}
       <p class="fine">${icon('lock', 14)}<span>${t("On ne montre jamais ce que ces personnes ont décidé, et jamais la liste entière : c'est ce qui empêche de deviner qui n'a pas voulu de toi.")}</span></p>`);
+    // Sans ça, toucher un de ces visages ouvrait Découvrir : `profilConnu()` n'a que ce qu'on range.
+    S.vues = profiles;
     profiles.forEach((p) => loadAvatar(p));
     tg.setBack(() => go('me'));
     tg.setButtons({ main: { text: t('Compris'), onClick: () => go('me') } });
@@ -1991,7 +2014,7 @@ async function swipe(action) {
 }
 
 // ---------- Discussion ----------
-function chatBody(c) {
+function chatTete(c) {
   const dateCards = c.dates.map((d) => {
     const clos = d.status === 'declined' || d.status === 'cancelled';
     const etat = ETAT_RDV()[d.arrivedMe ? 'arrived' : d.status] || ETAT_RDV().proposed;
@@ -2017,28 +2040,47 @@ function chatBody(c) {
     </div>`;
   }).join('');
 
-  let msgs = '';
-  if (!c.messages.length) {
-    msgs = `<p class="system">${t('Commence par une question sur son profil. Ton pseudo et ton numéro Telegram restent masqués.')}</p>`;
-  } else {
-    let prev = null;
-    msgs = c.messages.map((m) => {
-      let out = '';
-      if (!prev || !isSameDay(prev.at, m.at)) out += `<span class="day">${dayLabel(m.at, t, langue())}</span>`;
-      // Messages groupés : même auteur, moins de trois minutes d'écart
-      const cont = prev && prev.mine === m.mine && isSameDay(prev.at, m.at) && m.at - prev.at < 3 * 60000;
-      out += `<div class="bubble ${m.mine ? 'mine' : 'theirs'} ${cont ? 'cont' : 'gap'}">${esc(m.text)}<span class="time">${timeLabel(m.at, langue())}</span></div>`;
-      prev = m;
-      return out;
-    }).join('');
-  }
-  const n = Math.min(c.messages.length, c.unlockAfter);
-  const unlock = n >= c.unlockAfter ? '' : `
+  return `${dateCards}<div class="spacer"></div>${barreDeDeblocage(c)}`;
+}
+
+// **La barre compte l'échange, pas le total.** Le serveur débloque sur `Math.min(les miens, les
+// siens)` — c'est ce que dit déjà le message d'erreur, « échangés de chaque côté » — alors que
+// la barre additionnait tout le fil. Trois messages dont un seul de l'autre personne
+// s'affichaient « 3/10 » pour un échange réel de 1 : la barre promettait le déblocage jusqu'à
+// dix fois trop tôt, et la promesse tombait au moment d'écrire le numéro.
+const echangeDe = (c) => Math.min(
+  c.messages.filter((m) => m.mine).length,
+  c.messages.filter((m) => !m.mine).length,
+);
+
+function barreDeDeblocage(c) {
+  const n = Math.min(echangeDe(c), c.unlockAfter);
+  if (n >= c.unlockAfter) return '';
+  return `
     <div class="unlock">
-      <div class="head"><span>${t('Liens et numéros débloqués à {n} messages', { n: c.unlockAfter })}</span><strong>${n}/${c.unlockAfter}</strong></div>
-      <div class="track"><div class="fill" style="width:${Math.round((100 * n) / c.unlockAfter)}%"></div></div>
+      <div class="head"><span>${t('Liens et numéros débloqués à {n} messages', { n: c.unlockAfter })}</span><strong id="unlock-n">${n}/${c.unlockAfter}</strong></div>
+      <div class="track"><div class="fill" id="unlock-fill" style="width:${Math.round((100 * n) / c.unlockAfter)}%"></div></div>
     </div>`;
-  return `${dateCards}<div class="spacer"></div>${unlock}${msgs}`;
+}
+
+// Les bulles, à partir de l'indice demandé. `depuis` sert au rendu par ajout : le fil ne se
+// refait plus à chaque message, on lui ajoute ce qui manque. Le regroupement lit le message
+// précédent, y compris quand il est déjà à l'écran — d'où l'indice plutôt qu'une sous-liste.
+function chatBulles(c, depuis = 0, { neuves = false } = {}) {
+  if (!c.messages.length) return `<p class="system">${t('Commence par une question sur son profil. Ton pseudo et ton numéro Telegram restent masqués.')}</p>`;
+  let out = '';
+  for (let i = depuis; i < c.messages.length; i += 1) {
+    const m = c.messages[i];
+    const prev = i ? c.messages[i - 1] : null;
+    if (!prev || !isSameDay(prev.at, m.at)) out += `<span class="day">${dayLabel(m.at, t, langue())}</span>`;
+    // Messages groupés : même auteur, moins de trois minutes d'écart
+    const cont = prev && prev.mine === m.mine && isSameDay(prev.at, m.at) && m.at - prev.at < 3 * 60000;
+    const classes = ['bubble', m.mine ? 'mine' : 'theirs', cont ? 'cont' : 'gap'];
+    if (m.enCours) classes.push('encours');
+    if (neuves) classes.push('neuve');
+    out += `<div class="${classes.join(' ')}"${m.tmp ? ` data-tmp="${esc(m.tmp)}"` : ''}>${esc(m.text)}<span class="time">${m.enCours ? icon('clock', 11) : timeLabel(m.at, langue())}</span></div>`;
+  }
+  return out;
 }
 
 // Structure fixe : en-tête en haut, messages défilants au milieu, champ de saisie en bas.
@@ -2057,7 +2099,8 @@ function renderChat() {
         </button>
         <button type="button" class="icon-btn" data-action="report-chat" aria-label="${t('Se protéger')}">${icon('flag', 18)}</button>
       </div>
-      <div class="messages" id="messages">${chatBody(c)}</div>
+      <div class="messages" id="messages"></div>
+      <div id="chat-frappe" class="chat-frappe" aria-live="polite"></div>
       <div id="chat-notice" class="chat-notice"></div>
       <form class="composer" data-action="send">
         <input name="message" autocomplete="off" maxlength="1000" placeholder="${t('Écris ton message')}" aria-label="${t('Message')}" enterkeyhint="send">
@@ -2065,7 +2108,7 @@ function renderChat() {
       </form>
     </div>
   `);
-  loadAvatar(c.other);
+  loadAvatar(c.other, { dansUneListe: false });
   // #messages est reconstruit à chaque ouverture : l'écouteur suit le nouvel élément.
   document.getElementById('messages').addEventListener('scroll', () => {
     S.chatEnBas = enBas(document.getElementById('messages'));
@@ -2081,13 +2124,46 @@ function renderChat() {
   updateChat({ scroll: true });
 }
 
+// **Le fil s'allonge au lieu de se refaire.** Reconstruire tout `#messages` à chaque message
+// interdisait l'animation d'entrée — le DOM était neuf à chaque fois, donc rien n'« arrivait » —
+// et effaçait une sélection de texte en cours. On ajoute donc les bulles qui manquent, et on
+// retombe sur la reconstruction complète dès que la tête a bougé (une carte de rendez-vous, le
+// franchissement du seuil) ou que le fil n'est plus celui qu'on croyait : un chemin rapide qui
+// se trompe coûte plus cher que la lenteur qu'il évite.
 function updateChat({ scroll = false } = {}) {
   const box = document.getElementById('messages');
   if (!box || !S.chat) return;
   const nearBottom = enBas(box);
-  box.innerHTML = chatBody(S.chat);
+  const tete = chatTete(S.chat);
+  const peutAjouter = tete === S.chat.tete && S.chat.rendus >= 0 && S.chat.rendus <= S.chat.messages.length
+    && box.childElementCount > 0;
+  if (peutAjouter) {
+    if (S.chat.rendus < S.chat.messages.length) {
+      // Le premier message remplace la phrase d'accueil, qui n'est pas une bulle.
+      if (!S.chat.rendus) box.querySelector('.system')?.remove();
+      box.insertAdjacentHTML('beforeend', chatBulles(S.chat, S.chat.rendus, { neuves: true }));
+    }
+  } else {
+    box.innerHTML = tete + chatBulles(S.chat, 0);
+  }
+  S.chat.tete = tete;
+  S.chat.rendus = S.chat.messages.length;
+  majBarreDeDeblocage();
   document.getElementById('chat-notice').innerHTML = S.chat.notice ? `<div class="notice notice-warn" role="alert">${icon('alert', 18)}<span>${esc(S.chat.notice)}</span></div>` : '';
   if (scroll || nearBottom) collerEnBas({ force: true });
+}
+
+// La barre bouge à chaque message : la retoucher en place évite de refaire la tête, donc de
+// refaire tout le fil, pour deux nombres.
+function majBarreDeDeblocage() {
+  const n = Math.min(echangeDe(S.chat), S.chat.unlockAfter);
+  const compte = document.getElementById('unlock-n');
+  const fill = document.getElementById('unlock-fill');
+  if (!compte || !fill) return;
+  // Seuil atteint : la barre disparaît, et la tête change — la prochaine mise à jour reconstruit.
+  if (n >= S.chat.unlockAfter) { compte.closest('.unlock')?.remove(); S.chat.tete = null; return; }
+  compte.textContent = `${n}/${S.chat.unlockAfter}`;
+  fill.style.width = `${Math.round((100 * n) / S.chat.unlockAfter)}%`;
 }
 
 const enBas = (box) => box.scrollHeight - box.scrollTop - box.clientHeight < 120;
@@ -2120,46 +2196,128 @@ tg.onViewport(() => {
   collerEnBas();
 });
 
+// **Une discussion vivante et une discussion oubliée n'ont pas besoin du même rythme.** Quatre
+// secondes fixes, c'était deux secondes d'attente en moyenne sur chaque réponse — au moment
+// précis où l'on se répond — et quinze requêtes par minute sur un écran que plus personne ne
+// regarde. Les paliers partent du dernier mouvement du fil : [depuis, délai].
+const RYTHMES = [[30_000, 1500], [180_000, 4000], [Infinity, 10_000]];
+
+function delaiDuPoll() {
+  // Tant que l'autre personne écrit, son message est imminent : on reste au rythme rapide.
+  if (S.chat?.ecritDepuis && Date.now() - S.chat.ecritDepuis < 10_000) return RYTHMES[0][1];
+  // Et tant que **moi** j'écris : c'est cette interrogation-là qui porte le mot à l'autre, donc
+  // au rythme lent il apprendrait dix secondes trop tard que quelqu'un lui répond.
+  if ((document.querySelector('.composer input[name="message"]')?.value || '').trim()) return RYTHMES[0][1];
+  const depuis = Date.now() - (S.chat?.bouge || 0);
+  return RYTHMES.find(([seuil]) => depuis < seuil)[1];
+}
+
+function arreterLePoll() { clearTimeout(S.chatTimer); S.chatTimer = null; }
+
+function relancerLePoll({ tout_de_suite = false } = {}) {
+  arreterLePoll();
+  S.chatTimer = setTimeout(pollChat, tout_de_suite ? 250 : delaiDuPoll());
+}
+
 async function pollChat() {
-  if (S.screen !== 'chat' || !S.chat || document.hidden) return;
-  const last = S.chat.messages.at(-1)?.at || 0;
+  if (S.screen !== 'chat' || !S.chat) return arreterLePoll();
+  // En arrière-plan on ne demande rien, mais on garde le rendez-vous : revenir doit rattraper.
+  if (document.hidden) return relancerLePoll();
+  // **Jamais l'horodatage d'un message provisoire** : il vient de l'horloge du téléphone, qui
+  // peut être en avance sur celle du serveur — `after` sauterait alors de vrais messages.
+  const last = S.chat.messages.filter((m) => !m.enCours).at(-1)?.at || 0;
+  // Dire qu'on écrit ne coûte **aucune requête de plus** : le mot voyage dans l'interrogation qui
+  // partait déjà. Rien n'est stocké — la frappe vit en mémoire sur le serveur et meurt avec lui.
+  const jEcris = (document.querySelector('.composer input[name="message"]')?.value || '').trim() ? '&ecrit=1' : '';
   try {
     // suivi=1 : le serveur sait que le profil de l'autre personne est déjà chargé et ne le
     // renvoie plus. Il ne renvoie les rendez-vous que si l'un d'eux a bougé.
-    const data = await api(`/matches/${encodeURIComponent(S.chat.id)}?after=${last}&suivi=1`);
+    const data = await api(`/matches/${encodeURIComponent(S.chat.id)}?after=${last}&suivi=1${jEcris}`);
+    if (S.screen !== 'chat' || !S.chat) return arreterLePoll();
     const dates = data.dates ?? S.chat.dates;
     const datesChanged = data.dates && JSON.stringify(data.dates) !== JSON.stringify(S.chat.dates);
     if (data.messages.length || datesChanged) {
       S.chat.messages.push(...data.messages);
       S.chat.dates = dates;
+      if (datesChanged) S.chat.tete = null;
+      S.chat.bouge = Date.now();
       updateChat();
       if (data.messages.some((m) => !m.mine)) tg.haptic('light');
     }
+    S.chat.ecritDepuis = data.ecrit ? Date.now() : 0;
+    montrerLaFrappe();
   } catch (e) {
     // Match défait par l'autre, ou blocage : l'écran restait ouvert et interrogeait pour rien.
     if (e.code === 'MATCH_NOT_FOUND' || e.code === 'BLOCKED') {
-      clearInterval(S.chatTimer);
+      arreterLePoll();
       toast(e.message);
-      go('matches');
+      return go('matches');
     }
-    /* sinon, réseau instable : prochain essai dans 4 secondes */
+    /* sinon, réseau instable : le prochain essai suit le rythme en cours */
   }
+  relancerLePoll();
 }
+
+// « … est en train d'écrire », posé sous le fil et jamais dans le fil : une ligne qui apparaît et
+// disparaît au milieu des bulles ferait sauter la lecture. Elle ne pousse la discussion vers le
+// haut que si l'on était déjà en bas.
+function montrerLaFrappe() {
+  const zone = document.getElementById('chat-frappe');
+  if (!zone) return;
+  const actif = !!S.chat.ecritDepuis;
+  if (actif === (zone.childElementCount > 0)) return;
+  const enBasAvant = enBas(document.getElementById('messages'));
+  zone.innerHTML = actif
+    ? `<div class="frappe"><span class="pts"><i></i><i></i><i></i></span>${t('{nom} écrit…', { nom: esc(S.chat.other.name) })}</div>`
+    : '';
+  if (enBasAvant) collerEnBas({ force: true });
+}
+
+// **La bulle part avant le serveur.** Attendre l'aller-retour, c'est une à deux secondes de rien
+// du tout sur un réseau ordinaire — appui, champ figé, puis la bulle —, et c'est là que la
+// discussion paraissait lente : le geste le plus fréquent de l'app était le plus lent.
+//
+// Elle ne ment pas pour autant. Tant que le serveur n'a pas répondu, elle porte une horloge et
+// reste pâle, parce que **le message peut être refusé** — par l'anti-arnaque (`MONEY_BLOCKED`,
+// `CONTACT_TOO_EARLY`) ou par la limite de vingt par minute. Un refus la retire et **rend le
+// texte au champ** : le laisser à l'écran ferait croire qu'il est parti, le perdre ferait retaper.
+let provisoires = 0;
 
 async function sendMessage(input) {
   const text = input.value.trim();
   if (!text) return;
   const button = input.nextElementSibling;
+  const brouillon = { tmp: `t${++provisoires}`, text, mine: true, at: Date.now(), enCours: true };
+  S.chat.messages.push(brouillon);
+  S.chat.bouge = Date.now();
+  S.chat.notice = null;
+  input.value = '';
   button.disabled = true;
+  tg.haptic('light');
+  updateChat({ scroll: true });
   try {
     const { message } = await api(`/matches/${encodeURIComponent(S.chat.id)}/messages`, { method: 'POST', body: { text } });
-    S.chat.messages.push(message);
-    S.chat.notice = null;
-    input.value = '';
-    updateChat({ scroll: true });
+    // L'heure du serveur remplace celle du téléphone, et la bulle se pose sans que rien ne bouge
+    // autour : deux écritures dans le DOM valent mieux qu'un fil reconstruit.
+    // La marque est relue **avant** d'être effacée, et depuis le brouillon : deux envois rapprochés
+    // ont deux marques, et `provisoires` a déjà avancé.
+    const marque = brouillon.tmp;
+    Object.assign(brouillon, message, { enCours: false, tmp: null });
+    const bulle = document.querySelector(`[data-tmp="${CSS.escape(marque)}"]`);
+    if (bulle) {
+      bulle.classList.remove('encours');
+      bulle.removeAttribute('data-tmp');
+      bulle.querySelector('.time').textContent = timeLabel(brouillon.at, langue());
+    } else { S.chat.tete = null; updateChat(); }
+    // On regarde tout de suite s'il y a une réponse : c'est juste après avoir écrit qu'elle vient.
+    relancerLePoll({ tout_de_suite: true });
   } catch (e) {
+    const i = S.chat.messages.indexOf(brouillon);
+    if (i >= 0) S.chat.messages.splice(i, 1);
+    S.chat.tete = null;
     tg.haptic(e.code === 'MONEY_BLOCKED' ? 'warning' : 'error');
     S.chat.notice = e.code === 'MONEY_BLOCKED' ? `${e.message} ${t('Reformule sans montant ni moyen de paiement.')}` : e.message;
+    if (!input.value.trim()) input.value = text;
     updateChat({ scroll: true });
   } finally {
     button.disabled = !input.value.trim();

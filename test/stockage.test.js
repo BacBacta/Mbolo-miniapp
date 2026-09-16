@@ -28,9 +28,11 @@ test('le stockage suit DATABASE_URL, sans que le reste de l\'app le sache', () =
   // store.js. Une méthode ajoutée d'un seul côté ferait planter l'app dans l'autre mode, et
   // seulement en production si c'est le mode PostgreSQL qui a été oublié.
   assert.deepEqual(Object.keys(store).sort(), Object.keys(reference).sort());
-  // Les trois méthodes de présence sont les seules à rester synchrones, des deux côtés.
+  // Ce qui vit en mémoire — la présence, et qui est en train d'écrire — est le seul à rester
+  // synchrone, des deux côtés. Rien de tout ça ne touche une base ni un fichier : c'est
+  // éphémère par construction, et ça meurt avec le processus.
   const synchrones = Object.keys(store).filter((nom) => store[nom].constructor.name !== 'AsyncFunction');
-  assert.deepEqual(synchrones.sort(), ['isViewing', 'leavePresence', 'touchPresence']);
+  assert.deepEqual(synchrones.sort(), ['isTyping', 'isViewing', 'leavePresence', 'touchPresence', 'touchTyping']);
 });
 
 // Un compte écrit puis relu doit revenir identique, horodatage compris : c'est la promesse

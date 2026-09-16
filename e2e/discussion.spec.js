@@ -167,3 +167,89 @@ test('envoyer un message ne fait pas perdre le focus au champ, donc le clavier n
   expect(mouvements, `le focus ne doit pas bouger : ${mouvements.join(', ')}`).toEqual([]);
   expect(await page.evaluate(() => document.activeElement?.name)).toBe('message');
 });
+
+// La bulle doit apparaître **avant** la réponse du serveur. C'est le geste le plus fréquent de
+// l'app, et il était le plus lent : un aller-retour vers Amsterdam, soit une à deux secondes de
+// rien du tout sur un réseau ordinaire. Aucun test unitaire ne peut voir ça — il faut un vrai
+// navigateur, une vraie réponse retenue, et regarder l'écran pendant qu'elle est retenue.
+test("la bulle apparaît avant la réponse du serveur, et se confirme ensuite", async ({ page }) => {
+  await membreVerifie(page, 'Nina');
+  await aimerUnProfil(page);
+  await ouvrirLaDiscussion(page);
+
+  // On retient la réponse du serveur : c'est exactement ce que fait un réseau lent.
+  let relacher;
+  const retenue = new Promise((r) => { relacher = r; });
+  await page.route('**/api/matches/*/messages', async (route) => { await retenue; await route.continue(); });
+
+  await champMessage(page).fill('Bonjour, tu connais le quartier ?');
+  await boutonEnvoyer(page).click();
+
+  // Pendant que le serveur ne répond pas : la bulle est là, marquée en cours, et le champ est
+  // déjà vide — on peut enchaîner sans attendre.
+  const bulle = page.locator('.bubble.mine', { hasText: 'tu connais le quartier' });
+  await expect(bulle).toBeVisible({ timeout: 3000 });
+  await expect(bulle).toHaveClass(/encours/);
+  await expect(champMessage(page)).toHaveValue('');
+
+  relacher();
+  // Confirmée : la marque disparaît et l'heure remplace l'horloge.
+  await expect(bulle).not.toHaveClass(/encours/, { timeout: 15_000 });
+  await expect(bulle.locator('.time')).toHaveText(/\d/);
+});
+
+// Un message refusé ne doit jamais avoir eu l'air d'être parti — sur une app anti-arnaque, c'est
+// le mensonge à ne pas faire. Et le texte doit revenir dans le champ : le perdre ferait retaper.
+test("un message bloqué retire sa bulle et rend le texte au champ", async ({ page }) => {
+  await membreVerifie(page, 'Olga');
+  await aimerUnProfil(page);
+  await ouvrirLaDiscussion(page);
+
+  const texte = 'Envoie-moi 5000 FCFA par Orange Money';
+  await champMessage(page).fill(texte);
+  await boutonEnvoyer(page).click();
+
+  // L'anti-arnaque refuse : plus aucune bulle ne porte ce texte.
+  await expect(page.locator('.notice-warn')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.bubble', { hasText: 'Orange Money' })).toHaveCount(0);
+  await expect(champMessage(page)).toHaveValue(texte);
+});
+
+// Deux pannes signalées depuis le téléphone, sur le même en-tête.
+//
+// L'avatar restait vide : l'économie de data retenait aussi cette image-là, alors que c'est **une**
+// image, celle de la personne à qui l'on écrit — pas une liste de cinquante vignettes.
+//
+// Et l'appui ne menait nulle part : `SCREENS.person` ne cherchait la fiche que dans le paquet et
+// dans « qui t'a aimé », jamais dans la discussion ouverte. Il tombait donc sur le repli
+// `go('discover')` et renvoyait sur Découvrir **sans un mot**.
+test("l'en-tête de la discussion montre la photo et ouvre bien la fiche", async ({ page }) => {
+  await membreVerifie(page, 'Pia');
+
+  // Économie de data activée : c'est le réglage qui rendait l'avatar invisible.
+  await onglet(page, /Profil/).click();
+  await page.locator('input[name="dataSaver"]').check();
+  await expect(page.locator('.toast, #toast')).toContainText(/Économie de data activée/);
+
+  const nom = await aimerUnProfil(page);
+  await ouvrirLaDiscussion(page);
+
+  // La photo est là malgré le réglage : un en-tête vide dans une discussion ouverte se lit
+  // comme une panne, et ça n'économise qu'une image.
+  const entete = page.locator('.chat-head .head-profil');
+  await expect(entete.locator('.avatar img')).toBeVisible({ timeout: 15_000 });
+
+  // L'appui ouvre la fiche, et pas Découvrir.
+  await entete.click();
+  // Une fiche, une seule carte — Découvrir en pose deux. Sans ce compte, le test passerait
+  // encore en étant renvoyé sur le paquet, ce qui est précisément la panne.
+  await expect(page.locator('main .card')).toHaveCount(1, { timeout: 10_000 });
+  await expect(page.locator('main .card')).toContainText(nom.split(',')[0]);
+  // Un match ne s'aime ni ne se passe : les deux gestes n'ont plus de sens ici.
+  await expect(actionPrincipale(page)).toHaveText(/Écrire à/);
+  await expect(page.locator('#fallback-bar button', { hasText: /^Passer$/ })).toHaveCount(0);
+
+  // Et le retour ramène à la discussion, pas au paquet.
+  await actionPrincipale(page).click();
+  await expect(champMessage(page)).toBeVisible({ timeout: 10_000 });
+});

@@ -520,4 +520,6 @@ export default {
   "Des rencontres vérifiées sur {app}, sans arnaques.": "Проверенные знакомства в {app}, без мошенников.",
   "Les vignettes des listes ne se chargent pas. La fiche que tu regardes garde sa photo.": "Миниатюры в списках не загружаются. У анкеты, которую ты смотришь, фото остаётся.",
   "Villes connues": "Известные города",
+  "{nom} écrit…": "{nom} печатает…",
+  "Vous vous êtes plu. Vous pouvez vous écrire.": "Вы понравились друг другу. Вы можете переписываться.",
 };
