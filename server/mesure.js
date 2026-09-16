@@ -18,6 +18,8 @@ import { store } from './store.js';
 // pas — mais elle dit ce que `server/chiffres.js` a le droit d'attendre de trouver.
 //
 //   app_opened {}        · une par heure et par personne : ce qui permet de dater un départ
+//   venu_de {source}     · **une par compte, à vie** : par quel canal la personne est arrivée.
+//                          Un canal, jamais un parrain — voir SOURCES dans config.js
 //   form_step {step}     · l'étape maximale atteinte dans le formulaire, jointe à l'ouverture suivante
 //   profile_saved {}     · selfie_sent {} · verif_decided {ok, auto, ms} · verif_retried {}
 //   deck_served {n, r}   · une par paquet, ralentie à cinq minutes ; `r` absent avec un pass

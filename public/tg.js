@@ -251,6 +251,21 @@ export function share(url, text) {
   openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`);
 }
 
+// Partage en story. Telegram réclame une **image joignable par son adresse** : c'est le seul
+// fichier que l'app serve au navigateur (public/story.jpg), et il est fabriqué par le même script
+// que la photo du bot — `npm run identite`, gabarit dans identite/source/story.html.
+//
+// L'image ne porte **aucune phrase**, et ce n'est pas une économie : l'app se lit en sept langues,
+// et une phrase gravée dans un JPEG en ferait sept. Les mots voyagent dans `text`, qui est traduit
+// chez la personne et qu'elle peut de toute façon réécrire avant de publier.
+export const canShareToStory = () => supports('7.8') && typeof W.shareToStory === 'function';
+export function shareToStory(mediaUrl, text, lien) {
+  if (!canShareToStory()) return false;
+  const absolue = new URL(mediaUrl, window.location.origin).href;
+  W.shareToStory(absolue, { text, ...(lien ? { widget_link: { url: lien.url, name: lien.name } } : {}) });
+  return true;
+}
+
 // Ouvre un lien Telegram — une discussion, un lien de partage, un lien de démarrage du bot.
 //
 // Ce n'est pas openLink() : celui-là ouvre un navigateur, et un navigateur ouvert sur t.me

@@ -81,6 +81,19 @@ console.log(ligne('ont buté sur le quota du jour', r.plus.murDuQuotaGestes, `${
 console.log('  par palier touché :');
 console.log(liste(r.plus.murParPalier));
 
+console.log(titre('Provenance — par où les gens arrivent, et lesquels restent'));
+{
+  // Tri par activation d'abord, par volume ensuite : le canal qui amène le plus de monde n'est
+  // pas celui qu'il faut pousser, c'est celui dont les gens restent.
+  const rangs = Object.entries(r.provenance).sort((a, b) => (b[1].partActivation ?? -1) - (a[1].partActivation ?? -1) || b[1].comptes - a[1].comptes);
+  console.log(`  ${'canal'.padEnd(14)}${'comptes'.padStart(9)}${'profil'.padStart(10)}${'vérifiés'.padStart(11)}${'activés'.padStart(11)}`);
+  if (!rangs.length) console.log('  (aucun)');
+  for (const [canal, v] of rangs) {
+    console.log(`  ${canal.padEnd(14)}${String(v.comptes).padStart(9)}${pct(v.partProfil).padStart(10)}${String(v.verifies).padStart(11)}${pct(v.partActivation).padStart(11)}`);
+  }
+  console.log(`  — = arrivé sans lien de diffusion, ou avant que la provenance existe.`);
+}
+
 console.log(titre('Contre-métriques — si l\'une monte, la phare ne compte plus'));
 console.log(ligne('signalements pour 100 matchs', nb(r.contre.signalementsPour100Matchs)));
 console.log(ligne('blocages anti-arnaque pour 100 messages', nb(r.contre.blocagesPour100Messages)));

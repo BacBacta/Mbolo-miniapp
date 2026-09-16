@@ -529,4 +529,7 @@ export default {
   "Choisir l'ordre du paquet": "Choose the deck order",
   "L'ordre du paquet au choix": "The deck order, your way",
   "Conseillé, les plus actifs, les nouveaux, ou ton quartier d'abord.": "Recommended, most active, newcomers, or your neighbourhood first.",
+  "Partager en story": "Share to your story",
+  "Ton profil n'y apparaît pas": "Your profile does not appear in it",
+  "Des rencontres vérifiées sur {app}, sans arnaques.": "Verified people on {app}, no scams.",
 };

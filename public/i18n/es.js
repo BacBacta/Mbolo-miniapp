@@ -518,4 +518,7 @@ export default {
   "Choisir l'ordre du paquet": "Elegir el orden del mazo",
   "L'ordre du paquet au choix": "El orden del mazo a tu gusto",
   "Conseillé, les plus actifs, les nouveaux, ou ton quartier d'abord.": "Recomendado, los más activos, los nuevos, o tu barrio primero.",
+  "Partager en story": "Compartir en tu historia",
+  "Ton profil n'y apparaît pas": "Tu perfil no aparece en ella",
+  "Des rencontres vérifiées sur {app}, sans arnaques.": "Personas verificadas en {app}, sin estafas.",
 };

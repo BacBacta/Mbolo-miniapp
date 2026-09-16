@@ -55,6 +55,7 @@ server/
   voix.js       Présentation vocale : durées, nom de fichier, ce qui est public, et pourquoi ça vit dans le bot
   bascule.js    Ce que la bascule PostgreSQL doit retrouver : comptage par clé, fonction pure
   mesure.js     Pose les événements : garde-fou anti-texte, ralentis, semaine ISO des cohortes
+                (dont `venu_de` : le canal d'arrivée, une fois par compte — un canal, jamais un parrain)
   chiffres.js   Lit les chiffres : fonction pure, exclusions en amont, avertissements
   routes.js     API REST sous /api
   bot.js        Commandes du bot, modération des selfies, notify(), notifyAdmin(),
@@ -112,6 +113,8 @@ test/
   rend invisible ET aveugle),
   nouveaux (les quatre freins de l'annonce d'arrivée, le plafond, et l'unicité — le test passe par
   decideVerification, le vrai chemin : écrire « approved » dans le stockage sautait le crochet),
+  provenance (le canal se range une fois et ne s'écrase pas ; aucun lien entre qui invite et
+  qui arrive — le test nomme les champs interdits ; la story ne montre aucun profil),
   rendezvous, securite, stockage,
   suppression (le compte ne revient pas par le signal de fermeture ; signalements, personne de
   confiance et selfie du groupe partent avec lui), verre, webhook
@@ -123,8 +126,10 @@ e2e/
   fenêtre, et envoyer ne fait pas perdre le focus au champ), mesure, pages-publiques, suppression (plus aucune requête après), verre,
   voix-et-filtres (genre recherché à l'écran, et la présentation vocale proposée à la vérification),
   pass (sans pass, Messages explique la place laissée vide ; « Rester discret » est offert à tout
-  le monde et survit au rechargement)
-  (32 tests Playwright, npm run e2e)
+  le monde et survit au rechargement),
+  provenance (la source part dès la **toute première** ouverture, celle qui porte le lien — seul
+  un vrai navigateur voit cet ordre-là ; elle ne repart pas à la suivante)
+  (35 tests Playwright, npm run e2e)
 scripts/
   chiffres.js    npm run chiffres : entonnoir et contre-métriques, --json pour la machine
   demo-photos.mjs npm run demo-photos : refait les images de démonstration (Chromium, dev seulement)
@@ -147,8 +152,11 @@ audit/
   importants, par fichier et ligne, avec l'ordre de correction en six lots. À lire avant la bêta.
 identite/
   Ce que BotFather affiche : photo du bot, image d'accueil, textes des cinq langues.
-  Jamais servi au navigateur. `source/` porte les pages HTML, les polices et le script
-  de rendu, pour refabriquer les images le jour où le nom ou une phrase change.
+  Jamais servi au navigateur — **à une exception** : `source/story.html` sort dans
+  `public/story.jpg`, parce que Telegram réclame une image joignable par son adresse pour un
+  partage en story. `source/` porte les pages HTML, les polices et le script de rendu
+  (`npm run identite`), pour refabriquer les images le jour où le nom ou une phrase change ;
+  le nom y est posé au rendu depuis APP_NAME, jamais écrit dans le gabarit (règle 12).
 ```
 
 ## 4. Fonctionnalités en place
@@ -182,6 +190,8 @@ identite/
 | Odo Plus | **Pass à durée fixe**, pas un abonnement : expiration franche, aucune reconduction tacite (cahier des charges, section 10.2). `server/plus.js` : `estPlus()` est **le seul endroit qui tranche**, comme `entreeLibre()` et `genreAuChoix()`. Le droit vit dans l'objet utilisateur (jsonb des deux côtés, donc aucune migration) ; la table `entitlements` arrive avec la caisse (P0-6) et cette fonction en deviendra la **projection**. Un pass s'**empile** : pris pendant qu'un autre court, il repousse la fin — payer deux fois et ne recevoir qu'une fois est la faute qu'on ne rattrape pas. Une fin absente ou illisible vaut **« pas de pass »**, jamais « pass éternel ». **Pas de caisse, et c'est volontaire** : `/pass <id> <jours>` et `/sanspass <id>` dans le groupe de modération suffisent à savoir si ce qu'il y a derrière change quelque chose pour de vrais membres. Ce qu'il donne aujourd'hui : des « J'aime » **sans limite** (5 par jour sinon, 2 sans le badge), **qui t'a aimé**, **qui s'est arrêté sur ta fiche**, la **vue Liste** (`/profiles`, 403 sans pass — les mêmes personnes restent dans les cartes), **tout le pays** (sans pass, `zoneCherchee()` ramène à sa ville et le réglage **dort** au lieu d'être effacé — c'est la seule ligne qui retire quelque chose au gratuit, à surveiller en premier), **six photos** (deux sans pass, `palier('photos')` à l'envoi seulement), **trente secondes de voix** (quinze sans), **trois questions sur la fiche** (une sans), le **filtre par langue parlée** (`dansLaLangue()`, qui dort sans pass comme la zone, et lit les clés normalisées du texte libre — « Anglais » ne trouve pas « English », et l'écran le dit) et l'**ordre du paquet au choix** (`ORDRES`, liste fermée ; `trierLePaquet()` ne trie que sur ce que la carte montre déjà — activité par tranche, « Nouveau », quartier — et **qui t'a aimé passe devant dans tous les ordres**). Le tableau du §3 d'`audit/11` est **entièrement construit** ; ce qui manque est la caisse. `PALIERS` dans `plus.js` porte les nombres, `DROITS_DU_PASS` les droits sans nombre, `GET /api/me` envoie les deux (`limites`), et l'interface n'en recopie aucun. Le pass **n'est pas sur la fiche publique** et n'y entrera pas : un pass visible dirait qui peut voir la liste, donc qui sait |
 | Qui t'a aimé | Réservé au pass, et il faut fermer **quatre portes ensemble** : `GET /api/likes` (403 `PASS_REQUIS`), la pastille « T'a liké » sur la carte, la même dans la vue Liste, et **le compteur** de `/summary`. Le compteur est le plus bavard des quatre — « une personne t'a aimé », posé à côté d'un paquet qui met cette personne en tête, fait un nom. Il vaut donc **`null`** sans pass, jamais `0` : zéro dirait « personne ne t'a aimé », ce qui est faux. **L'ordre, lui, ne change pas** : le paquet place les « J'aime » reçus devant pour tout le monde — deux ordres différents se compareraient d'un compte à l'autre, et la différence dirait ce que l'étiquette ne dit plus. C'est ce que la notification promet dans les sept langues : « Tu as plu à quelqu'un à {ville}. Continue à découvrir : tu le croiseras dans ton paquet. » Le pass n'enlève **aucune rencontre**, il enlève de savoir **lesquelles** |
 | Se sont arrêtés sur ta fiche | `server/vues.js`. **Aucune collecte nouvelle** : la table `swipes` porte déjà `{from, to, action, at}`. D'où le nom — quelqu'un qui fait défiler sans décider n'y est pas. Trois refus : (1) **l'issue n'est jamais montrée**, et elle ne traverse même pas `dansLaFenetre()`, donc aucune ligne en aval ne peut la laisser fuir ; (2) **compte arrondi** (« plus de 10 ») et **cinq fiches au plus** — un membre avec un pass voit *aussi* qui l'a aimé, donc une liste exhaustive, soustraite à celle des « J'aime », donnerait **la liste de ceux qui ont refusé** ; (3) **opposition gratuite et symétrique** (`PUT /api/me/discretion`, sans `requirePlus` : on ne vend pas le droit de ne pas être montré) — qui se retire n'apparaît chez personne et ne voit la liste chez lui non plus. Fenêtre de **30 jours**, `GET /api/vues` réservé au pass, et **`allUsers()` n'est pas appelé** : la charge est bornée par les balayages reçus, pas par la table (dette n° 3). La page de confidentialité le dit, et le délai qu'elle annonce est vérifié par `test/pages-publiques.test.js` |
+| Diffusion et provenance | Un lien de diffusion porte un mot (`?startapp=ref_campus`), rangé sur le compte à la **première ouverture et une seule fois à vie** : la dernière affiche scannée n'efface pas le campus qui a vraiment amené la personne. `SOURCES` (`server/config.js`) est une **liste fermée** — un mot inconnu n'est pas rangé, et n'est pas non plus corrigé en « autre » : un fourre-tout attire tout ce qui ne va nulle part. Il voyage dans `GET /api/me`, par `localStorage`, comme `form_step` : **zéro requête ajoutée**, et l'attribution survit à « j'ai cliqué lundi, je me suis inscrit jeudi ». `npm run chiffres` redécoupe **l'entonnoir entier** par canal, pas seulement les arrivées : un canal qui amène cent curieux dont aucun ne reste vaut moins qu'un canal qui en amène dix dont six s'activent. **Ce n'est pas un parrainage, et c'est la décision du 16 septembre 2026** : on retient un **canal**, jamais une personne — `membre` dit qu'un membre a partagé, jamais lequel. Retenir qui a invité qui fabriquerait un graphe social, ce qui sur une app de rencontres est exactement ce qui fait mal en cas de fuite ou de réquisition : même raisonnement que `MATCH_POLICY` sur l'orientation. Aucune récompense au partage non plus — une prime ferait revenir le besoin de savoir qui parraine. `test/provenance.test.js` **nomme les champs interdits** (`parrain`, `invitePar`…) pour qu'on ait à les effacer sciemment. L'attribution est **falsifiable** — n'importe qui peut ouvrir `?startapp=ref_campus` — donc un avertissement l'écrit à côté du tableau, et elle ne peut fonder aucune facturation |
+| Partage en story | `tg.shareToStory()` derrière `supports('7.8')`, repli sur le partage ordinaire. Telegram réclame une **image joignable par son adresse** : `public/story.jpg` est le seul fichier image que l'app serve, fabriqué par `npm run identite` depuis `identite/source/story.html`. Elle ne montre **que la marque** — pas de photo, pas de prénom, rien du profil : publier qu'on cherche quelqu'un se choisit, publier à quoi on ressemble en le faisant, non. Elle ne porte **aucune phrase** : l'app se lit en sept langues, une phrase gravée dans un JPEG en ferait sept ; les mots voyagent dans le `text` de la story. JPEG et pas PNG (le dégradé et le grain faisaient un mégaoctet), et une route à elle avec un cache d'**un jour** : son adresse ne porte pas d'empreinte, donc `immutable` ferait circuler un ancien nom pendant un an après un renommage |
 | Éléments natifs | MainButton, SecondaryButton, BackButton, SettingsButton, popups, haptique, scanner QR, confirmation de fermeture, CloudStorage, requestWriteAccess, addToHomeScreen |
 
 ## 5. Règles à respecter absolument

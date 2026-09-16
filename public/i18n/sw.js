@@ -518,4 +518,7 @@ export default {
   "Choisir l'ordre du paquet": "Chagua mpangilio wa rundo",
   "L'ordre du paquet au choix": "Mpangilio wa rundo unavyotaka",
   "Conseillé, les plus actifs, les nouveaux, ou ton quartier d'abord.": "Inapendekezwa, wenye shughuli zaidi, wapya, au mtaa wako kwanza.",
+  "Partager en story": "Shiriki kwenye story yako",
+  "Ton profil n'y apparaît pas": "Wasifu wako hauonekani humo",
+  "Des rencontres vérifiées sur {app}, sans arnaques.": "Watu waliothibitishwa kwenye {app}, bila ulaghai.",
 };

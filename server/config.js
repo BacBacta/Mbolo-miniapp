@@ -208,5 +208,25 @@ export const COMPAT = {
   },
 };
 export const GENDERS = { femme: 'Femme', homme: 'Homme' };
+
+// D'où vient la personne — et surtout, ce qu'on ne retient pas.
+//
+// Un lien de diffusion porte un mot : t.me/<bot>?startapp=ref_campus. Ce mot est rangé sur le
+// compte, une seule fois, et sert à découper l'entonnoir par canal (`npm run chiffres`). Sans lui,
+// on diffuse à l'aveugle : on saurait que des gens arrivent, jamais par où.
+//
+// **Ce n'est pas un parrainage, et c'est le choix du 16 septembre 2026.** Retenir *qui a invité
+// qui* fabriquerait un graphe social — sur une app de rencontres, savoir que X a invité Y est
+// précisément ce qui fait mal en cas de fuite ou de réquisition. C'est le raisonnement de
+// MATCH_POLICY sur l'orientation, appliqué à une autre colonne. On retient donc un canal, jamais
+// une personne : `membre` dit « quelqu'un a partagé l'app », il ne dit pas qui, et aucune
+// récompense n'est attachée au partage — une prime au parrainage ferait revenir le besoin de
+// savoir qui parraine.
+//
+// La liste est **fermée** : un mot qu'elle ne connaît pas est ignoré et n'est jamais rangé, comme
+// un critère inconnu de la jauge. La rallonger est une ligne, mais un mot ajouté après coup ne
+// rattrape pas les gens déjà venus.
+export const SOURCES = ['membre', 'campus', 'whatsapp', 'groupe', 'affiche', 'story'];
+export const sourceConnue = (mot) => SOURCES.includes(String(mot || ''));
 // La ville n'est plus une liste fermée : elle se saisit librement et se compare par clé
 // normalisée. Voir server/geo.js.

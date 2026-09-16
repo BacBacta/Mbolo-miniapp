@@ -197,6 +197,39 @@ export function calculer({ users, events, reports = [], matches = [], messages =
     murParPalier,
   };
 
+  // ---------- Provenance ----------
+  //
+  // Par quel canal les gens sont arrivés, et surtout : **par quel canal arrivent ceux qui
+  // restent.** Un canal qui amène cent curieux dont aucun ne crée de profil vaut moins qu'un
+  // canal qui en amène dix dont six s'activent, et le total d'arrivées ne permet pas de les
+  // distinguer. C'est donc l'entonnoir entier qui est redécoupé, pas seulement son premier palier.
+  //
+  // Le mot vient du lien de diffusion et vaut ce que vaut un lien : **n'importe qui peut ouvrir
+  // ?startapp=ref_campus sans avoir jamais vu le campus.** C'est un chiffre de pilotage, pas une
+  // facture — un avertissement le redit à côté du tableau. Le jour où un lieu serait payé au
+  // rendez-vous confirmé (P2-1), ce n'est pas ce chiffre-là qui pourrait servir de base.
+  //
+  // `—` n'est pas un canal : c'est l'absence de canal. Il porte ceux qui sont arrivés par un lien
+  // nu, et **tous ceux qui existaient avant ce mécanisme** : rien n'est rétroactif ici non plus.
+  const provenance = {};
+  for (const u of vrais) {
+    const cle = u.source || '—';
+    const p0 = provenance[cle] || (provenance[cle] = { comptes: 0, profil: 0, verifies: 0, actives: 0, mursActivation: 0 });
+    p0.comptes += 1;
+    if (u.profileSavedAt || u.profile) p0.profil += 1;
+    if (parHumain(u)) p0.verifies += 1;
+    // Seuls les comptes qui ont eu leurs quatorze jours entrent au dénominateur, ici comme
+    // dans la section Activation : sans ça, un canal ouvert hier paraîtrait mauvais.
+    if (maintenant - u.createdAt >= FENETRE) {
+      p0.mursActivation += 1;
+      if (active(u)) p0.actives += 1;
+    }
+  }
+  for (const p0 of Object.values(provenance)) {
+    p0.partProfil = part(p0.profil, p0.comptes);
+    p0.partActivation = part(p0.actives, p0.mursActivation);
+  }
+
   // ---------- Contre-métriques ----------
   // Si l'une monte, la phare ne compte plus. À lire sur la même page, jamais ailleurs.
   const nbMessagesReels = matchsReels.reduce((n, m) => n + (messages.get(m.id) || []).length, 0);
@@ -245,6 +278,9 @@ export function calculer({ users, events, reports = [], matches = [], messages =
   if (!churn.datable) {
     avertissements.push("Aucun app_opened enregistré : on peut compter les comptes inactifs, pas dater leur départ.");
   }
+  if (Object.keys(provenance).some((k) => k !== '—')) {
+    avertissements.push("La provenance se déclare par le lien d'ouverture : n'importe qui peut ouvrir ?startapp=ref_campus sans venir du campus. Ces parts orientent la diffusion, elles ne prouvent rien et ne peuvent servir de base à aucune facturation.");
+  }
   avertissements.push('Aucun chiffre ne remonte avant la mise en place de la mesure : rien n\'est rétroactif.');
 
   return {
@@ -256,6 +292,7 @@ export function calculer({ users, events, reports = [], matches = [], messages =
     plus,
     entree,
     contre,
+    provenance,
     avertissements,
   };
 }

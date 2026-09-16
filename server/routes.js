@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
-import { config, runtime, genreAuChoix, entreeLibre, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT } from './config.js';
+import { config, runtime, genreAuChoix, entreeLibre, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT, sourceConnue } from './config.js';
 import { estPlus, etatDuPass, palier, PALIERS, DROITS_DU_PASS, ORDRES, ORDRE_DEFAUT } from './plus.js';
 import { arrondir, dansLaFenetre, discret, MAX_FICHES } from './vues.js';
 import { quiPrevenir, RALENTI_MS } from './nouveaux.js';
@@ -212,6 +212,22 @@ async function retirerIntentionDisparue(u) {
   return (await store.getUser(u.id)) || u;
 }
 
+// D'où vient cette personne. Le mot arrive du lien de diffusion (?startapp=ref_campus), passe par
+// le navigateur et se range **une seule fois** : la première ouverture qui en porte un gagne, les
+// suivantes ne l'écrasent pas. Sans quoi la dernière affiche scannée effacerait le campus qui a
+// vraiment amené la personne, et l'entonnoir dirait n'importe quoi.
+//
+// Un mot que SOURCES ne connaît pas n'est pas rangé du tout — il n'est pas non plus corrigé en
+// « autre » : un fourre-tout attire tout ce qui ne va nulle part, et on croit mesurer un canal.
+//
+// L'événement n'est posé que quand le mot est réellement rangé. Rouvrir dix fois le même lien ne
+// fait pas dix arrivées.
+async function noterLaProvenance(u, mot) {
+  if (u.source || !sourceConnue(mot)) return;
+  await store.updateUser(u.id, { source: String(mot) });
+  mesurer('venu_de', u.id, { source: String(mot) });
+}
+
 // ---------- Moi ----------
 api.get('/me', async (req, res) => {
   const u = await retirerIntentionDisparue(req.user);
@@ -223,6 +239,9 @@ api.get('/me', async (req, res) => {
   // étape coûterait deux requêtes par inscription sur un forfait compté ; celui-ci coûte zéro.
   const etape = Number(req.query.form_step);
   if (Number.isInteger(etape) && etape >= 1 && etape <= 3) mesurer('form_step', u.id, { step: etape });
+  // La provenance voyage dans le même appel, pour la même raison : zéro requête ajoutée. Attendue,
+  // celle-là — elle écrit sur le compte, et une écriture perdue se verrait dans les chiffres.
+  await noterLaProvenance(u, req.query.source);
   res.json({
     id: await pidDe(u),
     firstName: u.firstName,
