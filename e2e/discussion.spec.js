@@ -114,6 +114,11 @@ test('le dernier message reste visible quand le clavier réduit la fenêtre', as
     await boutonEnvoyer(page).click();
     await expect(page.locator('#messages')).toContainText(texte);
   }
+  // Le profil de démonstration répond 400 ms après chaque message, et depuis le flux il répond
+  // **à coup sûr** dans la fenêtre qui suit. Un message qui arrive pendant qu'on mesure le
+  // défilement n'est pas ce que ce test éprouve : on attend que la démo ait fini de parler.
+  await expect(page.locator('.bubble.theirs').first()).toBeVisible({ timeout: 10_000 });
+  for (let avant = -1, n = 0; avant !== n;) { avant = n; await page.waitForTimeout(700); n = await page.locator('.bubble.theirs').count(); }
 
   const dernierVisible = async () => page.evaluate(() => {
     const box = document.getElementById('messages');
@@ -273,4 +278,31 @@ test("une amorce remplit le champ sans l'envoyer, et la carte s'efface au premie
   await boutonEnvoyer(page).click();
   await expect(page.locator('.bubble.mine')).toHaveCount(1);
   await expect(carte).toHaveCount(0);
+});
+
+// Le temps réel a un repli, et le repli est ce qui compte : si le flux ne s'ouvre pas — proxy
+// qui le coupe, réseau qui le refuse — les messages doivent arriver exactement comme avant lui.
+// On coupe le flux dans le navigateur et on attend la réponse du profil de démonstration.
+test('sans le flux, les messages arrivent quand même par l\'interrogation', async ({ page }) => {
+  await page.route('**/api/matches/*/flux', (route) => route.abort());
+  await membreVerifie(page, 'Sara');
+  await aimerUnProfil(page);
+  await ouvrirLaDiscussion(page);
+  await champMessage(page).fill('Coucou, tu vas bien ?');
+  await boutonEnvoyer(page).click();
+  await expect(page.locator('.bubble.mine')).toHaveCount(1);
+  await expect(page.locator('.bubble.theirs')).toHaveCount(1, { timeout: 15_000 });
+});
+
+test('avec le flux, la réponse arrive aussi — et vite', async ({ page }) => {
+  await membreVerifie(page, 'Tess');
+  await aimerUnProfil(page);
+  await ouvrirLaDiscussion(page);
+  await champMessage(page).fill('Coucou, tu vas bien ?');
+  await boutonEnvoyer(page).click();
+  // La réponse de démonstration part 400 ms après le message ; par le flux, elle est à l'écran
+  // bien avant la première interrogation de sécurité (30 s) — et avant l'ancien rythme (1,5 s).
+  const debut = Date.now();
+  await expect(page.locator('.bubble.theirs')).toHaveCount(1, { timeout: 15_000 });
+  expect(Date.now() - debut).toBeLessThan(6000);
 });

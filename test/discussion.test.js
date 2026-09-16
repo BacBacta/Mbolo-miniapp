@@ -178,6 +178,26 @@ test("une amorce remplit le champ sans envoyer, et la carte s'efface au premier 
   assert.match(envoi, /const amorce = S\.chat\.amorce;\s*S\.chat\.amorce = null;/);
 });
 
+// Le temps réel côté interface : ce qui se lit dans la source, et ce qu'un vrai navigateur
+// vérifie dans e2e/discussion.spec.js (le repli quand le flux est coupé).
+test("le flux s'ouvre par fetch() avec l'en-tête, et retombe sur l'interrogation s'il tombe", () => {
+  const flux = entre('async function ouvrirLeFlux(', 'function direQueJEcris() {');
+  assert.match(flux, /fetch\(`\/api\/matches\/\$\{encodeURIComponent\(id\)\}\/flux`, \{ headers: authHeaders\(\)/);
+  // Le mot n'apparaît que dans les commentaires qui expliquent pourquoi on ne s'en sert pas.
+  assert.ok(!/EventSource/.test(app_js.replace(/\/\/[^\n]*/g, '')), 'jamais EventSource : il mettrait le jeton dans l\'adresse');
+  assert.ok(!/initData\(\)[^\n]*flux|flux[^\n]*initData\(\)/.test(app_js), "le jeton ne va pas dans l'adresse du flux");
+  // Un signal ne fait qu'une chose : relancer l'interrogation. Le flux n'écrit jamais dans le fil.
+  assert.match(flux, /if \(type === 'signal'\) relancerLePoll\(\{ tout_de_suite: true \}\);/);
+  assert.ok(!/S\.chat\.messages\.push/.test(flux), "le flux n'ajoute aucun message lui-même");
+  // S'il tombe : fluxVivant à false, l'interrogation reprend, et on réessaie de plus en plus tard.
+  assert.match(flux, /S\.fluxVivant = false;[\s\S]*relancerLePoll\(\);[\s\S]*Math\.min\(30_000, 2000 \* 2 \*\* tentative\)/);
+  // Flux ouvert, l'interrogation ne sert plus qu'à rattraper : trente secondes, pas zéro.
+  assert.match(entre('function delaiDuPoll() {', 'function arreterLePoll'), /if \(S\.fluxVivant\) return SECURITE_FLUX_MS;/);
+  assert.match(app_js, /const SECURITE_FLUX_MS = 30_000;/);
+  // Quitter l'écran ferme le flux, comme il arrête l'interrogation.
+  assert.match(entre('function go(', 'S.detachSwipe?.()'), /arreterLePoll\(\);\s*fermerLeFlux\(\);/);
+});
+
 test('une bulle en cours se voit comme telle', () => {
   const css = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
   assert.match(css, /\.bubble\.encours \{[^}]*opacity/, "sans quoi un message refusé aurait eu l'air d'être parti");
