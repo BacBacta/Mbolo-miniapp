@@ -534,7 +534,10 @@ function profileCard(p, { own = false, cls = '' } = {}) {
         ${p.photos?.length > 1 && !(!own && hidePhoto) ? `<div class="dots">${p.photos.map((_, i) => `<span class="${i ? '' : 'on'}"></span>`).join('')}</div>` : ''}
         <span class="initial">${esc(p.name?.[0] || '?')}</span>
         <span class="scrim"></span>
-        ${p.hasPhoto && hidePhoto ? `<button type="button" class="btn btn-glass reveal" data-action="reveal" data-id="${esc(p.id)}">${icon('image', 18)} ${t('Afficher la photo')}</button>` : ''}
+        ${p.hasPhoto && hidePhoto ? `<div class="reveal-wrap">
+          <button type="button" class="btn btn-glass reveal" data-action="reveal" data-id="${esc(p.id)}">${icon('image', 18)} ${t('Afficher la photo')}</button>
+          <span class="pill-glass reveal-why">${t('Économie de data — se règle dans Profil')}</span>
+        </div>` : ''}
         <div class="corners">
           ${p.likedYou && !own ? `<span class="pill-glass pill-like">${icon('heart', 13, { fill: true })} ${t("T'a liké")}</span>` : p.isNew && !own ? `<span class="pill-glass">${icon('sparkles', 13)} ${t('Nouveau')}</span>` : ''}
           ${p.demo ? `<span class="tag-demo">${t('démo')}</span>` : ''}

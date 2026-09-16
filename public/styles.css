@@ -402,7 +402,26 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .card-photo .dots span.on { background: var(--on-photo); }
 .card-photo:has(.dots) .corners { top: 18px; }
 .card-photo[data-action="photo-nav"] { cursor: pointer; }
-.card-photo .reveal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+/* Une carte sans visage ressemble à une panne. Elle n'en est pas une : c'est l'économie de data,
+   que la personne a activée. Le bouton seul ne le disait pas — le propriétaire lui-même n'a pas
+   reconnu son propre réglage — donc la ligne dit **pourquoi** et **où le défaire**. Sans elle, on
+   conclut que l'app est cassée, ou que personne n'a de photo. */
+.card-photo .reveal-wrap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2;
+  display: grid; justify-items: center; gap: 9px;
+  /* `max-content` sur la colonne, sinon la boîte se rétrécit et **le bouton se casse en deux
+     lignes** : la largeur est alors dictée par la place, pas par le texte. La borne garde la
+     légende à l'intérieur de la carte sur un téléphone étroit. */
+  width: max-content; max-width: calc(100% - 44px); }
+.card-photo .reveal { white-space: nowrap; }
+/* La même pastille de verre que « Nouveau » et « démo », et pour la même raison que `.tag-demo` :
+   un texte posé à même le dégradé, même à pleine opacité, tombe à 3,9:1 sur le point le plus
+   clair (--photo-a) — sous AA pour du 12 px. Sur le verre, le pire cas mesure **11,6:1**. La
+   légende reste discrète par sa taille, pas par sa transparence. */
+.card-photo .reveal-why { max-width: 100%; white-space: normal; text-align: center;
+  /* Elle ressemble à un bouton sans en être un. `pointer-events: none` fait passer le geste à la
+     carte dessous plutôt que de ne rien faire : une pastille qui avale un appui sans répondre est
+     pire qu'une pastille inerte, surtout au milieu d'une carte qu'on balaie. */
+  pointer-events: none; }
 
 /* Compatibilité : posée sous la réponse libre, en petits blocs question-réponse. Jamais une
    couleur à elle : ce sont des faits déclarés, pas des signaux à mettre en avant. */

@@ -521,4 +521,5 @@ export default {
   "Partager en story": "Shiriki kwenye story yako",
   "Ton profil n'y apparaît pas": "Wasifu wako hauonekani humo",
   "Des rencontres vérifiées sur {app}, sans arnaques.": "Watu waliothibitishwa kwenye {app}, bila ulaghai.",
+  "Économie de data — se règle dans Profil": "Kuokoa data — hubadilishwa katika Wasifu",
 };

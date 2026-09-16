@@ -532,4 +532,5 @@ export default {
   "Partager en story": "Share to your story",
   "Ton profil n'y apparaît pas": "Your profile does not appear in it",
   "Des rencontres vérifiées sur {app}, sans arnaques.": "Verified people on {app}, no scams.",
+  "Économie de data — se règle dans Profil": "Data saver — change it in Profile",
 };
