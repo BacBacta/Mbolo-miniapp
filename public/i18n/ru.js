@@ -521,4 +521,5 @@ export default {
   "Partager en story": "Поделиться в истории",
   "Ton profil n'y apparaît pas": "Твой профиль в ней не показывается",
   "Des rencontres vérifiées sur {app}, sans arnaques.": "Проверенные знакомства в {app}, без мошенников.",
+  "Économie de data — se règle dans Profil": "Экономия трафика — настраивается в профиле",
 };
