@@ -21,7 +21,6 @@ const S = {
   person: null,
   likes: [],
   avatarObserver: null,
-  revealed: {},
   photoUrls: {},
   voixUrls: {},
   voixEnCours: null,
@@ -520,7 +519,6 @@ const activityChip = (p, cls = 'chip') => (ACTIVITY_LABELS()[p.activity] ? `<spa
 // Carte de profil, partagée entre la découverte et l'aperçu de son propre profil.
 // cls = 'top' (carte manipulable) ou 'next' (carte suivante, en retrait)
 function profileCard(p, { own = false, cls = '' } = {}) {
-  const hidePhoto = !own && S.dataSaver && !S.revealed[p.id];
   // La jauge vient du serveur avec son dénominateur : la carte ne devine plus combien de
   // critères existent, et le jour où un critère s'ajoute elle suit sans être retouchée.
   const tr = p.trust || { score: 0, total: 0, criteres: [] };
@@ -530,14 +528,10 @@ function profileCard(p, { own = false, cls = '' } = {}) {
   if (acquis.length) acquis[0] = acquis[0].charAt(0).toUpperCase() + acquis[0].slice(1);
   return `
     <article class="card ${cls}">
-      <div class="card-photo" data-photo="${esc(p.id)}"${p.photos?.length > 1 && !(!own && hidePhoto) ? ' data-action="photo-nav" data-index="0"' : ''}>
-        ${p.photos?.length > 1 && !(!own && hidePhoto) ? `<div class="dots">${p.photos.map((_, i) => `<span class="${i ? '' : 'on'}"></span>`).join('')}</div>` : ''}
+      <div class="card-photo" data-photo="${esc(p.id)}"${p.photos?.length > 1 ? ' data-action="photo-nav" data-index="0"' : ''}>
+        ${p.photos?.length > 1 ? `<div class="dots">${p.photos.map((_, i) => `<span class="${i ? '' : 'on'}"></span>`).join('')}</div>` : ''}
         <span class="initial">${esc(p.name?.[0] || '?')}</span>
         <span class="scrim"></span>
-        ${p.hasPhoto && hidePhoto ? `<div class="reveal-wrap">
-          <button type="button" class="btn btn-glass reveal" data-action="reveal" data-id="${esc(p.id)}">${icon('image', 18)} ${t('Afficher la photo')}</button>
-          <span class="pill-glass reveal-why">${t('Économie de data — se règle dans Profil')}</span>
-        </div>` : ''}
         <div class="corners">
           ${p.likedYou && !own ? `<span class="pill-glass pill-like">${icon('heart', 13, { fill: true })} ${t("T'a liké")}</span>` : p.isNew && !own ? `<span class="pill-glass">${icon('sparkles', 13)} ${t('Nouveau')}</span>` : ''}
           ${p.demo ? `<span class="tag-demo">${t('démo')}</span>` : ''}
@@ -570,8 +564,11 @@ function profileCard(p, { own = false, cls = '' } = {}) {
     </article>`;
 }
 
+// La photo d'une fiche part toujours, même en économie de data : c'est sur elle qu'on décide
+// d'aimer ou de passer, et une carte grise ne se juge pas. Le réglage retient les **vignettes**
+// des listes (loadAvatar), là où le coût est réel : cinquante images d'un coup contre une seule.
 function loadCardPhoto(p, { own = false } = {}) {
-  if (!p.hasPhoto || (!own && S.dataSaver && !S.revealed[p.id])) return;
+  if (!p.hasPhoto) return;
   photoUrl(p.id, p.photos?.[0] || 1).then((url) => {
     const box = document.querySelector(`[data-photo="${CSS.escape(p.id)}"]`);
     if (!url || !box || box.querySelector('img')) return;
@@ -931,9 +928,9 @@ const SCREENS = {
         ${ligneDeChoix('choisir-pays', nomPays(f.country) || t('Choisir'), { cible: 'profil' })}
       </div>
       <label class="field"><span class="label">${t('Ville')}</span>
-        <input name="city" maxlength="40" value="${esc(f.city)}" placeholder="${esc((S.me.options.knownCities[f.country] || [])[0] || t('Ta ville'))}" list="villes-connues" autocomplete="off">
-        <datalist id="villes-connues">${(S.me.options.knownCities[f.country] || []).map((v) => `<option value="${esc(v)}"></option>`).join('')}</datalist>
+        <input name="city" maxlength="40" value="${esc(f.city)}" placeholder="${esc((S.me.options.knownCities[f.country] || [])[0] || t('Ta ville'))}" autocomplete="off">
       </label>
+      ${villesProposees(f.country, 'city', f.city)}
       <label class="field"><span class="label">${t('Quartier')} <span class="opt">${t('facultatif')}</span></span><input name="area" maxlength="40" value="${esc(f.area)}" placeholder="${t('Ton quartier')}"></label>
       <p class="fine">${icon('pin', 14)}<span>${t("Tu verras d'abord les profils de ta ville. Tu pourras élargir à tout le pays, ou viser une autre ville, depuis les filtres.")}</span></p>`,
       `
@@ -1163,9 +1160,9 @@ const SCREENS = {
         ${limite('paysEntier') ? '' : `<p class="fine">${icon('info', 14)}<span>${t('Sans pass, tu vois les profils de ta ville. Un pass ouvre le pays entier.')}</span></p>`}
         ${toutLePays ? '' : `
         <label class="field"><span class="label">${t('Ville')}</span>
-          <input name="zoneCity" maxlength="40" value="${esc(z.city || '')}" placeholder="${esc((S.me.options.knownCities[z.country] || [])[0] || t('Ta ville'))}" list="villes-zone" autocomplete="off">
-          <datalist id="villes-zone">${(S.me.options.knownCities[z.country] || []).map((v) => `<option value="${esc(v)}"></option>`).join('')}</datalist>
-        </label>`}
+          <input name="zoneCity" maxlength="40" value="${esc(z.city || '')}" placeholder="${esc((S.me.options.knownCities[z.country] || [])[0] || t('Ta ville'))}" autocomplete="off">
+        </label>
+        ${villesProposees(z.country, 'zoneCity', z.city || '')}`}
         ${choisit ? `
         <span class="eyebrow">${t('Qui tu cherches')}</span>
         <div class="seg seg-genre" aria-label="${t('Qui tu cherches')}">
@@ -1712,7 +1709,7 @@ const SCREENS = {
           ${listRow({ iconName: 'bell', title: t('Tester les notifications'), sub: t("Le bot t'envoie un message dans Telegram"), action: 'test-notif' })}
           <label class="list-row">
             <span class="tile">${icon('wifi', 20)}</span>
-            <div class="body"><div class="title">${t('Économie de data')}</div><div class="sub">${t('Photos chargées seulement si tu les demandes')}</div></div>
+            <div class="body"><div class="title">${t('Économie de data')}</div><div class="sub">${t("Les vignettes des listes ne se chargent pas. La fiche que tu regardes garde sa photo.")}</div></div>
             <input type="checkbox" class="switch" name="dataSaver" ${S.dataSaver ? 'checked' : ''}>
           </label>
           ${plus() ? listRow({ iconName: 'rows', title: t("Se sont arrêtés sur ta fiche"), sub: t('Combien, en gros, et les cinq dernières fiches'), action: 'go', extra: ' data-screen="vues"' }) : ''}
@@ -1749,6 +1746,33 @@ const ligneDeChoix = (action, valeur, data = {}) => `
     <span class="valeur">${esc(valeur)}</span>
     ${icon('chevron-down', 18)}
   </button>`;
+
+// Les villes connues d'un pays, en pastilles visibles d'un coup — jamais un `<datalist>`.
+// Le menu que le navigateur en tire est, comme un `<select>`, une **boîte du système** : sur la
+// WebView de Telegram Android il se dessine par-dessus l'écran, sans fond et à sa propre
+// typographie, par-dessus les champs et jusque sur le clavier. Aucune ligne de styles.css ne
+// pouvait l'atteindre. Ces villes se comptent sur les doigts : elles ne se cachent donc pas
+// derrière un appui, exactement comme les questions du profil (`.chips`).
+const villesProposees = (pays, champ, valeur) => {
+  const villes = S.me.options.knownCities[pays] || [];
+  if (!villes.length) return '';
+  return `
+    <div class="chips chips-villes" role="group" aria-label="${t('Villes connues')}">${villes.map((v) => `
+      <button type="button" aria-pressed="${v === valeur}" data-action="ville" data-champ="${esc(champ)}" data-value="${esc(v)}">${esc(v)}</button>`).join('')}</div>`;
+};
+
+// Une pastille remplit le champ **sans refaire l'écran** : reconstruire l'input fermerait le
+// clavier, même cause que la recherche de pays et que la règle 16. On rejoue l'événement que
+// les gestionnaires écoutent déjà plutôt que de recopier ici ce qu'ils font.
+function poserLaVille(champ, valeur) {
+  const input = app.querySelector(`input[name="${champ}"]`);
+  if (!input) return;
+  input.value = valeur;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  app.querySelectorAll(`.chips-villes button[data-champ="${champ}"]`)
+    .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.value === valeur)));
+}
 
 // Les lignes de la liste des pays, et la liste entière. Deux fonctions parce que la recherche
 // ne redessine que la liste : refaire le champ pendant la frappe fermerait le clavier — même
@@ -2304,12 +2328,7 @@ app.addEventListener('click', async (e) => {
       } catch (e) { showError(e); }
       break;
     }
-    // Afficher une photo depuis une fiche renvoyait sur Découvrir, écran sans carte ni bouton
-    case 'reveal':
-      S.revealed[el.dataset.id] = true;
-      if (S.screen === 'person') SCREENS.person({ id: S.person?.id });
-      else SCREENS.discover();
-      break;
+    case 'ville': poserLaVille(el.dataset.champ, el.dataset.value); tg.haptic('select'); break;
     case 'report-profile': go('protection', { id: el.dataset.id }); break;
     case 'report-chat': go('protection', { id: S.chat.other.id, matchId: S.chat.id }); break;
     case 'signaler': signaler(el.dataset.motif); break;

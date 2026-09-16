@@ -220,3 +220,42 @@ test('les photos du profil ne demandent pas la caméra', async ({ page }) => {
     await expect(photos.nth(i)).not.toHaveAttribute('capture', /.*/);
   }
 });
+
+// Le champ Ville portait un `<datalist>`. Le navigateur en tire une boîte du **système**, comme
+// un `<select>` : sur la WebView de Telegram Android elle s'est dessinée par-dessus l'écran,
+// sans fond et à sa propre typographie, recouvrant les champs, les boutons et jusqu'au clavier —
+// la capture du 16 septembre 2026 montre dix villes écrites en travers des filtres. Aucune ligne
+// de styles.css ne pouvait l'atteindre. Les villes connues sont donc des pastilles à nous,
+// visibles d'un coup, exactement comme les questions du profil.
+test('les villes connues sont des pastilles, pas une boîte du système', async ({ page }) => {
+  await ouvrir(page, nouvelIdentifiant());
+  await actionPrincipale(page).click();
+  await expect(titre(page)).toHaveText(/Fais-toi connaître/);
+  await page.locator('input[name=name]').fill('Ada');
+  await page.locator('input[name=age]').fill('24');
+  await page.locator('main button', { hasText: /Femme/ }).first().click();
+  await actionPrincipale(page).click();
+  await expect(titre(page)).toHaveText(/Ce que tu cherches/);
+
+  // Rien qui ouvre un menu du système, ni ici ni ailleurs dans l'écran.
+  await expect(page.locator('datalist')).toHaveCount(0);
+  await expect(page.locator('input[name=city][list]')).toHaveCount(0);
+
+  // Les villes sont là, lisibles sans le moindre appui.
+  const pastilles = page.locator('.chips-villes button');
+  await expect(pastilles.first()).toBeVisible();
+  await expect(page.locator('.chips-villes button', { hasText: /^Douala$/ })).toBeVisible();
+
+  // Et une pastille remplit le champ, sans refaire l'écran : le champ garde le focus, donc sur
+  // Android le clavier ne se ferme pas (même cause que la recherche de pays).
+  const ville = page.locator('input[name=city]');
+  await ville.click();
+  await page.locator('.chips-villes button', { hasText: /^Douala$/ }).click();
+  await expect(ville).toHaveValue('Douala');
+  await expect(page.locator('.chips-villes button', { hasText: /^Douala$/ })).toHaveAttribute('aria-pressed', 'true');
+
+  // Ce que la pastille a écrit part vraiment avec le profil : elle ne décore pas le champ.
+  await page.locator('input[name=area]').fill('Akwa');
+  await actionPrincipale(page).click();
+  await expect(titre(page)).toHaveText(/Ta touche personnelle/);
+});
