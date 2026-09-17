@@ -14,7 +14,8 @@
     "e2e:ui": "playwright test --ui",
     "chiffres": "node scripts/chiffres.js",
     "demo-photos": "node scripts/demo-photos.mjs",
-    "identite": "node identite/source/rendre.mjs"
+    "identite": "node identite/source/rendre.mjs",
+    "video": "node identite/video/rendre.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -186,6 +186,10 @@ identite/
   partage en story. `source/` porte les pages HTML, les polices et le script de rendu
   (`npm run identite`), pour refabriquer les images le jour où le nom ou une phrase change ;
   le nom y est posé au rendu depuis APP_NAME, jamais écrit dans le gabarit (règle 12).
+  `video/` : la vidéo de présentation (`npm run video`, ffmpeg requis sur la machine) — de vraies
+  captures de l'app prises par `captures.mjs`, un montage `video.html` piloté image par image
+  par `rendre.mjs`. Muette : une musique demande une licence. Rien de ce qu'elle produit n'est
+  versionné.
 ```
 
 ## 4. Fonctionnalités en place

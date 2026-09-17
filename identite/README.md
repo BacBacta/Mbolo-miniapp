@@ -51,3 +51,38 @@ redistribution) : le rendu ne dépend donc d'aucun accès réseau, et un PNG ré
 deux ans sera identique à celui d'aujourd'hui. C'est la raison de leur présence ici —
 sans elles, Chromium retomberait sur une police système et le dessin changerait sans
 prévenir.
+
+## La vidéo de présentation
+
+`npm run video` fabrique `video/odo-presentation.mp4` : 1080 × 1920, 52 secondes, H.264,
+le format vertical que Telegram lit en ligne comme en story. Neuf scènes, une idée par
+écran, dans l'identité de l'app : l'accroche, la vérification, la découverte, le match,
+la demande d'argent bloquée, le pseudo qui reste caché, le premier rendez-vous, l'appel.
+
+**Les écrans sont de vraies captures**, pas des maquettes : `video/captures.mjs` lance le
+serveur en mode développement, crée un compte, se fait vérifier, aime un profil de
+démonstration, matche, ouvre la discussion et tente une demande d'argent — puis
+photographie chaque écran à la densité d'un téléphone. Une fonctionnalité qui change se
+voit donc dans la vidéo au rendu suivant, sans retouche. Deux retouches de tournage, et
+seulement deux : le prénom du compte de développement devient « Bienvenue », et la
+pastille « démo » des profils de démonstration est masquée.
+
+Le montage est `video/video.html` : toutes les animations sont posées avec l'API Web
+Animations puis mises en pause, et `video/rendre.mjs` demande chaque image à l'instant
+voulu avant de la pousser dans ffmpeg. Deux rendus donnent les mêmes images, au pixel.
+`--image=12.5` sort une seule image (en secondes) pour vérifier une scène ;
+`--sans-captures` réemploie les captures existantes.
+
+Il faut ffmpeg sur la machine (`winget install Gyan.FFmpeg` sous Windows, puis rouvrir le
+terminal ; ou son chemin dans la variable `FFMPEG`). Ce n'est pas une dépendance du
+projet : il ne sert qu'ici.
+
+```powershell
+cd "C:\chemin\vers\Mbolo-miniapp"
+npm run video
+```
+
+La vidéo est **muette**. Telegram lance les vidéos sans le son dans les canaux, et une
+musique demande une licence : ajoute-la dans CapCut ou dans l'éditeur de ton choix avant
+de publier, si tu en veux une. `video/affiche.jpg` est l'image de fin, pour la vignette.
+Ni la vidéo, ni les captures, ni l'affiche ne sont versionnées : elles se refont.
