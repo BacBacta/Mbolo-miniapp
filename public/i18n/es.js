@@ -560,4 +560,9 @@ export default {
   "Le pass montre les fiches, jamais ce qu'elles ont décidé.": "El pase muestra los perfiles, nunca lo que decidieron.",
   "{n} personne a aimé ton profil": "A {n} persona le gustó tu perfil",
   "{n} personnes ont aimé ton profil": "A {n} personas les gustó tu perfil",
+  // La discussion : lu, envoyé, en ligne, écrit
+  "Lu": "Leído",
+  "Envoyé": "Enviado",
+  "En ligne": "En línea",
+  "écrit…": "escribiendo…",
 };

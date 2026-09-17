@@ -560,4 +560,9 @@ export default {
   "Le pass montre les fiches, jamais ce qu'elles ont décidé.": "Пропуск показывает анкеты, но никогда — что они решили.",
   "{n} personne a aimé ton profil": "Твою анкету лайкнул {n} человек",
   "{n} personnes ont aimé ton profil": {"one":"Твою анкету лайкнул {n} человек","few":"Твою анкету лайкнули {n} человека","many":"Твою анкету лайкнули {n} человек","other":"Твою анкету лайкнули {n} человека"},
+  // La discussion : lu, envoyé, en ligne, écrit
+  "Lu": "Прочитано",
+  "Envoyé": "Отправлено",
+  "En ligne": "В сети",
+  "écrit…": "печатает…",
 };

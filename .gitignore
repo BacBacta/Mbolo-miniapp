@@ -9,3 +9,4 @@ data/uploads/*
 .e2e-data/
 test-results/
 playwright-report/
+.mesure.json

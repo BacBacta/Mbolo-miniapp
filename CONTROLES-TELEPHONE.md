@@ -246,6 +246,17 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
       fermer le clavier ni effacer ce que tu as écrit.
 - [ ] Le compteur de déblocage des contacts affiche la progression vers **10 messages de chaque
       côté**.
+- [ ] **(deux comptes)** Les deux discussions ouvertes : l'en-tête de chacune dit **En ligne**.
+      Ferme l'app sur l'un des deux téléphones : chez l'autre, « En ligne » disparaît en quelques
+      secondes et la tranche d'activité revient.
+- [ ] **(deux comptes)** Tape sans envoyer sur le premier téléphone : sur le second, une **bulle
+      de trois points** apparaît au bas du fil et l'en-tête dit **écrit…**. Efface tout : la bulle
+      disparaît au bout de quelques secondes. *À refaire une fois en coupant le réseau du premier
+      téléphone quelques secondes avant de taper : la frappe doit passer même quand un seul des
+      deux flux est vivant.*
+- [ ] **(deux comptes)** Envoie un message : chez toi, la bulle porte une **horloge**, puis **une
+      coche**, puis **deux coches en ambre** dès que l'autre l'a sous les yeux. Mets l'autre
+      téléphone en arrière-plan avant d'envoyer : la seconde coche n'arrive qu'au retour.
 - [ ] **(revue, lot 6)** Passe l'interface en russe, puis rouvre la discussion : les séparateurs
       de jour affichent **Сегодня / Вчера**, et les heures sont au format russe.
       *Ils étaient écrits « Aujourd'hui » et « Hier » en français, quelle que soit la langue.*

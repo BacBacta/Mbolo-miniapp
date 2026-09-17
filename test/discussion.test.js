@@ -68,6 +68,25 @@ test("« écrit… » ne se déclare que sur demande, et ne se voit que chez l'a
   assert.equal((await call('9102', `/matches/${m}?suivi=1`)).body.ecrit, false);
 });
 
+// Les deux coches et « En ligne » : ce que l'interrogation dit de l'autre, et rien de plus —
+// jusqu'où il a lu (un instant), et s'il a la discussion ouverte **en ce moment**. Jamais une
+// heure de dernière visite : « vu à 23 h 12 » est de la filature, « en ligne » est une présence.
+test("l'interrogation dit jusqu'où l'autre a lu, et s'il est là — jamais quand il est passé", async () => {
+  await creer('9111', 'Lea', 'femme');
+  await creer('9112', 'Mo', 'homme');
+  const m = await matcher('9111', '9112');
+  const r0 = await call('9111', `/matches/${m}`);
+  assert.equal(r0.body.enLigne, false, 'Mo n\'a pas ouvert la discussion');
+  await call('9111', `/matches/${m}/messages`, 'POST', { text: 'Salut Mo' });
+  const avant = (await call('9111', `/matches/${m}?suivi=1`)).body.lu;
+  await call('9112', `/matches/${m}`);
+  const apres = (await call('9111', `/matches/${m}?suivi=1`)).body;
+  assert.ok(Number(apres.lu) > Number(avant || 0), 'Mo a lu : la borne avance');
+  assert.equal(apres.enLigne, true, 'et il vient d\'ouvrir la discussion');
+  const brut = JSON.stringify(apres);
+  assert.ok(!/lastActiveAt|derniereVisite|lastSeen/.test(brut), 'aucune heure de passage');
+});
+
 test('la frappe ne laisse aucune trace : ni dans le compte, ni dans la discussion', async () => {
   await creer('9103', 'Bea', 'femme');
   await creer('9104', 'Kofi', 'homme');
@@ -196,6 +215,14 @@ test("le flux s'ouvre par fetch() avec l'en-tête, et retombe sur l'interrogatio
   assert.match(app_js, /const SECURITE_FLUX_MS = 30_000;/);
   // Quitter l'écran ferme le flux, comme il arrête l'interrogation.
   assert.match(entre('function go(', 'S.detachSwipe?.()'), /arreterLePoll\(\);\s*fermerLeFlux\(\);/);
+});
+
+test("mes bulles portent trois états, et la lecture se pose en place sans refaire le fil", () => {
+  assert.match(app_js, /check-double/, 'la double coche existe');
+  assert.match(app_js, /function majLecture\(/, 'la lecture se met à jour en place');
+  assert.match(app_js, /type === 'lu'\) majLecture/, 'le flux la porte');
+  assert.match(app_js, /type === 'presence'\) poserPresence/, 'et la présence aussi');
+  assert.match(app_js, /bubble theirs gap frappe/, 'la frappe est une bulle dans le fil');
 });
 
 test('une bulle en cours se voit comme telle', () => {

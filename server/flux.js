@@ -26,6 +26,9 @@ export const KEEPALIVE_MS = 20_000;
 export const PRESENCE_MS = 5_000;
 
 export const nombreDeFlux = () => [...flux.values()].reduce((n, m) => n + m.size, 0);
+// Cette personne a-t-elle un flux ouvert sur cette discussion ? Sert à ne dire « parti » qu'au
+// dernier flux fermé : un rechargement en remplace un par un autre, et n'est pas un départ.
+export const aUnFlux = (matchId, userId) => !!flux.get(String(matchId))?.has(String(userId));
 
 export function abonner(matchId, userId, res) {
   const id = String(matchId); const u = String(userId);

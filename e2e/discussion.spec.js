@@ -306,3 +306,54 @@ test('avec le flux, la réponse arrive aussi — et vite', async ({ page }) => {
   await expect(page.locator('.bubble.theirs')).toHaveCount(1, { timeout: 15_000 });
   expect(Date.now() - debut).toBeLessThan(6000);
 });
+
+// Ce qu'une discussion « plate » n'avait pas, et qu'on lit sans qu'on nous l'explique : trois
+// points quand l'autre écrit, « En ligne » quand il est là, et deux coches quand il a lu. Deux
+// vrais navigateurs, deux comptes, et c'est **le second** qui doit voir ce que fait le premier.
+test("deux navigateurs : on voit l'autre écrire, être là, et avoir lu", async ({ browser, request }) => {
+  test.setTimeout(90_000);
+  const ctxA = await browser.newContext(), ctxB = await browser.newContext();
+  const a = await ctxA.newPage(), b = await ctxB.newPage();
+  const idA = await membreVerifie(a, 'Nadia', { genre: /Femme/ });
+  const idB = await membreVerifie(b, 'Omar', { genre: /Homme/ });
+  const ha = { 'x-dev-user': idA, 'content-type': 'application/json' }, hb = { 'x-dev-user': idB, 'content-type': 'application/json' };
+  const pidA = (await (await request.get('/api/me', { headers: ha })).json()).publicProfile.id;
+  const pidB = (await (await request.get('/api/me', { headers: hb })).json()).publicProfile.id;
+  await request.post('/api/swipes', { headers: ha, data: { targetId: pidB, action: 'like' } });
+  const m = await (await request.post('/api/swipes', { headers: hb, data: { targetId: pidA, action: 'like' } })).json();
+  const matchId = m.match.id;
+  await a.goto(`/?dev_user=${idA}&screen=chat&match=${matchId}`);
+  await b.goto(`/?dev_user=${idB}&screen=chat&match=${matchId}`);
+  await expect(champMessage(a)).toBeVisible();
+  await expect(champMessage(b)).toBeVisible();
+
+  // Présence : chacun voit l'autre « En ligne », par le flux ou par l'interrogation.
+  await expect(a.locator('#chat-sub')).toContainText(/En ligne/, { timeout: 15_000 });
+  await expect(b.locator('#chat-sub')).toContainText(/En ligne/, { timeout: 15_000 });
+
+  // Frappe : Nadia tape, Omar voit les trois points dans le fil et « écrit… » dans l'en-tête.
+  await champMessage(a).pressSequentially('Tu connais le café du Rond-point ?', { delay: 40 });
+  await expect(b.locator('#messages .bubble.frappe')).toBeVisible({ timeout: 10_000 });
+  await expect(b.locator('#chat-sub')).toContainText(/écrit…/);
+  // Et Nadia ne voit pas sa propre frappe.
+  await expect(a.locator('#messages .bubble.frappe')).toHaveCount(0);
+
+  // Envoi : une coche chez Nadia (pris par le serveur), la bulle chez Omar.
+  await boutonEnvoyer(a).click();
+  const bulle = a.locator('#messages .bubble.mine', { hasText: 'Rond-point' });
+  await expect(bulle).not.toHaveClass(/encours/);
+  await expect(bulle.locator('.etat')).toHaveAttribute('aria-label', 'Envoyé');
+  await expect(b.locator('#messages .bubble.theirs', { hasText: 'Rond-point' })).toBeVisible({ timeout: 10_000 });
+  // La bulle de frappe est partie avec le message.
+  await expect(b.locator('#messages .bubble.frappe')).toHaveCount(0);
+
+  // Lecture : Omar a la discussion ouverte, donc il a lu — Nadia voit deux coches.
+  await expect(bulle).toHaveClass(/\blu\b/, { timeout: 15_000 });
+  await expect(bulle.locator('.etat')).toHaveAttribute('aria-label', 'Lu');
+
+  // Départ : Omar quitte, Nadia ne le voit plus « En ligne » — la tranche d'activité revient
+  // (« En ligne récemment »), qui est une autre chose : une tranche, pas une présence.
+  await ctxB.close();
+  await expect(a.locator('#chat-sub .enligne')).toHaveCount(0, { timeout: 20_000 });
+  await ctxA.close();
+});

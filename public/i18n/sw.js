@@ -560,4 +560,9 @@ export default {
   "Le pass montre les fiches, jamais ce qu'elles ont décidé.": "Pasi inaonyesha wasifu, kamwe si walichoamua.",
   "{n} personne a aimé ton profil": "Mtu {n} amependa wasifu wako",
   "{n} personnes ont aimé ton profil": "Watu {n} wamependa wasifu wako",
+  // La discussion : lu, envoyé, en ligne, écrit
+  "Lu": "Imesomwa",
+  "Envoyé": "Imetumwa",
+  "En ligne": "Mtandaoni",
+  "écrit…": "anaandika…",
 };

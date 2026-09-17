@@ -126,6 +126,74 @@ test("« j'écris » par le flux arrive chez l'autre, et seulement chez l'autre"
   coco.fermer(); dio.fermer();
 });
 
+// Les deux coches : quand l'autre lit, celui qui a écrit l'apprend par son flux — et seulement
+// quand une lecture change quelque chose. Une interrogation ordinaire (toutes les quatre
+// secondes) ne doit pas faire un signal à chaque fois.
+test("« lu » part chez qui a écrit quand l'autre lit, et pas à chaque interrogation", async () => {
+  await creer('9310', 'Fifi', 'femme');
+  await creer('9311', 'Gus', 'homme');
+  const m = await matcher('9310', '9311');
+  const fifi = await ouvrir('9310', m);
+  await fifi.attendre(/: ok/);
+  // Gus n'a rien lu de neuf : ouvrir la discussion ne signale rien.
+  await call('9311', `/matches/${m}?suivi=1`);
+  await tick();
+  assert.ok(!/event: lu/.test(fifi.recu()), 'rien à lire, rien à dire');
+  // Fifi écrit ; Gus lit : Fifi apprend qu'il a lu, avec l'instant.
+  await call('9310', `/matches/${m}/messages`, 'POST', { text: 'Coucou' });
+  await call('9311', `/matches/${m}?suivi=1`);
+  assert.match(await fifi.attendre(/event: lu\ndata: \d+/), /event: lu\ndata: \d+/, 'un signal « lu », daté');
+  const avant = (fifi.recu().match(/event: lu/g) || []).length;
+  // Gus relit sans nouveau message : pas de second signal.
+  await call('9311', `/matches/${m}?suivi=1`);
+  await call('9311', `/matches/${m}?suivi=1`);
+  await tick(150);
+  assert.equal((fifi.recu().match(/event: lu/g) || []).length, avant, 'relire sans rien de neuf ne réveille personne');
+  // Et l'interrogation le porte aussi, pour un client sans flux.
+  const r = await call('9310', `/matches/${m}?suivi=1`);
+  assert.ok(Number(r.body.lu) > 0, "`lu` dit jusqu'où l'autre a lu");
+  fifi.fermer();
+});
+
+// « En ligne » : l'ouverture du flux de l'autre se voit, sa fermeture aussi — mais seulement la
+// fermeture du dernier flux : un rechargement en remplace un par un autre, ce n'est pas un départ.
+test("la présence de l'autre arrive à l'ouverture de son flux, et « parti » à la fermeture du dernier", async () => {
+  await creer('9320', 'Hawa', 'femme');
+  await creer('9321', 'Ibra', 'homme');
+  const m = await matcher('9320', '9321');
+  const hawa = await ouvrir('9320', m);
+  await hawa.attendre(/: ok/);
+  const ibra1 = await ouvrir('9321', m);
+  await ibra1.attendre(/: ok/);
+  assert.match(await hawa.attendre(/event: presence\ndata: 1/), /event: presence\ndata: 1/, 'Ibra est là');
+  assert.ok(!/event: presence/.test(ibra1.recu()), "Ibra n'apprend pas sa propre arrivée");
+  // Un second flux d'Ibra remplace le premier : le premier se ferme, mais Ibra est toujours là.
+  const ibra2 = await ouvrir('9321', m);
+  await ibra2.attendre(/: ok/);
+  await tick(150);
+  assert.ok(!/event: presence\ndata: 0/.test(hawa.recu()), 'un flux remplacé n\'est pas un départ');
+  ibra2.fermer();
+  assert.match(await hawa.attendre(/event: presence\ndata: 0/), /event: presence\ndata: 0/, 'le dernier flux fermé : parti');
+  // L'interrogation le dit aussi : Ibra n'a plus la discussion ouverte.
+  await tick(50);
+  assert.equal((await call('9320', `/matches/${m}?suivi=1`)).body.enLigne, false);
+  hawa.fermer();
+});
+
+// Le cas mixte qui rendait la frappe invisible : l'un dit « j'écris » par l'interrogation (son
+// flux est tombé), l'autre a un flux vivant et n'interroge plus que toutes les trente secondes.
+// Le mot doit passer par le flux de l'autre, sinon il expire avant d'être lu.
+test("« j'écris » par l'interrogation réveille aussi le flux de l'autre", async () => {
+  await creer('9330', 'Jade', 'femme');
+  await creer('9331', 'Karim', 'homme');
+  const m = await matcher('9330', '9331');
+  const jade = await ouvrir('9330', m);
+  await jade.attendre(/: ok/);
+  await call('9331', `/matches/${m}?suivi=1&ecrit=1`);
+  assert.match(await jade.attendre(/event: ecrit/), /event: ecrit/, 'la frappe dite par interrogation arrive par le flux');
+  jade.fermer();
+});
+
 test('un rendez-vous qui bouge fait un signal « dates »', async () => {
   await creer('9307', 'Elie', 'femme');
   await creer('9308', 'Fofo', 'homme');
