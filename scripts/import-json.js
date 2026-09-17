@@ -109,6 +109,11 @@ await ecrire('Événements de mesure', db.events || [],
   'insert into events (id, u, k, at, p) values ($1, $2, $3, $4, $5::jsonb) on conflict (id) do nothing',
   (e) => [e.id, e.u === undefined || e.u === null ? null : String(e.u), e.k, Number(e.at) || Date.now(), e.p ? JSON.stringify(e.p) : null]);
 
+// Les paiements du pass : des pièces comptables, à ne perdre sous aucun prétexte.
+await ecrire('Paiements', db.paiements || [],
+  'insert into paiements (id, user_id, charge_id, source, jours, stars, statut, at, rembourse_le) values ($1, $2, $3, $4, $5, $6, $7, $8, $9) on conflict (id) do nothing',
+  (p) => [p.id, p.userId ?? null, String(p.chargeId), p.source || 'stars', Number(p.jours), Number(p.stars), p.statut || 'paye', Number(p.at) || Date.now(), p.rembourseLe ?? null]);
+
 await pool.end();
 console.log(`\nImport terminé : ${total} ligne(s) écrite(s) depuis ${source}.`);
 console.log('Pense à copier le dossier des photos (DATA_DIR/uploads) vers le volume de la nouvelle machine.');

@@ -58,6 +58,7 @@ const versDate = (r) => (r ? { ...r.data, id: r.id, matchId: r.match_id } : null
 // La forme d'un événement doit être identique des deux côtés : le stockage JSON omet u et p quand
 // ils sont vides, PostgreSQL les garde à null. Un test compare les deux surfaces, mais pas leur
 // contenu — sans cette normalisation, le même code lirait deux formes différentes.
+const versPaiement = (r) => ({ id: r.id, userId: r.user_id, chargeId: r.charge_id, source: r.source, jours: Number(r.jours), stars: Number(r.stars), statut: r.statut, at: Number(r.at), ...(r.rembourse_le ? { rembourseLe: Number(r.rembourse_le) } : {}) });
 const versEvent = (r) => {
   const e = { id: r.id, k: r.k, at: Number(r.at) };
   if (r.u !== null && r.u !== undefined) e.u = r.u;
@@ -169,6 +170,8 @@ export const store = {
         await client.query('delete from matches where id = any($1)', [ids]);
       }
       await client.query('delete from swipes where from_id = $1 or to_id = $1', [id]);
+      // Un paiement encaissé se garde comme une facture : la ligne reste, sans personne derrière.
+      await client.query('update paiements set user_id = null where user_id = $1', [id]);
       await client.query('delete from blocks where from_id = $1 or to_id = $1', [id]);
       // Les signalements, dans les deux sens, et la place de personne de confiance chez les
       // autres : les deux survivaient à l'effacement (audit/09-revue-code.md, I4).
@@ -465,6 +468,26 @@ export const store = {
       : await q('select * from events where at >= $1 order by at asc', [depuis]);
     return lignes.map(versEvent);
   },
+
+  // ---------- Paiements ----------
+  // `charge_id` est unique en base : deux livraisons du même paiement ne créditent qu'une fois,
+  // et la seconde rend la ligne de la première (do nothing, puis lecture).
+  async addPaiement({ userId, chargeId, source, jours, stars }) {
+    const p = { id: newId(), userId: String(userId), chargeId: String(chargeId), source, jours: Number(jours), stars: Number(stars), statut: 'paye', at: Date.now() };
+    const r = await q(
+      'insert into paiements (id, user_id, charge_id, source, jours, stars, statut, at) values ($1, $2, $3, $4, $5, $6, $7, $8) on conflict (charge_id) do nothing returning *',
+      [p.id, p.userId, p.chargeId, p.source, p.jours, p.stars, p.statut, p.at],
+    );
+    if (r.length) return versPaiement(r[0]);
+    return { ...versPaiement(await un('select * from paiements where charge_id = $1', [p.chargeId])), deja: true };
+  },
+  async paiementParCharge(chargeId) { const r = await un('select * from paiements where charge_id = $1', [String(chargeId)]); return r ? versPaiement(r) : null; },
+  async paiementsDe(userId) { return (await q('select * from paiements where user_id = $1 order by at desc', [String(userId)])).map(versPaiement); },
+  async marquerRembourse(chargeId) {
+    const r = await un("update paiements set statut = 'rembourse', rembourse_le = $2 where charge_id = $1 and statut <> 'rembourse' returning *", [String(chargeId), Date.now()]);
+    return r ? versPaiement(r) : null;
+  },
+  async paiements() { return (await q('select * from paiements order by at asc')).map(versPaiement); },
 
   // Ce qui a dépassé la durée de conservation s'en va, y compris les lignes sans identifiant.
   async purgerEvenements(jours = config.eventsRetentionDays) {

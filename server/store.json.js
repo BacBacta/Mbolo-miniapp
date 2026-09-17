@@ -12,7 +12,7 @@ import { fichierVoix } from './voix.js';
 import { fichiersDUnePhoto, fichiersDUnCompte } from './photos.js';
 
 const file = path.join(config.dataDir, 'db.json');
-const empty = () => ({ users: {}, swipes: [], matches: {}, messages: {}, reports: [], blocks: [], dates: {}, events: [] });
+const empty = () => ({ users: {}, swipes: [], matches: {}, messages: {}, reports: [], blocks: [], dates: {}, events: [], paiements: [] });
 
 fs.mkdirSync(config.uploadsDir, { recursive: true });
 
@@ -149,6 +149,8 @@ export const store = {
     // promesse « tout part » deviendrait fausse. Les lignes sans identifiant (account_deleted)
     // ne sont pas concernées : elles ne désignent personne.
     db.events = db.events.filter((e) => e.u !== id);
+    // Un paiement encaissé se garde comme une facture : la ligne reste, sans personne derrière.
+    for (const p of db.paiements) if (p.userId === id) p.userId = null;
     for (const f of fichiersDUnCompte()) {
       const p = path.join(config.uploadsDir, `${id}-${f}.jpg`);
       if (fs.existsSync(p)) fs.unlinkSync(p);
@@ -445,6 +447,28 @@ export const store = {
   },
 
   events: async ({ depuis = 0, k = null } = {}) => db.events.filter((e) => e.at >= depuis && (!k || e.k === k)),
+
+  // ---------- Paiements ----------
+  // Une ligne par paiement reçu, jamais retirée. `chargeId` est la référence Telegram : la même
+  // ne s'enregistre pas deux fois — un webhook rejoué rend la ligne déjà écrite.
+  async addPaiement({ userId, chargeId, source, jours, stars }) {
+    const deja = db.paiements.find((p) => p.chargeId === String(chargeId));
+    if (deja) return { ...deja, deja: true };
+    const p = { id: newId(), userId: String(userId), chargeId: String(chargeId), source, jours: Number(jours), stars: Number(stars), statut: 'paye', at: Date.now() };
+    db.paiements.push(p);
+    save();
+    return p;
+  },
+  paiementParCharge: async (chargeId) => db.paiements.find((p) => p.chargeId === String(chargeId)) || null,
+  paiementsDe: async (userId) => db.paiements.filter((p) => p.userId === String(userId)).sort((a, b) => b.at - a.at),
+  async marquerRembourse(chargeId) {
+    const p = db.paiements.find((x) => x.chargeId === String(chargeId));
+    if (!p || p.statut === 'rembourse') return null;
+    p.statut = 'rembourse'; p.rembourseLe = Date.now();
+    save();
+    return p;
+  },
+  paiements: async () => [...db.paiements],
 
   // Ce qui a dépassé la durée de conservation s'en va, y compris les lignes sans identifiant.
   async purgerEvenements(jours = config.eventsRetentionDays) {

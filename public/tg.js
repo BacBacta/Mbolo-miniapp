@@ -273,6 +273,16 @@ export function shareToStory(mediaUrl, text, lien) {
 // se voit comme un écran figé, et c'est ce que faisait le bouton « Enregistrer ma présentation ».
 // openTelegramLink(), lui, referme la mini app et ouvre la discussion, ce qui est justement le
 // geste attendu : aller parler au bot.
+// Ouvre une facture Telegram (Stars) par-dessus la mini app, et rend son issue : « paid »,
+// « cancelled », « failed », « pending ». Hors de Telegram, rien ne peut encaisser : on le dit,
+// on ne fait pas semblant.
+export function openInvoice(url) {
+  return new Promise((resolve) => {
+    if (inTelegram && supports('6.1') && typeof W.openInvoice === 'function') W.openInvoice(url, (status) => resolve(status));
+    else resolve('hors_telegram');
+  });
+}
+
 export function openTelegramLink(url) {
   if (inTelegram) W.openTelegramLink(url);
   else window.open(url, '_blank', 'noopener');

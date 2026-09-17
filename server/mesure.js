@@ -30,6 +30,10 @@ import { store } from './store.js';
 //   pass_refuse {quoi}   · **la demande** : qui bute sur le mur sans pass. Sans caisse, c'est la
 //                          seule façon de savoir si ce qu'il y a derrière intéresse quelqu'un
 //   pass_usage {quoi}    · l'usage réel, ralenti : un pass dont personne ne se sert ne vaut rien
+//   pass_vu {quoi}       · l'écran du pass ouvert, ralenti à 5 min, avec la porte d'où l'on vient :
+//                          c'est le dénominateur de la conversion
+//   pass_facture {jours,stars} · une facture demandée (le bouton appuyé) ; pass_achat {jours,stars}
+//                          · un paiement reçu de Telegram ; pass_rembourse {jours} · un remboursement
 //   arrivee_dite {n}     · une ligne **par arrivée**, pas par destinataire : à combien de personnes
 //                          la nouvelle a été utile. Ce qu'elle ne dit pas : si elles sont revenues
 //   amorce {k}           · un **premier message** dans un fil, parti d'une amorce proposée en haut de

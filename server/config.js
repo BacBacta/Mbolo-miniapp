@@ -106,6 +106,12 @@ export const config = {
   // parler à cent personnes avant qu'un humain l'ait vu est ralenti, et se faire vérifier a un
   // intérêt immédiat. Sans effet sous la politique « gate », où personne n'entre sans badge.
   dailyProfilesNonVerifie: Number(process.env.DAILY_PROFILES_UNVERIFIED || 2),
+  // La grille du pass Odo Plus, en Telegram Stars : « jours:stars, jours:stars… ». Trois durées
+  // par défaut, comme les forfaits data qu'on achète au jour, à la semaine ou au mois. Les prix
+  // vivent ici et nulle part ailleurs : l'interface les reçoit par GET /api/me, le bot les lit
+  // pour la facture et pour la vérification avant paiement. Une ligne illisible est ignorée
+  // plutôt que devinée ; sans aucune ligne valide, rien ne se vend.
+  plusPrixStars: String(process.env.PLUS_PRIX_STARS || '7:99,30:299,90:699'),
   // Ce que la vérification par selfie décide.
   //
   //   gate  (défaut) : elle est une **porte**. Tant qu'un humain n'a pas tranché, la personne ne

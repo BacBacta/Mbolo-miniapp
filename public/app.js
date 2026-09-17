@@ -168,6 +168,13 @@ async function api(path, { method = 'GET', body } = {}) {
     clearTimeout(minuteur);
   }
   const data = await res.json().catch(() => ({}));
+  // Une porte du pass n'est pas une erreur : c'est une invitation. On ouvre l'écran du pass
+  // avec la bonne raison, et l'appelant reçoit une erreur **silencieuse** — sans message, donc
+  // sans toast ni ligne rouge — qui arrête simplement ce qu'il faisait.
+  if (res.status === 403 && data?.code === 'PASS_REQUIS') {
+    ouvrirLePass(data.quoi || 'porte');
+    throw Object.assign(new Error(''), { code: 'PASS_REQUIS', status: 403, silencieux: true });
+  }
   if (!res.ok) throw Object.assign(new Error(messageErreur(data)), { code: data.code, status: res.status });
   return data;
 }
@@ -284,6 +291,37 @@ const sansLimite = () => S.quota === null;
 // Les paliers viennent du serveur (`me.limites`), jamais d'une constante recopiée ici : un nombre
 // écrit des deux côtés finit par diverger, et c'est l'interface qui se met à mentir.
 const limite = (nom) => S.me?.limites?.[nom];
+
+// ---------- Le pass : une seule porte d'entrée ----------
+// Chaque endroit qui bute sur le pass passe par ici, avec la raison (`quoi`). L'écran s'ouvre en
+// parlant de cette raison-là, et le retour ramène d'où l'on vient — jamais sur un onglet par
+// défaut. Une raison inconnue tombe sur le message général.
+function ouvrirLePass(quoi = 'profil') {
+  if (S.screen !== 'plus') S.plusRetour = S.screen;
+  S.plusContexte = quoi;
+  go('plus');
+}
+// La carte qui remplace un cadenas : elle dit ce qu'il y a derrière, et elle mène au pass. Un
+// cadenas nu se lit comme une panne ; une porte fermée qui explique se lit comme un choix.
+const porteDuPass = ({ quoi, titre, sous }) => `
+  <button type="button" class="porte" data-action="plus" data-quoi="${esc(quoi)}">
+    <span class="tile tile-plus">${icon('sparkles', 20)}</span>
+    <div class="body"><div class="title">${titre}</div>${sous ? `<div class="sub">${sous}</div>` : ''}</div>
+    <span class="chev">${icon('chevron-right', 18)}</span>
+  </button>`;
+// Ce que l'écran dit en premier, selon la porte qu'on vient de toucher. Une phrase, jamais un
+// catalogue : la personne sait ce qu'elle voulait, on lui dit que c'est là.
+const PLUS_CONTEXTES = () => ({
+  likes: t("Ces personnes passent déjà devant dans ton paquet. Le pass te dit qui."),
+  quota: t("Tes « J'aime » du jour sont partis. Avec le pass, il n'y a plus de compteur."),
+  pays: t('Sans pass, tu vois ta ville. Le pass ouvre tout le pays.'),
+  liste: t("La vue Liste montre cinquante profils d'un coup. Les mêmes personnes que dans tes cartes."),
+  ordre: t("Choisis l'ordre de ton paquet : les plus actifs, les nouveaux, ton quartier."),
+  langue: t('Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.'),
+  vues: t("Qui s'est arrêté sur ta fiche : combien, en gros, et les cinq dernières."),
+  photos: t('Six photos sur ta fiche au lieu de deux.'),
+  questions: t("Trois questions sur ta fiche au lieu d'une."),
+});
 // Les emplacements de photo à afficher : ceux que le palier ouvre, **plus ceux déjà occupés**.
 // Des comptes portent trois photos d'un temps où trois était la limite pour tout le monde ; les
 // faire disparaître de l'écran donnerait l'impression qu'on les a effacées, alors qu'elles sont
@@ -605,6 +643,7 @@ function loadCardPhoto(p, { own = false } = {}) {
 }
 
 function showError(e, el = document.getElementById('form-error')) {
+  if (e?.silencieux) return;
   tg.haptic('error');
   if (el) el.textContent = e.message;
   else toast(e.message, 'warn');
@@ -638,7 +677,7 @@ function blocsQuestionsSupplementaires(f) {
   const suite = extras.length < plafond
     ? `<button type="button" class="btn btn-ghost btn-sm" data-action="extra-add">${icon('plus', 15)} ${t('Ajouter une question')}</button>`
     : extras.length < total - 1
-      ? `<div class="list">${listRow({ iconName: 'lock', title: t('{n} questions sur ta fiche', { n: total }), sub: t('Avec un pass'), action: 'plus' })}</div>`
+      ? porteDuPass({ quoi: 'questions', titre: t('{n} questions sur ta fiche', { n: total }), sous: t('Avec {app} Plus', { app: APP }) })
       : '';
   return blocs + suite;
 }
@@ -840,6 +879,84 @@ async function swipePerson(action) {
 // ============================================================
 // Écrans
 // ============================================================
+// L'écran du pass, dessiné depuis S.plusInfos : choisir une durée ne relance aucun appel.
+function dessinerLePass() {
+  const infos = S.plusInfos;
+  if (!infos) return;
+  const quoi = S.plusContexte || 'profil';
+  const fin = infos.finLe ? new Date(infos.finLe).toLocaleDateString(langue(), { dateStyle: 'long' }) : '';
+  const choisie = infos.offres.find((o) => o.jours === S.offre) || infos.offres[0];
+  const parJour = (o) => Math.max(1, Math.round(o.stars / o.jours));
+  const contexte = PLUS_CONTEXTES()[quoi];
+  const paliers = S.me?.limites?.avecPass || {};
+  render(`
+    <div class="plus-hero">
+      <span class="eyebrow">${t('{app} Plus', { app: APP })}</span>
+      <h1>${t("Vois qui t'a aimé, et aime sans compter.")}</h1>
+      <p class="lead">${contexte || t('Le pass ouvre ce que l\'attente ferme. Les mêmes personnes, les mêmes règles.')}</p>
+    </div>
+    ${infos.actif ? `<div class="notice notice-ok">${icon('check', 18)}<span>${t('Actif jusqu\'au {date}', { date: fin })} · ${tn('Encore {n} jour', 'Encore {n} jours', infos.jours)}</span></div>` : ''}
+    ${infos.offres.length ? `
+    <div class="group"><span class="eyebrow">${infos.actif ? t('Prolonger') : t('Choisis ta durée')}</span>
+      <div class="offres" role="radiogroup">${infos.offres.map((o) => `
+        <button type="button" class="offre" role="radio" data-action="offre" data-jours="${o.jours}" aria-checked="${o.jours === choisie?.jours}">
+          ${o.jours === infos.conseillee ? `<span class="tag">${t('Le plus choisi')}</span>` : ''}
+          <span class="duree">${t('{n} jours', { n: o.jours })}</span>
+          <span class="prix">${o.stars} ⭐</span>
+          <span class="par-jour">${t('soit {n} ⭐ par jour', { n: parJour(o) })}</span>
+        </button>`).join('')}</div>
+    </div>` : `<div class="notice notice-info">${icon('info', 18)}<span>${t("Le pass n'est pas en vente sur ce serveur pour l'instant.")}</span></div>`}
+    <div class="group"><span class="eyebrow">${t('Ce que ça débloque')}</span>
+      <div class="list">
+        ${listRow({ iconName: 'heart', tile: 'tile-like', title: t('Des « J\'aime » sans compter'), sub: S.me.quota === null ? '' : t('{n} par jour sans le pass', { n: S.me.quota }) })}
+        ${listRow({ iconName: 'sparkles', tile: 'tile-ok', title: t('Qui t\'a aimé'), sub: t('La liste, avec les fiches') })}
+        ${listRow({ iconName: 'users', title: t("Se sont arrêtés sur ta fiche"), sub: t('Combien, en gros, et les cinq dernières fiches') })}
+        ${listRow({ iconName: 'globe', title: t('Chercher plus large'), sub: t("Tout le pays, la vue Liste, l'ordre du paquet, la langue parlée") })}
+        ${listRow({ iconName: 'camera', title: t('Une fiche plus complète'), sub: t('{p} photos, {s} secondes de voix, {q} questions', { p: paliers.photos || 6, s: paliers.voixSecondes || 30, q: paliers.questions || 3 }) })}
+      </div>
+    </div>
+    <p class="fine">${icon('info', 14)}<span>${t("Aucune reconduction : le pass s'arrête à sa date, et rien n'est prélevé sans ton geste. Paiement en Telegram Stars, dans Telegram.")}</span></p>
+    ${infos.achats?.length ? `
+    <div class="group"><span class="eyebrow">${t('Tes reçus')}</span>
+      <div class="list">${infos.achats.slice(0, 5).map((a) => listRow({ iconName: a.statut === 'rembourse' ? 'clock' : 'check', tile: a.statut === 'rembourse' ? 'tile-neutral' : 'tile-ok', title: t('{n} jours · {stars} Stars', { n: a.jours, stars: a.stars }), sub: `${new Date(a.at).toLocaleDateString(langue(), { dateStyle: 'medium' })} · ${a.statut === 'rembourse' ? t('remboursé') : t('reçu {ref}', { ref: a.ref })}` })).join('')}</div>
+    </div>` : ''}`);
+  tg.setBack(() => go(S.plusRetour || 'me'));
+  if (!choisie) return tg.setButtons({ main: { text: t('Compris'), onClick: () => go(S.plusRetour || 'me') } });
+  tg.setButtons({
+    main: { text: `${infos.actif ? t('Prolonger de {n} jours', { n: choisie.jours }) : t('Prendre {n} jours', { n: choisie.jours })} · ${choisie.stars} ⭐`, onClick: acheterLePass },
+    secondary: { text: t('Plus tard'), onClick: () => go(S.plusRetour || 'me') },
+  });
+}
+
+// L'achat : une facture demandée au serveur, ouverte par Telegram, et le compte relu jusqu'à
+// ce que le pass y soit — c'est le bot qui le pose, à la réception du paiement, quelques
+// instants après que Telegram nous dit « payé ».
+async function acheterLePass() {
+  const choisie = (S.plusInfos?.offres || []).find((o) => o.jours === S.offre);
+  if (!choisie) return;
+  const finAvant = S.me?.plus?.finLe || 0;
+  tg.setButtons({ main: { text: t('Ouverture du paiement'), progress: true } });
+  try {
+    const { url } = await api('/plus/facture', { method: 'POST', body: { jours: choisie.jours } });
+    const statut = await tg.openInvoice(url);
+    if (statut === 'paid') {
+      tg.haptic('success');
+      for (let i = 0; i < 8; i++) {
+        S.me = await api(ME());
+        if ((S.me.plus?.finLe || 0) > finAvant) break;
+        await new Promise((r) => setTimeout(r, 700));
+      }
+      toast(t('Ton pass est actif. Bonne découverte.'), 'ok');
+      return go(S.plusRetour || 'me');
+    }
+    if (statut === 'hors_telegram') await tg.alert(t('Le paiement se fait dans Telegram : ouvre {app} depuis le bot.', { app: APP }));
+    else if (statut !== 'cancelled') toast(t("Le paiement n'a pas abouti. Réessaie."), 'warn');
+  } catch (e) {
+    showError(e);
+  }
+  if (S.screen === 'plus') dessinerLePass();
+}
+
 const SCREENS = {
   // L'accueil montre le produit lui-même, pas la marque : deux cartes de profil comme celles de
   // la découverte — le dégradé à initiale que l'app affiche tant qu'une photo n'est pas chargée —,
@@ -1136,7 +1253,12 @@ const SCREENS = {
           <h2>${titre}</h2>
           <p>${texte}</p>
         </div>`);
-      return tg.setButtons({ main: bouton });
+      // Le mur du quota est l'endroit où le pass a le plus de sens : la personne voulait
+      // continuer. On le propose là, en premier — sauf quand se faire vérifier est le chemin
+      // gratuit qui ouvre le même quota, auquel cas il reste devant.
+      const versLePass = !sansLimite() && !S.remaining && !plus() ? { text: t('Continuer avec {app} Plus', { app: APP }), onClick: () => ouvrirLePass('quota') } : null;
+      const verifier = entreeLibre() && !verifie();
+      return tg.setButtons(versLePass ? (verifier ? { main: bouton, secondary: versLePass } : { main: versLePass, secondary: bouton }) : { main: bouton });
     }
     render(`
       ${dbar()}
@@ -1205,13 +1327,13 @@ const SCREENS = {
         <div class="seg seg-ordre" aria-label="${t('Ordre du paquet')}">${(S.me.options.ordres || []).map((k) => `
           <button type="button" data-action="ordre" data-ordre="${esc(k)}" aria-pressed="${k === ordre}">${t(ORDRES_LABELS[k] || k)}</button>`).join('')}</div>
         <p class="fine">${icon('info', 14)}<span>${t("Qui t'a aimé passe toujours devant, quel que soit l'ordre.")}</span></p>` : `
-        <div class="list">${listRow({ iconName: 'lock', title: t("Choisir l'ordre du paquet"), sub: t('Avec un pass'), action: 'plus' })}</div>`}
+        ${porteDuPass({ quoi: 'ordre', titre: t("Choisir l'ordre du paquet"), sous: t("Les plus actifs, les nouveaux, ou ton quartier d'abord") })}`}
         <span class="eyebrow">${t('Langue parlée')}</span>
         ${limite('filtreLangue') ? `
         <label class="field"><span class="label">${t('Ne voir que les personnes qui parlent')} <span class="opt">${t('facultatif')}</span></span>
           <input name="langue" maxlength="30" value="${esc(f.langue || '')}" placeholder="${t('Français, ewondo, anglais…')}" autocomplete="off"></label>
         <p class="fine">${icon('info', 14)}<span>${t("Ça lit ce que chacun a écrit dans « Langues parlées », mot pour mot. « Anglais » ne trouve pas « English ».")}</span></p>` : `
-        <div class="list">${listRow({ iconName: 'lock', title: t('Filtrer par langue parlée'), sub: t('Avec un pass'), action: 'plus' })}</div>`}
+        ${porteDuPass({ quoi: 'langue', titre: t('Filtrer par langue parlée'), sous: t('Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.') })}`}
         ${entreeLibre() ? `
         <span class="eyebrow">${t('Vérification')}</span>
         <label class="list-row">
@@ -1287,7 +1409,7 @@ const SCREENS = {
         <div class="new-strip">${S.likes.map((p) => `<button type="button" class="new-item like-item" data-action="person" data-id="${esc(p.id)}">${avatar(p, 'md')}<span>${esc(p.name)}</span></button>`).join('')}</div>
       </div>` : plus() ? '' : `
       <div class="group"><span class="eyebrow">${t('Ont aimé ton profil')}</span>
-        <div class="list">${listRow({ iconName: 'sparkles', tile: 'tile-ok', title: t("Voir qui t'a aimé"), sub: t('Ces personnes passent déjà devant dans ton paquet. Le pass les nomme.'), action: 'plus' })}</div>
+        ${porteDuPass({ quoi: 'likes', titre: t("Voir qui t'a aimé"), sous: t('Ces personnes passent déjà devant dans ton paquet. Le pass les nomme.') })}
       </div>`;
     if (!S.matches.length) {
       render(`${likesStrip}
@@ -1529,36 +1651,29 @@ const SCREENS = {
         <p class="lead">${t('Pour recommencer, ferme {app} et rouvre-le depuis le bot.', { app: APP })}</p></div>`);
   },
 
-  // Odo Plus : ce que le pass donne, et ce qu'il ne donne pas encore.
+  // Odo Plus : un écran, une promesse, trois durées, un bouton.
   //
-  // L'écran n'annonce que ce qui existe **dans le serveur**. La leçon de « Sortie en duo » tient
-  // en une ligne : une promesse affichée que rien n'honore est pire qu'une fonction absente, parce
-  // que la personne l'a crue. Le reste du pass viendra ligne par ligne, et cet écran avec.
+  // Ce qu'il dit en premier dépend de la porte qu'on vient de toucher (S.plusContexte) : la
+  // personne sait ce qu'elle voulait, on lui dit que c'est là. Puis les trois durées, comme les
+  // forfaits data qu'elle achète déjà au jour, à la semaine ou au mois, avec celle du milieu
+  // mise en avant pour ne pas avoir à hésiter. Puis, seulement, la liste de ce que le pass ouvre.
+  // Les nombres viennent du serveur (GET /api/plus) : rien n'est recopié ici.
   //
-  // Et tant qu'il n'y a pas de caisse, il le dit. Vendre est un chantier à part (P0-6) ; faire
-  // semblant d'avoir un bouton d'achat en serait un mauvais résumé.
-  plus() {
-    const etat = S.me.plus || { actif: false };
-    const fin = etat.finLe ? new Date(etat.finLe).toLocaleDateString(langue(), { dateStyle: 'long' }) : '';
-    render(`
-      <div class="step-head"><h1>${t('{app} Plus', { app: APP })}</h1>
-        <p class="lead">${t("Le pass ne change rien à qui tu rencontres : les mêmes personnes, la même zone, les mêmes règles. Il enlève l'attente.")}</p></div>
-      ${etat.actif ? `<div class="notice notice-ok">${icon('check', 18)}<span>${t('Ton pass est actif jusqu\'au {date}.', { date: fin })}</span></div>` : ''}
-      <div class="list">
-        ${listRow({ iconName: 'heart', tile: 'tile-like', title: t('Des « J\'aime » sans compter'), sub: S.me.quota === null ? t('Tu n\'as aucune limite en ce moment.') : t('Sans pass, tu en as {n} par jour.', { n: S.me.quota }) })}
-        ${listRow({ iconName: 'sparkles', tile: 'tile-ok', title: t('Qui t\'a aimé'), sub: t('La liste, avec les fiches. Sans pass, ces personnes passent devant dans ton paquet, mais rien ne les nomme.') })}
-        ${listRow({ iconName: 'rows', title: t("Se sont arrêtés sur ta fiche"), sub: t("Combien, en gros, et les cinq dernières fiches. Jamais ce qu'elles ont décidé.") })}
-        ${listRow({ iconName: 'rows', title: t('La vue Liste'), sub: t('Cinquante profils d\'un coup, avec leur statut. Les mêmes personnes que dans tes cartes.') })}
-        ${listRow({ iconName: 'globe', title: t('Tout le pays'), sub: t('Sans pass, tu vois les profils de ta ville.') })}
-        ${listRow({ iconName: 'camera', title: t('{n} photos', { n: S.me?.limites?.avecPass?.photos || 6 }), sub: t('Sans pass, {n}.', { n: limite('photos') || 2 }) })}
-        ${listRow({ iconName: 'mic', title: t('Une présentation vocale de {n} secondes', { n: S.me?.limites?.avecPass?.voixSecondes || 30 }), sub: t('Sans pass, {n} secondes.', { n: limite('voixSecondes') || 15 }) })}
-        ${listRow({ iconName: 'sparkles', title: t('{n} questions sur ta fiche', { n: S.me?.limites?.avecPass?.questions || 3 }), sub: t('Sans pass, {n}.', { n: limite('questions') || 1 }) })}
-        ${listRow({ iconName: 'globe', title: t('Filtrer par langue parlée'), sub: t('Ne voir que les personnes qui parlent ta langue, ou celle que tu apprends.') })}
-        ${listRow({ iconName: 'sliders', title: t("L'ordre du paquet au choix"), sub: t("Conseillé, les plus actifs, les nouveaux, ou ton quartier d'abord.") })}
-      </div>
-      ${etat.actif ? '' : `<p class="fine">${icon('info', 14)}<span>${t("Le pass n'est pas encore en vente. Il le sera dans {app}, jamais par message.", { app: APP })}</span></p>`}`);
+  // Le paiement se fait en Telegram Stars, dans Telegram, par une facture que le serveur fabrique
+  // et que Telegram ouvre par-dessus l'app (règle 7). Hors de Telegram, on le dit.
+  async plus() {
+    const quoi = S.plusContexte || 'profil';
+    render(`<div class="step-head"><h1>${t('{app} Plus', { app: APP })}</h1></div>${skeleton.rows(4)}`);
     tg.setBack(() => go(S.plusRetour || 'me'));
-    tg.setButtons({ main: { text: t('Compris'), onClick: () => go(S.plusRetour || 'me') } });
+    tg.setButtons(null);
+    try {
+      S.plusInfos = await api(`/plus?quoi=${encodeURIComponent(quoi)}`);
+    } catch (e) {
+      return renderError(e, () => go('plus'));
+    }
+    if (S.screen !== 'plus') return;
+    if (!S.plusInfos.offres.some((o) => o.jours === S.offre)) S.offre = S.plusInfos.conseillee;
+    dessinerLePass();
   },
 
   // « Qui s'est arrêté sur ta fiche ». La règle et ses trois refus sont dans `server/vues.js` ;
@@ -1735,11 +1850,11 @@ const SCREENS = {
         <div class="list">
           ${listRow({ iconName: 'sparkles', tile: plus() ? 'tile-ok' : '', title: t('{app} Plus', { app: APP }),
             sub: plus() ? t('Actif jusqu\'au {date}', { date: new Date(S.me.plus.finLe).toLocaleDateString(langue(), { dateStyle: 'long' }) })
-              : t('Ce que le pass enlève, et ce qu\'il ne change pas'),
-            action: 'plus' })}
+              : t("Qui t'a aimé, des « J'aime » sans compter, tout le pays"),
+            action: 'plus', extra: ' data-quoi="profil"' })}
           ${listRow({ iconName: 'globe', title: t('Langue'), sub: LANGUES[langue()], action: 'go', extra: ` data-screen="langue"` })}
           ${listRow({ iconName: 'bell', title: t('Tester les notifications'), sub: t("Le bot t'envoie un message dans Telegram"), action: 'test-notif' })}
-          ${plus() ? listRow({ iconName: 'rows', title: t("Se sont arrêtés sur ta fiche"), sub: t('Combien, en gros, et les cinq dernières fiches'), action: 'go', extra: ' data-screen="vues"' }) : ''}
+          ${plus() ? listRow({ iconName: 'users', title: t("Se sont arrêtés sur ta fiche"), sub: t('Combien, en gros, et les cinq dernières fiches'), action: 'go', extra: ' data-screen="vues"' }) : ''}
           <label class="list-row">
             <span class="tile">${icon('lock', 20)}</span>
             <div class="body"><div class="title">${t('Rester discret')}</div><div class="sub">${t("Tu n'apparais pas dans « qui s'est arrêté sur ta fiche », et tu ne la vois pas non plus")}</div></div>
@@ -2600,7 +2715,8 @@ app.addEventListener('click', async (e) => {
     }
     case 'voix': tg.haptic('light'); ecouterLaVoix(el.dataset.id); break;
     // Le pass s'ouvre de plusieurs endroits : on retient d'où, pour que le retour ramène là.
-    case 'plus': S.plusRetour = S.screen; go('plus'); break;
+    case 'plus': ouvrirLePass(el.dataset.quoi || 'profil'); break;
+    case 'offre': tg.haptic('select'); S.offre = Number(el.dataset.jours); dessinerLePass(); break;
     // L'enregistrement se fait dans Telegram, pas ici : le micro n'est pas accessible depuis une
     // mini app sur Android. On ouvre donc la discussion avec le bot, qui explique la marche à suivre.
     case 'genre':
@@ -2695,7 +2811,7 @@ app.addEventListener('click', async (e) => {
       // « Tout le pays » demande un pass : on emmène à l'écran qui l'explique, sans toucher au
       // réglage. Le serveur l'ignorerait de toute façon, et un bouton qui s'enfonce sans rien
       // changer est pire qu'un bouton qui dit pourquoi.
-      if (el.dataset.mode === 'pays' && !limite('paysEntier')) { S.plusRetour = 'filters'; go('plus'); break; }
+      if (el.dataset.mode === 'pays' && !limite('paysEntier')) { ouvrirLePass('pays'); break; }
       S.zoneDraft = { ...(S.zoneDraft || zoneDe()), city: el.dataset.mode === 'pays' ? null : (S.zoneDraft?.city || S.me.profile.city || '') };
       SCREENS.filters();
       break;

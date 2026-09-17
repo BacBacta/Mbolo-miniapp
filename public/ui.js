@@ -127,6 +127,8 @@ export async function reglerLeVerre({
 // ---------- Toast : message bref en bas de l'écran ----------
 let toastTimer;
 export function toast(msg, kind = 'info') {
+  // Une erreur « silencieuse » (la porte du pass, qui ouvre son écran) arrive sans message.
+  if (!msg) return;
   const el = document.getElementById('toast');
   const name = { ok: 'check', warn: 'alert', info: 'info' }[kind] || 'info';
   el.className = `toast ${kind}`;

@@ -745,6 +745,27 @@ body.chat-mode main > * { animation: none; }
 .notice-info { background: var(--bg); color: var(--hint); border: 1px solid var(--line); }
 .notice-ok { background: color-mix(in srgb, var(--ok) 13%, var(--bg)); color: color-mix(in srgb, var(--ok) 85%, var(--text)); }
 
+/* ------------------------------------------------------------ Odo Plus */
+/* L'écran du pass : l'ambre (--gold) est sa seule couleur, l'aura reste au match et au like. */
+.plus-hero { display: grid; gap: 10px; padding: 18px 16px 16px; border-radius: var(--r-xl); border: 1px solid color-mix(in srgb, var(--gold) 38%, var(--line)); background: linear-gradient(160deg, color-mix(in srgb, var(--gold) 16%, var(--bg)) 0%, var(--bg) 70%); }
+.plus-hero .eyebrow { color: color-mix(in srgb, var(--gold) 80%, var(--text)); }
+.plus-hero h1 { font-size: 26px; }
+.plus-hero .lead { color: var(--text); opacity: .82; }
+.offres { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.offre { position: relative; display: grid; gap: 3px; justify-items: center; padding: 18px 6px 12px; border-radius: 18px; border: 1.5px solid var(--line); background: var(--bg); color: var(--text); box-shadow: var(--shadow-1); text-align: center; }
+.offre .tag { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: var(--gold); color: #1a1408; }
+.offre .duree { font-family: var(--font-display); font-size: 21px; line-height: 1.1; letter-spacing: -.01em; }
+.offre .prix { font-size: 15px; font-weight: 700; margin-top: 4px; }
+.offre .par-jour { font-size: 11.5px; color: var(--hint); line-height: 1.3; }
+.offre[aria-checked="true"] { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 12%, var(--bg)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 22%, transparent); }
+.offre[aria-checked="true"] .prix { color: color-mix(in srgb, var(--gold) 70%, var(--text)); }
+/* La porte : une ligne qui dit ce qu'il y a derrière, et qui mène au pass. */
+.porte { display: flex; gap: 12px; align-items: center; width: 100%; min-height: 64px; padding: 12px 14px; text-align: left; border-radius: 20px; border: 1px solid color-mix(in srgb, var(--gold) 38%, var(--line)); background: color-mix(in srgb, var(--gold) 7%, var(--bg)); color: inherit; box-shadow: var(--shadow-1); }
+.porte .body { flex: 1; min-width: 0; }
+.porte .title { font-weight: 600; font-size: 15px; line-height: 1.3; }
+.porte .sub { font-size: 13px; color: var(--hint); line-height: 1.35; margin-top: 2px; }
+.tile-plus { background: color-mix(in srgb, var(--gold) 18%, var(--bg)); color: color-mix(in srgb, var(--gold) 75%, var(--text)); }
+
 /* ------------------------------------------------------------ Rendez-vous */
 .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .slot { height: 48px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--bg); color: var(--text); font-weight: 600; font-size: 14px; box-shadow: var(--shadow-1); }

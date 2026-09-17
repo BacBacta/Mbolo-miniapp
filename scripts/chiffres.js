@@ -69,9 +69,18 @@ console.log(ligne("premiers messages partis d'une amorce", pct(r.entree.partPrem
 console.log(ligne('discussions longues avec proposition', pct(r.entree.partLonguesAvecProposition)));
 console.log(ligne('propositions acceptées', pct(r.entree.partPropositionsAcceptees)));
 
-console.log(titre('Odo Plus — la demande, et l\'usage'));
+console.log(titre('Odo Plus — la demande, l\'argent, et l\'usage'));
 console.log(ligne('pass actifs en ce moment', r.plus.actifs));
 console.log(ligne('pass posés à la main', r.plus.passPoses, r.plus.passRetires ? `${r.plus.passRetires} retiré(s)` : ''));
+console.log(ligne('ont ouvert l\'écran du pass', r.plus.vusPersonnes, 'personne(s)'));
+console.log('  par porte :');
+console.log(liste(r.plus.vusParPorte));
+console.log(ligne('factures demandées', r.plus.facturesDemandees));
+console.log(ligne('pass achetés en Stars', r.plus.achats, `${r.plus.achatsPersonnes} personne(s), ${r.plus.joursVendus} jour(s) vendus`));
+console.log('  par durée :');
+console.log(liste(r.plus.achatsParDuree));
+console.log(ligne('Stars encaissées', r.plus.starsEncaisses, r.plus.rembourses ? `après ${r.plus.rembourses} remboursement(s)` : ''));
+console.log(ligne('ont acheté, parmi ceux qui ont vu l\'écran', pct(r.plus.partVusQuiAchetent)));
 console.log(ligne('refusés faute de pass', r.plus.refusGestes, `${r.plus.refusPersonnes} personne(s)`));
 console.log('  par porte fermée :');
 console.log(liste(r.plus.refusParPorte));

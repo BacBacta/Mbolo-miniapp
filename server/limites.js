@@ -23,6 +23,9 @@ export const REGLES = {
   swipe: { max: 60, fenetreMs: 60_000, message: 'Tu vas trop vite. Reprends dans une minute.' },
   // « J'écris » par le flux : le client n'en envoie qu'un toutes les 2,5 s, la règle laisse de la marge
   frappe: { max: 40, fenetreMs: 60_000, message: 'Trop de signaux envoyés. Attends un instant.' },
+  // Une facture Telegram par appui : dix par heure suffisent à quelqu'un qui hésite, et coupent
+  // court à un script qui en fabriquerait mille.
+  facture: { max: 10, fenetreMs: 3600_000, message: 'Trop de demandes de paiement. Réessaie dans une heure.' },
   verification: { max: 5, fenetreMs: 3_600_000, message: 'Trop de tentatives de vérification. Réessaie dans une heure.' },
   photo: { max: 12, fenetreMs: 3_600_000, message: 'Trop de photos envoyées. Réessaie dans une heure.' },
   voix: { max: 6, fenetreMs: 3_600_000, message: 'Trop de présentations vocales envoyées. Réessaie dans une heure.' },

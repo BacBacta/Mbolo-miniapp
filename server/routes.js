@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { config, runtime, genreAuChoix, entreeLibre, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT, sourceConnue } from './config.js';
-import { estPlus, etatDuPass, palier, PALIERS, DROITS_DU_PASS, ORDRES, ORDRE_DEFAUT } from './plus.js';
+import { estPlus, etatDuPass, palier, PALIERS, DROITS_DU_PASS, ORDRES, ORDRE_DEFAUT, OFFRES, OFFRE_CONSEILLEE, offre, chargeUtile } from './plus.js';
 import { arrondir, dansLaFenetre, discret, MAX_FICHES } from './vues.js';
 import { quiPrevenir, RALENTI_MS } from './nouveaux.js';
 import { codeValide } from './lieux.js';
@@ -15,7 +15,7 @@ import { CRITERES, calculer as calculerJauge } from './jauge.js';
 import { requireAuth, identiteSansCreer } from './auth.js';
 import { checkMessage } from './antiscam.js';
 import { limiter, consommer } from './limites.js';
-import { notify, direATiers, notifyAdmin, boutonBannir, sendSelfieToModeration, sendPhotoToModeration, decideVerification, onApproved, retirerSelfieDuGroupe } from './bot.js';
+import { bot, notify, direATiers, notifyAdmin, boutonBannir, sendSelfieToModeration, sendPhotoToModeration, decideVerification, onApproved, retirerSelfieDuGroupe } from './bot.js';
 import { mesurer, mesurerRalenti, semaineIso, HEURE, CINQ_MINUTES } from './mesure.js';
 import { abonner, signaler, nombreDeFlux, PLAFOND, KEEPALIVE_MS, PRESENCE_MS } from './flux.js';
 import { creerInvitation, retirer, membresQuiMOntChoisi, PREFIXE } from './confiance.js';
@@ -195,10 +195,18 @@ const voitSesLikes = (u) => estPlus(u);
 // seule façon de savoir si ce qu'il y a derrière intéresse quelqu'un. `quoi` est un mot-clé fermé,
 // jamais un chemin d'URL : la barrière de `mesure.js` refuserait du texte, et il ne faut pas
 // qu'un jour une route nouvelle y verse son nom complet.
+// Une porte fermée dit laquelle : le message change selon ce qu'on demandait, et `quoi` voyage
+// jusqu'à l'interface pour qu'elle ouvre l'écran du pass avec le bon contexte, au lieu d'une
+// erreur en bas de l'écran.
+const PORTES_DU_PASS = {
+  likes: "Il faut un pass pour voir qui t'a aimé. En attendant, ces personnes passent devant dans ton paquet.",
+  vues: "Il faut un pass pour voir qui s'est arrêté sur ta fiche.",
+  liste: 'Il faut un pass pour la vue Liste. Les mêmes personnes restent dans tes cartes.',
+};
 const requirePlus = (quoi) => (req, res, next) => {
   if (estPlus(req.user)) return next();
   mesurer('pass_refuse', req.user.id, { quoi });
-  return fail(res, 403, 'PASS_REQUIS', 'Il faut un pass pour voir qui t\'a aimé. En attendant, ces personnes passent devant dans ton paquet.');
+  return res.status(403).json({ code: 'PASS_REQUIS', quoi, message: PORTES_DU_PASS[quoi] || 'Il faut un pass pour ça.' });
 };
 
 // Une intention retirée ne peut plus servir à rien : la découverte cherche la même intention
@@ -268,7 +276,7 @@ api.get('/me', async (req, res) => {
     // Le pass, tel que la personne le voit pour elle-même. Il ne va nulle part ailleurs : il
     // n'est pas dans `publicProfile`, et il n'y entrera pas. Un pass visible deviendrait un signe
     // extérieur — et surtout il dirait qui peut voir la liste des « J'aime », donc qui sait.
-    plus: etatDuPass(u),
+    plus: { ...etatDuPass(u), offres: OFFRES, conseillee: OFFRE_CONSEILLEE },
     // Le quota du jour voyage aussi ici, et pas seulement avec le paquet : l'écran du pass doit
     // pouvoir dire le nombre sans que la personne soit passée par Découvrir d'abord. Même
     // contrat que là-bas — `null` veut dire « aucun compte à tenir ».
@@ -336,7 +344,7 @@ api.put('/me/profile', limiter('profil'), async (req, res) => {
   const plafond = Math.max(palier('questions', req.user) - 1, (req.user.profile?.extras || []).length);
   if (extras.length > plafond) {
     mesurer('pass_refuse', req.user.id, { quoi: 'questions' });
-    return fail(res, 403, 'PASS_REQUIS', `Tu peux répondre à ${plafond + 1} question${plafond ? 's' : ''}. Un pass en ouvre ${PALIERS.questions.avec}.`);
+    return res.status(403).json({ code: 'PASS_REQUIS', quoi: 'questions', message: `Tu peux répondre à ${plafond + 1} question${plafond ? 's' : ''}. Un pass en ouvre ${PALIERS.questions.avec}.` });
   }
   const { compat, erreur } = lireCompat(b);
   if (erreur) return fail(res, 400, 'COMPAT_INVALID', `Réponse inattendue à « ${COMPAT[erreur].question} ». Choisis dans la liste.`);
@@ -547,7 +555,7 @@ api.put('/me/photos/:n', limiter('photo'), async (req, res) => {
   const combien = palier('photos', req.user);
   if (n > combien) {
     mesurer('pass_refuse', req.user.id, { quoi: 'photos' });
-    return fail(res, 403, 'PASS_REQUIS', `Tu peux mettre ${combien} photos. Un pass en ouvre ${PALIERS.photos.avec}.`);
+    return res.status(403).json({ code: 'PASS_REQUIS', quoi: 'photos', message: `Tu peux mettre ${combien} photos. Un pass en ouvre ${PALIERS.photos.avec}.` });
   }
   const r = await acceptPhoto(req.user, n, req.body?.photo);
   if (r.code) return fail(res, r.code === 'PHOTO_INVALID' ? 400 : 503, r.code, r.message);
@@ -914,6 +922,45 @@ const listRank = (p) => (p.status === 'match' ? 0 : p.status ? 1 : p.likedYou ? 
 // La vue d'ensemble est ce que le pass ouvre de plus large, et **elle ne retire aucune rencontre**
 // à qui ne l'a pas : les mêmes personnes sont dans le paquet de cartes, dix à la fois. C'est un
 // outil de puissance — cinquante profils d'un coup, avec leur statut, sans consommer un « J'aime ».
+// ---------- La caisse du pass : Telegram Stars, dans Telegram ----------
+// La seule façon de vendre un bien numérique dans une mini app (règle 7). Le serveur fabrique
+// une facture chez Telegram et rend son adresse ; l'app l'ouvre avec openInvoice ; Telegram
+// encaisse, puis livre `successful_payment` au bot, qui pose le pass (bot.js). Rien ici ne
+// crédite quoi que ce soit : une facture demandée n'est pas une facture payée.
+//
+// L'écran du pass, quand il s'ouvre, passe par ici pour dire d'où il vient (`quoi`) et recevoir
+// l'historique des achats : c'est le dénominateur de la conversion, et le reçu de la personne.
+api.get('/plus', async (req, res) => {
+  const quoi = /^[a-z]{2,16}$/.test(String(req.query.quoi || '')) ? String(req.query.quoi) : 'profil';
+  mesurerRalenti('pass_vu', req.user, CINQ_MINUTES, { quoi });
+  const achats = (await store.paiementsDe(req.user.id)).map((p) => ({ jours: p.jours, stars: p.stars, statut: p.statut, at: p.at, ref: p.chargeId.slice(-6) }));
+  res.json({ ...etatDuPass(req.user), offres: OFFRES, conseillee: OFFRE_CONSEILLEE, achats });
+});
+
+api.post('/plus/facture', requireMembre, limiter('facture'), async (req, res) => {
+  const o = offre(req.body?.jours);
+  if (!o) return fail(res, 400, 'OFFRE_INCONNUE', 'Cette durée n\'est pas proposée.');
+  if (!bot) return fail(res, 503, 'PAS_DE_CAISSE', 'Le paiement n\'est pas disponible sur ce serveur.');
+  let url;
+  try {
+    // Arguments positionnels (c'est la signature de grammY) ; le jeton de prestataire est vide
+    // pour les Stars, et la devise XTR est la seule permise dans une mini app (règle 7).
+    url = await bot.api.createInvoiceLink(
+      `${config.appName} Plus · ${o.jours} jours`,
+      `Des « J'aime » sans compter, qui t'a aimé, et tout ce que le pass ouvre, pendant ${o.jours} jours. Aucune reconduction.`,
+      chargeUtile(o.jours, req.user.id),
+      '',
+      'XTR',
+      [{ label: `${o.jours} jours`, amount: o.stars }],
+    );
+  } catch (e) {
+    console.error('Facture Telegram impossible :', e.message);
+    return fail(res, 503, 'FACTURE_IMPOSSIBLE', 'Telegram n\'a pas pu préparer le paiement. Réessaie dans un instant.');
+  }
+  mesurer('pass_facture', req.user.id, { jours: o.jours, stars: o.stars });
+  res.json({ url, jours: o.jours, stars: o.stars });
+});
+
 api.get('/profiles', requireMembre, requirePlus('liste'), async (req, res) => {
   const me = req.user;
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);

@@ -17,7 +17,7 @@
 const PAR_PAIRE = (x) => `${x.from}:${x.to}`;
 const PAR_ID = (x) => String(x.id);
 
-export const TABLES = ['users', 'swipes', 'matches', 'messages', 'blocks', 'reports', 'dates', 'events'];
+export const TABLES = ['users', 'swipes', 'matches', 'messages', 'blocks', 'reports', 'dates', 'events', 'paiements'];
 
 const liste = (v) => (Array.isArray(v) ? v : Object.values(v || {}));
 const distincts = (v, cle) => new Set(liste(v).map(cle)).size;
@@ -35,6 +35,7 @@ export function attendu(db = {}) {
     reports: distincts(db.reports, PAR_ID),
     dates: distincts(db.dates, PAR_ID),
     events: distincts(db.events, PAR_ID),
+    paiements: distincts(db.paiements, PAR_ID),
   };
 }
 

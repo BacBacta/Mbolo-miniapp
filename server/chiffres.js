@@ -160,11 +160,14 @@ export function calculer({ users, events, reports = [], matches = [], messages =
   // La question que la bêta doit trancher, et à laquelle rien ne répondait : **est-ce que ce
   // qu'on a mis derrière le pass intéresse quelqu'un, et est-ce que ceux qui l'ont s'en servent.**
   //
-  // Il n'y a pas de caisse, donc aucun de ces chiffres ne mesure un consentement à payer. Ce
-  // qu'ils mesurent est plus modeste et plus honnête : combien de fois quelqu'un a voulu passer
-  // une porte fermée (`pass_refuse`), et combien de fois quelqu'un qui l'a ouverte s'en est
-  // effectivement servi (`pass_usage`). **On compte des personnes distinctes autant que des
-  // gestes** : dix refus d'un seul membre curieux ne disent pas la même chose que dix membres.
+  // Deux familles de chiffres, à ne pas confondre. **La demande** : combien de fois quelqu'un a
+  // voulu passer une porte fermée (`pass_refuse`), combien ont ouvert l'écran du pass (`pass_vu`,
+  // ralenti à cinq minutes par personne), combien ont demandé une facture (`pass_facture`). Et
+  // **l'argent** : les paiements reçus en Telegram Stars (`pass_achat`), les remboursements
+  // (`pass_rembourse`), et ce que les gens font du pass une fois qu'ils l'ont (`pass_usage`).
+  // Seul un achat mesure un consentement à payer ; un refus ou une visite mesure une curiosité.
+  // **On compte des personnes distinctes autant que des gestes** : dix refus d'un seul membre
+  // curieux ne disent pas la même chose que dix membres.
   const distinctes = (evenements) => new Set(evenements.filter((e) => estReel(e.u)).map((e) => String(e.u))).size;
   const parQuoi = (evenements) => {
     const n = {};
@@ -174,7 +177,16 @@ export function calculer({ users, events, reports = [], matches = [], messages =
   const refus = evts('pass_refuse');
   const usages = evts('pass_usage');
   const poses = evts('pass_pose').filter((e) => estReel(e.u));
+  const vus = evts('pass_vu');
+  const factures = evts('pass_facture').filter((e) => estReel(e.u));
+  const achats = evts('pass_achat').filter((e) => estReel(e.u));
+  const rembourses = evts('pass_rembourse').filter((e) => estReel(e.u));
   const avecPass = vrais.filter((u) => Number(u.plus?.finLe) > maintenant);
+  // Par durée vendue : « 30 » plutôt que 30, pour que la clé reste la même dans le JSON.
+  const parDuree = {};
+  for (const e of achats) { const k = Number.isFinite(e.p?.jours) ? String(e.p.jours) : '—'; parDuree[k] = (parDuree[k] || 0) + 1; }
+  // Qui a eu un pass, offert ou acheté : le dénominateur de « s'en sont servis ».
+  const ontEu = new Set([...poses, ...achats].map((e) => String(e.u)));
 
   // Le mur du quota, par palier. Une ligne posée avant le 15 septembre 2026 n'a pas de `q` :
   // elle est rangée sous « — » plutôt qu'attribuée à un palier qu'on ne connaît pas.
@@ -198,7 +210,21 @@ export function calculer({ users, events, reports = [], matches = [], messages =
     usageParPorte: parQuoi(usages),
     // Sur ceux qui ont eu un pass, combien s'en sont servis au moins une fois. C'est le chiffre
     // qui dit si le pass tient sa promesse, et il ne vaut que sur de vrais membres.
-    partQuiSEnServent: part(distinctes(usages), new Set(poses.map((e) => String(e.u))).size),
+    partQuiSEnServent: part(distinctes(usages), ontEu.size),
+    // L'écran du pass : qui l'a ouvert, et par quelle porte. C'est le haut de l'entonnoir d'achat.
+    vusPersonnes: distinctes(vus),
+    vusParPorte: parQuoi(vus),
+    facturesDemandees: factures.length,
+    // L'argent. `starsEncaisses` retire les remboursements : c'est ce qui reste, pas ce qui est passé.
+    achats: achats.length,
+    achatsPersonnes: distinctes(achats),
+    achatsParDuree: parDuree,
+    starsEncaisses: achats.reduce((n, e) => n + (Number(e.p?.stars) || 0), 0) - rembourses.reduce((n, e) => n + (Number(e.p?.stars) || 0), 0),
+    joursVendus: achats.reduce((n, e) => n + (Number(e.p?.jours) || 0), 0),
+    rembourses: rembourses.length,
+    // La conversion : sur ceux qui ont vu l'écran, combien ont payé. Personnes, pas gestes —
+    // et l'écran s'ouvre aussi depuis l'onglet Profil par curiosité, donc c'est une borne basse.
+    partVusQuiAchetent: part(distinctes(achats), distinctes(vus)),
     murDuQuotaGestes: butees.length,
     murDuQuotaPersonnes: distinctes(butees),
     murParPalier,
@@ -276,8 +302,11 @@ export function calculer({ users, events, reports = [], matches = [], messages =
   if (phare.reciproques > 0) {
     avertissements.push("Les codes des lieux partenaires sont fixes : un check-in peut être confirmé sans s'être déplacé. La métrique phare est donc une borne haute, pas une preuve, tant que les codes ne tournent pas.");
   }
-  if (plus.actifs > 0 || plus.passPoses > 0) {
-    avertissements.push("Aucun pass n'a été vendu : tous ont été offerts à la main depuis le groupe de modération. Les refus mesurent une curiosité, jamais un consentement à payer — pour ça il faudra une caisse (P0-6).");
+  if (plus.achats === 0 && (plus.actifs > 0 || plus.passPoses > 0)) {
+    avertissements.push("Aucun pass n'a été vendu : tous ont été offerts à la main depuis le groupe de modération. Les refus mesurent une curiosité, jamais un consentement à payer — seul un achat en Stars le mesure.");
+  }
+  if (plus.vusPersonnes > 0) {
+    avertissements.push("La conversion compte les personnes qui ont ouvert l'écran du pass, par une porte fermée ou depuis l'onglet Profil par curiosité : c'est une borne basse. Et pass_vu est ralenti à cinq minutes par personne, donc les gestes ne se comptent pas, seules les personnes.");
   }
   if (butees.some((e) => !Number.isFinite(e.p?.q))) {
     avertissements.push("Des lignes quota_hit n'indiquent pas le palier touché : elles datent d'avant le 15 septembre 2026, quand le quota valait 20. Elles sont rangées sous « — » et ne disent pas quel mur les gens rencontraient.");

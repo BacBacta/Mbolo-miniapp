@@ -55,8 +55,44 @@ export const palier = (nom, user, maintenant = Date.now()) => PALIERS[nom][estPl
 // que la migration soit une recopie et pas une traduction.
 export const SOURCES = ['momo', 'stars', 'sponsor', 'gift'];
 
-// Les durées vendues. Deux, pas cinq : un pass qu'on ne sait pas choisir ne se vend pas.
-export const DUREES = [30, 90];
+// ---------- Ce qui se vend : la grille ----------
+//
+// Trois durées, comme les forfaits data qu'on achète au jour, à la semaine ou au mois : c'est
+// le geste que la cible connaît déjà, et un petit ticket au moment où l'on bute sur le mur vaut
+// mieux qu'un grand ticket qu'on remet à plus tard. La grille vient de la configuration
+// (PLUS_PRIX_STARS) ; elle est lue ici, une fois, et nulle part ailleurs — l'interface la reçoit
+// par GET /api/me, le bot la lit pour la facture et la revérifie au moment de payer.
+import { config } from './config.js';
+
+function lireLaGrille(texte) {
+  const offres = [];
+  for (const morceau of String(texte || '').split(',')) {
+    const m = /^\s*(\d+)\s*:\s*(\d+)\s*$/.exec(morceau);
+    if (!m) { if (morceau.trim()) console.warn(`PLUS_PRIX_STARS : « ${morceau.trim()} » ignoré (forme attendue : jours:stars).`); continue; }
+    const jours = Number(m[1]), stars = Number(m[2]);
+    // Telegram borne une facture en Stars entre 1 et 10 000 ; une durée au-delà d'un an n'est plus un pass.
+    if (jours < 1 || jours > 400 || stars < 1 || stars > 10000) { console.warn(`PLUS_PRIX_STARS : « ${morceau.trim()} » hors bornes, ignoré.`); continue; }
+    if (offres.some((o) => o.jours === jours)) continue;
+    offres.push({ jours, stars });
+  }
+  return offres.sort((a, b) => a.jours - b.jours);
+}
+export const OFFRES = lireLaGrille(config.plusPrixStars);
+// L'offre mise en avant : celle du milieu, ou la seule. Un choix par défaut évite l'hésitation.
+export const OFFRE_CONSEILLEE = OFFRES.length ? OFFRES[Math.floor((OFFRES.length - 1) / 2)].jours : null;
+export const offre = (jours) => OFFRES.find((o) => o.jours === Number(jours)) || null;
+
+// Les durées acceptées par la modération pour un pass offert : celles de la grille.
+export const DUREES = OFFRES.map((o) => o.jours);
+
+// La charge utile d'une facture : ce que Telegram nous rend intact au moment du paiement. Elle
+// porte la durée et l'identifiant de qui a demandé la facture. La version en tête permet d'en
+// changer la forme un jour sans confondre une vieille facture encore ouverte.
+export const chargeUtile = (jours, userId) => `plus:1:${Number(jours)}:${String(userId)}`;
+export function lireChargeUtile(texte) {
+  const m = /^plus:1:(\d+):(\d+)$/.exec(String(texte || ''));
+  return m ? { jours: Number(m[1]), userId: m[2] } : null;
+}
 
 const jourMs = 24 * 3600 * 1000;
 
@@ -90,4 +126,13 @@ export function prolonger(user, { jours, source = 'gift' }, maintenant = Date.no
   if (!SOURCES.includes(source)) throw new Error('Source de pass inconnue.');
   const depart = estPlus(user, maintenant) ? Number(user.plus.finLe) : maintenant;
   return { source, depuisLe: user?.plus?.depuisLe || maintenant, finLe: depart + n * jourMs };
+}
+
+// Retirer des jours après un remboursement : la fin recule d'autant, et un pass qui n'a plus de
+// jours devant lui disparaît. Jamais en dessous de maintenant : on ne crée pas de dette.
+// Fonction pure, comme prolonger().
+export function retirer(user, jours, maintenant = Date.now()) {
+  if (!estPlus(user, maintenant)) return null;
+  const finLe = Number(user.plus.finLe) - Number(jours) * jourMs;
+  return finLe > maintenant ? { ...user.plus, finLe } : null;
 }

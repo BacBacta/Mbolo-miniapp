@@ -13,6 +13,15 @@ export const LANGUES = ['fr', 'en', 'es', 'pt', 'sw', 'ru', 'uk'];
 export const LANGUE_SOURCE = 'fr';
 
 const EN = {
+  "Merci. Ton pass {app} Plus est actif jusqu'au {date}. Reçu : {ref}": "Thank you. Your {app} Plus pass is active until {date}. Receipt: {ref}",
+  "Ton paiement de {n} Stars a été remboursé. Les jours correspondants sont retirés de ton pass.": "Your payment of {n} Stars has been refunded. The matching days were removed from your pass.",
+  "remboursé": "refunded",
+  "reçu {ref}": "receipt {ref}",
+  "Tes paiements {app} Plus :": "Your {app} Plus payments:",
+  "Aucun paiement pour l'instant.": "No payment yet.",
+  "Un problème avec un paiement ? Écris /aidepaiement suivi de ton message : l'équipe te répond ici.": "A problem with a payment? Write /aidepaiement followed by your message: the team replies here.",
+  "Écris ton message après /aidepaiement, en une ligne.": "Write your message after /aidepaiement, on one line.",
+  "Transmis à l'équipe. Elle te répond ici.": "Sent to the team. They will reply here.",
   // Bot
   'Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans rien te faire payer pour ça.\n\nRéservé aux 18 ans et plus.':
     'Hi {nom}. {app} introduces you to verified people near you, and charges you nothing for it.\n\nFor ages 18 and over.',
@@ -84,6 +93,15 @@ const EN = {
 };
 
 const ES = {
+  "Merci. Ton pass {app} Plus est actif jusqu'au {date}. Reçu : {ref}": "Gracias. Tu pase {app} Plus está activo hasta el {date}. Recibo: {ref}",
+  "Ton paiement de {n} Stars a été remboursé. Les jours correspondants sont retirés de ton pass.": "Tu pago de {n} Stars ha sido reembolsado. Los días correspondientes se han retirado de tu pase.",
+  "remboursé": "reembolsado",
+  "reçu {ref}": "recibo {ref}",
+  "Tes paiements {app} Plus :": "Tus pagos de {app} Plus:",
+  "Aucun paiement pour l'instant.": "Ningún pago por ahora.",
+  "Un problème avec un paiement ? Écris /aidepaiement suivi de ton message : l'équipe te répond ici.": "¿Un problema con un pago? Escribe /aidepaiement seguido de tu mensaje: el equipo te responde aquí.",
+  "Écris ton message après /aidepaiement, en une ligne.": "Escribe tu mensaje después de /aidepaiement, en una línea.",
+  "Transmis à l'équipe. Elle te répond ici.": "Enviado al equipo. Te responderá aquí.",
   "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans rien te faire payer pour ça.\n\nRéservé aux 18 ans et plus.": "Hola {nom}. {app} te presenta a personas verificadas de tu ciudad, y no te cobra nada por ello.\n\nSolo para mayores de 18 años.",
   "Ouvrir {app}": "Abrir {app}",
   "{app} ne te demandera jamais d'argent par message. Si quelqu'un le fait, même en son nom, c'est une arnaque : signale-le depuis la discussion dans l'app.\n\nPour supprimer ton compte : Paramètres dans l'app, puis « Supprimer mon compte ».": "{app} nunca te pedirá dinero por mensaje. Si alguien lo hace, incluso en nuestro nombre, es una estafa: denúncialo desde la conversación en la app.\n\nPara eliminar tu cuenta: Ajustes en la app, y después « Eliminar mi cuenta ».",
@@ -137,6 +155,15 @@ const ES = {
 };
 
 const PT = {
+  "Merci. Ton pass {app} Plus est actif jusqu'au {date}. Reçu : {ref}": "Obrigado. O teu passe {app} Plus está ativo até {date}. Recibo: {ref}",
+  "Ton paiement de {n} Stars a été remboursé. Les jours correspondants sont retirés de ton pass.": "O teu pagamento de {n} Stars foi reembolsado. Os dias correspondentes foram retirados do teu passe.",
+  "remboursé": "reembolsado",
+  "reçu {ref}": "recibo {ref}",
+  "Tes paiements {app} Plus :": "Os teus pagamentos {app} Plus:",
+  "Aucun paiement pour l'instant.": "Nenhum pagamento por enquanto.",
+  "Un problème avec un paiement ? Écris /aidepaiement suivi de ton message : l'équipe te répond ici.": "Um problema com um pagamento? Escreve /aidepaiement seguido da tua mensagem: a equipa responde-te aqui.",
+  "Écris ton message après /aidepaiement, en une ligne.": "Escreve a tua mensagem depois de /aidepaiement, numa linha.",
+  "Transmis à l'équipe. Elle te répond ici.": "Enviado à equipa. Ela responde-te aqui.",
   "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans rien te faire payer pour ça.\n\nRéservé aux 18 ans et plus.": "Olá {nom}. A {app} apresenta-te pessoas verificadas da tua cidade, e não te cobra nada por isso.\n\nApenas para maiores de 18 anos.",
   "Ouvrir {app}": "Abrir {app}",
   "{app} ne te demandera jamais d'argent par message. Si quelqu'un le fait, même en son nom, c'est une arnaque : signale-le depuis la discussion dans l'app.\n\nPour supprimer ton compte : Paramètres dans l'app, puis « Supprimer mon compte ».": "A {app} nunca te vai pedir dinheiro por mensagem. Se alguém o fizer, mesmo em nosso nome, é uma burla: denuncia a partir da conversa na app.\n\nPara eliminar a tua conta: Definições na app, e depois « Eliminar a minha conta ».",
@@ -190,6 +217,15 @@ const PT = {
 };
 
 const SW = {
+  "Merci. Ton pass {app} Plus est actif jusqu'au {date}. Reçu : {ref}": "Asante. Pasi yako ya {app} Plus inatumika hadi {date}. Risiti: {ref}",
+  "Ton paiement de {n} Stars a été remboursé. Les jours correspondants sont retirés de ton pass.": "Malipo yako ya Stars {n} yamerudishwa. Siku husika zimeondolewa kwenye pasi yako.",
+  "remboursé": "imerudishwa",
+  "reçu {ref}": "risiti {ref}",
+  "Tes paiements {app} Plus :": "Malipo yako ya {app} Plus:",
+  "Aucun paiement pour l'instant.": "Hakuna malipo bado.",
+  "Un problème avec un paiement ? Écris /aidepaiement suivi de ton message : l'équipe te répond ici.": "Tatizo la malipo? Andika /aidepaiement kisha ujumbe wako: timu itakujibu hapa.",
+  "Écris ton message après /aidepaiement, en une ligne.": "Andika ujumbe wako baada ya /aidepaiement, kwenye mstari mmoja.",
+  "Transmis à l'équipe. Elle te répond ici.": "Imetumwa kwa timu. Itakujibu hapa.",
   "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans rien te faire payer pour ça.\n\nRéservé aux 18 ans et plus.": "Habari {nom}. {app} inakuunganisha na watu waliothibitishwa wa mji wako, bila kukutoza chochote.\n\nKwa wenye miaka 18 na zaidi tu.",
   "Ouvrir {app}": "Fungua {app}",
   "{app} ne te demandera jamais d'argent par message. Si quelqu'un le fait, même en son nom, c'est une arnaque : signale-le depuis la discussion dans l'app.\n\nPour supprimer ton compte : Paramètres dans l'app, puis « Supprimer mon compte ».": "{app} haitakuomba pesa kwa ujumbe kamwe. Mtu akifanya hivyo, hata kwa jina letu, ni ulaghai: mripoti kutoka kwenye mazungumzo ndani ya programu.\n\nKufuta akaunti yako: Mipangilio ndani ya programu, kisha « Futa akaunti yangu ».",
@@ -243,6 +279,15 @@ const SW = {
 };
 
 const RU = {
+  "Merci. Ton pass {app} Plus est actif jusqu'au {date}. Reçu : {ref}": "Спасибо. Твой пропуск {app} Plus действует до {date}. Чек: {ref}",
+  "Ton paiement de {n} Stars a été remboursé. Les jours correspondants sont retirés de ton pass.": "Твой платёж на {n} Stars возвращён. Соответствующие дни сняты с пропуска.",
+  "remboursé": "возвращено",
+  "reçu {ref}": "чек {ref}",
+  "Tes paiements {app} Plus :": "Твои платежи {app} Plus:",
+  "Aucun paiement pour l'instant.": "Платежей пока нет.",
+  "Un problème avec un paiement ? Écris /aidepaiement suivi de ton message : l'équipe te répond ici.": "Проблема с платежом? Напиши /aidepaiement и своё сообщение: команда ответит здесь.",
+  "Écris ton message après /aidepaiement, en une ligne.": "Напиши сообщение после /aidepaiement, в одну строку.",
+  "Transmis à l'équipe. Elle te répond ici.": "Передано команде. Ответ придёт сюда.",
   // Bot
   'Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans rien te faire payer pour ça.\n\nRéservé aux 18 ans et plus.':
     'Привет, {nom}. {app} знакомит тебя с проверенными людьми из твоего города и ничего за это не берёт.\n\nТолько с 18 лет.',
@@ -314,6 +359,15 @@ const RU = {
 };
 
 const UK = {
+  "Merci. Ton pass {app} Plus est actif jusqu'au {date}. Reçu : {ref}": "Дякуємо. Твій пропуск {app} Plus діє до {date}. Чек: {ref}",
+  "Ton paiement de {n} Stars a été remboursé. Les jours correspondants sont retirés de ton pass.": "Твій платіж на {n} Stars повернуто. Відповідні дні знято з пропуску.",
+  "remboursé": "повернуто",
+  "reçu {ref}": "чек {ref}",
+  "Tes paiements {app} Plus :": "Твої платежі {app} Plus:",
+  "Aucun paiement pour l'instant.": "Платежів поки немає.",
+  "Un problème avec un paiement ? Écris /aidepaiement suivi de ton message : l'équipe te répond ici.": "Проблема з платежем? Напиши /aidepaiement і своє повідомлення: команда відповість тут.",
+  "Écris ton message après /aidepaiement, en une ligne.": "Напиши повідомлення після /aidepaiement, в один рядок.",
+  "Transmis à l'équipe. Elle te répond ici.": "Передано команді. Відповідь надійде сюди.",
   // Bot
   'Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans rien te faire payer pour ça.\n\nRéservé aux 18 ans et plus.':
     'Привіт, {nom}. {app} знайомить тебе з перевіреними людьми з твого міста і нічого за це не бере.\n\nЛише від 18 років.',
