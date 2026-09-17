@@ -257,6 +257,18 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
 - [ ] **(deux comptes)** Envoie un message : chez toi, la bulle porte une **horloge**, puis **une
       coche**, puis **deux coches en ambre** dès que l'autre l'a sous les yeux. Mets l'autre
       téléphone en arrière-plan avant d'envoyer : la seconde coche n'arrive qu'au retour.
+- [ ] **(deux comptes)** **Appui long** sur un message de l'autre : le menu natif de Telegram
+      s'ouvre avec **Répondre** seulement — pas « Supprimer ». Répondre : la citation apparaît
+      au-dessus du champ, le clavier reste ouvert, et le message envoyé porte la citation **chez
+      les deux**. Toucher la citation remonte au message cité.
+- [ ] **(deux comptes)** Appui long sur **un de tes messages**, **Supprimer** : la bulle dit
+      « Message supprimé » **chez toi et chez l'autre** (quelques secondes au plus), à la même
+      place, et la liste Messages le dit aussi. Le compteur de non lus de l'autre ne le compte pas.
+- [ ] **(deux comptes)** L'icône image à gauche du champ ouvre la galerie ; choisis une photo :
+      chez toi elle s'affiche tout de suite avec l'horloge puis la coche, chez l'autre elle arrive
+      **voilée** avec « Toucher pour voir » ; un appui la dévoile, un second l'ouvre en grand, un
+      appui referme. Retire-la : elle disparaît des deux côtés. *Rien d'autre qu'une image ne doit
+      pouvoir être choisi.*
 - [ ] **(revue, lot 6)** Passe l'interface en russe, puis rouvre la discussion : les séparateurs
       de jour affichent **Сегодня / Вчера**, et les heures sont au format russe.
       *Ils étaient écrits « Aujourd'hui » et « Hier » en français, quelle que soit la langue.*

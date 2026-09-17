@@ -28,6 +28,9 @@ export const REGLES = {
   facture: { max: 10, fenetreMs: 3600_000, message: 'Trop de demandes de paiement. Réessaie dans une heure.' },
   verification: { max: 5, fenetreMs: 3_600_000, message: 'Trop de tentatives de vérification. Réessaie dans une heure.' },
   photo: { max: 12, fenetreMs: 3_600_000, message: 'Trop de photos envoyées. Réessaie dans une heure.' },
+  // Les images envoyées dans une discussion : plus permissif que les photos de la fiche, qui sont
+  // modérées une à une, mais borné — c'est le canal que l'anti-arnaque ne lit pas.
+  image: { max: 30, fenetreMs: 3_600_000, message: "Trop d'images envoyées. Réessaie dans une heure." },
   voix: { max: 6, fenetreMs: 3_600_000, message: 'Trop de présentations vocales envoyées. Réessaie dans une heure.' },
   signalement: { max: 5, fenetreMs: 3_600_000, message: 'Trop de signalements en peu de temps. La modération a bien reçu les précédents.' },
   rendezvous: { max: 10, fenetreMs: 3_600_000, message: 'Trop de propositions de rendez-vous. Réessaie plus tard.' },

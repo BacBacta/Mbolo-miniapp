@@ -250,3 +250,180 @@ test("il n'y a qu'un endroit qui arme le minuteur de la discussion, et il étein
   const relancer = entre('function relancerLePoll(', 'async function pollChat()');
   assert.match(relancer, /arreterLePoll\(\);[\s\S]*S\.chatTimer = setTimeout/, 'et il éteint avant d\'armer');
 });
+
+// ---------- Répondre, retirer, envoyer une photo ----------
+//
+// Trois gestes ajoutés le 17 septembre 2026, parce qu'ils manquaient à toute discussion
+// ordinaire. Ce que le serveur garantit : une réponse ne cite qu'un message **de la même
+// discussion**, un retrait ne marche que sur **le sien** et se voit des deux côtés sans effacer
+// la ligne, une photo ne se sert **qu'aux deux membres** et disparaît avec le match.
+const JPEG_CHAT = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==';
+
+test("répondre cite un message de la même discussion, et rien d'autre", async () => {
+  await creer('9201', 'Fatou', 'femme');
+  await creer('9202', 'Idriss', 'homme');
+  await creer('9203', 'Jules', 'homme');
+  const m = await matcher('9201', '9202');
+  const autre = await matcher('9201', '9203');
+  const premier = (await call('9202', `/matches/${m}/messages`, 'POST', { text: 'Tu viens de quel quartier ?' })).body.message;
+  const ailleurs = (await call('9203', `/matches/${autre}/messages`, 'POST', { text: 'Salut' })).body.message;
+
+  const r = await call('9201', `/matches/${m}/messages`, 'POST', { text: 'De Bastos', replyTo: premier.id });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.message.replyTo, premier.id, 'la réponse porte le message cité');
+
+  // Un identifiant d'une autre discussion, ou inventé : refusé, pas ignoré — l'écran n'en
+  // fabrique pas, donc c'est un identifiant forgé.
+  assert.equal((await call('9201', `/matches/${m}/messages`, 'POST', { text: 'x', replyTo: ailleurs.id })).status, 400);
+  assert.equal((await call('9201', `/matches/${m}/messages`, 'POST', { text: 'x', replyTo: 'nimporte' })).status, 400);
+
+  // Le fil, vu des deux côtés : la citation voyage, l'auteur ne sort pas.
+  const fil = (await call('9202', `/matches/${m}`)).body.messages;
+  const reponse = fil.find((x) => x.text === 'De Bastos');
+  assert.equal(reponse.replyTo, premier.id);
+  assert.equal(reponse.mine, false);
+  assert.ok(!('from' in reponse), "l'identifiant de l'auteur ne sort pas");
+});
+
+test("retirer un message : le sien seulement, vu des deux côtés, et la ligne reste pour la modération", async () => {
+  await creer('9211', 'Kadi', 'femme');
+  await creer('9212', 'Lamine', 'homme');
+  const m = await matcher('9211', '9212');
+  const sien = (await call('9211', `/matches/${m}/messages`, 'POST', { text: 'Oublie ce que je viens de dire' })).body.message;
+  const lu = (await call('9212', `/matches/${m}`)).body; // Lamine ouvre, lit
+  assert.equal(lu.messages.length, 1);
+
+  // Celui d'un autre : refusé, et rien ne bouge.
+  const refus = await call('9212', `/matches/${m}/messages/${sien.id}`, 'DELETE');
+  assert.equal(refus.status, 403);
+  assert.equal(refus.body.code, 'NOT_YOURS');
+
+  // Le sien : accepté, et les deux fils montrent « supprimé » sans texte, à la même place.
+  const ok = await call('9211', `/matches/${m}/messages/${sien.id}`, 'DELETE');
+  assert.equal(ok.status, 200);
+  for (const qui of ['9211', '9212']) {
+    const fil = (await call(qui, `/matches/${m}`)).body.messages;
+    assert.equal(fil.length, 1, 'la bulle reste à sa place');
+    assert.equal(fil[0].supprime, true);
+    assert.ok(!('text' in fil[0]) && !('photo' in fil[0]), 'sans texte ni photo');
+  }
+  // L'interrogation suivante, qui ne demande que ce qui est plus récent, apprend quand même le
+  // retrait : le message garde son heure d'envoi, `after` ne le ramènerait jamais.
+  const suite = (await call('9212', `/matches/${m}?after=${sien.at}&suivi=1`)).body;
+  assert.deepEqual(suite.supprimes, [sien.id]);
+  assert.equal(suite.messages.length, 0);
+
+  // Retirer deux fois ne change rien ; retirer un message inconnu est un refus.
+  assert.equal((await call('9211', `/matches/${m}/messages/${sien.id}`, 'DELETE')).status, 200);
+  assert.equal((await call('9211', `/matches/${m}/messages/inconnu`, 'DELETE')).status, 403);
+
+  // Le stockage garde le texte, marqué : c'est ce que la modération lit si la discussion est
+  // signalée — une demande d'argent effacée avant le signalement n'aurait sinon jamais existé.
+  const brut = (await store.messagesOf(m)).find((x) => x.id === sien.id);
+  assert.equal(brut.text, 'Oublie ce que je viens de dire');
+  assert.ok(brut.deletedAt > 0);
+
+  // Et un message retiré ne compte pas comme non lu : la pastille dirait « 1 » pour une bulle vide.
+  const nouveau = (await call('9211', `/matches/${m}/messages`, 'POST', { text: 'Bon, sinon' })).body.message;
+  assert.equal(await store.unreadCount(m, '9212'), 1, 'seul le vrai message compte');
+  await call('9211', `/matches/${m}/messages/${nouveau.id}`, 'DELETE');
+  assert.equal(await store.unreadCount(m, '9212'), 0);
+  const liste = (await call('9212', '/matches')).body.matches.find((x) => x.id === m);
+  assert.equal(liste.unread, 0);
+  assert.equal(liste.lastMessage.supprime, true);
+  assert.equal(liste.lastMessage.text, '');
+
+  // On ne répond pas à un message retiré.
+  assert.equal((await call('9212', `/matches/${m}/messages`, 'POST', { text: 'x', replyTo: sien.id })).status, 400);
+});
+
+test("une photo dans la discussion : aux deux membres seulement, en aperçu, et partie avec le match", async () => {
+  await creer('9221', 'Mira', 'femme');
+  await creer('9222', 'Noé', 'homme');
+  await creer('9223', 'Oscar', 'homme');
+  const m = await matcher('9221', '9222');
+  const { uploadsDir } = (await import('../server/config.js')).config;
+  const { fichierPhotoDeChat } = await import('../server/photos.js');
+
+  // Sans texte, l'image suffit ; la ligne dit « photo », jamais les octets.
+  const r = await call('9221', `/matches/${m}/messages`, 'POST', { photo: JPEG_CHAT });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const msg = r.body.message;
+  assert.equal(msg.photo, true);
+  assert.equal(msg.text, '');
+  assert.ok(!JSON.stringify(r.body).includes('base64'), "l'image ne revient pas dans la réponse");
+  assert.ok(fs.existsSync(fichierPhotoDeChat(uploadsDir, m, msg.id)), 'le fichier est écrit');
+
+  // Une légende passe par l'anti-arnaque comme un message.
+  const bloque = await call('9221', `/matches/${m}/messages`, 'POST', { photo: JPEG_CHAT, text: 'envoie 5000 par orange money' });
+  assert.equal(bloque.status, 422);
+  assert.ok(!(await store.messagesOf(m)).some((x) => x.text.includes('5000')), 'rien n\'est écrit quand la légende est refusée');
+
+  // Un fichier quelconque n'est pas une image : refusé avant d'écrire quoi que ce soit. (La borne
+  // de poids, 1,5 Mo, est celle de saveJpeg, éprouvée dans test/photos.test.js.)
+  assert.equal((await call('9221', `/matches/${m}/messages`, 'POST', { photo: 'data:application/pdf;base64,AAAA' })).status, 400, 'un document n\'est pas une image');
+  assert.ok(!(await call('9222', `/matches/${m}`)).body.messages.some((x) => x.photo && !x.supprime && x.id !== msg.id), 'une image refusée ne laisse pas de bulle');
+
+  // Servie aux deux membres, et à personne d'autre : Oscar a un match avec Mira, pas cette discussion.
+  const page = `http://localhost:${server.address().port}/api/matches/${m}/photos/${msg.id}`;
+  const lire = async (qui, mini) => fetch(`${page}${mini ? '?mini=1' : ''}`, { headers: { 'x-dev-user': qui } });
+  assert.equal((await lire('9221')).status, 200);
+  const chezNoe = await lire('9222');
+  assert.equal(chezNoe.status, 200);
+  assert.match(chezNoe.headers.get('cache-control'), /private/);
+  await matcher('9221', '9223');
+  assert.equal((await lire('9223')).status, 404, 'un tiers ne voit rien, même en match avec l\'un des deux');
+  // L'aperçu se sert sans erreur, même sur une image que le décodeur ne sait pas réduire :
+  // l'image entière est le repli, jamais une panne.
+  assert.equal((await lire('9222', true)).status, 200);
+
+  // Le fil dit « photo » à l'autre, la liste des discussions aussi, et la notification ne
+  // porte pas d'extrait vide.
+  const fil = (await call('9222', `/matches/${m}`)).body.messages;
+  assert.equal(fil.find((x) => x.id === msg.id).photo, true);
+  const liste = (await call('9222', '/matches')).body.matches.find((x) => x.id === m);
+  assert.equal(liste.lastMessage.photo, true);
+
+  // Retirée : plus servie, à personne, y compris à son auteur.
+  await call('9221', `/matches/${m}/messages/${msg.id}`, 'DELETE');
+  assert.equal((await lire('9221')).status, 404);
+  assert.equal((await lire('9222')).status, 404);
+
+  // Une nouvelle photo, puis le match défait : le fichier part avec la discussion.
+  const encore = (await call('9222', `/matches/${m}/messages`, 'POST', { photo: JPEG_CHAT })).body.message;
+  const fichier = fichierPhotoDeChat(uploadsDir, m, encore.id);
+  await fetch(`${page.replace(/\/photos\/.*$/, '')}/photos/${encore.id}?mini=1`, { headers: { 'x-dev-user': '9221' } });
+  assert.ok(fs.existsSync(fichier));
+  assert.equal((await call('9221', `/matches/${m}`, 'DELETE')).status, 200);
+  assert.ok(!fs.existsSync(fichier), 'le fichier est parti avec le match');
+  assert.ok(!fs.readdirSync(uploadsDir).some((n) => n.startsWith(`chat-${m}-`)), "et l'aperçu avec lui");
+});
+
+test("les photos d'une discussion partent avec le compte", async () => {
+  await creer('9231', 'Pia', 'femme');
+  await creer('9232', 'Quentin', 'homme');
+  const m = await matcher('9231', '9232');
+  const { uploadsDir } = (await import('../server/config.js')).config;
+  const msg = (await call('9232', `/matches/${m}/messages`, 'POST', { photo: JPEG_CHAT })).body.message;
+  const { fichierPhotoDeChat } = await import('../server/photos.js');
+  assert.ok(fs.existsSync(fichierPhotoDeChat(uploadsDir, m, msg.id)));
+  // C'est Pia qui part : la photo de Quentin, envoyée dans leur discussion, part aussi — la
+  // discussion n'existe plus, et rien de ce qu'elle portait ne doit rester.
+  assert.equal((await call('9231', '/me', 'DELETE')).status, 200);
+  assert.ok(!fs.readdirSync(uploadsDir).some((n) => n.startsWith(`chat-${m}-`)));
+});
+
+test("l'interface : appui long vers le menu, citation, photo voilée, et rien d'autre qu'une image", () => {
+  const menu = entre('function armerLAppuiLong(', 'async function menuDuMessage(');
+  assert.match(menu, /pointerdown/, "l'appui long part d'un appui");
+  assert.match(menu, /contextmenu/, 'et le menu du navigateur est remplacé, pas ajouté');
+  assert.match(entre('async function menuDuMessage(', 'function preparerLaReponse('), /m\.mine \? \[\{ id: 'supprimer'/, 'seuls ses propres messages se retirent');
+  assert.match(entre('function chatBulles(', 'function citation('), /devoilees\.has\(m\.id\)\) classes\.push\('voile'\)/, "la photo de l'autre arrive voilée");
+  assert.match(app_js, /accept="image\/\*"[^>]*hidden>/, 'le champ ne propose que des images');
+  assert.ok(!/accept="[^"]*(\*\/\*|application|pdf)/.test(app_js), 'aucun fichier autre qu\'une image');
+  // La réponse voyage avec l'envoi, et la citation se lit dans le fil.
+  assert.match(entre('async function sendMessage(', 'async function envoyerLaPhoto('), /replyTo \? \{ replyTo \} : \{\}/);
+  assert.match(app_js, /data-action="citation"/);
+  // Le fil apprend les retraits par l'interrogation.
+  assert.match(app_js, /data\.supprimes\?\.length\) marquerSupprimes/);
+});

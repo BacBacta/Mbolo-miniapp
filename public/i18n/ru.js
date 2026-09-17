@@ -565,4 +565,13 @@ export default {
   "Envoyé": "Отправлено",
   "En ligne": "В сети",
   "écrit…": "печатает…",
+  "Message supprimé": "Сообщение удалено",
+  "Toi": "Ты",
+  "Photo": "Фото",
+  "Toucher pour voir": "Нажми, чтобы посмотреть",
+  "Répondre": "Ответить",
+  "Supprimer": "Удалить",
+  "Répondre à {nom}": "Ответ для {nom}",
+  "Ne plus répondre à ce message": "Не отвечать на это сообщение",
+  "Envoyer une photo": "Отправить фото",
 };

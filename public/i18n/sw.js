@@ -565,4 +565,13 @@ export default {
   "Envoyé": "Imetumwa",
   "En ligne": "Mtandaoni",
   "écrit…": "anaandika…",
+  "Message supprimé": "Ujumbe umefutwa",
+  "Toi": "Wewe",
+  "Photo": "Picha",
+  "Toucher pour voir": "Gusa ili kuona",
+  "Répondre": "Jibu",
+  "Supprimer": "Futa",
+  "Répondre à {nom}": "Jibu {nom}",
+  "Ne plus répondre à ce message": "Acha kujibu ujumbe huu",
+  "Envoyer une photo": "Tuma picha",
 };

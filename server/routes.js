@@ -10,11 +10,11 @@ import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_C
 import { LANGUES, t as tr } from './i18n.js';
 import { store, newId } from './store.js';
 import { fichierVoix, voixPublique } from './voix.js';
-import { PHOTO_SLOTS, fichierPhoto, miniatureDe, refaireLaMiniature, flouDe } from './photos.js';
+import { PHOTO_SLOTS, fichierPhoto, miniatureDe, refaireLaMiniature, flouDe, fichierPhotoDeChat, apercuDe } from './photos.js';
 import { CRITERES, calculer as calculerJauge } from './jauge.js';
 import { requireAuth, identiteSansCreer } from './auth.js';
 import { checkMessage } from './antiscam.js';
-import { limiter, consommer } from './limites.js';
+import { limiter, consommer, REGLES } from './limites.js';
 import { bot, notify, direATiers, notifyAdmin, boutonBannir, sendSelfieToModeration, sendPhotoToModeration, decideVerification, onApproved, retirerSelfieDuGroupe } from './bot.js';
 import { mesurer, mesurerRalenti, semaineIso, HEURE, CINQ_MINUTES } from './mesure.js';
 import { abonner, signaler, nombreDeFlux, aUnFlux, PLAFOND, KEEPALIVE_MS, PRESENCE_MS } from './flux.js';
@@ -1169,6 +1169,16 @@ async function loadMatch(req, res) {
   return { m, other: await store.getUser(otherId) };
 }
 
+// Ce qu'un message montre à l'un des deux membres. L'auteur ne sort pas (« mine » suffit, et
+// l'identifiant ne voyage pas). Un message retiré ne porte plus ni texte ni photo : seulement
+// qu'il a existé, pour que la bulle dise « Message supprimé » à sa place et qu'une réponse qui
+// le citait garde sa citation.
+function messagePublic(x, me) {
+  const base = { id: x.id, at: x.at, mine: x.from === me };
+  if (x.deletedAt) return { ...base, supprime: true };
+  return { ...base, text: x.text, ...(x.replyTo ? { replyTo: x.replyTo } : {}), ...(x.photo ? { photo: true } : {}) };
+}
+
 api.get('/matches', requireMembre, async (req, res) => {
   const me = req.user;
   const bloques = new Set(await store.blocksOf(me.id));
@@ -1182,7 +1192,7 @@ api.get('/matches', requireMembre, async (req, res) => {
       id: m.id,
       other: await publicProfile(other),
       // Pas l'auteur : « mine » suffit à l'interface, et l'identifiant ne sort pas.
-      lastMessage: dernier ? { text: dernier.text, at: dernier.at, mine: dernier.from === me.id } : null,
+      lastMessage: dernier ? { text: dernier.deletedAt ? '' : dernier.text, at: dernier.at, mine: dernier.from === me.id, ...(dernier.photo && !dernier.deletedAt ? { photo: true } : {}), ...(dernier.deletedAt ? { supprime: true } : {}) } : null,
       createdAt: m.createdAt,
       unread: await store.unreadCount(m.id, me.id),
       isNew: !(await store.hasOpened(m.id, me.id)),
@@ -1236,7 +1246,11 @@ api.get('/matches/:id', requireMembre, async (req, res) => {
   // Renvoyer le profil complet de l'autre personne toutes les quatre secondes coûtait environ
   // 700 Ko par heure de discussion ouverte, sans qu'aucun message n'arrive.
   const premierAppel = !req.query.suivi;
-  const messages = (await store.messagesOf(r.m.id)).filter((x) => x.at > after).map(({ from, ...x }) => ({ ...x, mine: from === req.user.id }));
+  const tous = await store.messagesOf(r.m.id);
+  const messages = tous.filter((x) => x.at > after).map((x) => messagePublic(x, req.user.id));
+  // Les retraits depuis le dernier passage : un message retiré garde son heure d'envoi, donc
+  // `after` ne le ramènerait jamais. On dit lesquels, et l'écran remplace la bulle.
+  const supprimes = tous.filter((x) => x.deletedAt > after).map((x) => x.id);
   // L'heure d'arrivée de l'autre personne n'est jamais renvoyée : savoir qu'elle est sur place
   // depuis douze minutes est une information de filature, pas une information de rendez-vous.
   // proposedBy est l'identifiant Telegram de l'autre personne : il ne sort pas non plus, seul
@@ -1259,7 +1273,7 @@ api.get('/matches/:id', requireMembre, async (req, res) => {
   if (req.query.ecrit) { store.touchTyping(req.user.id, r.m.id); signaler(r.m.id, 'ecrit', '1', { sauf: req.user.id }); }
   // `lu` : jusqu'où l'autre a lu, pour les deux coches. `enLigne` : l'autre a cette discussion
   // ouverte en ce moment — pas « vu à telle heure », qui serait de la filature.
-  const reponse = { id: r.m.id, messages, ecrit: store.isTyping(r.other.id, r.m.id), lu: r.m.readAt?.[String(r.other.id)] || 0, enLigne: store.isViewing(r.other.id, r.m.id) };
+  const reponse = { id: r.m.id, messages, ...(supprimes.length ? { supprimes } : {}), ecrit: store.isTyping(r.other.id, r.m.id), lu: r.m.readAt?.[String(r.other.id)] || 0, enLigne: store.isViewing(r.other.id, r.m.id) };
   if (premierAppel) Object.assign(reponse, { other: await publicProfile(r.other), dates, unlockAfter: config.contactUnlockAfter, depuis: r.m.createdAt });
   // Un rendez-vous peut naître ou changer entre deux interrogations : on renvoie les rendez-vous
   // aussi quand l'un d'eux a bougé depuis le dernier appel.
@@ -1325,15 +1339,36 @@ api.post('/matches/:id/messages', requireMembre, limiter('message'), async (req,
   const r = await loadMatch(req, res);
   if (!r) return;
   const text = String(req.body?.text || '').trim().slice(0, 1000);
-  if (!text) return fail(res, 400, 'EMPTY', "Écris un message avant d'envoyer.");
+  // Une image : le fichier arrive en `data:` comme les photos de la fiche, même borne (1,5 Mo),
+  // même écriture. Le texte devient une légende, souvent vide. **Aucun autre type de fichier** :
+  // un document ne se relit pas, ne se modère pas, et c'est par là qu'arrivent les arnaques.
+  const photo = typeof req.body?.photo === 'string' ? req.body.photo : null;
+  if (photo && !/^data:image\/(jpeg|jpg|png|webp);base64,/.test(photo)) return fail(res, 400, 'PHOTO_INVALID', "Cette image n'est pas lisible. Choisis une photo JPEG ou PNG.");
+  // Le poids se refuse **avant** d'écrire la ligne : une ligne sans fichier ferait une bulle
+  // « supprimé » chez les deux pour une image que personne n'a vue.
+  if (photo && (photo.length * 3) / 4 > 1.5 * 1024 * 1024) return fail(res, 400, 'PHOTO_INVALID', "Cette image est trop lourde. Choisis une photo de moins de 1,5 Mo.");
+  if (!text && !photo) return fail(res, 400, 'EMPTY', "Écris un message avant d'envoyer.");
+  // La limite des images s'ajoute à celle des messages : c'est le canal que l'anti-arnaque ne
+  // lit pas, donc le seul que la modération puisse regarder après coup.
+  if (photo) {
+    const attente = await consommer(req.user.id, 'image').catch(() => null);
+    if (attente !== null) { res.set('Retry-After', String(attente)); return res.status(429).json({ code: 'RATE_LIMIT', message: REGLES.image.message, retryAfter: attente }); }
+  }
+  const messages = await store.messagesOf(r.m.id);
+  // Répondre à un message : il doit être **de cette discussion**, et encore là. Un identifiant
+  // d'ailleurs est refusé, pas ignoré — l'écran n'en fabrique pas, donc c'en est un forgé.
+  const replyTo = req.body?.replyTo ? String(req.body.replyTo) : null;
+  if (replyTo) {
+    const cite = messages.find((x) => x.id === replyTo);
+    if (!cite || cite.deletedAt) return fail(res, 400, 'REPLY_INVALID', "Ce message n'est plus là.");
+  }
   // Le seuil compte l'échange, pas le total : en comptant tous les messages, il suffisait d'en
   // envoyer dix tout seul pour s'autoriser à donner son numéro.
-  const messages = await store.messagesOf(r.m.id);
   const echange = Math.min(
     messages.filter((x) => x.from === req.user.id).length,
     messages.filter((x) => x.from === r.other.id).length,
   );
-  const check = checkMessage(text, echange, config.contactUnlockAfter);
+  const check = text ? checkMessage(text, echange, config.contactUnlockAfter) : { ok: true };
   if (!check.ok) {
     // Un blocage d'argent est un signal utile pour la modération : c'est ainsi qu'on saura
     // quelles formulations circulent vraiment, et qu'on remplacera mon corpus écrit à la main.
@@ -1353,7 +1388,13 @@ api.post('/matches/:id/messages', requireMembre, limiter('message'), async (req,
   // Lu **avant** l'ajout : sur le stockage fichier, `messagesOf()` rend le tableau vivant, et le
   // message qu'on vient de pousser s'y trouverait déjà — le premier passerait pour un deuxième.
   const premierIci = !messages.some((x) => x.from === req.user.id);
-  const msg = await store.addMessage(r.m.id, req.user.id, text);
+  const msg = await store.addMessage(r.m.id, req.user.id, text, { replyTo, photo: !!photo });
+  if (photo && !saveJpeg(photo, fichierPhotoDeChat(config.uploadsDir, r.m.id, msg.id))) {
+    // Trop lourde, ou illisible : la ligne ne doit pas rester sans son fichier. Le retrait la
+    // marque, ce qui suffit — personne ne l'a encore vue.
+    await store.supprimerMessage(r.m.id, msg.id, req.user.id);
+    return fail(res, 400, 'PHOTO_INVALID', "Cette image est trop lourde ou illisible. Choisis une photo JPEG ou PNG de moins de 1,5 Mo.");
+  }
   // Qui a écrit va déjà relire tout de suite après l'envoi : on ne réveille que l'autre.
   signaler(r.m.id, 'signal', 'message', { sauf: req.user.id });
   // Le silence après le match est le risque principal du produit : ce champ le mesure directement.
@@ -1365,7 +1406,9 @@ api.post('/matches/:id/messages', requireMembre, limiter('message'), async (req,
   // Le mot est une liste fermée, comme toute charge utile (mesure.js) ; le texte, lui, n'y va pas.
   if (premierIci && !r.other.demo && AMORCES.includes(req.body?.amorce)) mesurer('amorce', req.user.id, { k: req.body.amorce });
   if (!store.isViewing(r.other.id, r.m.id)) {
-    notify(r.other.id, "{nom} t'a écrit : « {extrait} »", { nom: req.user.profile.name, extrait: `${text.slice(0, 60)}${text.length > 60 ? '…' : ''}` }, { label: 'Répondre', params: { screen: 'chat', match: r.m.id } }, `msg:${r.m.id}`);
+    // Une image sans légende s'annonce sans extrait ; la légende, elle, part comme un message.
+    if (photo && !text) notify(r.other.id, "{nom} t'a envoyé une photo.", { nom: req.user.profile.name }, { label: 'Répondre', params: { screen: 'chat', match: r.m.id } }, `msg:${r.m.id}`);
+    else notify(r.other.id, "{nom} t'a écrit : « {extrait} »", { nom: req.user.profile.name, extrait: `${text.slice(0, 60)}${text.length > 60 ? '…' : ''}` }, { label: 'Répondre', params: { screen: 'chat', match: r.m.id } }, `msg:${r.m.id}`);
   }
 
   // Profil de démo : répond après un délai (le temps de fermer l'app pour tester la notification)
@@ -1382,7 +1425,34 @@ api.post('/matches/:id/messages', requireMembre, limiter('message'), async (req,
       }
     }, config.demoReplyDelayMs);
   }
-  res.json({ message: { ...msg, from: undefined, mine: true } });
+  res.json({ message: messagePublic(msg, req.user.id) });
+});
+
+// Retirer un message : le sien seulement, et c'est tout ce que la route vérifie — le stockage
+// refuse déjà celui d'un autre. Les deux écrans montrent « Message supprimé » à sa place ; le
+// texte reste lisible par la modération si la discussion est signalée, jusqu'à ce que le match
+// soit défait. Une photo retirée cesse d'être servie tout de suite.
+api.delete('/matches/:id/messages/:mid', requireMembre, async (req, res) => {
+  const r = await loadMatch(req, res);
+  if (!r) return;
+  const msg = await store.supprimerMessage(r.m.id, req.params.mid, req.user.id);
+  if (!msg) return fail(res, 403, 'NOT_YOURS', 'Tu ne peux retirer que tes propres messages.');
+  signaler(r.m.id, 'signal', 'message', { sauf: req.user.id });
+  res.json({ supprime: true, id: msg.id });
+});
+
+// La photo d'un message : aux deux membres de la discussion, et à personne d'autre — même
+// porte que le fil (`loadMatch` : membre, match vivant, pas de blocage). `?mini=1` donne
+// l'aperçu, plus léger, que la bulle montre ; l'image entière ne part que si on l'ouvre.
+// Une photo retirée n'est plus servie, à personne, y compris à son auteur.
+api.get('/matches/:id/photos/:mid', requireMembre, async (req, res) => {
+  const r = await loadMatch(req, res);
+  if (!r) return;
+  const msg = (await store.messagesOf(r.m.id)).find((x) => x.id === String(req.params.mid));
+  const file = msg?.photo && !msg.deletedAt ? fichierPhotoDeChat(config.uploadsDir, r.m.id, msg.id) : null;
+  if (!file || !fs.existsSync(file)) return fail(res, 404, 'NO_PHOTO', 'Pas de photo.');
+  const apercu = req.query.mini === '1' ? apercuDe(file) : null;
+  res.set('Cache-Control', 'private, max-age=3600').sendFile(apercu || file);
 });
 
 // ---------- « Quelqu'un vient d'arriver » ----------

@@ -54,6 +54,19 @@ export const fichiersDUnePhoto = (n) => [nomPhoto(n), nomPhoto(n, { mini: true }
 // y en avait six : les photos 4 à 6 survivaient à la suppression du compte.
 export const fichiersDUnCompte = () => ['profile', 'selfie', ...PHOTO_SLOTS.flatMap(fichiersDUnePhoto)];
 
+// ---------- Les photos envoyées dans une discussion ----------
+// Nommées par le match et par le message, pas par le compte : elles appartiennent à la
+// discussion, et partent avec elle (match défait, compte supprimé), pas avec la fiche.
+export const APERCU_COTE = 360;
+export const APERCU_QUALITE = 70;
+export const fichierPhotoDeChat = (dir, matchId, messageId) => path.join(dir, `chat-${matchId}-${messageId}.jpg`);
+export function supprimerLesPhotosDuChat(dir, matchId) {
+  const prefixe = `chat-${matchId}-`;
+  let noms = [];
+  try { noms = fs.readdirSync(dir); } catch { return; }
+  for (const nom of noms) if (nom.startsWith(prefixe) && nom.endsWith('.jpg')) fs.unlinkSync(path.join(dir, nom));
+}
+
 // Réduit une image décodée (RGBA) en un carré de `cote` px, rognée au centre puis moyennée par
 // zones : chaque pixel de sortie est la moyenne du bloc qu'il remplace, ce qui vaut mieux qu'un
 // pixel pris au hasard dans le bloc, et ne demande aucune bibliothèque. Jamais agrandie : une
@@ -80,6 +93,55 @@ export function reduireEnCarre({ data, width, height }, cote = MINI_COTE) {
     }
   }
   return { data: sortie, width: taille, height: taille };
+}
+
+// Réduit une image décodée pour qu'elle tienne dans `maxCote` px, **sans la rogner** : l'aperçu
+// d'une photo de discussion montre l'image entière, en plus petit. Même moyenne par zones que
+// le carré, même refus d'agrandir.
+export function reduire({ data, width, height }, maxCote = APERCU_COTE) {
+  const rapport = Math.min(1, maxCote / Math.max(width, height));
+  const w = Math.max(1, Math.round(width * rapport));
+  const h = Math.max(1, Math.round(height * rapport));
+  const sortie = Buffer.alloc(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    const ya = Math.floor((y * height) / h);
+    const yb = Math.max(ya + 1, Math.floor(((y + 1) * height) / h));
+    for (let x = 0; x < w; x++) {
+      const xa = Math.floor((x * width) / w);
+      const xb = Math.max(xa + 1, Math.floor(((x + 1) * width) / w));
+      let r = 0, g = 0, b = 0, n = 0;
+      for (let yy = ya; yy < yb; yy++) {
+        let i = (yy * width + xa) * 4;
+        for (let xx = xa; xx < xb; xx++, i += 4) { r += data[i]; g += data[i + 1]; b += data[i + 2]; n++; }
+      }
+      const o = (y * w + x) * 4;
+      sortie[o] = r / n; sortie[o + 1] = g / n; sortie[o + 2] = b / n; sortie[o + 3] = 255;
+    }
+  }
+  return { data: sortie, width: w, height: h };
+}
+
+// L'aperçu d'une photo de discussion, en octets — ou null, même repli que la miniature.
+export function fabriquerApercu(octets) {
+  try {
+    const image = jpeg.decode(octets, { useTArray: true, formatAsRGBA: true, maxResolutionInMP: MAX_MEGAPIXELS, maxMemoryUsageInMB: MAX_MEMOIRE_MO });
+    return jpeg.encode(reduire(image), APERCU_QUALITE).data;
+  } catch {
+    return null;
+  }
+}
+
+// Le chemin de l'aperçu d'une photo de discussion, écrit s'il ne l'est pas encore. C'est lui que
+// la bulle montre : quelques dizaines de kilo-octets au lieu de quelques centaines, et l'image
+// entière ne part que si la personne l'ouvre.
+export function apercuDe(fichier) {
+  const apercu = fichier.replace(/\.jpg$/, '-apercu.jpg');
+  if (fs.existsSync(apercu)) return apercu;
+  if (!fs.existsSync(fichier)) return null;
+  const octets = fabriquerApercu(fs.readFileSync(fichier));
+  if (!octets) return null;
+  fs.writeFileSync(apercu, octets);
+  return apercu;
 }
 
 // La miniature d'un fichier JPEG, en octets — ou null si le fichier ne se décode pas ou dépasse

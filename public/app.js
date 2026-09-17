@@ -1468,7 +1468,7 @@ function dessinerMessages() {
             ${avatar(m.other, 'sm')}
             <div class="body">
               <div class="title">${esc(m.other.name)}${m.other.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${m.aQuiDeParler === 'moi' && !m.unread ? `<span class="tour">${t('À toi')}</span>` : ''}</div>
-              <div class="preview">${m.lastMessage ? `${m.lastMessage.mine ? t('Toi : ') : ''}${esc(m.lastMessage.text)}` : t('Nouveau match, écris le premier message')}</div>
+              <div class="preview">${m.lastMessage ? `${m.lastMessage.mine ? t('Toi : ') : ''}${m.lastMessage.supprime ? t('Message supprimé') : m.lastMessage.photo && !m.lastMessage.text ? `${icon('image', 13)} ${t('Photo')}` : esc(m.lastMessage.text)}` : t('Nouveau match, écris le premier message')}</div>
             </div>
             ${m.unread ? `<span class="count-badge">${m.unread}</span>` : `<span class="chev">${icon('chevron-right', 18)}</span>`}
           </button>`).join('')}
@@ -1495,7 +1495,7 @@ Object.assign(SCREENS, {
     try {
       const data = await api(`/matches/${encodeURIComponent(id)}`);
       if (perime()) return;
-      S.chat = { id, other: data.other, messages: data.messages, dates: data.dates, unlockAfter: data.unlockAfter, notice: null, tete: null, rendus: 0, bouge: Date.now(), ecritDepuis: 0, depuis: data.depuis, amorce: null, lu: Number(data.lu) || 0, enLigne: !!data.enLigne };
+      S.chat = { id, other: data.other, messages: data.messages, dates: data.dates, unlockAfter: data.unlockAfter, notice: null, tete: null, rendus: 0, bouge: Date.now(), ecritDepuis: 0, depuis: data.depuis, amorce: null, lu: Number(data.lu) || 0, enLigne: !!data.enLigne, reponseA: null, devoilees: new Set() };
     } catch (e) {
       if (perime()) return;
       return renderError(e, () => go('chat', { id }));
@@ -2299,9 +2299,175 @@ function chatBulles(c, depuis = 0, { neuves = false } = {}) {
     if (m.enCours) classes.push('encours');
     if (neuves) classes.push('neuve');
     if (m.mine && !m.enCours && m.at <= c.lu) classes.push('lu');
-    out += `<div class="${classes.join(' ')}"${m.tmp ? ` data-tmp="${esc(m.tmp)}"` : ''}${m.mine && !m.enCours ? ` data-at="${m.at}"` : ''}>${esc(m.text)}${heureEtEtat(m, c)}</div>`;
+    const attrs = `${m.id ? ` data-id="${esc(m.id)}"` : ''}${m.tmp ? ` data-tmp="${esc(m.tmp)}"` : ''}${m.mine && !m.enCours ? ` data-at="${m.at}"` : ''}`;
+    // Retiré par son auteur : la bulle reste à sa place, sans rien dedans — l'autre a pu la voir,
+    // et un trou dans le fil se lirait comme une panne.
+    if (m.supprime) {
+      classes.push('supprime');
+      out += `<div class="${classes.join(' ')}"${attrs}><span class="txt">${icon('ban', 13)} ${t('Message supprimé')}</span>${heureEtEtat(m, c)}</div>`;
+      continue;
+    }
+    if (m.photo) {
+      classes.push('photo');
+      // Les photos de l'autre arrivent voilées : c'est la personne qui décide de regarder, d'un
+      // appui. Les siennes se voient en clair, on sait ce qu'on a envoyé.
+      if (!m.mine && !c.devoilees.has(m.id)) classes.push('voile');
+    }
+    out += `<div class="${classes.join(' ')}"${attrs}>${m.replyTo ? citation(c, m.replyTo) : ''}${m.photo ? imageDuMessage(m) : ''}${m.text ? `<span class="txt">${esc(m.text)}</span>` : ''}${heureEtEtat(m, c)}</div>`;
   }
   return out;
+}
+
+// Ce qu'un message cite quand il répond à un autre : qui l'a écrit, et un extrait — ou ce qu'il
+// est devenu (« Photo », « Message supprimé »). Toucher la citation remonte au message cité.
+function citation(c, id) {
+  const m = c.messages.find((x) => x.id === id);
+  if (!m) return '';
+  const qui = m.mine ? t('Toi') : c.other.name;
+  const quoi = m.supprime ? t('Message supprimé') : m.photo && !m.text ? `${icon('image', 12)} ${t('Photo')}` : esc(m.text.length > 90 ? `${m.text.slice(0, 90)}…` : m.text);
+  return `<button type="button" class="quote" data-action="citation" data-id="${esc(id)}"><b>${esc(qui)}</b><span>${quoi}</span></button>`;
+}
+
+// L'image d'un message : la sienne, encore locale, tant que le serveur n'a pas répondu ; sinon
+// l'aperçu, chargé après la pose de la bulle, par le même chemin authentifié que les photos.
+function imageDuMessage(m) {
+  const src = m.photoLocale ? ` src="${m.photoLocale}"` : S.photoUrls[`chat/${m.id}/mini`] ? ` src="${S.photoUrls[`chat/${m.id}/mini`]}"` : '';
+  return `<span class="img" data-action="photo-chat" data-id="${esc(m.id || '')}"><img alt="${t('Photo')}"${src}${m.id && !src ? ` data-chat-photo="${esc(m.id)}"` : ''}><span class="voile-mot">${icon('image', 16)} ${t('Toucher pour voir')}</span></span>`;
+}
+
+// Les aperçus qui manquent encore dans le fil. Un seul chargement par image : l'adresse est
+// retenue, et la bulle reconstruite la retrouve sans rien redemander.
+async function photoDeChat(mid, { mini = true } = {}) {
+  const key = `chat/${mid}${mini ? '/mini' : ''}`;
+  if (S.photoUrls[key]) return S.photoUrls[key];
+  const res = await fetch(`/api/matches/${encodeURIComponent(S.chat.id)}/photos/${encodeURIComponent(mid)}${mini ? '?mini=1' : ''}`, { headers: authHeaders() }).catch(() => null);
+  if (!res?.ok) return null;
+  S.photoUrls[key] = URL.createObjectURL(await res.blob());
+  return S.photoUrls[key];
+}
+function chargerLesPhotosDuChat() {
+  document.querySelectorAll('#messages img[data-chat-photo]').forEach(async (img) => {
+    const mid = img.dataset.chatPhoto;
+    delete img.dataset.chatPhoto;
+    const enBasAvant = enBas(document.getElementById('messages'));
+    const url = await photoDeChat(mid);
+    if (!url || !img.isConnected) return;
+    img.onload = () => { if (enBasAvant) collerEnBas({ force: true }); };
+    img.src = url;
+  });
+}
+
+// Voir une photo en grand : l'image entière ne part que maintenant, à la demande. L'appui
+// referme. Le calque vit dans #app : quitter l'écran l'emporte.
+async function ouvrirLaPhoto(mid) {
+  const url = await photoDeChat(mid, { mini: false });
+  if (!url || S.screen !== 'chat') return;
+  document.querySelector('.visionneuse')?.remove();
+  app.insertAdjacentHTML('beforeend', `<div class="visionneuse" data-action="visionneuse-fermer" role="dialog" aria-label="${t('Photo')}"><img src="${url}" alt="${t('Photo')}"></div>`);
+}
+
+// ---------- Répondre, retirer ----------
+// Un appui long sur une bulle ouvre le menu du message. C'est le geste de Telegram lui-même,
+// donc celui que les gens connaissent ; l'appui court reste libre pour la photo et la citation.
+const APPUI_LONG_MS = 450;
+function armerLAppuiLong(box) {
+  let minuteur = null, depart = null;
+  const annuler = () => { clearTimeout(minuteur); minuteur = null; depart = null; };
+  box.addEventListener('pointerdown', (e) => {
+    const bulle = e.target.closest('.bubble[data-id]:not(.supprime):not(.encours)');
+    if (!bulle || e.button > 0) return;
+    depart = { x: e.clientX, y: e.clientY };
+    minuteur = setTimeout(() => { minuteur = null; tg.haptic('medium'); menuDuMessage(bulle.dataset.id); }, APPUI_LONG_MS);
+  });
+  box.addEventListener('pointermove', (e) => {
+    if (depart && Math.hypot(e.clientX - depart.x, e.clientY - depart.y) > 10) annuler();
+  });
+  for (const fin of ['pointerup', 'pointercancel', 'pointerleave']) box.addEventListener(fin, annuler);
+  box.addEventListener('scroll', annuler, { passive: true });
+  // Le menu du navigateur n'a rien à faire ici ; clic droit et appui long de secours mènent au nôtre.
+  box.addEventListener('contextmenu', (e) => {
+    const bulle = e.target.closest('.bubble[data-id]:not(.supprime):not(.encours)');
+    if (!bulle) return;
+    e.preventDefault();
+    annuler();
+    menuDuMessage(bulle.dataset.id);
+  });
+}
+
+async function menuDuMessage(id) {
+  const m = S.chat?.messages.find((x) => x.id === id);
+  if (!m || m.supprime) return;
+  const extrait = m.photo && !m.text ? t('Photo') : m.text.length > 80 ? `${m.text.slice(0, 80)}…` : m.text;
+  const choix = await tg.popup({
+    message: extrait,
+    buttons: [
+      { id: 'repondre', type: 'default', text: t('Répondre') },
+      ...(m.mine ? [{ id: 'supprimer', type: 'destructive', text: t('Supprimer') }] : []),
+      { id: 'cancel', type: 'cancel' },
+    ],
+  });
+  if (S.screen !== 'chat' || !S.chat) return;
+  if (choix === 'repondre') preparerLaReponse(id);
+  else if (choix === 'supprimer') supprimerLeMessage(id);
+}
+
+// La citation s'affiche au-dessus du champ, et le champ garde le clavier : rien n'est reconstruit.
+function preparerLaReponse(id) {
+  if (!S.chat) return;
+  S.chat.reponseA = id;
+  dessinerLaReponse();
+  app.querySelector('.composer input[name="message"]')?.focus();
+}
+function annulerLaReponse() {
+  if (!S.chat) return;
+  S.chat.reponseA = null;
+  dessinerLaReponse();
+}
+function dessinerLaReponse() {
+  const zone = document.getElementById('chat-reponse');
+  if (!zone || !S.chat) return;
+  const id = S.chat.reponseA;
+  const m = id && S.chat.messages.find((x) => x.id === id && !x.supprime);
+  if (!m) { zone.innerHTML = ''; S.chat.reponseA = null; return; }
+  const qui = m.mine ? t('Toi') : S.chat.other.name;
+  const quoi = m.photo && !m.text ? `${icon('image', 12)} ${t('Photo')}` : esc(m.text.length > 90 ? `${m.text.slice(0, 90)}…` : m.text);
+  zone.innerHTML = `<div class="reponse-a">${icon('reply', 15)}<div class="body"><b>${t('Répondre à {nom}', { nom: esc(qui) })}</b><span>${quoi}</span></div><button type="button" class="icon-btn" data-action="reponse-annuler" aria-label="${t('Ne plus répondre à ce message')}">${icon('x', 16)}</button></div>`;
+}
+
+// Retirer : les deux écrans montrent « Message supprimé » à la place — la bulle ne disparaît
+// pas, l'autre a pu la lire. Le fil se refait en entier, c'est rare et c'est le chemin sûr.
+async function supprimerLeMessage(id) {
+  const m = S.chat?.messages.find((x) => x.id === id && x.mine);
+  if (!m) return;
+  try {
+    await api(`/matches/${encodeURIComponent(S.chat.id)}/messages/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    marquerSupprimes([id]);
+    tg.haptic('light');
+  } catch (e) { showError(e); }
+}
+function marquerSupprimes(ids) {
+  if (!S.chat || !ids?.length) return;
+  let change = false;
+  for (const m of S.chat.messages) {
+    if (!ids.includes(m.id) || m.supprime) continue;
+    Object.assign(m, { supprime: true, text: '', photo: false, replyTo: null });
+    change = true;
+  }
+  if (!change) return;
+  if (ids.includes(S.chat.reponseA)) annulerLaReponse();
+  S.chat.tete = null;
+  updateChat();
+}
+
+// Toucher une citation remonte au message cité, et le fait briller un instant.
+function allerAuMessage(id) {
+  const bulle = document.querySelector(`#messages .bubble[data-id="${CSS.escape(id)}"]`);
+  if (!bulle) return;
+  S.chatEnBas = false;
+  bulle.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  bulle.classList.remove('cible');
+  void bulle.offsetWidth;
+  bulle.classList.add('cible');
 }
 
 // L'heure, et pour mes messages l'état : une horloge tant que le serveur n'a pas répondu, une
@@ -2363,7 +2529,9 @@ function renderChat() {
       </div>
       <div class="messages" id="messages" aria-live="polite"></div>
       <div id="chat-notice" class="chat-notice"></div>
+      <div id="chat-reponse"></div>
       <form class="composer" data-action="send">
+        <label class="joindre" aria-label="${t('Envoyer une photo')}">${icon('image', 20)}<input type="file" name="photo-chat" accept="image/*" hidden></label>
         <input name="message" autocomplete="off" maxlength="1000" placeholder="${t('Écris ton message')}" aria-label="${t('Message')}" enterkeyhint="send">
         <button type="submit" class="send" aria-label="${t('Envoyer')}" disabled>${icon('send', 20)}</button>
       </form>
@@ -2374,6 +2542,8 @@ function renderChat() {
   document.getElementById('messages').addEventListener('scroll', () => {
     S.chatEnBas = enBas(document.getElementById('messages'));
   }, { passive: true });
+  armerLAppuiLong(document.getElementById('messages'));
+  dessinerLaReponse();
   // Toucher « envoyer » donnait le focus au bouton, donc le retirait au champ : sur Android le
   // clavier se ferme, puis se rouvre quand le champ le reprend — l'écran se dandine à chaque
   // message. On empêche le déplacement du focus au moment du geste : le clavier ne bouge plus,
@@ -2411,6 +2581,7 @@ function updateChat({ scroll = false } = {}) {
   }
   S.chat.tete = tete;
   S.chat.rendus = S.chat.messages.length;
+  chargerLesPhotosDuChat();
   montrerLaFrappe({ sansDefiler: true });
   majBarreDeDeblocage();
   document.getElementById('chat-notice').innerHTML = S.chat.notice ? `<div class="notice notice-warn" role="alert">${icon('alert', 18)}<span>${esc(S.chat.notice)}</span></div>` : '';
@@ -2513,6 +2684,7 @@ async function pollChat() {
       updateChat();
       if (data.messages.some((m) => !m.mine)) tg.haptic('light');
     }
+    if (data.supprimes?.length) marquerSupprimes(data.supprimes);
     S.chat.ecritDepuis = data.ecrit ? Date.now() : 0;
     montrerLaFrappe();
     if (data.lu) majLecture(data.lu);
@@ -2630,18 +2802,20 @@ async function sendMessage(input) {
   const text = input.value.trim();
   if (!text) return;
   const button = input.nextElementSibling;
-  const brouillon = { tmp: `t${++provisoires}`, text, mine: true, at: Date.now(), enCours: true };
+  const replyTo = S.chat.reponseA || null;
+  const brouillon = { tmp: `t${++provisoires}`, text, mine: true, at: Date.now(), enCours: true, ...(replyTo ? { replyTo } : {}) };
   S.chat.messages.push(brouillon);
   S.chat.bouge = Date.now();
   S.chat.notice = null;
   input.value = '';
   button.disabled = true;
+  annulerLaReponse();
   tg.haptic('light');
   updateChat({ scroll: true });
   try {
     const amorce = S.chat.amorce;
     S.chat.amorce = null;
-    const { message } = await api(`/matches/${encodeURIComponent(S.chat.id)}/messages`, { method: 'POST', body: { text, ...(amorce ? { amorce } : {}) } });
+    const { message } = await api(`/matches/${encodeURIComponent(S.chat.id)}/messages`, { method: 'POST', body: { text, ...(amorce ? { amorce } : {}), ...(replyTo ? { replyTo } : {}) } });
     // L'heure du serveur remplace celle du téléphone, et la bulle se pose sans que rien ne bouge
     // autour : deux écritures dans le DOM valent mieux qu'un fil reconstruit.
     // La marque est relue **avant** d'être effacée, et depuis le brouillon : deux envois rapprochés
@@ -2653,6 +2827,7 @@ async function sendMessage(input) {
       bulle.classList.remove('encours');
       bulle.removeAttribute('data-tmp');
       bulle.dataset.at = String(brouillon.at);
+      bulle.dataset.id = brouillon.id;
       bulle.querySelector('.time').outerHTML = heureEtEtat(brouillon, S.chat);
       if (brouillon.at <= S.chat.lu) bulle.classList.add('lu');
     } else { S.chat.tete = null; updateChat(); }
@@ -2665,10 +2840,48 @@ async function sendMessage(input) {
     tg.haptic(e.code === 'MONEY_BLOCKED' ? 'warning' : 'error');
     S.chat.notice = e.code === 'MONEY_BLOCKED' ? `${e.message} ${t('Reformule sans montant ni moyen de paiement.')}` : e.message;
     if (!input.value.trim()) input.value = text;
+    if (replyTo && !S.chat.reponseA) { S.chat.reponseA = replyTo; dessinerLaReponse(); }
     updateChat({ scroll: true });
   } finally {
     button.disabled = !input.value.trim();
     input.focus();
+  }
+}
+
+// **Une photo dans la discussion.** Compressée sur le téléphone (1280 px au plus, comme la fiche
+// mais un peu plus large, c'est une image qu'on regarde), envoyée comme un message, et posée tout
+// de suite dans le fil avec son horloge — la même règle que le texte : la bulle part avant le
+// serveur, et un refus la retire. Rien d'autre qu'une image : pas de fichier, pas de document.
+async function envoyerLaPhoto(file, input) {
+  if (!S.chat || !file) return;
+  let photo;
+  try { photo = await compressImage(file, 1280, 0.8); } catch (e) { return showError(e); }
+  const replyTo = S.chat.reponseA || null;
+  const brouillon = { tmp: `t${++provisoires}`, text: '', photo: true, photoLocale: photo, mine: true, at: Date.now(), enCours: true, ...(replyTo ? { replyTo } : {}) };
+  S.chat.messages.push(brouillon);
+  S.chat.bouge = Date.now();
+  S.chat.notice = null;
+  annulerLaReponse();
+  tg.haptic('light');
+  updateChat({ scroll: true });
+  try {
+    const { message } = await api(`/matches/${encodeURIComponent(S.chat.id)}/messages`, { method: 'POST', body: { photo, ...(replyTo ? { replyTo } : {}) } });
+    Object.assign(brouillon, message, { enCours: false, tmp: null, photoLocale: null });
+    // L'image qu'on vient d'envoyer est déjà là : inutile de la redemander au serveur.
+    S.photoUrls[`chat/${message.id}/mini`] = photo;
+    S.chat.tete = null;
+    updateChat();
+    relancerLePoll({ tout_de_suite: true });
+  } catch (e) {
+    const i = S.chat.messages.indexOf(brouillon);
+    if (i >= 0) S.chat.messages.splice(i, 1);
+    S.chat.tete = null;
+    tg.haptic('error');
+    S.chat.notice = e.message;
+    if (replyTo && !S.chat.reponseA) { S.chat.reponseA = replyTo; dessinerLaReponse(); }
+    updateChat({ scroll: true });
+  } finally {
+    if (input) input.value = '';
   }
 }
 
@@ -2794,6 +3007,19 @@ app.addEventListener('click', async (e) => {
   switch (action) {
     case 'dev-back': window.__devBack?.(); break;
     case 'go': go(el.dataset.screen); break;
+    case 'citation': allerAuMessage(el.dataset.id); break;
+    case 'reponse-annuler': annulerLaReponse(); break;
+    case 'visionneuse-fermer': el.remove(); break;
+    case 'photo-chat': {
+      // Voilée : le premier appui dévoile, le second ouvre. On ne retient le dévoilement que le
+      // temps de l'écran : rouvrir la discussion revoile — c'est un choix à chaque fois.
+      const bulle = el.closest('.bubble');
+      const id = el.dataset.id;
+      if (!S.chat || !id) break;
+      if (bulle?.classList.contains('voile')) { S.chat.devoilees.add(id); bulle.classList.remove('voile'); tg.haptic('select'); break; }
+      ouvrirLaPhoto(id);
+      break;
+    }
     case 'set':
       tg.haptic('select');
       S.form[el.dataset.field] = el.dataset.value;
@@ -3041,6 +3267,8 @@ app.addEventListener('change', async (e) => {
     try { S.form.photos[el.name.slice(-1)] = await compressImage(el.files[0]); SCREENS.profile(); } catch (err) { showError(err); }
   } else if (el.name === 'selfie' && el.files?.[0]) {
     try { S.selfie = await compressImage(el.files[0], 900, 0.85); SCREENS.verify(); } catch (err) { showError(err); }
+  } else if (el.name === 'photo-chat' && el.files?.[0]) {
+    envoyerLaPhoto(el.files[0], el);
   } else if (el.name === 'zoneCity' && S.zoneDraft) {
     S.zoneDraft.city = el.value;
   } else if (el.name === 'discretion') {

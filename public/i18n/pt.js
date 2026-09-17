@@ -565,4 +565,13 @@ export default {
   "Envoyé": "Enviado",
   "En ligne": "Online",
   "écrit…": "a escrever…",
+  "Message supprimé": "Mensagem apagada",
+  "Toi": "Tu",
+  "Photo": "Foto",
+  "Toucher pour voir": "Toca para ver",
+  "Répondre": "Responder",
+  "Supprimer": "Apagar",
+  "Répondre à {nom}": "Responder a {nom}",
+  "Ne plus répondre à ce message": "Deixar de responder a esta mensagem",
+  "Envoyer une photo": "Enviar uma foto",
 };
