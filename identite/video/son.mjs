@@ -1,25 +1,39 @@
-// La bande-son de la vidéo : synthétisée ici, calée sur les scènes, sans aucun échantillon.
+// La bande-son de la vidéo : une musique produite sous licence libre, et l'habillage sonore
+// synthétisé ici, calé sur les scènes.
 //
-// Pourquoi synthétiser : une musique du commerce demande une licence, et une piste « libre »
-// trouvée en ligne en demande une aussi, qu'on ne peut pas vérifier depuis un script. Ce fichier
-// fabrique la bande-son de zéro, de façon déterministe — deux exécutions donnent le même son au
-// bit près — et chaque événement sonore tombe sur l'instant de la scène qu'il souligne, parce
-// que les deux lisent le même minutage (`SCENES`, plus bas, en miroir de video.html).
+// **La musique** vient de Mixkit (mixkit.co), dont la licence « Stock Music Free » autorise
+// l'usage dans une vidéo, commerciale ou non, en ligne comme en publicité, sans attribution ni
+// compte — c'est ce que dit la page du catalogue. Le fichier n'est pas versionné : le script le
+// télécharge dans `musique/` à la première exécution, et le garde. Un autre morceau du même
+// catalogue se choisit par son numéro (`--musique=389`) ; sans réseau, `--sans-musique` retombe
+// sur la nappe synthétisée d'avant, pour que la vidéo se refasse quoi qu'il arrive.
 //
-// Ce que ça contient : une nappe d'accords chauds qui change à chaque scène, une basse tenue,
-// un souffle qui monte avant chaque changement et un coup sourd dessus, une cloche douce sur les
-// trois objets du récit (le bouclier, le like, le match), un battement de cœur au match, un
-// son mat et descendant sur le message bloqué, et une réverbération sur tout ce qui frappe.
+// **L'habillage** est fabriqué de zéro, de façon déterministe, et chaque événement tombe sur
+// l'instant de la scène qu'il souligne, parce que les deux lisent le même minutage (`SCENES`,
+// en miroir de video.html) : un souffle qui monte avant chaque changement et un coup sourd
+// dessus, une cloche sur le bouclier, le like et le match, un battement de cœur au match, un
+// son mat sur le message bloqué, une réverbération sur ce qui frappe. Posé sous la musique, à
+// un niveau qui souligne sans couvrir.
 //
-// Sortie : son.wav, 48 kHz, stéréo, 16 bits, prête à être multiplexée par rendre.mjs. Pour une
-// autre bande-son, `npm run video -- --son=chemin/vers/piste.mp3` remplace celle-ci.
+// **Le mastering** est celui des réseaux en 2026 : -14 LUFS intégrés, crête vraie à -1 dBTP,
+// en deux passes de `loudnorm` (mesure, puis correction linéaire — une seule passe comprime
+// au fil de l'eau, et ça s'entend). Sortie : son.wav, 48 kHz, stéréo, que rendre.mjs multiplexe.
+// Une piste à soi : `npm run video -- --son=chemin/vers/piste.mp3`.
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ICI = path.dirname(fileURLToPath(import.meta.url));
-export const SORTIE = path.join(ICI, 'son.wav');
+const args = process.argv.slice(2);
+const SORTIE = args.find((a) => a.startsWith('--sortie='))?.split('=')[1] || path.join(ICI, 'son.wav');
 const SR = 48000;
+// Le morceau retenu : « Can't Get You Off My Mind », Michael Ramir C., future bass, 91 s.
+// Il monte pendant vingt-quatre secondes et s'ouvre à l'instant où la vidéo passe au match ;
+// c'est pour cette courbe qu'il a été choisi parmi quatre cents, mesures à l'appui.
+const MUSIQUE = args.find((a) => a.startsWith('--musique='))?.split('=')[1] || '1210';
+const SANS_MUSIQUE = args.includes('--sans-musique');
+const NIVEAU_EFFETS = SANS_MUSIQUE ? 1 : 0.5;
 
 // Le minutage des scènes, en secondes : le même que video.html.
 export const SCENES = { marque: 0, accroche: 4.2, verifie: 10, decouvrir: 16, match: 22, bloque: 28, discret: 34, rendezvous: 40, telegram: 46, appel: 52, fin: 58.5 };
@@ -142,7 +156,9 @@ function coeur(t0, amp = 0.3) { coup(t0, { amp, f0: 80, f1: 38, duree: 0.5 }); c
 function refus(t0) { toc(t0, { amp: 0.26, f0: 240, f1: 120, duree: 0.22 }); toc(t0 + 0.16, { amp: 0.22, f0: 170, f1: 80, duree: 0.34 }); }
 
 // ---------- La partition ----------
-PROGRESSION.forEach(([t, accord, fondamentale], i) => {
+// La nappe et la basse ne servent que sans musique : sous un vrai morceau, elles se battraient
+// avec sa tonalité.
+if (SANS_MUSIQUE) PROGRESSION.forEach(([t, accord, fondamentale], i) => {
   const fin = i + 1 < PROGRESSION.length ? PROGRESSION[i + 1][0] : SCENES.fin - 2.2;
   nappe(accord, t, fin, { gain: i === PROGRESSION.length - 1 ? 1.15 : 1 });
   basse(fondamentale, t, fin);
@@ -197,23 +213,61 @@ function reverb(entree, sortie, decalage) {
 }
 reverb(wetL, L, 0); reverb(wetR, R, 23);
 
-// ---------- Le mastering ----------
-// Fondu d'entrée, fondu de sortie, une pointe adoucie, puis le tout ramené à -1 dB.
+// ---------- L'écriture ----------
+function ecrireWav(fichier, gauche, droite, gain) {
+  const wav = Buffer.alloc(44 + total * 4);
+  wav.write('RIFF', 0); wav.writeUInt32LE(36 + total * 4, 4); wav.write('WAVE', 8); wav.write('fmt ', 12);
+  wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(2, 22); wav.writeUInt32LE(SR, 24); wav.writeUInt32LE(SR * 4, 28); wav.writeUInt16LE(4, 32); wav.writeUInt16LE(16, 34);
+  wav.write('data', 36); wav.writeUInt32LE(total * 4, 40);
+  for (let i = 0; i < total; i++) {
+    wav.writeInt16LE(Math.round(clamp(gauche[i] * gain, -1, 1) * 32767), 44 + i * 4);
+    wav.writeInt16LE(Math.round(clamp(droite[i] * gain, -1, 1) * 32767), 46 + i * 4);
+  }
+  fs.writeFileSync(fichier, wav);
+}
+
 let pic = 0;
 for (let i = 0; i < total; i++) {
   const t = i / SR;
   const env = clamp(t / 1.2, 0, 1) * clamp((SCENES.fin - t) / 2.4, 0, 1);
-  L[i] = Math.tanh(L[i] * 1.15) * env; R[i] = Math.tanh(R[i] * 1.15) * env;
+  L[i] = Math.tanh(L[i] * 1.15) * env * NIVEAU_EFFETS; R[i] = Math.tanh(R[i] * 1.15) * env * NIVEAU_EFFETS;
   pic = Math.max(pic, Math.abs(L[i]), Math.abs(R[i]));
 }
-const gain = Math.pow(10, -1 / 20) / pic;
-const wav = Buffer.alloc(44 + total * 4);
-wav.write('RIFF', 0); wav.writeUInt32LE(36 + total * 4, 4); wav.write('WAVE', 8); wav.write('fmt ', 12);
-wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(2, 22); wav.writeUInt32LE(SR, 24); wav.writeUInt32LE(SR * 4, 28); wav.writeUInt16LE(4, 32); wav.writeUInt16LE(16, 34);
-wav.write('data', 36); wav.writeUInt32LE(total * 4, 40);
-for (let i = 0; i < total; i++) {
-  wav.writeInt16LE(Math.round(clamp(L[i] * gain, -1, 1) * 32767), 44 + i * 4);
-  wav.writeInt16LE(Math.round(clamp(R[i] * gain, -1, 1) * 32767), 46 + i * 4);
+
+if (SANS_MUSIQUE) {
+  // Sans musique : la nappe et les effets, ramenés à -1 dB, et c'est fini.
+  ecrireWav(SORTIE, L, R, Math.pow(10, -1 / 20) / pic);
+  console.log(`${SORTIE} : ${SCENES.fin} s, sans musique, pic ramené à -1 dB`);
+  process.exit(0);
 }
-fs.writeFileSync(SORTIE, wav);
-console.log(`${SORTIE} : ${SCENES.fin} s, pic ramené à -1 dB`);
+
+// ---------- La musique, le mélange, le mastering ----------
+const ffmpeg = process.env.FFMPEG || 'ffmpeg';
+const DOSSIER = path.join(ICI, 'musique');
+fs.mkdirSync(DOSSIER, { recursive: true });
+const musique = path.join(DOSSIER, `${MUSIQUE}.mp3`);
+if (!fs.existsSync(musique)) {
+  const r = await fetch(`https://assets.mixkit.co/music/${MUSIQUE}/${MUSIQUE}.mp3`, { headers: { 'User-Agent': 'Mozilla/5.0' } }).catch(() => null);
+  if (!r?.ok) { console.error(`Musique ${MUSIQUE} introuvable sur mixkit.co (${r?.status || 'réseau'}). Relance avec --sans-musique, ou pose le fichier dans ${musique}.`); process.exit(1); }
+  fs.writeFileSync(musique, Buffer.from(await r.arrayBuffer()));
+  console.log(`musique : ${musique} (${(fs.statSync(musique).size / 1e6).toFixed(1)} Mo)`);
+}
+const effets = path.join(DOSSIER, 'effets.wav');
+ecrireWav(effets, L, R, 1);
+
+// La musique est coupée à la durée de la vidéo, avec une entrée brève et une sortie de deux
+// secondes et demie ; les effets viennent dessus, sans normalisation du mélange (amix
+// baisserait tout de moitié). Puis la sonie est mesurée, et corrigée en une seconde passe.
+const fin = SCENES.fin;
+const melange = `[0:a]atrim=0:${fin},asetpts=N/SR/TB,afade=t=in:d=0.25,afade=t=out:st=${fin - 2.6}:d=2.6[m];[1:a]atrim=0:${fin},asetpts=N/SR/TB[e];[m][e]amix=inputs=2:duration=first:normalize=0`;
+// -2,2 dBTP et non -1 : l'encodage AAC qui suit ajoute jusqu'à 1,8 dB de crête sur des transitoires vifs, et la plupart des
+// plateformes replient à -1.
+const cible = 'I=-14:TP=-2.2:LRA=11';
+const mesure = spawnSync(ffmpeg, ['-loglevel', 'info', '-i', musique, '-i', effets, '-filter_complex', `${melange},loudnorm=${cible}:print_format=json`, '-f', 'null', '-'], { encoding: 'utf8' });
+const json = /\{[^{}]*"input_i"[\s\S]*?\}/.exec(mesure.stderr || '');
+if (!json) { console.error('Mesure de sonie impossible :', (mesure.stderr || '').slice(-600)); process.exit(1); }
+const m = JSON.parse(json[0]);
+const correction = `loudnorm=${cible}:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true:print_format=summary`;
+const r2 = spawnSync(ffmpeg, ['-y', '-loglevel', 'error', '-i', musique, '-i', effets, '-filter_complex', `${melange},${correction}`, '-ar', String(SR), '-ac', '2', '-c:a', 'pcm_s16le', SORTIE], { encoding: 'utf8' });
+if (r2.status !== 0) { console.error(r2.stderr); process.exit(1); }
+console.log(`${SORTIE} : ${fin} s, musique ${MUSIQUE} (mesurée à ${m.input_i} LUFS) + effets, masterisé à -14 LUFS / -1 dBTP`);

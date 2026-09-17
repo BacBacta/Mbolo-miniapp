@@ -188,8 +188,11 @@ identite/
   le nom y est posé au rendu depuis APP_NAME, jamais écrit dans le gabarit (règle 12).
   `video/` : la vidéo de présentation (`npm run video`, ffmpeg requis sur la machine) — de vraies
   captures de l'app prises par `captures.mjs`, un montage `video.html` piloté image par image
-  par `rendre.mjs`, une bande-son **synthétisée** par `son.mjs` (aucune licence à vérifier,
-  déterministe, même minutage que le montage ; `--son=` pour une piste sous licence). Les
+  par `rendre.mjs`, une bande-son assemblée par `son.mjs` : une musique du catalogue Mixkit
+  (licence libre d'usage commercial, téléchargée au rendu, jamais versionnée ; choisie parmi
+  quatre cents sur sa courbe d'énergie, `--musique=` pour un autre numéro), un habillage
+  synthétisé au même minutage que le montage, et un mastering à -14 LUFS en deux passes
+  (`--sans-musique` sans réseau, `--son=` pour une piste à soi). Les
   portraits viennent de `video/photos/` s'il existe — jamais d'une banque d'images de vraies
   personnes. Rien de ce qu'elle produit n'est versionné.
 ```

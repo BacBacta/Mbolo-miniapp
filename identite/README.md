@@ -85,18 +85,35 @@ npm run video
 
 ### La bande-son
 
-`video/son.mjs` la **synthétise** : aucune musique du commerce, aucun échantillon, donc
-aucune licence à vérifier — et deux exécutions donnent le même son au bit près. Une nappe
-d'accords chauds en ré mineur qui change à chaque scène, une basse tenue, un souffle qui
-monte avant chaque changement et un coup sourd dessus, une cloche sur le bouclier, le like
-et le match, un battement de cœur au match, un son mat sur le message bloqué, une
-réverbération sur tout ce qui frappe. Le minutage (`SCENES`) est le miroir de celui de
-`video.html` : déplacer une scène, c'est déplacer les deux.
+Trois couches, assemblées par `video/son.mjs`.
 
-Pour une autre bande-son, une piste dont tu as la licence :
+**La musique** vient de [Mixkit](https://mixkit.co/free-stock-music/), le catalogue
+d'Envato, dont la licence « Stock Music Free » autorise l'usage dans une vidéo, commerciale
+ou non, en ligne comme en publicité, sans attribution ni compte. Le morceau retenu est
+**« Can't Get You Off My Mind » de Michael Ramir C.** (n° 1210, future bass, 91 s) : parmi
+quatre cents morceaux du catalogue, seize ont été téléchargés et mesurés — durée, sonie,
+dynamique, brillance, tempo, et surtout la **courbe d'énergie** lue dans leur forme d'onde.
+Celui-ci monte pendant vingt-quatre secondes et s'ouvre à l'instant où la vidéo passe au
+match. Deux autres tiennent la même courbe et restent à un numéro près : **« Wedding Song
+03 » d'Arulo** (n° 389, chillout chaud, hip-hop cinématique) et **« It's Love » de Michael
+Ramir C.** (n° 834, électronica montante). Le fichier n'est pas versionné : le script le
+télécharge dans `video/musique/` à la première exécution, et le garde.
+
+**L'habillage** est synthétisé de zéro, de façon déterministe, et chaque événement tombe
+sur l'instant de la scène qu'il souligne (`SCENES`, en miroir de `video.html`) : un souffle
+avant chaque changement et un coup sourd dessus, une cloche sur le bouclier, le like et le
+match, un battement de cœur au match, un son mat sur le message bloqué. Posé sous la
+musique, à moitié de son niveau.
+
+**Le mastering** est celui des réseaux en 2026 : −14 LUFS intégrés, crête vraie sous
+−1 dBTP après l'encodage AAC, en deux passes de `loudnorm` — la mesure, puis une correction
+linéaire. Une seule passe comprimerait au fil de l'eau, et ça s'entend.
 
 ```powershell
-npm run video -- --son="C:\chemin\vers\piste.mp3"
+npm run video                                      # le morceau retenu
+npm run video -- --musique=389                     # un autre numéro du catalogue Mixkit
+npm run video -- --sans-musique                    # sans réseau : la nappe synthétisée d'avant
+npm run video -- --son="C:\chemin\vers\piste.mp3"  # une piste à toi, sous ta licence
 ```
 
 Telegram lance les vidéos sans le son dans les canaux : les images doivent se suffire, et

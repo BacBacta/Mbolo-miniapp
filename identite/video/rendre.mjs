@@ -66,9 +66,9 @@ const enc = spawn(ffmpeg, [
   '-f', 'image2pipe', '-framerate', String(IPS), '-i', '-',
   '-i', SON,
   '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level', '4.1',
-  // AAC à 160 kb/s, et la piste la plus courte des deux borne la vidéo : un son plus long
+  // AAC à 256 kb/s (moins d'overshoot sur les crêtes), et la piste la plus courte des deux borne la vidéo : un son plus long
   // que les images ne laisserait pas un écran noir derrière.
-  '-c:a', 'aac', '-b:a', '160k', '-ar', '48000', '-shortest',
+  '-c:a', 'aac', '-b:a', '256k', '-ar', '48000', '-shortest',
   '-movflags', '+faststart', '-r', String(IPS), SORTIE,
 ], { stdio: ['pipe', 'inherit', 'inherit'] });
 const fini = new Promise((res, rej) => enc.on('close', (code) => (code === 0 ? res() : rej(new Error(`ffmpeg : code ${code}`)))));
