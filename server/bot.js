@@ -8,7 +8,7 @@ import { mesurer } from './mesure.js';
 import { PREFIXE, porteurDuCode, accepter, refuser, retirer, membresQuiMOntChoisi } from './confiance.js';
 import { refusDuree, fichierVoix } from './voix.js';
 import { consommer } from './limites.js';
-import { estPlus, prolonger, palier, DUREES } from './plus.js';
+import { estPlus, prolonger, palier, retirer as retirerDuPass, DUREES, offre, lireChargeUtile } from './plus.js';
 
 export const bot = config.botToken ? new Bot(config.botToken) : null;
 
@@ -627,6 +627,90 @@ export async function setupBot() {
     const fermees = r.portes.filter((p) => !p.ok).map((p) => p.porte);
     const verdict = r.verrait ? `${idA} verrait ${idB} dans son paquet.` : `${idA} ne voit pas ${idB} : ${fermees.join(', ')}.`;
     await ctx.reply(`${verdict}\n\n${lignes.join('\n')}`);
+  });
+
+  // ---------- La caisse : Telegram Stars ----------
+  //
+  // Telegram pose deux questions au bot. D'abord, juste avant de débiter : « ce paiement est-il
+  // encore bon ? » (pre_checkout_query, dix secondes pour répondre). On relit la charge utile de
+  // la facture, on vérifie que la durée est toujours vendue **à ce prix** — la grille a pu changer
+  // entre la facture et le paiement — et que la devise est bien XTR. Ensuite, une fois débité :
+  // « voilà le paiement » (successful_payment). C'est là, et seulement là, que le pass se pose.
+  //
+  // Le pass va à **qui a payé** (ctx.from), pas à l'identifiant écrit dans la facture : une
+  // adresse de facture peut être transmise, et l'argent est sorti du compte de qui l'a ouverte.
+  // La ligne de paiement porte la référence Telegram, unique : un webhook rejoué rend la ligne
+  // déjà écrite et ne crédite pas deux fois.
+  bot.on('pre_checkout_query', async (ctx) => {
+    const q = ctx.preCheckoutQuery;
+    const charge = lireChargeUtile(q.invoice_payload);
+    const o = charge && offre(charge.jours);
+    if (!o) return ctx.answerPreCheckoutQuery(false, { error_message: 'Cette offre n\'existe plus. Rouvre l\'app et choisis une durée.' });
+    if (q.currency !== 'XTR' || Number(q.total_amount) !== o.stars) return ctx.answerPreCheckoutQuery(false, { error_message: 'Le prix a changé depuis cette facture. Rouvre l\'app pour en refaire une.' });
+    const u = await store.getUser(ctx.from.id);
+    if (!u || u.banned) return ctx.answerPreCheckoutQuery(false, { error_message: 'Ce compte ne peut pas prendre de pass.' });
+    await ctx.answerPreCheckoutQuery(true);
+  });
+
+  bot.on('message:successful_payment', async (ctx) => {
+    const p = ctx.message.successful_payment;
+    const charge = lireChargeUtile(p.invoice_payload);
+    const u = await store.getUser(ctx.from.id);
+    if (!charge || !offre(charge.jours) || !u) {
+      // De l'argent est sorti et on ne sait pas quoi en faire : ça se voit tout de suite dans
+      // le groupe, avec la référence pour rembourser.
+      await notifyAdmin(`Paiement reçu sans pass possible (charge utile « ${p.invoice_payload} », ${p.total_amount} Stars, compte ${ctx.from.id}). Référence : ${p.telegram_payment_charge_id}. À rembourser : /rembourser ${p.telegram_payment_charge_id}`);
+      return;
+    }
+    const ligne = await store.addPaiement({ userId: u.id, chargeId: p.telegram_payment_charge_id, source: 'stars', jours: charge.jours, stars: Number(p.total_amount) });
+    if (ligne.deja) return; // livraison rejouée : déjà crédité
+    const plus = prolonger(u, { jours: charge.jours, source: 'stars' });
+    await store.updateUser(u.id, { plus });
+    mesurer('pass_achat', u.id, { jours: charge.jours, stars: Number(p.total_amount) });
+    const quand = (lang) => new Date(plus.finLe).toLocaleDateString(lang, { dateStyle: 'long', timeZone: config.modTimezone });
+    await notify(u.id, 'Merci. Ton pass {app} Plus est actif jusqu\'au {date}. Reçu : {ref}', { app: config.appName, date: quand(langueDe(u)), ref: p.telegram_payment_charge_id.slice(-6) }, { label: 'Ouvrir {app}', params: { screen: 'me' } });
+    notifyAdmin(`Pass ${charge.jours} j acheté (${p.total_amount} Stars) par ${u.id}, jusqu'au ${quand('fr-FR')}. Référence : ${p.telegram_payment_charge_id}`);
+  });
+
+  // Rembourser un paiement en Stars, depuis le groupe de modération, par sa référence (celle du
+  // reçu envoyé à la personne, ou de la ligne du groupe). Telegram rend les Stars ; les jours
+  // achetés sont retirés du pass, jamais en dessous d'aujourd'hui.
+  bot.command('rembourser', async (ctx) => {
+    if (await commandeRefusee(ctx)) return;
+    const ref = String(ctx.match || '').trim();
+    if (!ref) return ctx.reply('Usage : /rembourser <référence du paiement>. La référence est sur le reçu de la personne et dans la ligne du groupe.');
+    const paiement = await store.paiementParCharge(ref);
+    if (!paiement) return ctx.reply(`Aucun paiement avec la référence ${ref}.`);
+    if (paiement.statut === 'rembourse') return ctx.reply('Ce paiement a déjà été remboursé.');
+    if (!paiement.userId) return ctx.reply('Ce paiement appartient à un compte supprimé : Telegram ne peut plus le rembourser par ce chemin.');
+    try {
+      await bot.api.refundStarPayment(Number(paiement.userId), paiement.chargeId);
+    } catch (e) {
+      return ctx.reply(`Telegram a refusé le remboursement : ${e.message}`);
+    }
+    await store.marquerRembourse(paiement.chargeId);
+    const u = await store.getUser(paiement.userId);
+    if (u) await store.updateUser(u.id, { plus: retirerDuPass(u, paiement.jours) });
+    mesurer('pass_rembourse', paiement.userId, { jours: paiement.jours });
+    await ctx.reply(`Remboursé : ${paiement.stars} Stars à ${paiement.userId} (${paiement.jours} jours retirés).`);
+    if (u) notify(u.id, 'Ton paiement de {n} Stars a été remboursé. Les jours correspondants sont retirés de ton pass.', { n: paiement.stars }, { label: 'Voir mon profil', params: { screen: 'me' } });
+  });
+
+  // Telegram demande à tout bot qui encaisse de répondre à /paysupport. La personne y trouve ses
+  // reçus et le chemin vers l'équipe : ce qu'elle écrit après /aidepaiement est transmis au
+  // groupe de modération, avec son identifiant, jamais avec son pseudo.
+  bot.command('paysupport', async (ctx) => {
+    const u = await store.getUser(ctx.from?.id);
+    const achats = u ? await store.paiementsDe(u.id) : [];
+    const lignes = achats.slice(0, 5).map((p) => `• ${new Date(p.at).toLocaleDateString(langueDe(u), { dateStyle: 'medium', timeZone: config.modTimezone })} · ${p.jours} j · ${p.stars} Stars · ${p.statut === 'rembourse' ? t(langueDe(u), 'remboursé') : t(langueDe(u), 'reçu {ref}', { ref: p.chargeId.slice(-6) })}`);
+    await ctx.reply(`${t(langueDe(u), 'Tes paiements {app} Plus :', { app: config.appName })}\n${lignes.length ? lignes.join('\n') : t(langueDe(u), 'Aucun paiement pour l\'instant.')}\n\n${t(langueDe(u), 'Un problème avec un paiement ? Écris /aidepaiement suivi de ton message : l\'équipe te répond ici.')}`);
+  });
+  bot.command('aidepaiement', async (ctx) => {
+    const texte = String(ctx.match || '').trim().slice(0, 500);
+    const u = await store.getUser(ctx.from?.id);
+    if (!texte) return ctx.reply(t(langueDe(u), 'Écris ton message après /aidepaiement, en une ligne.'));
+    await notifyAdmin(`Aide paiement demandée par ${ctx.from.id} : ${texte}`);
+    await ctx.reply(t(langueDe(u), 'Transmis à l\'équipe. Elle te répond ici.'));
   });
 
   bot.command('sanspass', async (ctx) => {

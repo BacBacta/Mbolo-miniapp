@@ -4,9 +4,9 @@
 // réglage de discrétion s'enregistre. Ils ne disent rien de ce qu'une personne voit : or c'est
 // exactement là qu'un manque se lit comme une panne, et qu'on cherche ce qu'on a mal fait.
 import { test, expect } from '@playwright/test';
-import { membreVerifie, actionPrincipale, titre, onglet } from './aides.js';
+import { membreVerifie, actionPrincipale, actionSecondaire, titre, onglet } from './aides.js';
 
-test("sans pass, Messages explique la place laissée vide au lieu de la laisser vide", async ({ page }) => {
+test("sans pass, Messages explique la place laissée vide, et la porte mène à une caisse", async ({ page }) => {
   await membreVerifie(page, 'Awa');
   await onglet(page, /Messages/).click();
 
@@ -14,18 +14,30 @@ test("sans pass, Messages explique la place laissée vide au lieu de la laisser 
   await expect(invitation).toBeVisible();
   await expect(invitation).toContainText(/passent déjà devant dans ton paquet/);
 
-  // Elle mène au pass, et le pass dit franchement qu'il n'est pas en vente : une promesse
-  // affichée que rien n'honore est pire qu'une fonction absente.
+  // Elle mène au pass : une promesse, un prix, un bouton qui paie. Pas un catalogue, pas un
+  // « bientôt » — c'est la refonte du 17 septembre 2026.
   await invitation.click();
-  await expect(titre(page)).toHaveText(/Plus$/);
-  await expect(page.locator('main')).toContainText(/n'est pas encore en vente/);
-  // Il n'annonce que ce que le serveur fait déjà : deux lignes, pas le catalogue à venir.
-  await expect(page.locator('main')).toContainText(/Sans pass, tu en as 5 par jour/);
-  await expect(page.locator('main')).toContainText(/Qui t'a aimé/);
+  await expect(titre(page)).toHaveText(/Vois qui t'a aimé/);
+  const main = page.locator('main');
+  // La phrase d'accroche suit la porte par laquelle on est entré.
+  await expect(main).toContainText(/Le pass te dit qui/);
+  // Trois durées, comme des forfaits ; la durée conseillée est marquée et présélectionnée.
+  const offres = page.locator('.offre');
+  await expect(offres).toHaveCount(3);
+  await expect(main).toContainText(/Le plus choisi/);
+  await expect(page.locator('.offre[aria-checked="true"]')).toContainText(/30 jours/);
+  await expect(actionPrincipale(page)).toHaveText(/Prendre 30 jours · 299 ⭐/);
+  // Choisir une autre durée change le bouton sans rien recharger.
+  await offres.filter({ hasText: /7 jours/ }).click();
+  await expect(actionPrincipale(page)).toHaveText(/Prendre 7 jours · 99 ⭐/);
+  // Ce que le pass ouvre tient en cinq lignes, et la règle qui compte est écrite : pas de reconduction.
+  await expect(main).toContainText(/5 par jour sans le pass/);
+  await expect(main).toContainText(/Aucune reconduction/);
+  await expect(main).not.toContainText(/pas encore en vente/);
 
   // Et le retour ramène d'où l'on vient, pas sur l'onglet Profil par défaut.
-  await actionPrincipale(page).click();
-  await expect(page.locator('main')).toContainText(/Tes matchs apparaîtront ici|Discussions/);
+  await actionSecondaire(page).click();
+  await expect(main).toContainText(/Tes matchs apparaîtront ici|Discussions/);
 });
 
 // « Rester discret » n'est pas réservé au pass, et ne le sera jamais : on ne vend pas le droit

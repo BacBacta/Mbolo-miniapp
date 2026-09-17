@@ -85,14 +85,18 @@ test('un pass pris pendant un pass repousse la fin, il ne la remplace pas', () =
   }
   assert.throws(() => prolonger({}, { jours: 30, source: 'bitcoin' }), /Source de pass inconnue/);
   assert.ok(SOURCES.includes('momo') && SOURCES.includes('stars'), 'les sources sont celles de la table entitlements (section 10.4)');
-  assert.deepEqual(DUREES, [30, 90]);
+  // Les durées vendues sont celles de la grille : au jour, à la semaine, au mois — comme la data.
+  assert.deepEqual(DUREES, [7, 30, 90]);
 });
 
 test('le pass se lit sur soi, et sur personne d\'autre', async () => {
   await membre('9101', 'Awa', 'femme');
   await membre('9102', 'Bea', 'femme', 26);
 
-  assert.deepEqual((await call('9101', '/me')).body.plus, { actif: false, finLe: null, source: null, jours: 0 });
+  const { offres, conseillee, ...etatSans } = (await call('9101', '/me')).body.plus;
+  assert.deepEqual(etatSans, { actif: false, finLe: null, source: null, jours: 0 });
+  assert.deepEqual(offres.map((o) => o.jours), [7, 30, 90], 'la grille voyage avec l\'état, pour que l\'écran n\'en recopie rien');
+  assert.equal(conseillee, 30);
   await donnerLePass('9101', 30);
   const etat = (await call('9101', '/me')).body.plus;
   assert.equal(etat.actif, true);

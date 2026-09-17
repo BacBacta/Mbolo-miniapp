@@ -285,6 +285,35 @@ test('aucun de ces chiffres ne prétend mesurer un consentement à payer', () =>
     "sans caisse, un refus mesure une curiosité — l'écrire à côté du nombre est la moitié du travail");
 });
 
+test("les achats en Stars se comptent en personnes, en jours et en Stars, remboursements déduits", () => {
+  const r = monde({
+    users: [membre(3), membre(5)],
+    events: [
+      evt('pass_vu', 1, { quoi: 'likes' }), evt('pass_vu', 1, { quoi: 'quota' }), evt('pass_vu', 3, { quoi: 'profil' }),
+      evt('pass_vu', 5, { quoi: 'likes' }),
+      evt('pass_facture', 1, { jours: 30, stars: 299 }), evt('pass_facture', 1, { jours: 30, stars: 299 }),
+      evt('pass_achat', 1, { jours: 30, stars: 299 }), evt('pass_achat', 1, { jours: 7, stars: 99 }),
+      evt('pass_achat', 3, { jours: 90, stars: 699 }),
+      evt('pass_rembourse', 3, { jours: 90, stars: 699 }),
+      evt('pass_usage', 3, { quoi: 'likes' }),
+    ],
+  });
+  assert.equal(r.plus.vusPersonnes, 3, "trois personnes ont ouvert l'écran, quel que soit le nombre de fois");
+  assert.deepEqual(r.plus.vusParPorte, { likes: 2, quota: 1, profil: 1 });
+  assert.equal(r.plus.facturesDemandees, 2);
+  assert.equal(r.plus.achats, 3);
+  assert.equal(r.plus.achatsPersonnes, 2);
+  assert.deepEqual(r.plus.achatsParDuree, { 30: 1, 7: 1, 90: 1 });
+  assert.equal(r.plus.joursVendus, 127);
+  assert.equal(r.plus.starsEncaisses, 299 + 99, 'le remboursement se retire de ce qui est encaissé');
+  assert.equal(r.plus.rembourses, 1);
+  assert.equal(r.plus.partVusQuiAchetent, 2 / 3);
+  // Qui a eu un pass, acheté ou offert, compte au dénominateur de l'usage.
+  assert.equal(r.plus.partQuiSEnServent, 0.5, "deux ont eu un pass, un seul s'en est servi");
+  assert.ok(!r.avertissements.some((a) => /offerts à la main/.test(a)), "dès qu'un pass est vendu, l'avertissement « aucun vendu » tombe");
+  assert.ok(r.avertissements.some((a) => /borne basse/.test(a)), 'la conversion est annoncée comme une borne basse');
+});
+
 test('un profil de démonstration ne gonfle ni la demande ni l\'usage', () => {
   const r = monde({
     users: [membre('demo-2', { demo: true, plus: { source: 'gift', finLe: MAINTENANT + JOUR } })],

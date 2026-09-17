@@ -37,11 +37,11 @@ test('chaque table est comptée là où elle est rangée dans le fichier', () =>
     dates: { d1: { id: 'd1' } },
     events: [{ id: 'e1' }, { id: 'e2' }],
   });
-  assert.deepEqual(n, { users: 2, swipes: 1, matches: 1, messages: 3, blocks: 1, reports: 1, dates: 1, events: 2 });
+  assert.deepEqual(n, { users: 2, swipes: 1, matches: 1, messages: 3, blocks: 1, reports: 1, dates: 1, events: 2, paiements: 0 });
 });
 
 test('un fichier vide ne compte rien, et ne manque rien', () => {
-  assert.deepEqual(attendu({}), { users: 0, swipes: 0, matches: 0, messages: 0, blocks: 0, reports: 0, dates: 0, events: 0 });
+  assert.deepEqual(attendu({}), { users: 0, swipes: 0, matches: 0, messages: 0, blocks: 0, reports: 0, dates: 0, events: 0, paiements: 0 });
   assert.equal(comparer(attendu({}), {}).manquantes.length, 0);
 });
 
