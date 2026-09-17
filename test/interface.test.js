@@ -88,6 +88,10 @@ test("aucun réglage ne retient une photo, et les vignettes se chargent à l'app
   assert.ok(!/S\.\w+/.test(entre('function loadCardPhoto(p, {', 'photoUrl(p.id')), 'la fiche ne consulte aucun réglage');
   assert.ok(!/S\.\w+/.test(entre('function loadAvatar(p, {', 'photoUrl(p.id')), "l'avatar non plus");
   assert.match(entre('function lazyAvatars() {', 'async function changerLangue'), /IntersectionObserver/);
+  // Et une vignette ne télécharge que la miniature : la photo entière, c'est pour la carte et la
+  // fiche, là où l'on décide. L'inverse — la carte sur une miniature de 160 px — se verrait.
+  assert.match(entre('function loadAvatar(p, {', '\n}\n'), /photoUrl\([^)]*\{ mini: true \}\)/, "l'avatar demande la miniature");
+  assert.doesNotMatch(entre('function loadCardPhoto(p, {', '\n}\n'), /mini/, 'la carte demande la photo entière');
 });
 
 // Trois écrans ouvrent une fiche de profil, et `SCREENS.person` n'en connaissait qu'un. Depuis

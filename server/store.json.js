@@ -9,6 +9,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { config } from './config.js';
 import { fichierVoix } from './voix.js';
+import { fichiersDUnePhoto, fichiersDUnCompte } from './photos.js';
 
 const file = path.join(config.dataDir, 'db.json');
 const empty = () => ({ users: {}, swipes: [], matches: {}, messages: {}, reports: [], blocks: [], dates: {}, events: [] });
@@ -148,7 +149,7 @@ export const store = {
     // promesse « tout part » deviendrait fausse. Les lignes sans identifiant (account_deleted)
     // ne sont pas concernées : elles ne désignent personne.
     db.events = db.events.filter((e) => e.u !== id);
-    for (const f of ['profile', 'selfie', 'photo-1', 'photo-2', 'photo-3']) {
+    for (const f of fichiersDUnCompte()) {
       const p = path.join(config.uploadsDir, `${id}-${f}.jpg`);
       if (fs.existsSync(p)) fs.unlinkSync(p);
     }
@@ -239,8 +240,10 @@ export const store = {
     const u = db.users[String(userId)];
     if (!u) return [];
     u.photos = (await store.photosOf(u)).filter((p) => p.n !== n);
-    const f = path.join(config.uploadsDir, `${u.id}-photo-${n}.jpg`);
-    if (fs.existsSync(f)) fs.unlinkSync(f);
+    for (const nom of fichiersDUnePhoto(n)) {
+      const f = path.join(config.uploadsDir, `${u.id}-${nom}.jpg`);
+      if (fs.existsSync(f)) fs.unlinkSync(f);
+    }
     if (u.profile) u.profile.hasPhoto = u.photos.some((p) => p.status === 'approved');
     save();
     return u.photos;

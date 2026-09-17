@@ -159,3 +159,112 @@ test('en test, AUTO_APPROVE valide sans attendre', async () => {
     config.autoApprove = false;
   }
 });
+
+// ---------- Miniatures : la même photo en petit, fabriquée sur le serveur ----------
+// Ce que ces tests figent, dans l'ordre : la miniature existe et coûte moins que la photo ; elle
+// passe par la même porte que la photo (une photo en attente n'a pas de miniature publique) ;
+// elle vient **du fichier validé et jamais du client** — c'est le seul de ces tests qui protège
+// une promesse de sécurité ; une photo qui ne se décode pas garde la photo entière en repli ; et
+// tout part avec l'emplacement, puis avec le compte — les six emplacements, plus les trois.
+const jpeg = (await import('jpeg-js')).default;
+const { MINI_COTE } = await import('../server/photos.js');
+// Un vrai JPEG de la taille que le téléphone envoie, à la couleur demandée : le 1 × 1 du haut
+// ne dit rien sur la réduction.
+function photoDe(couleur, largeur = 640, hauteur = 800) {
+  const data = Buffer.alloc(largeur * hauteur * 4);
+  for (let i = 0; i < data.length; i += 4) { data[i] = couleur[0]; data[i + 1] = couleur[1]; data[i + 2] = couleur[2]; data[i + 3] = 255; }
+  return 'data:image/jpeg;base64,' + jpeg.encode({ data, width: largeur, height: hauteur }, 85).data.toString('base64');
+}
+const taille = (octets) => { const i = jpeg.decode(Buffer.from(octets)); return { l: i.width, h: i.height }; };
+const couleurAuCentre = (octets) => { const i = jpeg.decode(Buffer.from(octets)); const o = ((i.height >> 1) * i.width + (i.width >> 1)) * 4; return [i.data[o], i.data[o + 1], i.data[o + 2]]; };
+const proche = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 12);
+const ROUGE = [200, 40, 40], BLEU = [40, 60, 200];
+
+test('la miniature est un carré bien plus léger, servi par ?mini=1', async () => {
+  await makeUser('7601', 'Nadia', 'femme');
+  await makeUser('7602', 'Omar', 'homme');
+  assert.equal((await call('7601', '/me/photos/1', 'PUT', { photo: photoDe(ROUGE) })).status, 200);
+  await decidePhoto('7601', 1, true);
+  const p = await pid('7601');
+  const entiere = await call('7602', `/photos/${p}/1`);
+  const mini = await call('7602', `/photos/${p}/1?mini=1`);
+  assert.equal(entiere.status, 200);
+  assert.equal(mini.status, 200);
+  assert.deepEqual(taille(entiere.body), { l: 640, h: 800 });
+  assert.deepEqual(taille(mini.body), { l: MINI_COTE, h: MINI_COTE }, 'un carré, rogné au centre');
+  assert.ok(mini.body.byteLength * 5 < entiere.body.byteLength, `la miniature (${mini.body.byteLength} o) doit coûter bien moins que la photo (${entiere.body.byteLength} o)`);
+  assert.ok(proche(couleurAuCentre(mini.body), ROUGE), 'c\'est bien la même image');
+  assert.ok(fs.existsSync(file('7601', 1).replace('.jpg', '-mini.jpg')), 'écrite une fois, à l\'envoi');
+});
+
+test('la miniature passe par la même porte que la photo', async () => {
+  await call('7601', '/me/photos/2', 'PUT', { photo: photoDe(BLEU) });
+  const p = await pid('7601');
+  assert.equal((await call('7601', `/photos/${p}/2?mini=1`)).status, 200, 'la sienne, même en attente');
+  assert.equal((await call('7602', `/photos/${p}/2?mini=1`)).status, 404, 'en attente : personne d\'autre');
+  await decidePhoto('7601', 2, true);
+  assert.equal((await call('7602', `/photos/${p}/2?mini=1`)).status, 200);
+  await makeUser('7605', 'Yann', 'homme');
+  assert.equal((await call('7605', `/photos/${p}/2?mini=1`)).status, 200);
+  await store.block('7605', '7601');
+  assert.equal((await call('7605', `/photos/${p}/2?mini=1`)).status, 404, 'bloqué : pas de miniature non plus');
+});
+
+test('la miniature vient du fichier validé, jamais du client', async () => {
+  await makeUser('7603', 'Paul', 'homme');
+  await makeUser('7604', 'Rose', 'femme');
+  // Un client qui enverrait sa propre miniature : la photo validée est rouge, la « miniature »
+  // envoyée est bleue. Ce que les listes montrent doit être rouge.
+  assert.equal((await call('7603', '/me/photos/1', 'PUT', { photo: photoDe(ROUGE), mini: photoDe(BLEU, 160, 160) })).status, 200);
+  await decidePhoto('7603', 1, true);
+  const mini = await call('7604', `/photos/${await pid('7603')}/1?mini=1`);
+  assert.equal(mini.status, 200);
+  assert.ok(proche(couleurAuCentre(mini.body), ROUGE), 'la miniature montre ce que la modération a vu');
+});
+
+test('une nouvelle photo dans le même emplacement emporte l\'ancienne miniature', async () => {
+  const p = await pid('7603');
+  assert.equal((await call('7603', '/me/photos/1', 'PUT', { photo: photoDe(BLEU) })).status, 200);
+  await decidePhoto('7603', 1, true);
+  const mini = await call('7604', `/photos/${p}/1?mini=1`);
+  assert.ok(proche(couleurAuCentre(mini.body), BLEU), 'la liste ne montre pas la photo d\'avant à côté de la fiche d\'après');
+});
+
+test('une photo qui ne se décode pas garde la photo entière en repli', async () => {
+  // Le serveur ne vérifie pas le contenu à l'envoi, seulement le préfixe et le poids : ces octets
+  // passent, et la miniature ne peut pas en être tirée. La liste reçoit alors la photo telle
+  // quelle, et aucune erreur.
+  const bruit = 'data:image/jpeg;base64,' + Buffer.from('pas un jpeg, et pas près de l\'être').toString('base64');
+  assert.equal((await call('7603', '/me/photos/2', 'PUT', { photo: bruit })).status, 200);
+  await decidePhoto('7603', 2, true);
+  const p = await pid('7603');
+  const r = await call('7604', `/photos/${p}/2?mini=1`);
+  assert.equal(r.status, 200);
+  assert.equal(Buffer.from(r.body).toString(), 'pas un jpeg, et pas près de l\'être');
+  assert.ok(!fs.existsSync(file('7603', 2).replace('.jpg', '-mini.jpg')), 'rien d\'écrit pour une miniature impossible');
+});
+
+test('une photo d\'avant les miniatures en reçoit une à la première demande', async () => {
+  // Les photos envoyées avant ce chantier — et celles des profils de démonstration — n'ont pas
+  // de miniature sur le disque. La première liste qui la demande la fabrique.
+  fs.writeFileSync(file('7601', 3), Buffer.from(photoDe(BLEU).split(',')[1], 'base64'));
+  await store.setPhoto('7601', 3, 'approved');
+  assert.ok(!fs.existsSync(file('7601', 3).replace('.jpg', '-mini.jpg')));
+  const r = await call('7602', `/photos/${await pid('7601')}/3?mini=1`);
+  assert.equal(r.status, 200);
+  assert.deepEqual(taille(r.body), { l: MINI_COTE, h: MINI_COTE });
+  assert.ok(fs.existsSync(file('7601', 3).replace('.jpg', '-mini.jpg')), 'et la garde pour la fois d\'après');
+});
+
+test('l\'emplacement vidé emporte sa miniature ; le compte supprimé, les six', async () => {
+  await call('7601', '/me/photos/3', 'DELETE');
+  assert.ok(!fs.existsSync(file('7601', 3)) && !fs.existsSync(file('7601', 3).replace('.jpg', '-mini.jpg')), 'les deux fichiers partent ensemble');
+
+  await passer('7601');
+  for (const n of [3, 4, 5, 6]) assert.equal((await call('7601', `/me/photos/${n}`, 'PUT', { photo: photoDe(ROUGE) })).status, 200, `emplacement ${n}`);
+  const avant = fs.readdirSync(path.join(DATA_DIR, 'uploads')).filter((f) => f.startsWith('7601-'));
+  assert.equal(avant.length, 12, `six photos et six miniatures avant la suppression (${avant.join(', ')})`);
+  await call('7601', '/me', 'DELETE');
+  const apres = fs.readdirSync(path.join(DATA_DIR, 'uploads')).filter((f) => f.startsWith('7601-'));
+  assert.deepEqual(apres, [], 'aucun fichier orphelin : les emplacements 4 à 6 survivaient à la suppression du compte');
+});

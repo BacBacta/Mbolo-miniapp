@@ -25,7 +25,14 @@ test("l'onglet Profil ne propose plus de réglage qui retienne les photos", asyn
   await expect(page.locator('main')).not.toContainText(/Économie de data/);
 });
 
-test('la liste Messages montre le visage de chaque discussion', async ({ page }) => {
+test('la liste Messages montre le visage de chaque discussion, en miniature', async ({ page }) => {
+  // Ce que chaque demande de photo a rapporté : la carte demande l'image entière, la liste la
+  // miniature que le serveur en tire — et la seconde doit coûter bien moins que la première.
+  const recues = [];
+  page.on('response', async (r) => {
+    if (!/\/api\/photos\//.test(r.url()) || r.status() !== 200) return;
+    recues.push({ url: r.url(), octets: (await r.body().catch(() => Buffer.alloc(0))).length });
+  });
   await membreVerifie(page, 'Coco');
   // Un « J'aime » sur un profil de démonstration est rendu : le match est immédiat.
   await onglet(page, /Découvrir/).click();
@@ -39,4 +46,10 @@ test('la liste Messages montre le visage de chaque discussion', async ({ page })
   const ligne = page.locator('.list-row', { has: page.locator('.avatar') }).first();
   await expect(ligne).toBeVisible();
   await expect(ligne.locator('.avatar img')).toBeVisible({ timeout: 15_000 });
+  const entiere = recues.find((r) => !r.url.includes('mini=1'));
+  const mini = recues.find((r) => r.url.includes('mini=1'));
+  expect(entiere, 'la carte a demandé la photo entière').toBeTruthy();
+  expect(mini, 'la liste a demandé la miniature').toBeTruthy();
+  expect(mini.octets).toBeGreaterThan(0);
+  expect(mini.octets * 4, `miniature ${mini.octets} o contre ${entiere.octets} o`).toBeLessThan(entiere.octets);
 });

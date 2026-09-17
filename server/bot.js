@@ -304,6 +304,8 @@ export async function sendSelfieToModeration(userId) {
 // Chaque photo de profil passe par la même modération que le selfie, avec ses propres boutons
 export async function sendPhotoToModeration(userId, n) {
   const user = await store.getUser(userId);
+  // L'image entière, jamais la miniature : c'est elle que l'humain valide, et la miniature en
+  // est tirée sur le serveur (photos.js).
   const file = path.join(config.uploadsDir, `${userId}-photo-${n}.jpg`);
   if (!bot || !config.adminChatId || !fs.existsSync(file)) return false;
   const keyboard = new InlineKeyboard().text('Valider', `photo:approve:${userId}:${n}`).text('Refuser', `photo:reject:${userId}:${n}`);

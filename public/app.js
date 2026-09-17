@@ -179,10 +179,13 @@ function oublierLesPhotos() {
   S.photoUrls = {};
 }
 
-async function photoUrl(userId, n = 1) {
-  const key = `${userId}/${n}`;
+// `mini` : la miniature carrée que le serveur tire de la photo, pour les vignettes des listes —
+// quelques kilo-octets au lieu de la photo entière, et une liste en porte cinquante. La carte et
+// la fiche, elles, demandent l'image entière : c'est sur elle qu'on décide.
+async function photoUrl(userId, n = 1, { mini = false } = {}) {
+  const key = `${userId}/${n}${mini ? '/mini' : ''}`;
   if (S.photoUrls[key]) return S.photoUrls[key];
-  const res = await fetch(`/api/photos/${encodeURIComponent(userId)}/${n}`, { headers: authHeaders() }).catch(() => null);
+  const res = await fetch(`/api/photos/${encodeURIComponent(userId)}/${n}${mini ? '?mini=1' : ''}`, { headers: authHeaders() }).catch(() => null);
   if (!res?.ok) return null;
   S.photoUrls[key] = URL.createObjectURL(await res.blob());
   return S.photoUrls[key];
@@ -408,7 +411,7 @@ const avatar = (p, size = 'sm') => `<span class="avatar ${size}${p.verified ? ' 
 // une vignette que quand sa ligne apparaît à l'écran, et ça n'a jamais eu besoin d'un bouton.
 function loadAvatar(p, { own = false } = {}) {
   if (!p?.hasPhoto) return;
-  photoUrl(p.id, p.photos?.[0] || 1).then((url) => {
+  photoUrl(p.id, p.photos?.[0] || 1, { mini: true }).then((url) => {
     if (!url) return;
     document.querySelectorAll(`[data-avatar="${CSS.escape(p.id)}"]`).forEach((el) => {
       if (!el.querySelector('img')) el.append(Object.assign(document.createElement('img'), { src: url, alt: '' }));
