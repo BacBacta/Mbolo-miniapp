@@ -16,6 +16,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,500,50&family=Manrope:wght@400..800&display=swap" media="print" data-differe>
   <link rel="stylesheet" href="/styles.css?v=__ASSET_V__">
+  <!-- app.js importe trois modules : sans ces lignes, le navigateur ne les découvre qu'après
+       avoir lu app.js, soit un aller-retour de plus au premier lancement — 300 ms sur un réseau
+       ordinaire ici. Préchargés, ils partent en même temps que lui -->
+  <link rel="modulepreload" href="/ui.js?v=__ASSET_V__">
+  <link rel="modulepreload" href="/tg.js?v=__ASSET_V__">
+  <link rel="modulepreload" href="/i18n.js?v=__ASSET_V__">
 </head>
 <body>
   <!-- Barre d'onglets persistante : construite une fois par app.js, affichée sur les écrans principaux -->

@@ -1272,6 +1272,9 @@ const SCREENS = {
       <div class="deck">${next ? profileCard(next, { cls: 'next' }) : ''}${profileCard(p, { cls: 'top' })}</div>
       ${S.swiped ? '' : `<p class="fine">${icon('hand', 14)}<span>${t('Glisse la carte vers la droite pour aimer, vers la gauche pour passer.')}</span></p>`}`);
     loadCardPhoto(p);
+    // Les deux cartes suivantes : leur photo se télécharge pendant qu'on regarde celle-ci, pour
+    // qu'un balayage ne montre jamais une carte grise qui attend son image.
+    for (const q of [next, S.profiles[2]]) if (q?.hasPhoto) photoUrl(q.id, q.photos?.[0] || 1);
     S.detachSwipe = attachSwipe(app.querySelector('.deck .card.top'), { onLike: () => swipe('like'), onPass: () => swipe('pass') });
     tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipe('like') }, secondary: { text: t('Passer'), onClick: () => swipe('pass') } });
   },
@@ -1393,10 +1396,17 @@ const SCREENS = {
   },
 
   async matches({ silent = false } = {}) {
-    if (!silent) {
+    // Ce qu'on a déjà vu s'affiche **tout de suite**, et le serveur corrige derrière. Un
+    // squelette à chaque retour sur l'onglet, c'était un aller-retour réseau à regarder — une
+    // seconde de gris sur un réseau ordinaire, pour une liste qui n'avait pas bougé.
+    const dejaVu = S.matchesCharge;
+    if (!silent && !dejaVu) {
       render(`<div class="group"><span class="eyebrow">${t('Discussions')}</span>${skeleton.rows(4)}</div>`);
       tg.setButtons(null);
+    } else if (!silent) {
+      dessinerMessages();
     }
+    const empreinte = JSON.stringify([S.matches, S.likes, S.likesFlous, S.likesN]);
     try {
       // Les likes reçus s'affichent ici : c'est là qu'on répond à quelqu'un. Sans pass, le
       // serveur envoie des aperçus floutés à la place des fiches ; on voit qu'on a plu, et à
@@ -1407,10 +1417,23 @@ const SCREENS = {
       S.likes = l.profiles || [];
       S.likesFlous = l.flou ? (l.apercus || []) : [];
       S.likesN = l.n || 0;
+      S.matchesCharge = true;
     } catch (e) {
+      // Une liste déjà à l'écran vaut mieux qu'un écran d'erreur : on la garde, sans un mot.
+      if (dejaVu) return;
       return renderError(e, () => go('matches'));
     }
     if (S.screen !== 'matches') return;
+    // Rien n'a bougé : on ne refait pas l'écran — refaire le DOM pour le même contenu se voit.
+    if (dejaVu && empreinte === JSON.stringify([S.matches, S.likes, S.likesFlous, S.likesN])) return;
+    dessinerMessages();
+  },
+};
+
+// L'onglet Messages, dessiné depuis l'état : appelé tout de suite avec ce qu'on a, puis une
+// seconde fois si le serveur a changé quelque chose.
+function dessinerMessages() {
+  {
     // Sans pass, la bande ne disparaît pas en silence : elle dit ce qui existe et où le voir.
     // Un manque sans explication se lit comme une panne, et on cherche ce qu'on a mal fait.
     // Sans pass et avec des « J'aime » reçus : les tuiles floutées d'abord — on voit qu'il y a
@@ -1454,7 +1477,11 @@ const SCREENS = {
     S.matches.slice(0, 8).forEach((m) => loadAvatar(m.other));
     S.likes.slice(0, 6).forEach((p) => loadAvatar(p));
     tg.setButtons(null);
-  },
+  }
+}
+
+// La suite des écrans, après l'onglet Messages.
+Object.assign(SCREENS, {
 
   async chat({ id }) {
     if (!id) return go('matches');
@@ -1468,7 +1495,7 @@ const SCREENS = {
     try {
       const data = await api(`/matches/${encodeURIComponent(id)}`);
       if (perime()) return;
-      S.chat = { id, other: data.other, messages: data.messages, dates: data.dates, unlockAfter: data.unlockAfter, notice: null, tete: null, rendus: 0, bouge: Date.now(), ecritDepuis: 0, depuis: data.depuis, amorce: null };
+      S.chat = { id, other: data.other, messages: data.messages, dates: data.dates, unlockAfter: data.unlockAfter, notice: null, tete: null, rendus: 0, bouge: Date.now(), ecritDepuis: 0, depuis: data.depuis, amorce: null, lu: Number(data.lu) || 0, enLigne: !!data.enLigne };
     } catch (e) {
       if (perime()) return;
       return renderError(e, () => go('chat', { id }));
@@ -1896,7 +1923,7 @@ const SCREENS = {
     if (pp) { loadCardPhoto(pp, { own: true }); loadAvatar(pp, { own: true }); }
     tg.setButtons({ main: { text: pp ? t('Modifier mon profil') : t('Créer mon profil'), onClick: () => { S.form = null; S.formStep = 0; go('profile'); } } });
   },
-};
+});
 
 // Ce qui remplace un `<select>` : une ligne de l'app, à la taille et au rayon d'un champ, qui
 // ouvre un écran à nous. Le menu du système n'était ni de notre typographie, ni de nos couleurs,
@@ -2271,9 +2298,51 @@ function chatBulles(c, depuis = 0, { neuves = false } = {}) {
     const classes = ['bubble', m.mine ? 'mine' : 'theirs', cont ? 'cont' : 'gap'];
     if (m.enCours) classes.push('encours');
     if (neuves) classes.push('neuve');
-    out += `<div class="${classes.join(' ')}"${m.tmp ? ` data-tmp="${esc(m.tmp)}"` : ''}>${esc(m.text)}<span class="time">${m.enCours ? icon('clock', 11) : timeLabel(m.at, langue())}</span></div>`;
+    if (m.mine && !m.enCours && m.at <= c.lu) classes.push('lu');
+    out += `<div class="${classes.join(' ')}"${m.tmp ? ` data-tmp="${esc(m.tmp)}"` : ''}${m.mine && !m.enCours ? ` data-at="${m.at}"` : ''}>${esc(m.text)}${heureEtEtat(m, c)}</div>`;
   }
   return out;
+}
+
+// L'heure, et pour mes messages l'état : une horloge tant que le serveur n'a pas répondu, une
+// coche quand il l'a pris, deux quand l'autre l'a lu. Trois états, comme partout ailleurs —
+// c'est ce que les gens lisent sans qu'on leur explique.
+function heureEtEtat(m, c) {
+  if (m.enCours) return `<span class="time">${icon('clock', 11)}</span>`;
+  const etat = m.mine ? `<i class="etat" aria-label="${m.at <= c.lu ? t('Lu') : t('Envoyé')}">${icon(m.at <= c.lu ? 'check-double' : 'check', 12)}</i>` : '';
+  return `<span class="time"><span class="h">${timeLabel(m.at, langue())}</span>${etat}</span>`;
+}
+
+// L'autre a lu jusqu'à `lu` : les coches passent de une à deux **en place**, sans refaire le
+// fil. Ça arrive par le flux (signal « lu ») ou par l'interrogation (champ `lu`).
+function majLecture(lu) {
+  if (!S.chat || !(Number(lu) > (S.chat.lu || 0))) return;
+  S.chat.lu = Number(lu);
+  document.querySelectorAll('#messages .bubble.mine[data-at]:not(.lu)').forEach((b) => {
+    if (Number(b.dataset.at) > S.chat.lu) return;
+    b.classList.add('lu');
+    const e = b.querySelector('.etat');
+    if (e) { e.innerHTML = icon('check-double', 12); e.setAttribute('aria-label', t('Lu')); }
+  });
+}
+
+// Le sous-titre de l'en-tête dit une chose à la fois, la plus vivante d'abord : « écrit… »,
+// puis « En ligne » (la discussion est ouverte chez l'autre en ce moment — jamais une heure de
+// dernière visite, qui serait de la filature), puis la tranche d'activité habituelle.
+function sousTitreChat() {
+  const c = S.chat;
+  if (c.ecritDepuis && Date.now() - c.ecritDepuis < 8000) return `<span class="ecrit">${t('écrit…')}</span>`;
+  if (c.enLigne) return `<span class="enligne">${t('En ligne')}</span>`;
+  return ACTIVITY_LABELS()[c.other.activity] ? activityChip(c.other, 'act') : `${icon('lock', 12)} ${t('Pseudos et numéros masqués')}`;
+}
+function majEnTete() {
+  const sub = document.getElementById('chat-sub');
+  if (sub && S.chat) sub.innerHTML = sousTitreChat();
+}
+function poserPresence(enLigne) {
+  if (!S.chat || S.chat.enLigne === !!enLigne) return;
+  S.chat.enLigne = !!enLigne;
+  majEnTete();
 }
 
 // Structure fixe : en-tête en haut, messages défilants au milieu, champ de saisie en bas.
@@ -2287,13 +2356,12 @@ function renderChat() {
           ${avatar(c.other, 'sm')}
           <div class="body">
             <div class="name">${esc(c.other.name)}, ${esc(c.other.age)}${c.other.verified ? `<span class="ok">${icon('shield', 15)}</span>` : ''}</div>
-            <div class="sub">${ACTIVITY_LABELS()[c.other.activity] ? activityChip(c.other, 'act') : `${icon('lock', 12)} ${t('Pseudos et numéros masqués')}`}</div>
+            <div class="sub" id="chat-sub">${sousTitreChat()}</div>
           </div>
         </button>
         <button type="button" class="icon-btn" data-action="report-chat" aria-label="${t('Se protéger')}">${icon('flag', 18)}</button>
       </div>
-      <div class="messages" id="messages"></div>
-      <div id="chat-frappe" class="chat-frappe" aria-live="polite"></div>
+      <div class="messages" id="messages" aria-live="polite"></div>
       <div id="chat-notice" class="chat-notice"></div>
       <form class="composer" data-action="send">
         <input name="message" autocomplete="off" maxlength="1000" placeholder="${t('Écris ton message')}" aria-label="${t('Message')}" enterkeyhint="send">
@@ -2330,6 +2398,8 @@ function updateChat({ scroll = false } = {}) {
   const tete = chatTete(S.chat);
   const peutAjouter = tete === S.chat.tete && S.chat.rendus >= 0 && S.chat.rendus <= S.chat.messages.length
     && box.childElementCount > 0;
+  // La bulle « écrit… » vit en bas du fil : on la retire avant d'ajouter, on la remet après.
+  box.querySelector('.bubble.frappe')?.remove();
   if (peutAjouter) {
     if (S.chat.rendus < S.chat.messages.length) {
       // Le premier message remplace la phrase d'accueil, qui n'est pas une bulle.
@@ -2341,6 +2411,7 @@ function updateChat({ scroll = false } = {}) {
   }
   S.chat.tete = tete;
   S.chat.rendus = S.chat.messages.length;
+  montrerLaFrappe({ sansDefiler: true });
   majBarreDeDeblocage();
   document.getElementById('chat-notice').innerHTML = S.chat.notice ? `<div class="notice notice-warn" role="alert">${icon('alert', 18)}<span>${esc(S.chat.notice)}</span></div>` : '';
   if (scroll || nearBottom) collerEnBas({ force: true });
@@ -2444,6 +2515,8 @@ async function pollChat() {
     }
     S.chat.ecritDepuis = data.ecrit ? Date.now() : 0;
     montrerLaFrappe();
+    if (data.lu) majLecture(data.lu);
+    if ('enLigne' in data) poserPresence(data.enLigne);
   } catch (e) {
     // Match défait par l'autre, ou blocage : l'écran restait ouvert et interrogeait pour rien.
     if (e.code === 'MATCH_NOT_FOUND' || e.code === 'BLOCKED') {
@@ -2457,21 +2530,22 @@ async function pollChat() {
   relancerLePoll();
 }
 
-// « … est en train d'écrire », posé sous le fil et jamais dans le fil : une ligne qui apparaît et
-// disparaît au milieu des bulles ferait sauter la lecture. Elle ne pousse la discussion vers le
-// haut que si l'on était déjà en bas.
-function montrerLaFrappe() {
-  const zone = document.getElementById('chat-frappe');
-  if (!zone) return;
-  // Par le flux, personne ne vient dire « elle a arrêté » : le signal expire de lui-même.
+// « … écrit » se voit à deux endroits, parce qu'un seul ne se voyait pas : une bulle de trois
+// points **au bas du fil**, là où le message va arriver, et « écrit… » dans l'en-tête, à la
+// place de « En ligne ». La bulle ne pousse la discussion vers le haut que si l'on était déjà en
+// bas. Par le flux, personne ne vient dire « elle a arrêté » : le signal expire de lui-même.
+function montrerLaFrappe({ sansDefiler = false } = {}) {
+  const box = document.getElementById('messages');
+  if (!box || !S.chat) return;
   const actif = !!S.chat.ecritDepuis && Date.now() - S.chat.ecritDepuis < 8000;
   if (actif) { clearTimeout(S.frappeTimer); S.frappeTimer = setTimeout(montrerLaFrappe, 8100); }
-  if (actif === (zone.childElementCount > 0)) return;
-  const enBasAvant = enBas(document.getElementById('messages'));
-  zone.innerHTML = actif
-    ? `<div class="frappe"><span class="pts"><i></i><i></i><i></i></span>${t('{nom} écrit…', { nom: esc(S.chat.other.name) })}</div>`
-    : '';
-  if (enBasAvant) collerEnBas({ force: true });
+  majEnTete();
+  const bulle = box.querySelector('.bubble.frappe');
+  if (actif === !!bulle) return;
+  const enBasAvant = enBas(box);
+  if (actif) box.insertAdjacentHTML('beforeend', `<div class="bubble theirs gap frappe" aria-label="${t('{nom} écrit…', { nom: esc(S.chat.other.name) })}"><i></i><i></i><i></i></div>`);
+  else bulle.remove();
+  if (enBasAvant && !sansDefiler) collerEnBas({ force: true });
 }
 
 // ---------- Le temps réel ----------
@@ -2520,9 +2594,12 @@ async function ouvrirLeFlux(tentative = 0) {
       while ((coupe = reste.indexOf('\n\n')) >= 0) {
         const bloc = reste.slice(0, coupe); reste = reste.slice(coupe + 2);
         const type = /^event: (.+)$/m.exec(bloc)?.[1];
+        const donnees = /^data: (.*)$/m.exec(bloc)?.[1] || '';
         if (S.screen !== 'chat' || S.chat?.id !== id) return;
         if (type === 'signal') relancerLePoll({ tout_de_suite: true });
         else if (type === 'ecrit') { S.chat.ecritDepuis = Date.now(); montrerLaFrappe(); }
+        else if (type === 'lu') majLecture(Number(donnees));
+        else if (type === 'presence') poserPresence(donnees === '1');
       }
     }
   } catch { /* coupé : on reprend plus bas */ }
@@ -2575,7 +2652,9 @@ async function sendMessage(input) {
     if (bulle) {
       bulle.classList.remove('encours');
       bulle.removeAttribute('data-tmp');
-      bulle.querySelector('.time').textContent = timeLabel(brouillon.at, langue());
+      bulle.dataset.at = String(brouillon.at);
+      bulle.querySelector('.time').outerHTML = heureEtEtat(brouillon, S.chat);
+      if (brouillon.at <= S.chat.lu) bulle.classList.add('lu');
     } else { S.chat.tete = null; updateChat(); }
     // On regarde tout de suite s'il y a une réponse : c'est juste après avoir écrit qu'elle vient.
     relancerLePoll({ tout_de_suite: true });
@@ -2645,7 +2724,7 @@ function apresProtection(message) {
   tg.haptic('success');
   toast(message, 'ok');
   S.profiles = S.profiles.filter((p) => p.id !== id);
-  S.people = []; S.likes = []; S.matches = [];
+  S.people = []; S.likes = []; S.matches = []; S.matchesCharge = false;
   S.chat = null;
   S.protection = null;
   go(matchId ? 'matches' : 'discover');

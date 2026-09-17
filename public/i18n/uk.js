@@ -560,4 +560,9 @@ export default {
   "Le pass montre les fiches, jamais ce qu'elles ont décidé.": "Перепустка показує профілі, але ніколи — що вони вирішили.",
   "{n} personne a aimé ton profil": "Твій профіль вподобала {n} людина",
   "{n} personnes ont aimé ton profil": {"one":"Твій профіль вподобала {n} людина","few":"Твій профіль вподобали {n} людини","many":"Твій профіль вподобали {n} людей","other":"Твій профіль вподобали {n} людини"},
+  // La discussion : lu, envoyé, en ligne, écrit
+  "Lu": "Прочитано",
+  "Envoyé": "Надіслано",
+  "En ligne": "У мережі",
+  "écrit…": "пише…",
 };

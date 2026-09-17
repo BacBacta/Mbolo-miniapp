@@ -17,7 +17,7 @@ import { checkMessage } from './antiscam.js';
 import { limiter, consommer } from './limites.js';
 import { bot, notify, direATiers, notifyAdmin, boutonBannir, sendSelfieToModeration, sendPhotoToModeration, decideVerification, onApproved, retirerSelfieDuGroupe } from './bot.js';
 import { mesurer, mesurerRalenti, semaineIso, HEURE, CINQ_MINUTES } from './mesure.js';
-import { abonner, signaler, nombreDeFlux, PLAFOND, KEEPALIVE_MS, PRESENCE_MS } from './flux.js';
+import { abonner, signaler, nombreDeFlux, aUnFlux, PLAFOND, KEEPALIVE_MS, PRESENCE_MS } from './flux.js';
 import { creerInvitation, retirer, membresQuiMOntChoisi, PREFIXE } from './confiance.js';
 import { envelopper } from './promesses.js';
 import { DEMO_REPLIES } from './seed.js';
@@ -1215,11 +1215,22 @@ api.get('/summary', requireMembre, async (req, res) => {
   res.json({ unread, newMatches, likes });
 });
 
+// Marque la discussion lue, et le dit à l'autre **si ça change quelque chose** : un signal « lu »
+// à chaque interrogation réveillerait l'autre toutes les quatre secondes pour rien. On ne signale
+// que lorsqu'un de ses messages n'avait pas encore été vu.
+async function lireEtLeDire(r, me) {
+  const luAvant = r.m.readAt?.[String(me)] || 0;
+  await store.markRead(r.m.id, me);
+  const other = r.m.users.find((x) => x !== me);
+  const nouveau = (await store.messagesOf(r.m.id)).some((x) => x.from === other && x.at > luAvant);
+  if (nouveau) signaler(r.m.id, 'lu', String(Date.now()), { sauf: me });
+}
+
 api.get('/matches/:id', requireMembre, async (req, res) => {
   const r = await loadMatch(req, res);
   if (!r) return;
   store.touchPresence(req.user.id, r.m.id);
-  await store.markRead(r.m.id, req.user.id);
+  await lireEtLeDire(r, req.user.id);
   const after = Number(req.query.after || 0);
   // Premier chargement : tout. Interrogations suivantes : seulement les nouveaux messages.
   // Renvoyer le profil complet de l'autre personne toutes les quatre secondes coûtait environ
@@ -1242,8 +1253,13 @@ api.get('/matches/:id', requireMembre, async (req, res) => {
   // le processus — une hésitation au-dessus d'un clavier n'a pas à survivre à un redémarrage.
   // Symétrique par construction : on ne voit la frappe de l'autre que dans une discussion
   // qu'on a le droit d'ouvrir, et `loadMatch` l'a déjà vérifié.
-  if (req.query.ecrit) store.touchTyping(req.user.id, r.m.id);
-  const reponse = { id: r.m.id, messages, ecrit: store.isTyping(r.other.id, r.m.id) };
+  // Le mot part aussi par le flux de l'autre : sans ça, quelqu'un dont le flux est tombé (donc
+  // qui dit « j'écris » par l'interrogation) restait invisible chez quelqu'un dont le flux est
+  // vivant — qui, lui, n'interroge plus que toutes les trente secondes.
+  if (req.query.ecrit) { store.touchTyping(req.user.id, r.m.id); signaler(r.m.id, 'ecrit', '1', { sauf: req.user.id }); }
+  // `lu` : jusqu'où l'autre a lu, pour les deux coches. `enLigne` : l'autre a cette discussion
+  // ouverte en ce moment — pas « vu à telle heure », qui serait de la filature.
+  const reponse = { id: r.m.id, messages, ecrit: store.isTyping(r.other.id, r.m.id), lu: r.m.readAt?.[String(r.other.id)] || 0, enLigne: store.isViewing(r.other.id, r.m.id) };
   if (premierAppel) Object.assign(reponse, { other: await publicProfile(r.other), dates, unlockAfter: config.contactUnlockAfter, depuis: r.m.createdAt });
   // Un rendez-vous peut naître ou changer entre deux interrogations : on renvoie les rendez-vous
   // aussi quand l'un d'eux a bougé depuis le dernier appel.
@@ -1272,14 +1288,22 @@ api.get('/matches/:id/flux', requireMembre, async (req, res) => {
   // dire « tu es abonné ». Écrit avant, sur PostgreSQL le client lisait le prélude pendant que
   // `markRead` faisait son aller-retour, et un signal parti dans cet intervalle était perdu.
   store.touchPresence(req.user.id, r.m.id);
-  await store.markRead(r.m.id, req.user.id);
+  await lireEtLeDire(r, req.user.id);
   const desabonner = abonner(r.m.id, req.user.id, res);
   res.flushHeaders();
   res.write(': ok\n\n');
+  // « En ligne » chez l'autre : à l'ouverture, et « parti » à la fermeture du **dernier** flux de
+  // cette personne — un rechargement remplace un flux par un autre, ce n'est pas un départ.
+  signaler(r.m.id, 'presence', '1', { sauf: req.user.id });
   const presence = setInterval(() => store.touchPresence(req.user.id, r.m.id), PRESENCE_MS);
   // Le proxy coupe une connexion muette ; un commentaire ne réveille personne côté client.
   const vie = setInterval(() => { try { res.write(': ping\n\n'); } catch { /* fermé */ } }, KEEPALIVE_MS);
-  req.on('close', () => { clearInterval(presence); clearInterval(vie); desabonner(); });
+  req.on('close', () => {
+    clearInterval(presence); clearInterval(vie); desabonner();
+    // Le dernier flux fermé : la personne est partie. Sa présence s'efface tout de suite — sinon
+    // elle restait « là » dix secondes de plus, et les notifications se retenaient d'autant.
+    if (!aUnFlux(r.m.id, req.user.id)) { store.leavePresence(req.user.id); signaler(r.m.id, 'presence', '0', { sauf: req.user.id }); }
+  });
 });
 
 // « J'écris » quand le flux est ouvert : le mot ne voyage plus dans une interrogation qui ne part

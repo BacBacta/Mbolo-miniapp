@@ -22,6 +22,7 @@ const PATHS = {
   alert: '<path d="M12 3l10 18H2L12 3z"/><path d="M12 10v5"/><circle cx="12" cy="18" r=".6"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  'check-double': '<path d="M2.5 12.5l4 4L15 8"/><path d="M10.5 16.5l1 1L21 8"/>',
   send: '<path d="M21 3L10 14"/><path d="M21 3l-7 18-4-8-8-4 19-6z"/>',
   'chevron-right': '<path d="M9 6l6 6-6 6"/>',
   'chevron-down': '<path d="M6 9l6 6 6-6"/>',

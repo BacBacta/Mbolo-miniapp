@@ -571,4 +571,9 @@ export default {
   "Le pass montre les fiches, jamais ce qu'elles ont décidé.": "The pass shows the profiles, never what they decided.",
   "{n} personne a aimé ton profil": "{n} person liked your profile",
   "{n} personnes ont aimé ton profil": "{n} people liked your profile",
+  // La discussion : lu, envoyé, en ligne, écrit
+  "Lu": "Read",
+  "Envoyé": "Sent",
+  "En ligne": "Online",
+  "écrit…": "typing…",
 };
