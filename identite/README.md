@@ -51,3 +51,90 @@ redistribution) : le rendu ne dépend donc d'aucun accès réseau, et un PNG ré
 deux ans sera identique à celui d'aujourd'hui. C'est la raison de leur présence ici —
 sans elles, Chromium retomberait sur une police système et le dessin changerait sans
 prévenir.
+
+## La vidéo de présentation
+
+`npm run video` fabrique `video/odo-presentation.mp4` : 1080 × 1920, 58 secondes, H.264
+avec sa bande-son, le format vertical que Telegram lit en ligne comme en story. Dix scènes,
+une idée par écran, dans l'identité de l'app : l'accroche, la vérification, la découverte,
+le match, la demande d'argent bloquée, le pseudo qui reste caché, le premier rendez-vous,
+**rien à télécharger, tout est dans Telegram**, et l'appel.
+
+**Les écrans sont de vraies captures**, pas des maquettes : `video/captures.mjs` lance le
+serveur en mode développement, crée un compte, se fait vérifier, aime un profil de
+démonstration, matche, ouvre la discussion et tente une demande d'argent — puis
+photographie chaque écran à la densité d'un téléphone. Une fonctionnalité qui change se
+voit donc dans la vidéo au rendu suivant, sans retouche. Deux retouches de tournage, et
+seulement deux : le prénom du compte de développement devient « Bienvenue », et la
+pastille « démo » des profils de démonstration est masquée.
+
+Le montage est `video/video.html` : toutes les animations sont posées avec l'API Web
+Animations puis mises en pause, et `video/rendre.mjs` demande chaque image à l'instant
+voulu avant de la pousser dans ffmpeg. Deux rendus donnent les mêmes images, au pixel.
+`--image=12.5` sort une seule image (en secondes) pour vérifier une scène ;
+`--sans-captures` réemploie les captures existantes.
+
+Il faut ffmpeg sur la machine (`winget install Gyan.FFmpeg` sous Windows, puis rouvrir le
+terminal ; ou son chemin dans la variable `FFMPEG`). Ce n'est pas une dépendance du
+projet : il ne sert qu'ici.
+
+```powershell
+cd "C:\chemin\vers\Mbolo-miniapp"
+npm run video
+```
+
+### La bande-son
+
+Trois couches, assemblées par `video/son.mjs`.
+
+**La musique** vient de [Mixkit](https://mixkit.co/free-stock-music/), le catalogue
+d'Envato, dont la licence « Stock Music Free » autorise l'usage dans une vidéo, commerciale
+ou non, en ligne comme en publicité, sans attribution ni compte. Le morceau retenu est
+**« Can't Get You Off My Mind » de Michael Ramir C.** (n° 1210, future bass, 91 s) : parmi
+quatre cents morceaux du catalogue, seize ont été téléchargés et mesurés — durée, sonie,
+dynamique, brillance, tempo, et surtout la **courbe d'énergie** lue dans leur forme d'onde.
+Celui-ci monte pendant vingt-quatre secondes et s'ouvre à l'instant où la vidéo passe au
+match. Deux autres tiennent la même courbe et restent à un numéro près : **« Wedding Song
+03 » d'Arulo** (n° 389, chillout chaud, hip-hop cinématique) et **« It's Love » de Michael
+Ramir C.** (n° 834, électronica montante). Le fichier n'est pas versionné : le script le
+télécharge dans `video/musique/` à la première exécution, et le garde.
+
+**L'habillage** est synthétisé de zéro, de façon déterministe, et chaque événement tombe
+sur l'instant de la scène qu'il souligne (`SCENES`, en miroir de `video.html`) : un souffle
+avant chaque changement et un coup sourd dessus, une cloche sur le bouclier, le like et le
+match, un battement de cœur au match, un son mat sur le message bloqué. Posé sous la
+musique, à moitié de son niveau.
+
+**Le mastering** est celui des réseaux en 2026 : −14 LUFS intégrés, crête vraie sous
+−1 dBTP après l'encodage AAC, en deux passes de `loudnorm` — la mesure, puis une correction
+linéaire. Une seule passe comprimerait au fil de l'eau, et ça s'entend.
+
+```powershell
+npm run video                                      # le morceau retenu
+npm run video -- --musique=389                     # un autre numéro du catalogue Mixkit
+npm run video -- --sans-musique                    # sans réseau : la nappe synthétisée d'avant
+npm run video -- --son="C:\chemin\vers\piste.mp3"  # une piste à toi, sous ta licence
+```
+
+Telegram lance les vidéos sans le son dans les canaux : les images doivent se suffire, et
+c'est le cas. `video/affiche.jpg` est l'image de fin, pour la vignette.
+
+### Les portraits
+
+Sans rien, les profils montrent les images de démonstration (dégradé et initiale). Pose des
+portraits dans `video/photos/` — `femme-1.jpg`, `homme-1.jpg`, `femme-2.jpg`… — et
+`npm run video` les place sur les profils de démonstration du même genre, dans l'ordre où
+l'app les montre : la carte, le match et la discussion portent alors de vrais visages.
+
+**D'où ils viennent compte.** Une photo prise dans une banque d'images montre une vraie
+personne qui n'a jamais accepté d'illustrer une app de rencontres : c'est une atteinte à
+son image, et un risque pour toi. Deux sources sûres : des ami(e)s qui ont signé un accord
+écrit, ou un générateur d'images (Ideogram, Midjourney, Flux…) avec une consigne du genre :
+
+> Portrait photo, jeune femme camerounaise de 24 ans, souriante, lumière naturelle de fin
+> d'après-midi, terrasse d'un café à Yaoundé, arrière-plan doux, cadrage épaules, format
+> vertical 4:5, style photo de téléphone récent, pas de texte, pas de logo.
+
+Varie l'âge (19 à 30 ans), la tenue, le lieu (marché, campus, bord du lac, salon) et le
+genre, garde le format 4:5 et une taille d'au moins 720 × 900. Aucune de ces photos n'est
+versionnée : le dossier est ignoré par Git, comme la vidéo et les captures.
