@@ -30,6 +30,13 @@ if (!args.includes('--sans-captures')) {
   const r = spawnSync(process.execPath, [path.join(ICI, 'captures.mjs')], { stdio: 'inherit' });
   if (r.status !== 0) process.exit(r.status || 1);
 }
+// La bande-son : synthétisée par son.mjs, ou fournie par --son=chemin (mp3, m4a, wav).
+const sonFourni = args.find((a) => a.startsWith('--son='))?.split('=')[1];
+const SON = sonFourni ? path.resolve(sonFourni) : path.join(ICI, 'son.wav');
+if (!sonFourni) {
+  const r = spawnSync(process.execPath, [path.join(ICI, 'son.mjs')], { stdio: 'inherit' });
+  if (r.status !== 0) process.exit(r.status || 1);
+}
 for (const f of ['verification', 'decouvrir', 'match', 'bloque']) {
   if (!fs.existsSync(path.join(ICI, 'captures', `${f}.png`))) { console.error(`capture manquante : ${f}.png`); process.exit(1); }
 }
@@ -57,7 +64,11 @@ if (seule) {
 const enc = spawn(ffmpeg, [
   '-y', '-loglevel', 'error',
   '-f', 'image2pipe', '-framerate', String(IPS), '-i', '-',
+  '-i', SON,
   '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level', '4.1',
+  // AAC à 160 kb/s, et la piste la plus courte des deux borne la vidéo : un son plus long
+  // que les images ne laisserait pas un écran noir derrière.
+  '-c:a', 'aac', '-b:a', '160k', '-ar', '48000', '-shortest',
   '-movflags', '+faststart', '-r', String(IPS), SORTIE,
 ], { stdio: ['pipe', 'inherit', 'inherit'] });
 const fini = new Promise((res, rej) => enc.on('close', (code) => (code === 0 ? res() : rej(new Error(`ffmpeg : code ${code}`)))));

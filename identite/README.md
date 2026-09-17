@@ -54,10 +54,11 @@ prévenir.
 
 ## La vidéo de présentation
 
-`npm run video` fabrique `video/odo-presentation.mp4` : 1080 × 1920, 52 secondes, H.264,
-le format vertical que Telegram lit en ligne comme en story. Neuf scènes, une idée par
-écran, dans l'identité de l'app : l'accroche, la vérification, la découverte, le match,
-la demande d'argent bloquée, le pseudo qui reste caché, le premier rendez-vous, l'appel.
+`npm run video` fabrique `video/odo-presentation.mp4` : 1080 × 1920, 58 secondes, H.264
+avec sa bande-son, le format vertical que Telegram lit en ligne comme en story. Dix scènes,
+une idée par écran, dans l'identité de l'app : l'accroche, la vérification, la découverte,
+le match, la demande d'argent bloquée, le pseudo qui reste caché, le premier rendez-vous,
+**rien à télécharger, tout est dans Telegram**, et l'appel.
 
 **Les écrans sont de vraies captures**, pas des maquettes : `video/captures.mjs` lance le
 serveur en mode développement, crée un compte, se fait vérifier, aime un profil de
@@ -82,7 +83,41 @@ cd "C:\chemin\vers\Mbolo-miniapp"
 npm run video
 ```
 
-La vidéo est **muette**. Telegram lance les vidéos sans le son dans les canaux, et une
-musique demande une licence : ajoute-la dans CapCut ou dans l'éditeur de ton choix avant
-de publier, si tu en veux une. `video/affiche.jpg` est l'image de fin, pour la vignette.
-Ni la vidéo, ni les captures, ni l'affiche ne sont versionnées : elles se refont.
+### La bande-son
+
+`video/son.mjs` la **synthétise** : aucune musique du commerce, aucun échantillon, donc
+aucune licence à vérifier — et deux exécutions donnent le même son au bit près. Une nappe
+d'accords chauds en ré mineur qui change à chaque scène, une basse tenue, un souffle qui
+monte avant chaque changement et un coup sourd dessus, une cloche sur le bouclier, le like
+et le match, un battement de cœur au match, un son mat sur le message bloqué, une
+réverbération sur tout ce qui frappe. Le minutage (`SCENES`) est le miroir de celui de
+`video.html` : déplacer une scène, c'est déplacer les deux.
+
+Pour une autre bande-son, une piste dont tu as la licence :
+
+```powershell
+npm run video -- --son="C:\chemin\vers\piste.mp3"
+```
+
+Telegram lance les vidéos sans le son dans les canaux : les images doivent se suffire, et
+c'est le cas. `video/affiche.jpg` est l'image de fin, pour la vignette.
+
+### Les portraits
+
+Sans rien, les profils montrent les images de démonstration (dégradé et initiale). Pose des
+portraits dans `video/photos/` — `femme-1.jpg`, `homme-1.jpg`, `femme-2.jpg`… — et
+`npm run video` les place sur les profils de démonstration du même genre, dans l'ordre où
+l'app les montre : la carte, le match et la discussion portent alors de vrais visages.
+
+**D'où ils viennent compte.** Une photo prise dans une banque d'images montre une vraie
+personne qui n'a jamais accepté d'illustrer une app de rencontres : c'est une atteinte à
+son image, et un risque pour toi. Deux sources sûres : des ami(e)s qui ont signé un accord
+écrit, ou un générateur d'images (Ideogram, Midjourney, Flux…) avec une consigne du genre :
+
+> Portrait photo, jeune femme camerounaise de 24 ans, souriante, lumière naturelle de fin
+> d'après-midi, terrasse d'un café à Yaoundé, arrière-plan doux, cadrage épaules, format
+> vertical 4:5, style photo de téléphone récent, pas de texte, pas de logo.
+
+Varie l'âge (19 à 30 ans), la tenue, le lieu (marché, campus, bord du lac, salon) et le
+genre, garde le format 4:5 et une taille d'au moins 720 × 900. Aucune de ces photos n'est
+versionnée : le dossier est ignoré par Git, comme la vidéo et les captures.

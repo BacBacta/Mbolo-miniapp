@@ -24,7 +24,7 @@
   .grain { position: absolute; inset: 0; opacity: .16; mix-blend-mode: overlay; pointer-events: none; z-index: 50; background-size: 128px 128px; }
   .vignette { position: absolute; inset: 0; z-index: 49; pointer-events: none;
               background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgb(0 0 0 / .45) 100%); }
-  .calque { position: absolute; inset: 0; opacity: 0; }
+  .calque { position: absolute; inset: 0; opacity: 0; transform-origin: 50% 46%; }
 
   /* La marque : le même anneau que la photo du bot et la story. */
   .mk { position: absolute; }
@@ -167,13 +167,24 @@
     </div>
   </div>
 
+  <!-- 8 bis · Dans Telegram, sans rien installer -->
+  <div class="calque" id="s8b">
+    <div class="surtitre" id="su8b" style="top:250px">Sans rien installer</div>
+    <div class="titre fr" id="t8b" style="top:286px">Pas d'app à télécharger. <i>Tout est dans Telegram</i>.</div>
+    <div class="liste" id="liste8b" style="top:440px">
+      <div><span class="ic"><svg viewBox="0 0 24 24"><path d="M21 3L3 10.5l7 2.5 2.5 7L21 3z"/><path d="M10 13l11-10"/></svg></span>Tu ouvres Telegram, et c'est là</div>
+      <div><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/><path d="M4 4l16 16"/></svg></span>Rien à installer, rien à mettre à jour</div>
+      <div><span class="ic"><svg viewBox="0 0 24 24"><path d="M5 17a4 4 0 0 1 0-8 6 6 0 0 1 11.5-1.5A4.5 4.5 0 0 1 18 17H5z"/></svg></span>Léger en data, même avec un petit forfait</div>
+    </div>
+  </div>
+
   <!-- 9 · L'appel -->
   <div class="calque" id="s9">
     <div class="mk" id="mk9" style="left:195px; top:250px; width:150px; height:150px; --w:20px">
       <div class="bloom"></div><div class="disc"></div><div class="base"></div><div class="shade"></div><div class="spec"></div><div class="rim"></div><div class="cast"></div>
     </div>
     <div class="titre fr" id="t9" style="top:434px; text-align:center; font-size:72px">__APP_NAME__</div>
-    <div class="sous" id="st9" style="top:530px; text-align:center; font-size:22px; color:#f4f2f8; font-weight:600">Dans Telegram, dès aujourd'hui.</div>
+    <div class="sous" id="st9" style="top:530px; text-align:center; font-size:22px; color:#f4f2f8; font-weight:600">Dans Telegram, sans rien télécharger.</div>
     <div class="handle" id="handle" style="top:590px"><span>Cherche</span> @meetmehere1bot</div>
     <div class="pilule" id="pilule" style="top:690px">18+ · YAOUNDÉ · GRATUIT</div>
   </div>
@@ -207,8 +218,10 @@
     ANIMS.push(a);
   }
   // Une scène : le calque apparaît et disparaît en fondu.
-  function calque(id, debut, fin, { entree = 500, sortie = 500 } = {}) {
+  function calque(id, debut, fin, { entree = 500, sortie = 500, derive = 0.03 } = {}) {
     seq($(id), [[debut, { opacity: 0 }], [debut + entree, { opacity: 1 }], [fin - sortie, { opacity: 1 }, IN], [fin, { opacity: 0 }]]);
+    // La caméra respire : chaque scène grandit d'un rien, du début à la fin, linéairement.
+    seq($(id), [[debut, { transform: 'scale(1)' }, LIN], [fin, { transform: `scale(${1 + derive})` }]], { composite: 'add' });
   }
   // Un titre, mot par mot : chaque mot monte en se dévoilant, avec un léger décalage.
   function mots(el) {
@@ -272,6 +285,8 @@
   // Le message bloqué : la caméra s'approche de l'avertissement, dans le cadre, sans que le
   // téléphone bouge — il recouvrirait le titre.
   seq($('e6'), [[28200, { transform: 'scale(1)' }], [29800, { transform: 'scale(1.1)' }], [33400, { transform: 'scale(1.13)' }, LIN]]);
+  // Et il flotte, à peine : quatre pixels de haut en bas, toutes les six secondes.
+  seq($('phone'), [[11200, { transform: 'translateY(0)' }, 'ease-in-out'], [14200, { transform: 'translateY(-5px)' }, 'ease-in-out'], [17200, { transform: 'translateY(0)' }, 'ease-in-out'], [20200, { transform: 'translateY(-5px)' }, 'ease-in-out'], [23200, { transform: 'translateY(0)' }, 'ease-in-out'], [26200, { transform: 'translateY(-5px)' }, 'ease-in-out'], [29200, { transform: 'translateY(0)' }, 'ease-in-out'], [32200, { transform: 'translateY(-5px)' }, 'ease-in-out'], [34000, { transform: 'translateY(-2px)' }]], { composite: 'add' });
   // Les écrans se succèdent en fondu croisé, à l'intérieur du cadre.
   const ecrans = [['e3', 10000, 16000], ['e4', 16000, 22000], ['e5', 22000, 28000], ['e6', 28000, 34000]];
   ecrans.forEach(([id, a, b], i) => seq($(id), [
@@ -304,15 +319,21 @@
   titre('t8', 40500);
   [...$('liste').children].forEach((el, i) => seq(el, [[41400 + i * 380, { opacity: 0, transform: 'translateX(-14px)' }], [42000 + i * 380, { opacity: 1, transform: 'translateX(0)' }]]));
 
-  // ---------- Scène 9 · l'appel (46 – 52 s) ----------
-  calque('s9', 46000, 52000, { entree: 500, sortie: 900 });
-  seq($('mk9'), [[46000, { opacity: 0, transform: 'scale(.7)' }], [47200, { opacity: 1, transform: 'scale(1)' }], [52000, { opacity: 1, transform: 'scale(1.03)' }, LIN]]);
-  titre('t9', 46600, { pas: 0, duree: 900 });
-  fondu('st9', 47400);
-  fondu('handle', 48000, { duree: 700, y: 14 });
-  fondu('pilule', 48600);
+  // ---------- Scène 8 bis · dans Telegram (46 – 52 s) ----------
+  calque('s8b', 46000, 52000, { entree: 400, sortie: 500 });
+  fondu('su8b', 46300);
+  titre('t8b', 46500);
+  [...$('liste8b').children].forEach((el, i) => seq(el, [[47400 + i * 380, { opacity: 0, transform: 'translateX(-14px)' }], [48000 + i * 380, { opacity: 1, transform: 'translateX(0)' }]]));
 
-  window.DUREE = 52000;
+  // ---------- Scène 9 · l'appel (52 – 58,5 s) ----------
+  calque('s9', 52000, 58500, { entree: 500, sortie: 1400, derive: 0.02 });
+  seq($('mk9'), [[52000, { opacity: 0, transform: 'scale(.7)' }], [53200, { opacity: 1, transform: 'scale(1)' }], [58500, { opacity: 1, transform: 'scale(1.03)' }, LIN]]);
+  titre('t9', 52600, { pas: 0, duree: 900 });
+  fondu('st9', 53400);
+  fondu('handle', 54000, { duree: 700, y: 14 });
+  fondu('pilule', 54600);
+
+  window.DUREE = 58500;
   window.rendre = (t) => { for (const a of ANIMS) a.currentTime = t; };
   window.rendre(0);
 </script>

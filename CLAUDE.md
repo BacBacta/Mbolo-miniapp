@@ -188,8 +188,10 @@ identite/
   le nom y est posé au rendu depuis APP_NAME, jamais écrit dans le gabarit (règle 12).
   `video/` : la vidéo de présentation (`npm run video`, ffmpeg requis sur la machine) — de vraies
   captures de l'app prises par `captures.mjs`, un montage `video.html` piloté image par image
-  par `rendre.mjs`. Muette : une musique demande une licence. Rien de ce qu'elle produit n'est
-  versionné.
+  par `rendre.mjs`, une bande-son **synthétisée** par `son.mjs` (aucune licence à vérifier,
+  déterministe, même minutage que le montage ; `--son=` pour une piste sous licence). Les
+  portraits viennent de `video/photos/` s'il existe — jamais d'une banque d'images de vraies
+  personnes. Rien de ce qu'elle produit n'est versionné.
 ```
 
 ## 4. Fonctionnalités en place

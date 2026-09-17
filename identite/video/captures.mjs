@@ -22,13 +22,14 @@ const PORT = Number(process.env.VIDEO_PORT || 3311);
 const BASE = `http://127.0.0.1:${PORT}`;
 fs.mkdirSync(SORTIE, { recursive: true });
 
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'odo-video-'));
 const serveur = spawn(process.execPath, ['server/index.js'], {
   cwd: RACINE,
   stdio: ['ignore', 'ignore', 'inherit'],
   env: {
     ...process.env,
     PORT: String(PORT),
-    DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'odo-video-')),
+    DATA_DIR,
     NODE_ENV: 'development', BOT_TOKEN: '123456:VIDEO_TOKEN', WEBAPP_URL: BASE,
     ALLOW_DEV_AUTH: 'true', AUTO_APPROVE: 'true', SEED_DEMO: 'true', USE_WEBHOOK: 'false',
     ADMIN_CHAT_ID: '', DATABASE_URL: '', RATE_LIMIT: 'false',
@@ -38,6 +39,31 @@ const serveur = spawn(process.execPath, ['server/index.js'], {
 for (let i = 0; i < 100; i++) {
   if (await fetch(`${BASE}/health`).then((r) => r.ok).catch(() => false)) break;
   await new Promise((r) => setTimeout(r, 200));
+}
+await new Promise((r) => setTimeout(r, 800)); // les profils de démonstration finissent de se poser
+
+// Les portraits : identite/video/photos/femme-1.jpg, homme-1.jpg, femme-2.jpg… Chaque fichier
+// remplace la première photo d'un profil de démonstration du même genre, dans l'ordre où
+// l'app les montre, et la vidéo porte alors de vrais visages. Sans ce dossier, les images de
+// démonstration (dégradé et initiale) restent. Ces photos ne sont pas versionnées : elles
+// doivent venir de personnes qui ont accepté d'illustrer une app de rencontres, ou d'un
+// générateur d'images — jamais d'une banque d'images de vraies personnes.
+const PHOTOS = path.join(ICI, 'photos');
+if (fs.existsSync(PHOTOS)) {
+  const { DEMO } = await import(path.join(RACINE, 'server', 'seed.js'));
+  const uploads = path.join(DATA_DIR, 'uploads');
+  fs.mkdirSync(uploads, { recursive: true });
+  const fournies = { femme: [], homme: [] };
+  for (const f of fs.readdirSync(PHOTOS).sort()) { const m = /^(femme|homme)-\d+\.(jpe?g)$/i.exec(f); if (m) fournies[m[1].toLowerCase()].push(path.join(PHOTOS, f)); }
+  const compte = { femme: 0, homme: 0 };
+  for (const d of DEMO) {
+    const liste = fournies[d.gender] || [];
+    if (!liste.length || !d.photos) continue;
+    fs.copyFileSync(liste[compte[d.gender] % liste.length], path.join(uploads, `${d.id}-photo-1.jpg`));
+    for (const n of [1, 2, 3]) { const mini = path.join(uploads, `${d.id}-photo-${n}-mini.jpg`); if (fs.existsSync(mini)) fs.unlinkSync(mini); }
+    compte[d.gender]++;
+  }
+  console.log(`portraits : ${compte.femme} femme(s), ${compte.homme} homme(s)`);
 }
 
 const navigateur = await chromium.launch();
