@@ -50,10 +50,16 @@ test('le réglage de discrétion est offert à tout le monde, et il tient', asyn
   const interrupteur = page.locator('input[name="discretion"]');
   await expect(interrupteur).toBeVisible();
   await expect(interrupteur).not.toBeChecked();
-  // La ligne du pass est là aussi, mais l'écran « qui s'est arrêté » ne l'est pas : il demande
-  // un pass, et une ligne qui mène à un 403 serait une fausse porte.
+  // La ligne du pass est là, et celle de « qui s'est arrêté » aussi : sans pass, l'écran montre
+  // le nombre et des aperçus floutés, jamais un 403 — une ligne qui mène à une erreur serait une
+  // fausse porte.
   await expect(page.locator('main')).toContainText(/Plus/);
-  await expect(page.locator('main')).not.toContainText(/Se sont arrêtés sur ta fiche/);
+  await page.locator('main button', { hasText: /Se sont arrêtés sur ta fiche/ }).click();
+  await expect(titre(page)).toHaveText(/Se sont arrêtés sur ta fiche/);
+  // Un profil de démonstration a pu s'y arrêter entre-temps : le nombre varie, la règle non.
+  await expect(page.locator('main')).toContainText(/Personne pour l'instant|se sont arrêtées sur ta fiche/);
+  await expect(page.locator('main')).not.toContainText(/PASS_REQUIS|pass pour/);
+  await actionPrincipale(page).click();
 
   await interrupteur.check();
   await expect(page.locator('.toast, #toast')).toContainText(/n'apparais plus/);

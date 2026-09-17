@@ -652,6 +652,11 @@ body.match-mode main { background: var(--ink); color: #fff; }
 .new-item .avatar { box-shadow: 0 0 0 2.5px var(--bg2), 0 0 0 5px var(--button); }
 /* Ceux qui ont aimé ton profil : anneau doré, la couleur de ce qu'on t'accorde */
 .like-item .avatar { box-shadow: 0 0 0 2.5px var(--bg2), 0 0 0 5px var(--gold); }
+/* La tuile floutée : l'image reçue fait dix pixels de côté, c'est elle qui protège ; le flou CSS
+   ne fait qu'adoucir l'agrandissement, et s'éteint là où le verre est déjà coupé. */
+.avatar.flou img { filter: blur(3px); transform: scale(1.12); }
+[data-verre="opaque"] .avatar.flou img { filter: none; }
+.new-item .avatar.flou { background: var(--bg3); }
 .new-item span { max-width: 70px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ------------------------------------------------------------ Discussion */

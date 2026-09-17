@@ -554,4 +554,10 @@ export default {
   "Qui t'a aimé, des « J'aime » sans compter, tout le pays": "Хто тебе вподобав, вподобання без ліку, вся країна",
   "Encore {n} jour": "Залишився {n} день",
   "Encore {n} jours": {"one":"Залишився {n} день","few":"Залишилося {n} дні","many":"Залишилося {n} днів","other":"Залишилося {n} дня"},
+  // Les listes floutées sans pass
+  "Qui ?": "Хто?",
+  "Voir qui c'est": "Дізнатися, хто це",
+  "Le pass montre les fiches, jamais ce qu'elles ont décidé.": "Перепустка показує профілі, але ніколи — що вони вирішили.",
+  "{n} personne a aimé ton profil": "Твій профіль вподобала {n} людина",
+  "{n} personnes ont aimé ton profil": {"one":"Твій профіль вподобала {n} людина","few":"Твій профіль вподобали {n} людини","many":"Твій профіль вподобали {n} людей","other":"Твій профіль вподобали {n} людини"},
 };

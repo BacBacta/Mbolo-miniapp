@@ -85,20 +85,33 @@ test("la fenêtre laisse dehors ce qui est vieux, et l'issue ne la traverse pas"
   assert.equal(discret({ discretion: 'oui' }), false, 'seul le booléen compte');
 });
 
-test('sans pass, la liste ne s\'ouvre pas ; avec, elle est arrondie et coupée', async () => {
+test('sans pass, la liste se montre floutée ; avec, elle est arrondie et coupée', async () => {
   await membre('9201', 'Awa', 'femme');
   const cible = await pid('9201');
   assert.equal(cible.length > 0, true);
 
-  const sans = await call('9201', '/vues');
-  assert.equal(sans.status, 403);
-  assert.equal(sans.body.code, 'PASS_REQUIS');
+  const vide = await call('9201', '/vues');
+  assert.equal(vide.status, 200);
+  assert.deepEqual(vide.body, { discret: false, flou: true, arrondi: { forme: 'aucune', n: 0 }, apercus: [], profiles: [] });
 
   // Douze personnes s'arrêtent, six en aimant et six en passant.
   for (let i = 0; i < 12; i += 1) {
     await membre(`93${String(i).padStart(2, '0')}`, `Passant${i}`, 'homme', 26);
     await arret(`93${String(i).padStart(2, '0')}`, '9201', i % 2 ? 'like' : 'pass');
   }
+  // Sans pass : le même arrondi, le même plafond, mais des aperçus à la place des fiches — et
+  // rien dans la réponse qui nomme quelqu'un.
+  const sans = await call('9201', '/vues');
+  assert.equal(sans.status, 200);
+  assert.equal(sans.body.flou, true);
+  assert.deepEqual(sans.body.arrondi, { forme: 'plus', n: 10 });
+  assert.equal(sans.body.apercus.length, MAX_FICHES, 'cinq aperçus, pas douze');
+  assert.deepEqual(sans.body.profiles, []);
+  const flou = JSON.stringify(sans.body);
+  assert.ok(!flou.includes('Passant'), 'aucun prénom');
+  for (let i = 0; i < 12; i += 1) assert.ok(!flou.includes(await pid(`93${String(i).padStart(2, '0')}`)), 'aucun identifiant public');
+  assert.ok(!/"(like|pass)"/.test(flou), "et l'issue ne sort pas davantage sans pass");
+
   await passer('9201');
   const r = await call('9201', '/vues');
   assert.equal(r.status, 200);

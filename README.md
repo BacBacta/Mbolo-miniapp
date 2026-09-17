@@ -733,8 +733,8 @@ Et pour la personne, dans le bot : `/paysupport` (ses reçus, et la marche à su
 | | Sans pass | Avec le pass |
 |---|---|---|
 | « J'aime » par jour | **5** (2 sans le bouclier) | sans limite |
-| Qui t'a aimé | rien — mais ces personnes **passent devant dans le paquet** | la liste, avec les fiches |
-| Se sont arrêtés sur ta fiche | rien | un nombre arrondi, et cinq fiches — jamais ce qu'elles ont décidé |
+| Qui t'a aimé | le nombre, et **des tuiles floutées** — ces personnes passent devant dans le paquet | la liste, avec les fiches |
+| Se sont arrêtés sur ta fiche | le nombre arrondi, et cinq tuiles floutées au plus | un nombre arrondi, et cinq fiches — jamais ce qu'elles ont décidé |
 | Parcourir | les cartes, dix à la fois | **+ la vue Liste** : cinquante d'un coup, avec leur statut — les mêmes personnes |
 | Zone | **sa ville** | tout le pays |
 | Photos | 2 | 6 |
@@ -749,7 +749,7 @@ Et pour la personne, dans le bot : `/paysupport` (ses reçus, et la marche à su
 
 **Ce que le pass n'enlève jamais, c'est une rencontre.** Les mêmes personnes, la même zone, les mêmes règles ; le paquet place les « J'aime » reçus devant pour tout le monde, avec ou sans pass, et la notification du bot le dit ainsi : « Tu as plu à quelqu'un à Yaoundé. Continue à découvrir : tu le croiseras dans ton paquet. » Ce qui disparaît sans pass est de savoir **lesquels**.
 
-Il faut alors fermer **quatre portes ensemble**, sans quoi les trois autres ne servent à rien : la liste (`GET /api/likes`, 403 `PASS_REQUIS`), la pastille « T'a liké » sur la carte, la même dans la vue Liste, et **le compteur** de l'onglet Messages. Le compteur est le plus bavard des quatre : « une personne t'a aimé », posé à côté d'un paquet qui met cette personne en tête, fait un nom. Il ne vaut pas `0` sans pass — zéro dirait « personne ne t'a aimé », ce qui est faux — il vaut **`null`** : on ne le dit pas, et on ne dit pas le contraire. L'**ordre**, lui, ne change pas d'un compte à l'autre : deux ordres différents se compareraient, et la différence dirait ce que l'étiquette ne dit plus.
+**Sans pass, on voit qu'on a plu, et à combien, mais pas à qui** (décision du propriétaire, 17 septembre 2026). L'onglet Messages montre le nombre et une tuile **floutée** par personne ; « Se sont arrêtés sur ta fiche » fait de même, avec son arrondi et ses cinq tuiles au plus. Le flou est **fabriqué sur le serveur** (`flouDe()`, dix pixels de côté tirés de la miniature, envoyés en `data:`) : ce qui part est déjà des taches de couleur, et la réponse ne porte ni prénom, ni identifiant public, ni adresse de photo — un flou CSS sur la vraie photo se serait retiré d'un geste. Toucher une tuile ouvre le pass. Ce qui reste fermé sans pass est ce qui **nomme** : la fiche, la pastille « T'a liké » sur la carte et dans la vue Liste. Ce que ça laisse passer, et qu'on accepte parce que tout le marché fait pareil : « une personne t'a aimé » à côté d'un paquet qui met cette personne en tête, et une tache de couleur qui ressemble à une carte. L'**ordre**, lui, ne change pas d'un compte à l'autre : deux ordres différents se compareraient, et la différence dirait plus que le flou.
 
 ### Ce que le bot annonce, et ce qu'il tait
 

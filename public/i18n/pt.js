@@ -554,4 +554,10 @@ export default {
   "Qui t'a aimé, des « J'aime » sans compter, tout le pays": "Quem gostou de ti, « Gosto » sem contar, o país inteiro",
   "Encore {n} jour": "Falta {n} dia",
   "Encore {n} jours": "Faltam {n} dias",
+  // Les listes floutées sans pass
+  "Qui ?": "Quem?",
+  "Voir qui c'est": "Ver quem é",
+  "Le pass montre les fiches, jamais ce qu'elles ont décidé.": "O passe mostra os perfis, nunca o que decidiram.",
+  "{n} personne a aimé ton profil": "{n} pessoa gostou do teu perfil",
+  "{n} personnes ont aimé ton profil": "{n} pessoas gostaram do teu perfil",
 };

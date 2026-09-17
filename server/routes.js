@@ -10,7 +10,7 @@ import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_C
 import { LANGUES, t as tr } from './i18n.js';
 import { store, newId } from './store.js';
 import { fichierVoix, voixPublique } from './voix.js';
-import { PHOTO_SLOTS, fichierPhoto, miniatureDe, refaireLaMiniature } from './photos.js';
+import { PHOTO_SLOTS, fichierPhoto, miniatureDe, refaireLaMiniature, flouDe } from './photos.js';
 import { CRITERES, calculer as calculerJauge } from './jauge.js';
 import { requireAuth, identiteSansCreer } from './auth.js';
 import { checkMessage } from './antiscam.js';
@@ -198,9 +198,9 @@ const voitSesLikes = (u) => estPlus(u);
 // Une porte fermée dit laquelle : le message change selon ce qu'on demandait, et `quoi` voyage
 // jusqu'à l'interface pour qu'elle ouvre l'écran du pass avec le bon contexte, au lieu d'une
 // erreur en bas de l'écran.
+// « likes » et « vues » n'y sont plus : ces deux listes ne se refusent plus, elles se montrent
+// floutées (voir /likes et /vues plus bas).
 const PORTES_DU_PASS = {
-  likes: "Il faut un pass pour voir qui t'a aimé. En attendant, ces personnes passent devant dans ton paquet.",
-  vues: "Il faut un pass pour voir qui s'est arrêté sur ta fiche.",
   liste: 'Il faut un pass pour la vue Liste. Les mêmes personnes restent dans tes cartes.',
 };
 const requirePlus = (quoi) => (req, res, next) => {
@@ -932,7 +932,7 @@ const listRank = (p) => (p.status === 'match' ? 0 : p.status ? 1 : p.likedYou ? 
 // l'historique des achats : c'est le dénominateur de la conversion, et le reçu de la personne.
 api.get('/plus', async (req, res) => {
   const quoi = /^[a-z]{2,16}$/.test(String(req.query.quoi || '')) ? String(req.query.quoi) : 'profil';
-  mesurerRalenti('pass_vu', req.user, CINQ_MINUTES, { quoi });
+  mesurerRalenti('pass_vu', req.user, CINQ_MINUTES, { quoi }, `pass_vu:${quoi}`);
   const achats = (await store.paiementsDe(req.user.id)).map((p) => ({ jours: p.jours, stars: p.stars, statut: p.statut, at: p.at, ref: p.chargeId.slice(-6) }));
   res.json({ ...etatDuPass(req.user), offres: OFFRES, conseillee: OFFRE_CONSEILLEE, achats });
 });
@@ -1018,17 +1018,39 @@ const likersOf = (me, rel, candidats) => candidats
   .filter((u) => joignable(me, rel, u) && dansLeGenre(me, u) && selonLeBadge(me, u) && rel.maLike.has(u.id) && !rel.monSwipe.has(u.id))
   .sort((a, b) => rel.maLike.get(b.id).at - rel.maLike.get(a.id).at);
 
-api.get('/likes', requireMembre, requirePlus('likes'), async (req, res) => {
+// Sans pass, la liste se montre **floutée** (décision du propriétaire, 17 septembre 2026) : on voit
+// qu'il y a quelqu'un, combien, et des taches de couleur — jamais un prénom, jamais un
+// identifiant, jamais une photo qu'on pourrait redemander par son adresse. C'est ce que fait tout
+// le marché, et c'est ce qui donne envie d'ouvrir le pass. Le flou est fabriqué sur le serveur
+// (`flouDe`, dix pixels de côté) : ce qui part est déjà méconnaissable. `profiles` reste vide
+// pour que rien en aval — profilConnu(), la fiche, la photo — n'ait quoi que ce soit à ouvrir.
+const APERCUS_MAX = 12;
+async function apercusFlous(users, max) {
+  return Promise.all(users.slice(0, max).map(async (u) => {
+    const photo = (await store.photosOf(u)).find((x) => x.status === 'approved');
+    return photo ? flouDe(fichierPhoto(config.uploadsDir, u.id, photo.n)) : null;
+  }));
+}
+
+api.get('/likes', requireMembre, async (req, res) => {
   const me = req.user;
+  const rel = await relations(me);
+  const likers = likersOf(me, rel, await likersDe(rel));
+  if (!estPlus(me)) {
+    // La porte fermée se compte toujours, ralentie : l'onglet Messages la demande à chaque visite.
+    await mesurerRalenti('pass_refuse', me, CINQ_MINUTES, { quoi: 'likes' }, 'pass_refuse:likes');
+    return res.json({ flou: true, n: likers.length, apercus: await apercusFlous(likers, APERCUS_MAX), profiles: [] });
+  }
   // L'usage, pas seulement le droit : un pass dont personne ne se sert ne vaut rien. Ralenti à
   // cinq minutes — l'écran se recharge à chaque retour sur l'onglet Messages.
-  mesurerRalenti('pass_usage', me, CINQ_MINUTES, { quoi: 'likes' });
-  const rel = await relations(me);
-  const profiles = await Promise.all(likersOf(me, rel, await likersDe(rel)).slice(0, 20).map(async (u) => {
+  // Attendu : sur PostgreSQL, une liste vide répondait avant que la ligne soit écrite, et le
+  // test qui lit la trace juste après la réponse ne la trouvait pas.
+  await mesurerRalenti('pass_usage', me, CINQ_MINUTES, { quoi: 'likes' }, 'pass_usage:likes');
+  const profiles = await Promise.all(likers.slice(0, 20).map(async (u) => {
     const p = await publicProfile(u);
     return { ...p, activity: p.activity ? 'week' : null, likedYou: true, status: null, matchId: null };
   }));
-  res.json({ profiles });
+  res.json({ flou: false, n: likers.length, profiles });
 });
 
 // ---------- Qui s'est arrêté sur ta fiche ----------
@@ -1042,11 +1064,12 @@ api.get('/likes', requireMembre, requirePlus('likes'), async (req, res) => {
 //   * **L'action du balayage ne quitte jamais `swipes`.** `dansLaFenetre()` ne la recopie pas,
 //     donc aucune ligne d'ici ne peut la laisser fuir : c'est le refus n° 1, tenu par le code et
 //     pas par la vigilance.
-api.get('/vues', requireMembre, requirePlus('vues'), async (req, res) => {
+api.get('/vues', requireMembre, async (req, res) => {
   const me = req.user;
-  mesurerRalenti('pass_usage', me, CINQ_MINUTES, { quoi: 'vues' });
+  const avecPass = estPlus(me);
+  await mesurerRalenti(avecPass ? 'pass_usage' : 'pass_refuse', me, CINQ_MINUTES, { quoi: 'vues' }, avecPass ? 'pass_usage:vues' : 'pass_refuse:vues');
   // La symétrie : qui se retire n'apparaît nulle part, et ne regarde nulle part non plus.
-  if (discret(me)) return res.json({ discret: true, arrondi: arrondir(0), profiles: [] });
+  if (discret(me)) return res.json({ discret: true, flou: !avecPass, arrondi: arrondir(0), apercus: [], profiles: [] });
   const [recus, rel] = await Promise.all([store.swipesTo(me.id), relations(me)]);
   const arrets = dansLaFenetre(recus, me.id);
   const gens = await Promise.all(arrets.map(async (a) => ({ at: a.at, u: await store.getUser(a.from) })));
@@ -1055,11 +1078,16 @@ api.get('/vues', requireMembre, requirePlus('vues'), async (req, res) => {
   const retenus = gens.filter(({ u }) => u && !discret(u) && joignable(me, rel, u) && dansLeGenre(me, u) && selonLeBadge(me, u));
   // Le compte et la liste sortent **du même ensemble** : deux ensembles différents se
   // recoupent, et le recoupement est exactement ce que l'arrondi empêche.
+  // Sans pass : le même arrondi, le même plafond de cinq, mais des taches de couleur à la place
+  // des fiches — même règle que « qui t'a aimé ».
+  if (!avecPass) {
+    return res.json({ discret: false, flou: true, arrondi: arrondir(retenus.length), apercus: await apercusFlous(retenus.map(({ u }) => u), MAX_FICHES), profiles: [] });
+  }
   const profiles = await Promise.all(retenus.slice(0, MAX_FICHES).map(async ({ u }) => {
     const p = await publicProfile(u);
     return { ...p, activity: p.activity ? 'week' : null, likedYou: false, status: null, matchId: null };
   }));
-  res.json({ discret: false, arrondi: arrondir(retenus.length), profiles });
+  res.json({ discret: false, flou: false, arrondi: arrondir(retenus.length), apercus: [], profiles });
 });
 
 // Le réglage d'opposition. **Pas de `requirePlus` ici, et jamais** : on ne vend pas le droit de
@@ -1181,9 +1209,9 @@ api.get('/summary', requireMembre, async (req, res) => {
     unread += await store.unreadCount(m.id, me.id);
     if (!(await store.hasOpened(m.id, me.id))) newMatches += 1;
   }
-  // Sans pass, la réponse est `null` quoi qu'il arrive : on ne charge donc personne. `null` et pas
-  // `0` : zéro dirait « personne ne t'a aimé », ce qui est faux la plupart du temps.
-  const likes = voitSesLikes(me) ? likersOf(me, rel, await likersDe(rel)).length : null;
+  // Le compte se dit à tout le monde depuis que la liste se montre floutée sans pass (17 septembre
+  // 2026) : c'est lui qui fait ouvrir l'onglet Messages, et l'onglet qui fait ouvrir le pass.
+  const likes = likersOf(me, rel, await likersDe(rel)).length;
   res.json({ unread, newMatches, likes });
 });
 
