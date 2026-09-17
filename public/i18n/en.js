@@ -576,4 +576,13 @@ export default {
   "Envoyé": "Sent",
   "En ligne": "Online",
   "écrit…": "typing…",
+  "Message supprimé": "Message deleted",
+  "Toi": "You",
+  "Photo": "Photo",
+  "Toucher pour voir": "Tap to view",
+  "Répondre": "Reply",
+  "Supprimer": "Delete",
+  "Répondre à {nom}": "Reply to {nom}",
+  "Ne plus répondre à ce message": "Stop replying to this message",
+  "Envoyer une photo": "Send a photo",
 };

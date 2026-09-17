@@ -81,8 +81,8 @@ await ecrire('Matchs', Object.values(db.matches || {}),
 // Les messages sont rangés par match dans le fichier : on les remet à plat.
 const messages = Object.entries(db.messages || {}).flatMap(([matchId, liste]) => (liste || []).map((x) => ({ ...x, matchId })));
 await ecrire('Messages', messages,
-  'insert into messages (id, match_id, from_id, text, at) values ($1, $2, $3, $4, $5) on conflict (id) do nothing',
-  (x) => [x.id, x.matchId, String(x.from), x.text, Number(x.at) || Date.now()]);
+  'insert into messages (id, match_id, from_id, text, at, reply_to, photo, deleted_at) values ($1, $2, $3, $4, $5, $6, $7, $8) on conflict (id) do nothing',
+  (x) => [x.id, x.matchId, String(x.from), x.text, Number(x.at) || Date.now(), x.replyTo || null, !!x.photo, x.deletedAt ? Number(x.deletedAt) : null]);
 
 await ecrire('Blocages', db.blocks || [],
   'insert into blocks (from_id, to_id, at) values ($1, $2, $3) on conflict (from_id, to_id) do nothing',

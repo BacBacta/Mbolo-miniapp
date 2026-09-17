@@ -193,11 +193,31 @@ export function confirm(message) {
 // buttons : [{ id, type: 'default'|'destructive'|'cancel'|'ok', text }]
 export function popup({ title, message, buttons }) {
   return new Promise((resolve) => {
-    if (supports('6.2')) W.showPopup({ title, message, buttons }, (id) => resolve(id));
-    else {
-      const main = buttons.find((b) => b.type !== 'cancel');
-      resolve(window.confirm(`${title ? `${title}\n\n` : ''}${message}`) ? main?.id : null);
+    if (supports('6.2')) return W.showPopup({ title, message, buttons }, (id) => resolve(id));
+    // Hors Telegram, une feuille à nous : window.confirm ne sait dire que oui ou non, et les
+    // tests de bout en bout doivent pouvoir choisir « Supprimer » comme « Répondre ».
+    document.getElementById('fallback-sheet')?.remove();
+    const feuille = document.createElement('div');
+    feuille.id = 'fallback-sheet';
+    feuille.className = 'fallback-sheet';
+    feuille.setAttribute('role', 'dialog');
+    const boite = document.createElement('div');
+    boite.className = 'sheet';
+    if (title) { const h = document.createElement('h2'); h.textContent = title; boite.appendChild(h); }
+    if (message) { const p = document.createElement('p'); p.textContent = message; boite.appendChild(p); }
+    const fermer = (id) => { feuille.remove(); resolve(id); };
+    for (const b of buttons) {
+      const bouton = document.createElement('button');
+      bouton.type = 'button';
+      bouton.className = `btn btn-block ${b.type === 'destructive' ? 'btn-danger' : b.type === 'cancel' ? 'btn-ghost' : 'btn-primary'}`;
+      bouton.textContent = b.text || (b.type === 'cancel' ? 'Annuler' : b.type === 'ok' ? 'OK' : b.id);
+      bouton.dataset.popup = b.id || b.type;
+      bouton.addEventListener('click', () => fermer(b.type === 'cancel' ? null : b.id));
+      boite.appendChild(bouton);
     }
+    feuille.addEventListener('click', (e) => { if (e.target === feuille) fermer(null); });
+    feuille.appendChild(boite);
+    document.body.appendChild(feuille);
   });
 }
 

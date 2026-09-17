@@ -15,7 +15,7 @@ import crypto from 'node:crypto';
 import pg from 'pg';
 import { config } from './config.js';
 import { fichierVoix } from './voix.js';
-import { fichiersDUnePhoto, fichiersDUnCompte } from './photos.js';
+import { fichiersDUnePhoto, fichiersDUnCompte, supprimerLesPhotosDuChat } from './photos.js';
 import { migrer } from './db/migrate.js';
 
 fs.mkdirSync(config.uploadsDir, { recursive: true });
@@ -52,7 +52,13 @@ const pairKey = (a, b) => [String(a), String(b)].sort().join(':');
 // Les lignes reviennent avec leurs colonnes ; l'app attend les objets qu'elle a écrits.
 const versUser = (r) => (r ? { ...r.data, id: r.id, createdAt: Number(r.created_at) } : null);
 const versMatch = (r) => (r ? { id: r.id, key: r.pair_key, users: [r.user_a, r.user_b], createdAt: Number(r.created_at), readAt: r.read_at } : null);
-const versMessage = (r) => ({ id: r.id, from: r.from_id, text: r.text, at: Number(r.at) });
+// Même forme que le fichier : les champs absents n'y sont pas, jamais « null ».
+const versMessage = (r) => ({
+  id: r.id, from: r.from_id, text: r.text, at: Number(r.at),
+  ...(r.reply_to ? { replyTo: r.reply_to } : {}),
+  ...(r.photo ? { photo: true } : {}),
+  ...(r.deleted_at ? { deletedAt: Number(r.deleted_at) } : {}),
+});
 const versSwipe = (r) => (r ? { from: r.from_id, to: r.to_id, action: r.action, at: Number(r.at) } : null);
 const versDate = (r) => (r ? { ...r.data, id: r.id, matchId: r.match_id } : null);
 // La forme d'un événement doit être identique des deux côtés : le stockage JSON omet u et p quand
@@ -160,10 +166,11 @@ export const store = {
   async deleteUser(id) {
     id = String(id);
     const client = await pool.connect();
+    let ids = [];
     try {
       await client.query('begin');
       const { rows } = await client.query('select id from matches where user_a = $1 or user_b = $1', [id]);
-      const ids = rows.map((r) => r.id);
+      ids = rows.map((r) => r.id);
       if (ids.length) {
         await client.query('delete from messages where match_id = any($1)', [ids]);
         await client.query('delete from dates where match_id = any($1)', [ids]);
@@ -191,6 +198,7 @@ export const store = {
     }
     supprimerFichiers(id, fichiersDUnCompte());
     supprimerLaVoix(id);
+    for (const mid of ids) supprimerLesPhotosDuChat(config.uploadsDir, mid);
   },
 
   // Purge des selfies que la modération n'a jamais tranchés : la promesse est qu'il disparaît
@@ -404,7 +412,7 @@ export const store = {
   async unreadCount(matchId, userId) {
     const r = await un(
       `select count(*)::int as n from messages m
-       where m.match_id = $1 and m.from_id <> $2
+       where m.match_id = $1 and m.from_id <> $2 and m.deleted_at is null
          and m.at > coalesce((select (read_at->>$2)::bigint from matches where id = $1), 0)`,
       [matchId, String(userId)],
     );
@@ -446,10 +454,19 @@ export const store = {
   // ---------- Messages ----------
   messagesOf: async (matchId) => (await q('select * from messages where match_id = $1 order by at', [matchId])).map(versMessage),
 
-  async addMessage(matchId, from, text) {
-    const msg = { id: newId(), from: String(from), text, at: Date.now() };
-    await q('insert into messages (id, match_id, from_id, text, at) values ($1, $2, $3, $4, $5)', [msg.id, matchId, msg.from, text, msg.at]);
+  async addMessage(matchId, from, text, { replyTo, photo } = {}) {
+    const msg = { id: newId(), from: String(from), text, at: Date.now(), ...(replyTo ? { replyTo: String(replyTo) } : {}), ...(photo ? { photo: true } : {}) };
+    await q('insert into messages (id, match_id, from_id, text, at, reply_to, photo) values ($1, $2, $3, $4, $5, $6, $7)', [msg.id, matchId, msg.from, text, msg.at, msg.replyTo || null, !!photo]);
     return msg;
+  },
+
+  // Le sien seulement ; la ligne reste, marquée (voir store.json.js).
+  async supprimerMessage(matchId, messageId, from) {
+    const r = await un(
+      'update messages set deleted_at = coalesce(deleted_at, $4) where match_id = $1 and id = $2 and from_id = $3 returning *',
+      [matchId, String(messageId), String(from), Date.now()],
+    );
+    return r ? versMessage(r) : null;
   },
 
   // ---------- Mesure ----------
@@ -528,6 +545,7 @@ export const store = {
       await client.query('delete from dates where match_id = $1', [matchId]);
       const r = await client.query('delete from matches where id = $1 returning id', [matchId]);
       await client.query('commit');
+      supprimerLesPhotosDuChat(config.uploadsDir, matchId);
       return r.rowCount > 0;
     } catch (e) {
       await client.query('rollback');

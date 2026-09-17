@@ -565,4 +565,13 @@ export default {
   "Envoyé": "Надіслано",
   "En ligne": "У мережі",
   "écrit…": "пише…",
+  "Message supprimé": "Повідомлення видалено",
+  "Toi": "Ти",
+  "Photo": "Фото",
+  "Toucher pour voir": "Торкнись, щоб переглянути",
+  "Répondre": "Відповісти",
+  "Supprimer": "Видалити",
+  "Répondre à {nom}": "Відповідь для {nom}",
+  "Ne plus répondre à ce message": "Не відповідати на це повідомлення",
+  "Envoyer une photo": "Надіслати фото",
 };

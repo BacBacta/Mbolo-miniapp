@@ -9,7 +9,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { config } from './config.js';
 import { fichierVoix } from './voix.js';
-import { fichiersDUnePhoto, fichiersDUnCompte } from './photos.js';
+import { fichiersDUnePhoto, fichiersDUnCompte, supprimerLesPhotosDuChat } from './photos.js';
 
 const file = path.join(config.dataDir, 'db.json');
 const empty = () => ({ users: {}, swipes: [], matches: {}, messages: {}, reports: [], blocks: [], dates: {}, events: [], paiements: [] });
@@ -136,6 +136,7 @@ export const store = {
       if (m.users.includes(id)) {
         delete db.matches[mid];
         delete db.messages[mid];
+        supprimerLesPhotosDuChat(config.uploadsDir, mid);
         for (const [did, d] of Object.entries(db.dates)) if (d.matchId === mid) delete db.dates[did];
       }
     }
@@ -385,7 +386,8 @@ export const store = {
   async unreadCount(matchId, userId) {
     const m = db.matches[matchId];
     const since = m?.readAt?.[String(userId)] || 0;
-    return (db.messages[matchId] || []).filter((x) => x.from !== String(userId) && x.at > since).length;
+    // Un message retiré ne se compte pas : la pastille dirait « 1 » pour une bulle qui dit « supprimé ».
+    return (db.messages[matchId] || []).filter((x) => x.from !== String(userId) && x.at > since && !x.deletedAt).length;
   },
 
   hasOpened: async (matchId, userId) => !!db.matches[matchId]?.readAt?.[String(userId)],
@@ -426,10 +428,23 @@ export const store = {
   // ---------- Messages ----------
   messagesOf: async (matchId) => db.messages[matchId] || [],
 
-  async addMessage(matchId, from, text) {
-    const msg = { id: newId(), from: String(from), text, at: Date.now() };
+  // `extras` : `replyTo` (l'identifiant du message auquel on répond) et `photo` (vrai pour une
+  // image). Les deux stockages rendent la même forme : { id, from, text, at, replyTo?, photo?,
+  // deletedAt? }, les champs absents n'y sont pas — pas « null ».
+  async addMessage(matchId, from, text, { replyTo, photo } = {}) {
+    const msg = { id: newId(), from: String(from), text, at: Date.now(), ...(replyTo ? { replyTo: String(replyTo) } : {}), ...(photo ? { photo: true } : {}) };
     (db.messages[matchId] ||= []).push(msg);
     save();
+    return msg;
+  },
+
+  // Retirer un message : **le sien seulement**. La ligne reste, marquée — les deux écrans
+  // montrent « Message supprimé », et la modération peut encore lire le texte si la discussion
+  // est signalée. Rend le message marqué, ou null s'il n'est pas à cette personne.
+  async supprimerMessage(matchId, messageId, from) {
+    const msg = (db.messages[matchId] || []).find((x) => x.id === String(messageId) && x.from === String(from));
+    if (!msg) return null;
+    if (!msg.deletedAt) { msg.deletedAt = Date.now(); save(); }
     return msg;
   },
 
@@ -506,6 +521,7 @@ export const store = {
     if (!m) return false;
     delete db.matches[matchId];
     delete db.messages[matchId];
+    supprimerLesPhotosDuChat(config.uploadsDir, matchId);
     for (const [did, d] of Object.entries(db.dates)) if (d.matchId === matchId) delete db.dates[did];
     save();
     return true;

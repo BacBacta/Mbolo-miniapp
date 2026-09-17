@@ -744,6 +744,42 @@ body.chat-mode main > * { animation: none; }
 .datecard .head { display: flex; gap: 12px; align-items: center; }
 .datecard .v { font-weight: 700; font-size: 15px; }
 .datecard .w { font-size: 13px; color: var(--hint); }
+/* ---- Répondre, retirer, photos ---- */
+/* L'appui long ouvre le menu du message : la sélection de texte du système prendrait le même
+   geste, et le menu de copie du navigateur avec elle. */
+.bubble { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.bubble .txt { display: inline; }
+.bubble.supprime { opacity: .62; font-style: italic; }
+.bubble.supprime .txt { display: inline-flex; align-items: center; gap: 5px; }
+.bubble .quote { display: flex; flex-direction: column; gap: 1px; width: 100%; text-align: left; margin: -2px 0 6px; padding: 5px 9px; border-radius: 10px; border: 0; border-left: 3px solid var(--gold); background: color-mix(in srgb, currentColor 10%, transparent); color: inherit; font: inherit; font-size: 13px; line-height: 1.3; }
+.bubble .quote b { font-size: 12px; font-weight: 700; opacity: .85; }
+.bubble .quote span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; opacity: .8; }
+.bubble.cible { animation: bulle-cible 1.2s var(--ease); }
+@keyframes bulle-cible { 0%, 40% { box-shadow: 0 0 0 3px var(--gold); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.bubble.photo { padding: 4px; max-width: 72%; }
+.bubble.photo .quote { margin: 2px 2px 6px; width: calc(100% - 4px); }
+.bubble.photo .txt { display: block; padding: 6px 9px 2px; }
+.bubble.photo .time { margin-right: 4px; margin-bottom: 2px; }
+.bubble.photo .img { position: relative; display: block; width: min(68vw, 300px); min-height: 90px; border-radius: 16px; overflow: hidden; background: var(--bg3); cursor: pointer; }
+.bubble.photo .img img { display: block; width: 100%; height: auto; max-height: 400px; object-fit: cover; transition: filter .25s var(--ease); }
+.bubble.photo .img img:not([src]) { min-height: 160px; }
+.bubble.photo .voile-mot { display: none; }
+.bubble.photo.voile .img img { filter: blur(18px); transform: scale(1.08); }
+.bubble.photo.voile .voile-mot { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--button-text); background: color-mix(in srgb, var(--button) 45%, transparent); }
+[data-verre="opaque"] .bubble.photo.voile .img img { visibility: hidden; }
+[data-verre="opaque"] .bubble.photo.voile .voile-mot { background: var(--bg3); color: var(--text); }
+.reponse-a { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-top: 8px; border-radius: 14px; background: var(--bg); box-shadow: var(--shadow-1); border-left: 3px solid var(--gold); color: var(--hint); }
+.reponse-a .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; font-size: 13px; }
+.reponse-a b { color: var(--text); font-size: 12.5px; }
+.reponse-a span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.composer .joindre { width: 42px; height: 46px; flex-shrink: 0; display: grid; place-items: center; color: var(--hint); cursor: pointer; border-radius: 50%; }
+.composer .joindre:active { transform: scale(.9); }
+.visionneuse { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); animation: enter .18s var(--ease); }
+.visionneuse img { max-width: 100vw; max-height: 100vh; object-fit: contain; }
+.fallback-sheet { position: fixed; inset: 0; z-index: 70; display: flex; align-items: flex-end; background: color-mix(in srgb, var(--text) 40%, transparent); }
+.fallback-sheet .sheet { width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 18px 16px 24px; border-radius: 22px 22px 0 0; background: var(--bg2); }
+.fallback-sheet h2 { margin: 0; font-size: 17px; }
+.fallback-sheet p { margin: 0 0 6px; color: var(--hint); font-size: 14px; }
 .composer { display: flex; gap: 8px; align-items: center; padding: 10px 0 2px; }
 .composer input { flex: 1; height: 46px; border-radius: 23px; padding: 0 16px; }
 .composer .send { width: 46px; height: 46px; border-radius: 50%; border: 0; flex-shrink: 0; display: grid; place-items: center; background: var(--button); color: var(--button-text); transition: transform .15s var(--spring), opacity .2s; }

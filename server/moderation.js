@@ -8,10 +8,12 @@
 // Le lien vaut dix minutes et ne sert qu'une fois. Il part en message privé : posé dans le
 // groupe, il s'ouvrirait d'un clic pour n'importe quel membre, et tout membre du groupe n'est
 // pas administrateur.
+import fs from 'node:fs';
 import crypto from 'node:crypto';
 import express from 'express';
 import { config } from './config.js';
 import { store } from './store.js';
+import { fichierPhotoDeChat } from './photos.js';
 import { bot, appUrl, estAdministrateur, oublierLesAdmins } from './bot.js';
 import { COOKIE_MODERATION, signer, verifier, lireCookie, optionsCookie, effacerCookie } from './session.js';
 import { envelopper } from './promesses.js';
@@ -119,6 +121,18 @@ modApi.get('/signalements/:id/fil', requireModerateur, async (req, res) => {
   const fil = await filDuSignalement(signalement, req.moderateur.id);
   if (!fil) return res.status(404).json({ code: 'SANS_FIL', message: "Ce signalement ne porte sur aucune discussion : il n'y a rien à lire." });
   res.json({ signalement, ...fil });
+});
+
+// La photo d'un message de la discussion signalée. Même porte que le fil, même trace : ouvrir
+// une photo est une lecture du fil, et elle s'enregistre comme les autres.
+modApi.get('/signalements/:id/photos/:mid', requireModerateur, async (req, res) => {
+  const signalement = (await store.reports()).find((r) => r.id === req.params.id);
+  if (!signalement) return res.status(404).json({ code: 'NOT_FOUND', message: 'Ce signalement n\'existe pas.' });
+  const fil = await filDuSignalement(signalement, req.moderateur.id);
+  const m = fil?.messages.find((x) => x.id === String(req.params.mid) && x.photo);
+  const file = m ? fichierPhotoDeChat(config.uploadsDir, signalement.matchId, m.id) : null;
+  if (!file || !fs.existsSync(file)) return res.status(404).json({ code: 'NO_PHOTO', message: 'Cette photo n\'existe plus.' });
+  res.set('Cache-Control', 'no-store').sendFile(file);
 });
 
 modApi.get('/comptes-fermes', requireModerateur, async (req, res) => {
@@ -294,7 +308,12 @@ async function vueFil(id, parQui) {
   }
   const lignes = fil.messages.map((m) => {
     const cible = String(m.from) === String(signalement.targetId);
-    return `    <li${cible ? ' class="mod-cible"' : ''}><b>${echapper(m.nom || (cible ? 'signalé' : 'a signalé'))} · ${quand(m.at)}</b><p>${echapper(m.text)}</p></li>`;
+    // Un message retiré par son auteur se lit quand même ici, marqué : c'est précisément celui
+    // qu'une arnaque efface avant le signalement. Une photo ne se charge qu'à l'appui, par
+    // la même session — la page reste sans image, comme promis.
+    const retire = m.deletedAt ? ` <i>(retiré par son auteur le ${quand(m.deletedAt)})</i>` : '';
+    const photo = m.photo ? `<p><a href="/api/mod/signalements/${encodeURIComponent(id)}/photos/${encodeURIComponent(m.id)}">Photo envoyée (ouvrir)</a></p>` : '';
+    return `    <li${cible ? ' class="mod-cible"' : ''}><b>${echapper(m.nom || (cible ? 'signalé' : 'a signalé'))} · ${quand(m.at)}</b>${retire}${photo}${m.text ? `<p>${echapper(m.text)}</p>` : ''}</li>`;
   });
   return [
     entete,

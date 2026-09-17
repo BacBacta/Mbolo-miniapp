@@ -7,6 +7,7 @@ data/uploads/*
 
 # Tests de bout en bout : base jetable, traces et captures d'écran des échecs
 .e2e-data/
+.e2e-data-*/
 test-results/
 playwright-report/
 .mesure.json

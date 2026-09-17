@@ -3,7 +3,7 @@
 // reconstruit pendant qu'on tape — le clavier se fermerait à chaque interrogation du serveur
 // (règle 16 de CLAUDE.md). Ce défaut-là ne se voit que dans un vrai navigateur.
 import { test, expect } from '@playwright/test';
-import { membreVerifie, onglet, actionPrincipale } from './aides.js';
+import { membreVerifie, onglet, actionPrincipale, sonSelfie } from './aides.js';
 
 // Aime le premier profil de démonstration : ils rendent le « J'aime », donc le match est immédiat.
 async function aimerUnProfil(page) {
@@ -356,4 +356,85 @@ test("deux navigateurs : on voit l'autre écrire, être là, et avoir lu", async
   await ctxB.close();
   await expect(a.locator('#chat-sub .enligne')).toHaveCount(0, { timeout: 20_000 });
   await ctxA.close();
+});
+
+// Répondre à un message, retirer le sien, envoyer une photo : trois gestes que la discussion
+// n'avait pas, et qu'on ne prouve qu'à deux — la citation, le voile et « Message supprimé » se
+// voient **chez l'autre**. Hors Telegram, le menu du message est une feuille à nous
+// (tg.popup, repli) : c'est elle que ce test touche.
+test('deux navigateurs : répondre à un message, envoyer une photo voilée, retirer le sien', async ({ browser, request }) => {
+  test.setTimeout(90_000);
+  const ctxA = await browser.newContext(), ctxB = await browser.newContext();
+  const a = await ctxA.newPage(), b = await ctxB.newPage();
+  const idA = await membreVerifie(a, 'Nadia', { genre: /Femme/ });
+  const idB = await membreVerifie(b, 'Omar', { genre: /Homme/ });
+  const ha = { 'x-dev-user': idA, 'content-type': 'application/json' }, hb = { 'x-dev-user': idB, 'content-type': 'application/json' };
+  const pidA = (await (await request.get('/api/me', { headers: ha })).json()).publicProfile.id;
+  const pidB = (await (await request.get('/api/me', { headers: hb })).json()).publicProfile.id;
+  await request.post('/api/swipes', { headers: ha, data: { targetId: pidB, action: 'like' } });
+  const m = await (await request.post('/api/swipes', { headers: hb, data: { targetId: pidA, action: 'like' } })).json();
+  await a.goto(`/?dev_user=${idA}&screen=chat&match=${m.match.id}`);
+  await b.goto(`/?dev_user=${idB}&screen=chat&match=${m.match.id}`);
+  await expect(champMessage(a)).toBeVisible();
+  await expect(champMessage(b)).toBeVisible();
+
+  // Nadia écrit ; Omar ouvre le menu de sa bulle et répond. La citation se lit des deux côtés.
+  await champMessage(a).fill('Tu viens de quel quartier ?');
+  await boutonEnvoyer(a).click();
+  const question = b.locator('#messages .bubble.theirs', { hasText: 'quartier' });
+  await expect(question).toBeVisible({ timeout: 10_000 });
+  await question.click({ button: 'right' });
+  await b.locator('#fallback-sheet [data-popup="repondre"]').click();
+  await expect(b.locator('#chat-reponse')).toContainText(/Répondre à Nadia/);
+  await expect(b.locator('#chat-reponse')).toContainText('quartier');
+  await champMessage(b).fill('De Bastos, et toi ?');
+  await boutonEnvoyer(b).click();
+  await expect(b.locator('#chat-reponse')).toBeEmpty();
+  const reponse = b.locator('#messages .bubble.mine', { hasText: 'Bastos' });
+  await expect(reponse.locator('.quote')).toContainText('quartier');
+  await expect(a.locator('#messages .bubble.theirs', { hasText: 'Bastos' }).locator('.quote')).toContainText('quartier', { timeout: 10_000 });
+  // Toucher la citation remonte au message cité.
+  await reponse.locator('.quote').click();
+  await expect(question.or(b.locator('#messages .bubble.cible'))).toBeVisible();
+
+  // Nadia envoie une photo : chez elle en clair, chez Omar voilée jusqu'à l'appui.
+  await a.locator('input[name="photo-chat"]').setInputFiles(sonSelfie);
+  const chezNadia = a.locator('#messages .bubble.photo.mine');
+  await expect(chezNadia).toBeVisible();
+  await expect(chezNadia).not.toHaveClass(/voile/);
+  await expect(chezNadia).not.toHaveClass(/encours/, { timeout: 10_000 });
+  const chezOmar = b.locator('#messages .bubble.photo.theirs');
+  await expect(chezOmar).toBeVisible({ timeout: 10_000 });
+  await expect(chezOmar).toHaveClass(/voile/);
+  await expect(chezOmar).toContainText(/Toucher pour voir/);
+  await expect(chezOmar.locator('img')).toHaveAttribute('src', /blob:/, { timeout: 10_000 });
+  await chezOmar.locator('.img').click();
+  await expect(chezOmar).not.toHaveClass(/voile/);
+  // Un second appui ouvre l'image en grand ; un appui la referme.
+  await chezOmar.locator('.img').click();
+  await expect(b.locator('.visionneuse img')).toBeVisible();
+  await b.locator('.visionneuse').click();
+  await expect(b.locator('.visionneuse')).toHaveCount(0);
+  // La liste des discussions dit « Photo » plutôt qu'une ligne vide.
+  await b.goto(`/?dev_user=${idB}&screen=matches`);
+  await expect(b.locator('main .list-row .preview').first()).toContainText(/Photo/);
+  await b.goto(`/?dev_user=${idB}&screen=chat&match=${m.match.id}`);
+  await expect(champMessage(b)).toBeVisible();
+
+  // Nadia retire sa question : les deux fils disent « Message supprimé », à la même place.
+  const maQuestion = a.locator('#messages .bubble.mine', { hasText: 'quartier' });
+  await maQuestion.click({ button: 'right' });
+  await a.locator('#fallback-sheet [data-popup="supprimer"]').click();
+  await expect(a.locator('#messages .bubble.supprime')).toBeVisible();
+  await expect(a.locator('#messages')).not.toContainText('quel quartier');
+  await expect(b.locator('#messages .bubble.supprime')).toBeVisible({ timeout: 15_000 });
+  await expect(b.locator('#messages')).not.toContainText('quel quartier');
+  // Et la citation qui pointait dessus le dit aussi.
+  await expect(b.locator('#messages .bubble.mine', { hasText: 'Bastos' }).locator('.quote')).toContainText(/Message supprimé/);
+  // Le menu d'un message de l'autre ne propose pas de le retirer.
+  await b.locator('#messages .bubble.theirs.photo').click({ button: 'right' });
+  await expect(b.locator('#fallback-sheet [data-popup="repondre"]')).toBeVisible();
+  await expect(b.locator('#fallback-sheet [data-popup="supprimer"]')).toHaveCount(0);
+  await ctxA.close();
+  await ctxB.close();
 });

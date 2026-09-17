@@ -333,3 +333,34 @@ test('sans WEBAPP_URL, la commande le dit au lieu d\'envoyer un lien mort', asyn
     config.webAppUrl = vrai;
   }
 });
+
+test("le fil signalé lit un message retiré, marqué, et propose la photo sans la charger", async () => {
+  await membre('521', 'Rose');
+  await membre('522', 'Samuel');
+  const h = (id) => ({ 'Content-Type': 'application/json', 'x-dev-user': id });
+  await fetch(`${base}/api/swipes`, { method: 'POST', headers: h('521'), body: JSON.stringify({ targetId: await pid('522'), action: 'like' }) });
+  const m = (await (await fetch(`${base}/api/swipes`, { method: 'POST', headers: h('522'), body: JSON.stringify({ targetId: await pid('521'), action: 'like' }) })).json()).match.id;
+  const JPEG = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==';
+  const efface = (await (await fetch(`${base}/api/matches/${m}/messages`, { method: 'POST', headers: h('522'), body: JSON.stringify({ text: 'Oublie ce que je t\'ai dit hier soir' }) })).json()).message;
+  const photo = (await (await fetch(`${base}/api/matches/${m}/messages`, { method: 'POST', headers: h('522'), body: JSON.stringify({ photo: JPEG }) })).json()).message;
+  await fetch(`${base}/api/matches/${m}/messages/${efface.id}`, { method: 'DELETE', headers: h('522') });
+  await fetch(`${base}/api/reports`, { method: 'POST', headers: h('521'), body: JSON.stringify({ targetId: await pid('522'), reason: 'demande argent', matchId: m }) });
+
+  const { cookie } = await session('500');
+  const { signalements } = await (await aller('/api/mod/signalements', { cookie })).json();
+  const s = signalements.find((x) => x.targetId === '522');
+  assert.ok(s?.matchId, 'le signalement porte la discussion');
+
+  // Le fil : le texte retiré est encore là, marqué — c'est celui qu'une arnaque efface avant le
+  // signalement — et la photo n'est pas dans la page, seulement son adresse.
+  const page = await (await aller(`/moderation?signalement=${encodeURIComponent(s.id)}`, { cookie })).text();
+  assert.match(page, /dit hier soir/);
+  assert.match(page, /retiré par son auteur/);
+  assert.match(page, new RegExp(`/api/mod/signalements/${s.id}/photos/${photo.id}`));
+  assert.ok(!page.includes('<img'), 'la page reste sans image');
+
+  // La photo se sert à la modération par sa session, et à personne sans elle.
+  assert.equal((await aller(`/api/mod/signalements/${s.id}/photos/${photo.id}`, { cookie })).status, 200);
+  assert.equal((await aller(`/api/mod/signalements/${s.id}/photos/${photo.id}`)).status, 401);
+  assert.equal((await aller(`/api/mod/signalements/${s.id}/photos/${efface.id}`, { cookie })).status, 404, 'un message sans photo n\'en sert pas');
+});
