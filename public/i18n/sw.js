@@ -554,4 +554,10 @@ export default {
   "Qui t'a aimé, des « J'aime » sans compter, tout le pays": "Aliyekupenda, « Nimependa » bila kuhesabu, nchi nzima",
   "Encore {n} jour": "Imebaki siku {n}",
   "Encore {n} jours": "Zimebaki siku {n}",
+  // Les listes floutées sans pass
+  "Qui ?": "Nani?",
+  "Voir qui c'est": "Ona ni nani",
+  "Le pass montre les fiches, jamais ce qu'elles ont décidé.": "Pasi inaonyesha wasifu, kamwe si walichoamua.",
+  "{n} personne a aimé ton profil": "Mtu {n} amependa wasifu wako",
+  "{n} personnes ont aimé ton profil": "Watu {n} wamependa wasifu wako",
 };

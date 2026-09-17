@@ -87,6 +87,20 @@ Quatre événements de plus (`pass_vu`, `pass_facture`, `pass_achat`, `pass_remb
 
 La première chose à lire, après deux semaines : **la porte qui convertit**. Si c'est « likes » (depuis Messages), la promesse est la bonne. Si c'est « quota », c'est le compteur qui vend, et il faudra se demander si cinq par jour est le bon nombre. Si personne ne convertit depuis « pays », c'est que la zone ne manque à personne — ou qu'elle manque à tout le monde et qu'ils partent avant l'écran : `deck_empty` le dira.
 
+### 2.5 Ajout du même jour : les listes floutées
+
+Une fois la caisse en place, le propriétaire a demandé ce que fait tout le marché : **sans pass, on voit quand même qu'on a plu, et à combien — en flouté.** Tinder, Bumble et Hinge montrent des vignettes brouillées ; c'est le déclencheur d'achat le plus efficace qu'ils aient, parce qu'il pose la question exacte à laquelle le pass répond.
+
+Ce qui a été décidé en le faisant :
+
+- **Le flou est fabriqué sur le serveur**, pas par une règle CSS. Une règle CSS se retire d'un geste, et l'adresse de la photo entière resterait dans la page. `flouDe()` réduit la miniature à **dix pixels de côté** et l'envoie en `data:` dans la réponse : ce qui part est déjà méconnaissable, et rien ne se redemande par une adresse.
+- **La réponse ne nomme personne.** Ni prénom, ni identifiant public, ni adresse — `profiles` reste vide, donc la fiche, `profilConnu()` et `/photos/:id` n'ont rien à ouvrir. Sans photo, une tuile neutre : pas d'initiale, qui dirait la première lettre du prénom.
+- **Le compteur se dit à tout le monde.** Il valait `null` sans pass ; il vaut maintenant le nombre, parce que c'est lui qui fait ouvrir l'onglet Messages, et l'onglet qui fait ouvrir le pass.
+- **« Se sont arrêtés sur ta fiche » suit la même règle** : l'arrondi, cinq tuiles au plus, floutées. Les trois refus tiennent : l'issue ne sort toujours pas, l'arrondi reste, l'opposition reste gratuite.
+- **La fuite acceptée, en connaissance de cause** : « une personne t'a aimé » à côté d'un paquet qui met cette personne en tête fait un nom, et une tache de couleur se rapproche d'une carte. C'est la fuite de tout le marché, et c'est une fuite vers le haut — on apprend qui *veut* de soi, jamais qui n'en veut pas.
+
+Ce qui reste fermé sans pass est exactement ce qui **nomme** : la fiche derrière la tuile, la pastille « T'a liké » sur la carte et dans la vue Liste.
+
 ## 3. Ce qu'on n'a pas fait, et pourquoi
 
 - **Le mobile money hors Telegram** (section 10 du cahier des charges, P0-6). Ce n'est pas abandonné, c'est un autre canal : un site web, une authentification web, un agrégateur, une structure juridique. Il vaut le coup le jour où les Stars auront montré que des gens paient — pas avant. Et il ne changera rien dans la mini app, qui n'a pas le droit d'en parler.

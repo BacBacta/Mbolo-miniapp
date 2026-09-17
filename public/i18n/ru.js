@@ -554,4 +554,10 @@ export default {
   "Qui t'a aimé, des « J'aime » sans compter, tout le pays": "Кто тебя лайкнул, лайки без счёта, вся страна",
   "Encore {n} jour": "Остался {n} день",
   "Encore {n} jours": {"one":"Остался {n} день","few":"Осталось {n} дня","many":"Осталось {n} дней","other":"Осталось {n} дня"},
+  // Les listes floutées sans pass
+  "Qui ?": "Кто?",
+  "Voir qui c'est": "Узнать, кто это",
+  "Le pass montre les fiches, jamais ce qu'elles ont décidé.": "Пропуск показывает анкеты, но никогда — что они решили.",
+  "{n} personne a aimé ton profil": "Твою анкету лайкнул {n} человек",
+  "{n} personnes ont aimé ton profil": {"one":"Твою анкету лайкнул {n} человек","few":"Твою анкету лайкнули {n} человека","many":"Твою анкету лайкнули {n} человек","other":"Твою анкету лайкнули {n} человека"},
 };

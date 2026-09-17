@@ -167,7 +167,7 @@ test('en test, AUTO_APPROVE valide sans attendre', async () => {
 // une promesse de sécurité ; une photo qui ne se décode pas garde la photo entière en repli ; et
 // tout part avec l'emplacement, puis avec le compte — les six emplacements, plus les trois.
 const jpeg = (await import('jpeg-js')).default;
-const { MINI_COTE } = await import('../server/photos.js');
+const { MINI_COTE, FLOU_COTE, fabriquerFlou } = await import('../server/photos.js');
 // Un vrai JPEG de la taille que le téléphone envoie, à la couleur demandée : le 1 × 1 du haut
 // ne dit rien sur la réduction.
 function photoDe(couleur, largeur = 640, hauteur = 800) {
@@ -195,6 +195,33 @@ test('la miniature est un carré bien plus léger, servi par ?mini=1', async () 
   assert.ok(mini.body.byteLength * 5 < entiere.body.byteLength, `la miniature (${mini.body.byteLength} o) doit coûter bien moins que la photo (${entiere.body.byteLength} o)`);
   assert.ok(proche(couleurAuCentre(mini.body), ROUGE), 'c\'est bien la même image');
   assert.ok(fs.existsSync(file('7601', 1).replace('.jpg', '-mini.jpg')), 'écrite une fois, à l\'envoi');
+});
+
+// L'aperçu flouté : dix pixels de côté, fait sur le serveur. C'est ce qu'une personne sans pass
+// voit de qui l'a aimée. Il doit garder la couleur (on reconnaît « quelqu'un »), perdre tout le
+// reste, et n'ouvrir aucune porte : la réponse de /likes ne porte ni identifiant ni adresse.
+test("l'aperçu flouté est dix pixels de côté, de la bonne couleur, et il part en data: sans identifiant", async () => {
+  await makeUser('7621', 'Rose', 'femme');
+  await makeUser('7622', 'Sami', 'homme');
+  assert.equal((await call('7622', '/me/photos/1', 'PUT', { photo: photoDe(BLEU) })).status, 200);
+  await decidePhoto('7622', 1, true);
+  // La fabrique seule, sur la miniature.
+  const flou = fabriquerFlou(fs.readFileSync(file('7622', 1)));
+  assert.deepEqual(taille(flou), { l: FLOU_COTE, h: FLOU_COTE });
+  assert.ok(flou.byteLength < 1200, `dix pixels de côté ne pèsent presque rien (${flou.byteLength} o)`);
+  assert.ok(proche(couleurAuCentre(flou), BLEU), 'la couleur reste, le reste part');
+  // Par la route : Sami aime Rose, Rose n'a pas de pass, elle reçoit une tache bleue en data:.
+  assert.equal((await call('7622', '/swipes', 'POST', { targetId: await pid('7621'), action: 'like' })).status, 200);
+  const r = await call('7621', '/likes');
+  assert.equal(r.status, 200);
+  assert.equal(r.body.flou, true);
+  assert.equal(r.body.apercus.length, 1);
+  assert.match(r.body.apercus[0], /^data:image\/jpeg;base64,/);
+  const octets = Buffer.from(r.body.apercus[0].split(',')[1], 'base64');
+  assert.deepEqual(taille(octets), { l: FLOU_COTE, h: FLOU_COTE });
+  assert.ok(proche(couleurAuCentre(octets), BLEU));
+  const brut = JSON.stringify(r.body);
+  assert.ok(!brut.includes(await pid('7622')) && !brut.includes('/photos/'), "ni l'identifiant ni l'adresse de la photo : rien à redemander en clair");
 });
 
 test('la miniature passe par la même porte que la photo', async () => {

@@ -32,6 +32,13 @@ export const PHOTO_SLOTS = [1, 2, 3, 4, 5, 6];
 // couvre un écran à densité 2 sans dépasser quelques kilo-octets.
 export const MINI_COTE = 160;
 export const MINI_QUALITE = 72;
+// L'aperçu **flouté** : ce qu'une personne sans pass voit de qui l'a aimée ou s'est arrêtée sur
+// sa fiche. Dix pixels de côté — des taches de couleur, jamais un visage. Le flou est fait
+// **ici, sur le serveur**, et pas par une règle CSS sur la photo entière : une règle CSS se
+// retire d'un geste dans un navigateur, et l'adresse de la photo entière resterait dans la page.
+// Ce qui part du serveur est déjà méconnaissable ; le navigateur ne fait que l'agrandir.
+export const FLOU_COTE = 10;
+export const FLOU_QUALITE = 60;
 // Au-delà, on ne décode pas : le téléphone envoie du 720 px, et 6 mégapixels laissent de la marge
 // à un client plus ancien sans laisser passer une image fabriquée pour remplir la mémoire.
 const MAX_MEGAPIXELS = 6;
@@ -84,6 +91,28 @@ export function fabriquerMiniature(octets) {
   } catch {
     return null;
   }
+}
+
+// L'aperçu flouté d'un fichier JPEG, en octets — ou null. Même repli que la miniature : ne
+// jette jamais, et l'appelant montre une tuile neutre à la place.
+export function fabriquerFlou(octets) {
+  try {
+    const image = jpeg.decode(octets, { useTArray: true, formatAsRGBA: true, maxResolutionInMP: MAX_MEGAPIXELS, maxMemoryUsageInMB: MAX_MEMOIRE_MO });
+    return jpeg.encode(reduireEnCarre(image, FLOU_COTE), FLOU_QUALITE).data;
+  } catch {
+    return null;
+  }
+}
+
+// L'aperçu flouté d'une photo, prêt à être posé dans une page (`data:` URI). Il part de la
+// **miniature**, pas de la photo entière : décoder 160 pixels de côté coûte quelques
+// millisecondes, décoder 720 × 960 en coûte quatre-vingts, et une liste en porte jusqu'à douze.
+// Rien n'est écrit sur le disque : quelques centaines d'octets se refont à chaque demande.
+export function flouDe(fichier) {
+  const source = miniatureDe(fichier) || (fs.existsSync(fichier) ? fichier : null);
+  if (!source) return null;
+  const octets = fabriquerFlou(fs.readFileSync(source));
+  return octets ? `data:image/jpeg;base64,${octets.toString('base64')}` : null;
 }
 
 // Le chemin de la miniature d'une photo, écrite si elle ne l'est pas encore. `null` quand elle

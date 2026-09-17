@@ -565,4 +565,10 @@ export default {
   "Qui t'a aimé, des « J'aime » sans compter, tout le pays": "Who liked you, likes without counting, the whole country",
   "Encore {n} jour": "{n} day left",
   "Encore {n} jours": "{n} days left",
+  // Les listes floutées sans pass
+  "Qui ?": "Who?",
+  "Voir qui c'est": "See who it is",
+  "Le pass montre les fiches, jamais ce qu'elles ont décidé.": "The pass shows the profiles, never what they decided.",
+  "{n} personne a aimé ton profil": "{n} person liked your profile",
+  "{n} personnes ont aimé ton profil": "{n} people liked your profile",
 };

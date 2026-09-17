@@ -69,11 +69,15 @@ export async function mesurer(k, u, p) {
 
 // Les événements de fréquence. Le dernier passage est retenu sur la personne — comme lastNotifiedAt
 // pour les notifications — plutôt qu'en mémoire : deux instances compteraient chacune de leur côté.
-export async function mesurerRalenti(k, user, ms, p) {
+// `cle` est le nom du ralenti, par défaut celui de l'événement. Les événements du pass le
+// prennent par porte (« pass_refuse:likes », « pass_refuse:vues ») : sans ça, buter sur deux
+// portes dans les cinq minutes ne comptait que la première, et « chaque porte se compte à part »
+// devenait faux dès qu'on ouvrait Messages puis Profil.
+export async function mesurerRalenti(k, user, ms, p, cle = k) {
   if (!config.eventsRetentionDays || !user) return null;
-  const dernier = user.lastEventAt?.[k] || 0;
+  const dernier = user.lastEventAt?.[cle] || 0;
   if (Date.now() - dernier < ms) return null;
-  await store.updateUser(user.id, { lastEventAt: { ...user.lastEventAt, [k]: Date.now() } });
+  await store.updateUser(user.id, { lastEventAt: { ...user.lastEventAt, [cle]: Date.now() } });
   return mesurer(k, user.id, p);
 }
 

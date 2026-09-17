@@ -55,9 +55,9 @@ async function pendant(methode, geste) {
   return n;
 }
 
-// CIBLE porte un pass : c'est **le cas coûteux**, celui où `/summary` a vraiment quelque chose à
-// compter. Un test de charge écrit sur un compte gratuit ne prouverait rien — sans pass la
-// réponse vaut `null` et la route n'a jamais eu besoin de charger qui que ce soit.
+// CIBLE porte un pass, GRATUIT non. Depuis que la liste se montre floutée sans pass (17 septembre
+// 2026), le compte se dit aux deux : le coût est le même des deux côtés, et il doit rester borné
+// par les « J'aime » reçus, jamais par la table.
 const CIBLE = '800001';
 const GRATUIT = '800009';
 
@@ -92,11 +92,23 @@ test('ce qu\'il charge est borné par les likes reçus, et part en une seule req
   assert.equal(lots, 1);
 });
 
-test('sans pass, il ne charge même pas les likers : la réponse est null quoi qu\'il arrive', async () => {
+test('sans pass, le compte se dit aussi, au même prix : une requête bornée, jamais la table', async () => {
   let reponse;
-  const n = await pendant('usersByIds', async () => { reponse = await call(GRATUIT, '/summary'); });
-  assert.equal(reponse.body.likes, null, 'null, et jamais 0 : zéro dirait « personne ne t\'a aimé »');
-  assert.equal(n, 0, 'charger des comptes pour un nombre qu\'on ne dira pas est du travail pur');
+  const table = await pendant('allUsers', async () => { reponse = await call(GRATUIT, '/summary'); });
+  assert.equal(table, 0);
+  assert.equal(reponse.body.likes, 3, 'le nombre se dit sans pass : c\'est lui qui mène aux aperçus floutés');
+  const lots = await pendant('usersByIds', () => call(GRATUIT, '/summary'));
+  assert.equal(lots, 1, 'une seule requête, bornée par les « J\'aime » reçus');
+});
+
+test('sans pass, /likes rend des aperçus floutés et ne charge pas la table non plus', async () => {
+  let reponse;
+  const table = await pendant('allUsers', async () => { reponse = await call(GRATUIT, '/likes'); });
+  assert.equal(table, 0);
+  assert.equal(reponse.body.flou, true);
+  assert.equal(reponse.body.n, 3);
+  assert.equal(reponse.body.apercus.length, 3);
+  assert.deepEqual(reponse.body.profiles, []);
 });
 
 test('/likes rend les mêmes personnes, toujours sans la table', async () => {

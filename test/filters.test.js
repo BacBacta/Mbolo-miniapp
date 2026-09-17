@@ -67,10 +67,12 @@ test('cartes et liste respectent la tranche ; un like reçu l\'ignore', async ()
   // Les deux portes fermées se vérifient **avant** qu'un pass entre en jeu : `listeDe()` en pose
   // un, et l'ordre de ces lignes est donc ce qui fait que ce test dit encore quelque chose.
   const sansPass = await call('7401', '/likes');
-  assert.equal(sansPass.status, 403, 'sans pass, la liste des « J\'aime » ne s\'ouvre pas');
-  assert.equal(sansPass.body.code, 'PASS_REQUIS');
-  assert.equal((await call('7401', '/summary')).body.likes, null, 'et le compteur ne dit pas zéro : il ne dit rien');
-  assert.equal((await call('7401', '/profiles')).status, 403, 'la vue Liste non plus');
+  assert.equal(sansPass.status, 200);
+  assert.equal(sansPass.body.flou, true, 'sans pass, la liste des « J\'aime » se montre floutée');
+  assert.deepEqual(sansPass.body.profiles, [], 'et ne nomme personne');
+  assert.equal(sansPass.body.n, 1, 'Jean, hors tranche, compte quand même');
+  assert.equal((await call('7401', '/summary')).body.likes, 1, 'et le compteur le dit');
+  assert.equal((await call('7401', '/profiles')).status, 403, 'la vue Liste, elle, reste fermée');
 
   const liste = await listeDe('7401'); // pose le pass, puis lit
   assert.ok(liste.includes(await pid('7402')) && !liste.includes(await pid('7403')), 'la liste aussi respecte la tranche');

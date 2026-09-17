@@ -21,6 +21,8 @@ const S = {
   person: null,
   personFrom: null,
   likes: [],
+  likesFlous: [],
+  likesN: 0,
   vues: null,
   avatarObserver: null,
   photoUrls: {},
@@ -439,6 +441,11 @@ async function refreshSummary() {
 // Briques partagées : avatars, carte de profil, photos à la demande
 // ============================================================
 const avatar = (p, size = 'sm') => `<span class="avatar ${size}${p.verified ? ' verified' : ''}" data-avatar="${esc(p.id)}">${esc(p.name?.[0] || '?')}</span>`;
+// La tuile floutée : ce qu'on voit sans pass de qui a aimé ou s'est arrêté. Le serveur envoie dix
+// pixels de côté en `data:` — pas d'identifiant, pas d'adresse de photo, pas d'initiale (elle
+// dirait la première lettre du prénom). Sans photo : une tuile neutre, pas un point
+// d'interrogation qui aurait l'air d'une panne.
+const avatarFlou = (src, size = 'md') => `<span class="avatar ${size} flou" aria-hidden="true">${src ? `<img src="${esc(src)}" alt="">` : ''}</span>`;
 
 // **Aucun réglage ne retient une photo.** L'« économie de data » a été retirée le 17 septembre
 // 2026 : après avoir cessé de cacher la fiche qu'on décide, puis l'avatar de la discussion, elle
@@ -1392,23 +1399,29 @@ const SCREENS = {
     }
     try {
       // Les likes reçus s'affichent ici : c'est là qu'on répond à quelqu'un. Sans pass, le
-      // serveur refuse la liste — on ne la demande donc pas : une requête qu'on sait refusée
-      // coûte de la data pour un 403 (règle 15). Le `catch` reste, pour le pass qui expire
-      // entre deux écrans.
-      const [m, l] = await Promise.all([api('/matches'), plus() ? api('/likes').catch(() => ({ profiles: [] })) : Promise.resolve({ profiles: [] })]);
+      // serveur envoie des aperçus floutés à la place des fiches ; on voit qu'on a plu, et à
+      // combien de personnes, sans savoir à qui. Le `catch` : une panne de cette liste ne doit
+      // pas emporter les discussions avec elle.
+      const [m, l] = await Promise.all([api('/matches'), api('/likes').catch(() => ({ profiles: [], apercus: [], n: 0 }))]);
       S.matches = m.matches;
-      S.likes = l.profiles;
+      S.likes = l.profiles || [];
+      S.likesFlous = l.flou ? (l.apercus || []) : [];
+      S.likesN = l.n || 0;
     } catch (e) {
       return renderError(e, () => go('matches'));
     }
     if (S.screen !== 'matches') return;
     // Sans pass, la bande ne disparaît pas en silence : elle dit ce qui existe et où le voir.
     // Un manque sans explication se lit comme une panne, et on cherche ce qu'on a mal fait.
+    // Sans pass et avec des « J'aime » reçus : les tuiles floutées d'abord — on voit qu'il y a
+    // quelqu'un —, la porte ensuite, qui dit ce que le pass fait de ces tuiles. Toucher une tuile
+    // ouvre le pass aussi : c'est la question qu'on se pose en la regardant.
     const likesStrip = S.likes.length ? `
       <div class="group"><span class="eyebrow">${t('Ont aimé ton profil')}</span>
         <div class="new-strip">${S.likes.map((p) => `<button type="button" class="new-item like-item" data-action="person" data-id="${esc(p.id)}">${avatar(p, 'md')}<span>${esc(p.name)}</span></button>`).join('')}</div>
       </div>` : plus() ? '' : `
-      <div class="group"><span class="eyebrow">${t('Ont aimé ton profil')}</span>
+      <div class="group"><span class="eyebrow">${S.likesN ? tn('{n} personne a aimé ton profil', '{n} personnes ont aimé ton profil', S.likesN) : t('Ont aimé ton profil')}</span>
+        ${S.likesFlous.length ? `<div class="new-strip">${S.likesFlous.map((src) => `<button type="button" class="new-item like-item" data-action="plus" data-quoi="likes">${avatarFlou(src)}<span>${t('Qui ?')}</span></button>`).join('')}</div>` : ''}
         ${porteDuPass({ quoi: 'likes', titre: t("Voir qui t'a aimé"), sous: t('Ces personnes passent déjà devant dans ton paquet. Le pass les nomme.') })}
       </div>`;
     if (!S.matches.length) {
@@ -1687,7 +1700,7 @@ const SCREENS = {
     let vu;
     try { vu = await api('/vues'); } catch (e) { return renderError(e, () => go('vues')); }
     if (S.screen !== 'vues') return;
-    const { discret, arrondi, profiles } = vu;
+    const { discret, arrondi, profiles, flou, apercus } = vu;
     const combien = discret ? t("Tu t'es retiré de cette liste : tu n'y apparais pas, et tu ne la vois pas non plus.")
       : arrondi.forme === 'aucune' ? t("Personne pour l'instant, sur les 30 derniers jours.")
         : arrondi.forme === 'moins' ? t('Moins de {n} personnes se sont arrêtées sur ta fiche ces 30 derniers jours.', { n: arrondi.n })
@@ -1698,6 +1711,11 @@ const SCREENS = {
       ${profiles.length ? `
       <div class="group"><span class="eyebrow">${t('Les derniers')}</span>
         <div class="new-strip">${profiles.map((p) => `<button type="button" class="new-item" data-action="person" data-id="${esc(p.id)}">${avatar(p, 'md')}<span>${esc(p.name)}</span></button>`).join('')}</div>
+      </div>` : ''}
+      ${flou && apercus?.length ? `
+      <div class="group"><span class="eyebrow">${t('Les derniers')}</span>
+        <div class="new-strip">${apercus.map((src) => `<button type="button" class="new-item" data-action="plus" data-quoi="vues">${avatarFlou(src)}<span>${t('Qui ?')}</span></button>`).join('')}</div>
+        ${porteDuPass({ quoi: 'vues', titre: t('Voir qui c\'est'), sous: t("Le pass montre les fiches, jamais ce qu'elles ont décidé.") })}
       </div>` : ''}
       <p class="fine">${icon('lock', 14)}<span>${t("On ne montre jamais ce que ces personnes ont décidé, et jamais la liste entière : c'est ce qui empêche de deviner qui n'a pas voulu de toi.")}</span></p>`);
     // Sans ça, toucher un de ces visages ouvrait Découvrir : `profilConnu()` n'a que ce qu'on range.
@@ -1854,7 +1872,7 @@ const SCREENS = {
             action: 'plus', extra: ' data-quoi="profil"' })}
           ${listRow({ iconName: 'globe', title: t('Langue'), sub: LANGUES[langue()], action: 'go', extra: ` data-screen="langue"` })}
           ${listRow({ iconName: 'bell', title: t('Tester les notifications'), sub: t("Le bot t'envoie un message dans Telegram"), action: 'test-notif' })}
-          ${plus() ? listRow({ iconName: 'users', title: t("Se sont arrêtés sur ta fiche"), sub: t('Combien, en gros, et les cinq dernières fiches'), action: 'go', extra: ' data-screen="vues"' }) : ''}
+          ${listRow({ iconName: 'users', title: t("Se sont arrêtés sur ta fiche"), sub: t('Combien, en gros, et les cinq dernières fiches'), action: 'go', extra: ' data-screen="vues"' })}
           <label class="list-row">
             <span class="tile">${icon('lock', 20)}</span>
             <div class="body"><div class="title">${t('Rester discret')}</div><div class="sub">${t("Tu n'apparais pas dans « qui s'est arrêté sur ta fiche », et tu ne la vois pas non plus")}</div></div>

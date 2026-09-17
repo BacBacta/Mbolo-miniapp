@@ -221,8 +221,12 @@ test('l\'écran du pass laisse une trace de sa porte, et rend les reçus sans la
   const vus = (await store.events({ k: 'pass_vu' })).filter((e) => e.u === '8801');
   assert.equal(vus.length, 1);
   assert.deepEqual(vus[0].p, { quoi: 'likes' });
+  await call('8801', '/plus?quoi=likes');
+  assert.equal((await store.events({ k: 'pass_vu' })).filter((e) => e.u === '8801').length, 1, 'ralenti par porte : la même porte deux fois ne compte qu\'une');
   await call('8801', '/plus?quoi=<script>');
-  assert.equal((await store.events({ k: 'pass_vu' })).filter((e) => e.u === '8801').length, 1, 'ralenti, et une porte inconnue ne passe pas');
+  const tous = (await store.events({ k: 'pass_vu' })).filter((e) => e.u === '8801');
+  assert.equal(tous.length, 2, 'une autre porte compte à part');
+  assert.deepEqual(tous[1].p, { quoi: 'profil' }, 'et une porte inconnue devient la porte par défaut, jamais le texte reçu');
 });
 
 test('supprimer le compte garde la pièce comptable, sans personne derrière', async () => {

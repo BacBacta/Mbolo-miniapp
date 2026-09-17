@@ -153,19 +153,25 @@ test('un pass échu ne vaut plus rien, sans qu\'on ait à le retirer', async () 
 
 // ---------- Les portes de « qui t'a aimé » ----------
 //
-// Il y en a quatre, et il faut les fermer ensemble : la liste, la pastille sur la carte, la
-// pastille dans la liste des profils, et le compteur. Le compteur est le plus bavard des quatre —
-// « une personne t'a aimé », posé à côté d'un paquet qui met cette personne en tête, fait un nom.
-// Ce fichier les essaie une par une : une seule restée ouverte rend les trois autres inutiles.
-test("sans pass, les quatre portes de « qui t'a aimé » sont fermées", async () => {
+// Depuis le 17 septembre 2026 (décision du propriétaire), la liste ne se refuse plus : elle se
+// montre **floutée**, et le compteur se dit à tout le monde. Ce qui reste fermé sans pass, c'est
+// tout ce qui **nommerait** la personne : la fiche, l'identifiant, la photo par son adresse, la
+// pastille sur la carte, la même dans la vue Liste. Ce test les essaie une par une.
+test("sans pass, « qui t'a aimé » se montre flouté et ne nomme personne", async () => {
   await membre('9140', 'Eve', 'femme', 24);
   await membre('9141', 'Fabrice', 'homme', 27);
   assert.equal((await call('9141', '/swipes', 'POST', { targetId: await pid('9140'), action: 'like' })).status, 200);
 
-  // 1. La liste.
+  // 1. La liste : un aperçu par personne, rien d'autre.
   const liste = await call('9140', '/likes');
-  assert.equal(liste.status, 403);
-  assert.equal(liste.body.code, 'PASS_REQUIS');
+  assert.equal(liste.status, 200);
+  assert.equal(liste.body.flou, true);
+  assert.equal(liste.body.n, 1, 'le nombre se dit');
+  assert.deepEqual(liste.body.profiles, [], 'aucune fiche');
+  assert.equal(liste.body.apercus.length, 1, 'un aperçu par personne');
+  assert.equal(liste.body.apercus[0], null, 'Fabrice n\'a pas de photo : une tuile neutre, pas une initiale');
+  const brut = JSON.stringify(liste.body);
+  assert.ok(!brut.includes('Fabrice') && !brut.includes(await pid('9141')), 'ni le prénom, ni l\'identifiant public');
 
   // 2. La pastille sur la carte.
   const paquet = await call('9140', '/discover');
@@ -177,12 +183,15 @@ test("sans pass, les quatre portes de « qui t'a aimé » sont fermées", async 
   // donc la porte se referme deux fois sur le même chemin.
   assert.equal((await call('9140', '/profiles')).status, 403, 'la vue Liste est elle-même fermée');
 
-  // 4. Le compteur. `null`, pas `0` : zéro dirait « personne ne t'a aimé », et ce serait faux.
+  // 4. Le compteur se dit, avec ou sans pass : c'est lui qui fait ouvrir l'onglet Messages.
   const resume = await call('9140', '/summary');
-  assert.equal(resume.body.likes, null, "on ne le dit pas — on ne dit pas non plus le contraire");
+  assert.equal(resume.body.likes, 1);
 
-  // Et avec le pass, les quatre s'ouvrent.
+  // Et avec le pass, tout se nomme.
   await donnerLePass('9140');
+  const nommee = await call('9140', '/likes');
+  assert.equal(nommee.body.flou, false);
+  assert.equal(nommee.body.apercus, undefined, 'plus d\'aperçus quand on a les fiches');
   assert.deepEqual((await call('9140', '/likes')).body.profiles.map((p) => p.name), ['Fabrice']);
   assert.equal((await call('9140', '/discover')).body.profiles.find((p) => p.name === 'Fabrice').likedYou, true);
   const avecListe = await call('9140', '/profiles');
@@ -216,8 +225,11 @@ test('un refus et un usage laissent chacun leur trace, et rien de plus', async (
   await membre('9160', 'Jo', 'femme', 26);
   const evenements = async (cle) => (await store.events()).filter((e) => e.k === cle && String(e.u) === '9160');
 
-  assert.equal((await call('9160', '/likes')).status, 403);
-  assert.equal((await call('9160', '/vues')).status, 403);
+  assert.equal((await call('9160', '/likes')).body.flou, true);
+  assert.equal((await call('9160', '/vues')).body.flou, true);
+  // Une seconde visite dans les cinq minutes ne compte pas deux fois : l'onglet Messages
+  // demande la liste à chaque passage, et le compteur mesure des personnes, pas des allers-retours.
+  assert.equal((await call('9160', '/likes')).body.flou, true);
   const refus = await evenements('pass_refuse');
   assert.deepEqual(refus.map((e) => e.p.quoi).sort(), ['likes', 'vues'], 'chaque porte se compte à part');
   // La barrière n'a rien refusé en silence : une charge invalide ne serait jamais arrivée ici.
