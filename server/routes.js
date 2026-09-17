@@ -10,6 +10,7 @@ import { estPays, cleVille, villeAffichee, paysDuFuseau, COUNTRY_CODES, VILLES_C
 import { LANGUES, t as tr } from './i18n.js';
 import { store, newId } from './store.js';
 import { fichierVoix, voixPublique } from './voix.js';
+import { PHOTO_SLOTS, fichierPhoto, miniatureDe, refaireLaMiniature } from './photos.js';
 import { CRITERES, calculer as calculerJauge } from './jauge.js';
 import { requireAuth, identiteSansCreer } from './auth.js';
 import { checkMessage } from './antiscam.js';
@@ -502,20 +503,25 @@ api.delete('/me', async (req, res) => {
 });
 
 // ---------- Photos : jusqu'à trois, chacune modérée avant d'être montrée ----------
-// Six emplacements existent ; **deux sont ouverts sans pass** (`palier('photos', …)`).
+// Six emplacements existent (`PHOTO_SLOTS`, dans `photos.js`) ; **deux sont ouverts sans pass**
+// (`palier('photos', …)`).
 //
 // La borne s'applique à l'**envoi**, pas à l'affichage. Des comptes portent déjà trois photos,
 // d'un temps où trois était la limite pour tout le monde : les cacher aujourd'hui reviendrait à
 // retirer à quelqu'un ce qu'il avait, parce que la règle a changé sous lui. Elles restent
 // visibles, et restent supprimables ; c'est le prochain envoi au-delà du palier qui est refusé.
-const PHOTO_SLOTS = [1, 2, 3, 4, 5, 6];
+//
+// Le client n'envoie que la photo. Sa miniature se fabrique ici, à partir du fichier que la
+// modération va voir (`photos.js` dit pourquoi) : un champ `mini` reçu du client est ignoré.
 // Renvoie `{ photos }` quand tout s'est bien passé, sinon `{ code, message }` prêt pour fail().
 // La liste vient du stockage et non de req.user : cette copie de la personne date du début de la
 // requête, et l'enregistrement qu'on vient de faire ne s'y trouve pas.
 async function acceptPhoto(user, n, dataUrl) {
-  if (!saveJpeg(dataUrl, path.join(config.uploadsDir, `${user.id}-photo-${n}.jpg`))) {
+  const fichier = fichierPhoto(config.uploadsDir, user.id, n);
+  if (!saveJpeg(dataUrl, fichier)) {
     return { code: 'PHOTO_INVALID', message: 'Photo trop lourde ou format non pris en charge.' };
   }
+  refaireLaMiniature(fichier);
   // Tests uniquement : validation automatique. En production : AUTO_APPROVE=false et ADMIN_CHAT_ID configuré.
   const photos = await store.setPhoto(user.id, n, config.autoApprove ? 'approved' : 'pending');
   if (config.autoApprove) return { photos };
@@ -710,9 +716,12 @@ async function servePhoto(req, res, n) {
   if (!target) return fail(res, 404, 'NO_PHOTO', 'Pas de photo.');
   const own = target.id === req.user.id;
   const photo = (await store.photosOf(target)).find((x) => x.n === n && (own || x.status === 'approved'));
-  const file = path.join(config.uploadsDir, `${target.id}-photo-${n}.jpg`);
+  const file = fichierPhoto(config.uploadsDir, target.id, n);
   if (!photo || !fs.existsSync(file)) return fail(res, 404, 'NO_PHOTO', 'Pas de photo.');
-  res.set('Cache-Control', 'private, max-age=3600').sendFile(file);
+  // `?mini=1` : la miniature, pour les listes. Même porte, même statut — c'est la même photo en
+  // plus petit. Si elle ne peut pas être faite, la photo entière part à la place, sans erreur.
+  const mini = req.query.mini === '1' ? miniatureDe(file) : null;
+  res.set('Cache-Control', 'private, max-age=3600').sendFile(mini || file);
 }
 api.get('/photos/:userId/:n', requireMembre, async (req, res) => await servePhoto(req, res, Number(req.params.n)));
 // Sans numéro : la première photo validée (adresse historique)

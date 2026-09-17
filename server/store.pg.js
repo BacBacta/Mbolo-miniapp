@@ -15,6 +15,7 @@ import crypto from 'node:crypto';
 import pg from 'pg';
 import { config } from './config.js';
 import { fichierVoix } from './voix.js';
+import { fichiersDUnePhoto, fichiersDUnCompte } from './photos.js';
 import { migrer } from './db/migrate.js';
 
 fs.mkdirSync(config.uploadsDir, { recursive: true });
@@ -185,7 +186,7 @@ export const store = {
     } finally {
       client.release();
     }
-    supprimerFichiers(id, ['profile', 'selfie', 'photo-1', 'photo-2', 'photo-3']);
+    supprimerFichiers(id, fichiersDUnCompte());
     supprimerLaVoix(id);
   },
 
@@ -261,7 +262,7 @@ export const store = {
     const u = await store.getUser(userId);
     if (!u) return [];
     const photos = (await store.photosOf(u)).filter((p) => p.n !== n);
-    supprimerFichiers(u.id, [`photo-${n}`]);
+    supprimerFichiers(u.id, fichiersDUnePhoto(n));
     const patch = { photos };
     if (u.profile) patch.profile = { ...u.profile, hasPhoto: photos.some((p) => p.status === 'approved') };
     await fusionner('users', userId, patch);
