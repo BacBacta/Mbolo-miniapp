@@ -617,4 +617,7 @@ export default {
   "Renvoyer les photos": "Reenviar las fotos",
   "Ton profil est enregistré.": "Tu perfil está guardado.",
   "La photo n'est pas partie : réessaie.": "La foto no se ha enviado: inténtalo de nuevo.",
+  "Pas encore vérifié": "Aún sin verificar",
+  "Un selfie avec un geste, regardé par une personne": "Un selfie con un gesto, revisado por una persona",
+  "Sur les cartes, seul le selfie apparaît pour l'instant : personne ne peut encore avoir trois mois d'ancienneté. La jauge complète y reviendra le {date}.": "En las tarjetas solo aparece el selfie por ahora: nadie puede tener aún tres meses de antigüedad. La barra completa volverá el {date}.",
 };

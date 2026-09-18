@@ -628,4 +628,7 @@ export default {
   "Renvoyer les photos": "Send the photos again",
   "Ton profil est enregistré.": "Your profile is saved.",
   "La photo n'est pas partie : réessaie.": "The photo did not go through: try again.",
+  "Pas encore vérifié": "Not verified yet",
+  "Un selfie avec un geste, regardé par une personne": "A selfie with a gesture, checked by a person",
+  "Sur les cartes, seul le selfie apparaît pour l'instant : personne ne peut encore avoir trois mois d'ancienneté. La jauge complète y reviendra le {date}.": "On cards, only the selfie shows for now: nobody can have three months of seniority yet. The full gauge returns there on {date}.",
 };

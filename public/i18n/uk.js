@@ -617,4 +617,7 @@ export default {
   "Renvoyer les photos": "Надіслати фото знову",
   "Ton profil est enregistré.": "Твою анкету збережено.",
   "La photo n'est pas partie : réessaie.": "Фото не надіслалося: спробуй ще раз.",
+  "Pas encore vérifié": "Ще не перевірено",
+  "Un selfie avec un geste, regardé par une personne": "Селфі з жестом, перевірене людиною",
+  "Sur les cartes, seul le selfie apparaît pour l'instant : personne ne peut encore avoir trois mois d'ancienneté. La jauge complète y reviendra le {date}.": "На картках поки видно лише селфі: ні в кого ще не може бути трьох місяців стажу. Повна шкала повернеться туди {date}.",
 };

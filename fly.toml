@@ -48,6 +48,11 @@ swap_size_mb = 256
   # Les deux pages publiques portent les deux versions et n'en servent qu'une
   # (server/index.js, selonLaPolitique). Décision du propriétaire, 15 septembre 2026.
   VERIFICATION_POLICY = "badge"
+  # Le jour des premiers vrais membres. La jauge de confiance ne montre « n sur 2 » sur les
+  # cartes qu'à partir de ce jour plus 90 jours : avant, « membre depuis 3 mois » n'est
+  # atteignable par personne, et chaque carte disait « 1 sur 2 ». Jusque-là, « Vérifié » seul
+  # (server/jauge.js). Décision du propriétaire, 18 septembre 2026.
+  LANCEMENT_LE = "2026-09-13"
   # AUTO_APPROVE n'est volontairement pas ici : NODE_ENV vaut production, et la validation
   # automatique des selfies y est éteinte quoi qu'on écrive (server/config.js). La modération
   # passe par ADMIN_CHAT_ID, posé en secret par deployer-fly.sh.

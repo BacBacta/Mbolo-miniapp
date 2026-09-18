@@ -13,6 +13,8 @@
 // cette même liste. Deux endroits qui décrivent la même chose finissent toujours par diverger ;
 // ici il n'y en a qu'un.
 
+import { config } from './config.js';
+
 export const CRITERES = [
   {
     cle: 'selfie',
@@ -43,4 +45,20 @@ export function calculer(user) {
   };
   const criteres = CRITERES.map(({ cle, titre }) => ({ cle, titre, ok: acquis(cle) }));
   return { score: criteres.filter((c) => c.ok).length, total: criteres.length, criteres };
+}
+
+// **Ce que la carte montre** (audit 16, n° 19, décision du propriétaire). Le jour du lancement,
+// tout membre réel affiche « 1 sur 2 » : le second critère, trois mois d'ancienneté, n'est
+// atteignable par personne avant le lancement plus 90 jours. Une app où chacun est « à moitié »
+// sûr ne rassure pas. Tant que ce jour n'est pas venu, la carte et la fiche ne montrent que le
+// selfie — « Vérifié » seul — et la fraction ne vit que sur l'écran d'explication. Une date de
+// lancement illisible ne fabrique pas de silence : la fraction s'affiche, comme avant.
+export function fractionVisible(now = Date.now(), lancement = config.lancementLe) {
+  const debut = Date.parse(lancement);
+  if (!Number.isFinite(debut)) return true;
+  return now - debut >= ANCIENNETE_MS;
+}
+export function jaugeCompleteLe(lancement = config.lancementLe) {
+  const debut = Date.parse(lancement);
+  return Number.isFinite(debut) ? new Date(debut + ANCIENNETE_MS).toISOString().slice(0, 10) : null;
 }

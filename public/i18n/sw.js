@@ -617,4 +617,7 @@ export default {
   "Renvoyer les photos": "Tuma picha tena",
   "Ton profil est enregistré.": "Wasifu wako umehifadhiwa.",
   "La photo n'est pas partie : réessaie.": "Picha haikutumwa: jaribu tena.",
+  "Pas encore vérifié": "Bado haijathibitishwa",
+  "Un selfie avec un geste, regardé par une personne": "Selfie yenye ishara, iliyoangaliwa na mtu",
+  "Sur les cartes, seul le selfie apparaît pour l'instant : personne ne peut encore avoir trois mois d'ancienneté. La jauge complète y reviendra le {date}.": "Kwenye kadi, ni selfie pekee inayoonekana kwa sasa: hakuna anayeweza kuwa na miezi mitatu bado. Kipimo kamili kitarudi hapo tarehe {date}.",
 };

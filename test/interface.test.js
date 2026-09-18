@@ -671,3 +671,18 @@ test("une photo a son propre délai, et un profil enregistré ne repart pas avec
   assert.match(save, /oublierLeBrouillon\(\);\s*await envoyerLesPhotosPuisFinir\(\);/, 'le brouillon part dès que le profil est enregistré');
   assert.match(photos, /onClick: envoyerLesPhotosPuisFinir/, 'réessayer ne renvoie que les photos');
 });
+
+// Audit 16, n° 19 : la carte et la fiche ne montrent la fraction « n sur 2 » que si le serveur dit
+// qu'un second critère est atteignable ; avant, « Vérifié » seul. L'interface ne recopie pas la
+// règle, elle lit `options.jaugeEnFraction`, et un serveur qui ne le dit pas garde la fraction.
+test("« Vérifié » seul sur la carte et la fiche tant que le serveur ne montre pas la fraction", () => {
+  assert.match(app, /const jaugeEnFraction = \(\) => S\.me\?\.options\?\.jaugeEnFraction !== false;/);
+  const ligne = entre('function ligneConfiance(p) {', '// Le bouton d\'écoute');
+  assert.match(ligne, /if \(!jaugeEnFraction\(\)\) \{[\s\S]*badgeSeul\(tr\)/, 'la fiche');
+  assert.match(app, /class="overlay-trust"[^\n]*\$\{jaugeEnFraction\(\) \? `<span class="trust-pips">[\s\S]*` : badgeSeul\(tr\)\}/, 'la carte');
+  const badge = entre('const badgeSeul =', 'function ligneConfiance');
+  assert.match(badge, /t\('Vérifié'\) : t\('Pas encore vérifié'\)/);
+  const jauge = entre('  jauge() {', '  pays() {');
+  assert.match(jauge, /t\('Confiance \{n\} sur \{total\}'/, "l'écran d'explication garde la fraction");
+  assert.match(jauge, /S\.me\.options\.jaugeCompleteLe/, 'et dit quand elle revient sur les cartes');
+});

@@ -75,8 +75,11 @@ export default defineConfig({
     { name: 'android', testIgnore: /badge\.spec\.js/, use: { ...devices['Pixel 5'], timezoneId: 'Africa/Douala', locale: 'fr-FR' } },
     { name: 'android-badge', testMatch: /badge\.spec\.js/, use: { ...devices['Pixel 5'], timezoneId: 'Africa/Douala', locale: 'fr-FR', baseURL: BASE_URL_BADGE } },
   ],
+  // La jauge : le serveur « gate » est lancé depuis longtemps (la fraction « n sur 2 » se voit sur
+  // les cartes), le serveur « badge » depuis dix jours, comme la production aujourd'hui (« Vérifié »
+  // seul). Les deux états ont leurs tests, quel que soit le jour où la suite tourne.
   webServer: [
-    serveur(PORT, BASE_URL, DATA_DIR),
-    serveur(PORT_BADGE, BASE_URL_BADGE, `${DATA_DIR}-badge`, { VERIFICATION_POLICY: 'badge', MATCH_POLICY: 'open' }),
+    serveur(PORT, BASE_URL, DATA_DIR, { LANCEMENT_LE: '2020-01-01' }),
+    serveur(PORT_BADGE, BASE_URL_BADGE, `${DATA_DIR}-badge`, { VERIFICATION_POLICY: 'badge', MATCH_POLICY: 'open', LANCEMENT_LE: new Date(Date.now() - 10 * 86_400_000).toISOString().slice(0, 10) }),
   ],
 });

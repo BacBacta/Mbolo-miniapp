@@ -139,6 +139,11 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
 
 ## 4. La jauge de confiance
 
+- [ ] **(audit 16, n° 19)** Tant que `LANCEMENT_LE` plus 90 jours n'est pas passé (le 12 décembre
+      2026 avec la valeur par défaut), les cartes et les fiches montrent **« Vérifié »** (ou « Pas
+      encore vérifié ») à la place de « Confiance n sur 2 ». Touche-le : l'écran de la jauge garde
+      la fraction et dit quand elle reviendra sur les cartes.
+
 - [ ] **(audit 15, lot 3)** Après l'enregistrement du profil, l'app va **droit à la vérification** :
       aucun écran ne s'intercale.
 - [ ] Sur une carte de Découvrir, touche les **pastilles de confiance** : l'écran d'explication
