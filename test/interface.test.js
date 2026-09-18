@@ -38,6 +38,36 @@ test("les paramètres de lancement n'ouvrent une discussion que sur un identifia
   assert.ok(!/verification === 'approved'/.test(boot), 'jamais la comparaison à la main dans boot()');
 });
 
+// Le 18 septembre 2026, sur Telegram Android sans bouton natif en bas, la hauteur annoncée par
+// Telegram dépassait l'écran d'une soixantaine de pixels : le champ de saisie de la discussion
+// vivait sous la barre de navigation du téléphone, et plus personne ne pouvait écrire. La
+// discussion prend donc la plus petite des trois mesures — Telegram, sa valeur stable, la
+// fenêtre —, parce qu'une hauteur plus grande que la fenêtre est invisible par construction.
+test('la discussion ne dépasse jamais la fenêtre : la plus petite des trois hauteurs', () => {
+  const css = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  const regle = css.match(/body\.chat-mode \{ --hauteur-visible: (min\([^;]+)\); \}/);
+  assert.ok(regle, 'la hauteur visible de la discussion est une variable posée sur body.chat-mode');
+  for (const mesure of ['var(--tg-viewport-height, 100dvh)', 'var(--tg-viewport-stable-height, 100dvh)', '100dvh']) {
+    assert.ok(regle[1].includes(mesure), `la hauteur visible tient compte de ${mesure}`);
+  }
+  assert.match(css, /body\.chat-mode main \{ height: var\(--hauteur-visible\);/, 'main lit cette variable, pas Telegram directement');
+  assert.match(css, /fallback-bar:not\(\[hidden\]\)\) main \{ height: calc\(var\(--hauteur-visible\) - 74px\)/, 'la barre de secours en retire sa hauteur');
+});
+
+// Les mesures de la fenêtre se lisent depuis un lien (?startapp=diag), jamais depuis un menu :
+// c'est un outil pour comprendre une mise en page qui ne se voit que dans la vraie WebView.
+test("le lien de diagnostic ouvre l'écran des mesures, et le SDK n'est lu que dans tg.js", () => {
+  const boot = entre('async function boot() {', '\nboot();');
+  assert.match(boot, /params\.screen === 'diag'[^\n]*go\('diag'\)/);
+  const tgSrc = fs.readFileSync(new URL('../public/tg.js', import.meta.url), 'utf8');
+  assert.match(tgSrc, /screen === 'diag'\) p\.screen = 'diag'/, 'startapp=diag mène à l\'écran');
+  assert.match(tgSrc, /export function diagnostic\(\)/);
+  const ecran = entre('  diag() {', '  jauge() {');
+  assert.match(ecran, /tg\.diagnostic\(\)/);
+  assert.ok(!/window\.Telegram|W\./.test(ecran), 'l\'écran ne touche pas au SDK : tout passe par tg.js');
+  assert.ok(!/api\(|fetch\(/.test(ecran), 'rien ne part du téléphone');
+});
+
 test("une discussion fermée arrête l'interrogation, et l'app en arrière-plan n'interroge plus /summary", () => {
   assert.match(entre('async function pollChat() {', 'function montrerLaFrappe() {'), /MATCH_NOT_FOUND[^\n]*BLOCKED[\s\S]*arreterLePoll\(\)/);
   assert.match(entre('async function refreshSummary() {', 'const avatar ='), /if \(document\.hidden\) return;/);

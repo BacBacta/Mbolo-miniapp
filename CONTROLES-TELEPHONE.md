@@ -142,6 +142,13 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
 - [ ] **(badge)** Sans bouclier, **Proposer un rendez-vous** mène à un écran qui l'explique et
       propose de se faire vérifier, jamais à un formulaire qui finit en erreur. Vérifie-toi, puis
       recommence avec un second compte **non vérifié** : l'écran nomme alors l'autre personne.
+- [ ] **(audit 15, lot 4 — panne du 18 septembre 2026)** Ouvre une discussion **sans lieu partenaire
+  dans ta ville** (c'est le cas en production) : aucun bouton natif en bas, et le champ « Écris ton
+  message » avec son bouton d'envoi sont **visibles au-dessus de la barre de navigation du
+  téléphone**, sans faire défiler. Tape un message, envoie-le. Puis ouvre
+  `https://t.me/<bot>/<app>?startapp=diag` : l'écran « Mesures de la fenêtre » s'affiche, et
+  `--tg-viewport-height` ne dépasse pas la hauteur de la fenêtre de plus de quelques pixels.
+  Si le champ manque encore, envoie une capture de cet écran-là.
 - [ ] **(badge)** Aime cinq profils d'affilée sans être vérifié : le sixième doit dire que la
       limite du jour est atteinte, et proposer de se faire vérifier.
 - [ ] **(badge)** Ouvre `/conditions` depuis l'onglet Profil : la page ne doit **pas** dire « tant

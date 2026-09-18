@@ -181,6 +181,9 @@ ton `WEBAPP_URL`, puis `/newapp` pour lui donner un nom court. Tu obtiens :
 - un bouton « Ouvrir l'app » sur le profil du bot ;
 - un lien `https://t.me/TON_BOT/odo` qui **ouvre l'app directement** ;
 - des liens de diffusion `https://t.me/TON_BOT?startapp=ref_campus` (voir plus bas) ;
+- un lien de diagnostic `https://t.me/TON_BOT/odo?startapp=diag` : l'écran « Mesures de la fenêtre »,
+  qui affiche ce que le téléphone dit de l'écran de l'app (hauteur annoncée par Telegram, encarts sûrs…).
+  Rien ne part du téléphone ; on l'ouvre quand une mise en page ne se comprend que dans la vraie WebView ;
 - la personnalisation de l'écran de chargement (icône, couleurs).
 
 Pense aussi à renseigner ta **politique de confidentialité** dans BotFather (obligatoire dès que tu collectes des données).
