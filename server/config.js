@@ -125,6 +125,10 @@ export const config = {
   // les selfies partent toujours au groupe. Ce qui change est ce qu'on peut faire en attendant.
   // Les deux pages publiques portent les deux versions et n'en servent qu'une (server/index.js).
   verificationPolicy: process.env.VERIFICATION_POLICY || 'gate',
+  // Le jour où les premiers vrais membres sont arrivés (AAAA-MM-JJ). La jauge de confiance ne
+  // montre sa fraction sur les cartes que lorsqu'un second critère est atteignable par quelqu'un :
+  // « membre depuis 3 mois » ne l'est par personne avant ce jour plus 90 jours (server/jauge.js).
+  lancementLe: process.env.LANCEMENT_LE || '2026-09-13',
   // Limitation de débit par compte. Désactivable pour les tests de charge, jamais en production.
   rateLimit: bool(process.env.RATE_LIMIT, true),
   // Au-delà de ce délai sans décision de modération, le selfie est supprimé et la personne

@@ -11,7 +11,7 @@ import { LANGUES, t as tr } from './i18n.js';
 import { store, newId } from './store.js';
 import { fichierVoix, voixPublique } from './voix.js';
 import { PHOTO_SLOTS, fichierPhoto, miniatureDe, refaireLaMiniature, flouDe, fichierPhotoDeChat, apercuDe } from './photos.js';
-import { CRITERES, calculer as calculerJauge } from './jauge.js';
+import { CRITERES, calculer as calculerJauge, fractionVisible, jaugeCompleteLe } from './jauge.js';
 import { requireAuth, identiteSansCreer } from './auth.js';
 import { checkMessage } from './antiscam.js';
 import { limiter, consommer, REGLES } from './limites.js';
@@ -310,6 +310,10 @@ api.get('/me', async (req, res) => {
       // Ce que la vérification décide sur ce serveur : une porte (false) ou un badge (true).
       // L'interface en tire tout le reste — les onglets, l'écran d'arrivée, ce qu'elle promet.
       entreeLibre: entreeLibre(),
+      // La carte montre la fraction de la jauge seulement quand un second critère est atteignable
+      // par quelqu'un ; avant, « Vérifié » seul. La règle est ici, l'interface la lit (jauge.js).
+      jaugeEnFraction: fractionVisible(),
+      jaugeCompleteLe: jaugeCompleteLe(),
       // Les ordres du paquet qu'un pass permet de choisir. Des clés ; les libellés sont à l'interface.
       ordres: ORDRES,
       defaultCountry: config.defaultCountry,

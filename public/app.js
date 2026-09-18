@@ -672,6 +672,12 @@ const apercuReponse = (p) => courte(p.promptA, 90);
 // La jauge vient du serveur avec son dénominateur : la carte ne devine plus combien de
 // critères existent, et le jour où un critère s'ajoute elle suit sans être retouchée.
 const jaugeDe = (p) => p.trust || { score: 0, total: 0, criteres: [] };
+// La fraction « n sur 2 » ne se montre sur les cartes que lorsque le serveur dit qu'un second
+// critère est atteignable (audit 16, n° 19) ; avant, « Vérifié » seul. Un serveur qui ne le dit
+// pas garde la fraction.
+const jaugeEnFraction = () => S.me?.options?.jaugeEnFraction !== false;
+const selfieOk = (tr) => (tr.criteres || []).some((c) => c.cle === 'selfie' && c.ok);
+const badgeSeul = (tr) => `<span class="trust-seul${selfieOk(tr) ? ' on' : ''}">${icon('shield', 14)}<span>${selfieOk(tr) ? t('Vérifié') : t('Pas encore vérifié')}</span></span>`;
 
 // La ligne de confiance, partagée par la carte et par la fiche : les repères, le score, et ce
 // qui est acquis en clair — « Selfie vérifié, membre depuis 3 mois ». Elle ouvre l'explication.
@@ -679,6 +685,12 @@ function ligneConfiance(p) {
   const tr = jaugeDe(p);
   const acquis = (tr.criteres || []).filter((c) => c.ok).map((c) => t(c.titre).toLowerCase());
   if (acquis.length) acquis[0] = acquis[0].charAt(0).toUpperCase() + acquis[0].slice(1);
+  if (!jaugeEnFraction()) {
+    return `<button type="button" class="trust-row" data-action="go" data-screen="jauge" aria-label="${t('La jauge de confiance')}">
+          ${badgeSeul(tr)}
+          <span class="trust-text">${selfieOk(tr) ? t('Un selfie avec un geste, regardé par une personne') : t("Aucune vérification pour l'instant")}</span>
+        </button>`;
+  }
   return `<button type="button" class="trust-row" data-action="go" data-screen="jauge" aria-label="${t('Confiance {n} sur {total}', { n: tr.score, total: tr.total })}">
           <span class="trust-pips">${(tr.criteres || []).map((c) => `<span class="${c.ok ? 'on' : ''}"></span>`).join('')}</span>
           <span class="trust-text"><strong>${t('Confiance {n} sur {total}', { n: tr.score, total: tr.total })}</strong>${acquis.length ? ` · ${acquis.join(', ')}` : ` · ${t("Aucune vérification pour l'instant")}`}</span>
@@ -711,7 +723,7 @@ function profileCard(p, { own = false, cls = '', plein = false } = {}) {
           </div>
           ${plein ? `
           ${p.promptA ? `<div class="apercu"><span class="q">${esc(libelleQuestion(p.promptQ))}</span><span class="a">${esc(apercuReponse(p))}</span></div>` : ''}
-          <button type="button" class="overlay-trust" data-action="go" data-screen="jauge" aria-label="${t('La jauge de confiance')}"><span class="trust-pips">${(tr.criteres || []).map((c) => `<span class="${c.ok ? 'on' : ''}"></span>`).join('')}</span><span>${t('Confiance {n} sur {total}', { n: score, total: tr.total })}</span>${p.intentLabel ? `<span class="dot"></span><span>${esc(t(p.intentLabel))}</span>` : ''}</button>` : ''}
+          <button type="button" class="overlay-trust" data-action="go" data-screen="jauge" aria-label="${t('La jauge de confiance')}">${jaugeEnFraction() ? `<span class="trust-pips">${(tr.criteres || []).map((c) => `<span class="${c.ok ? 'on' : ''}"></span>`).join('')}</span><span>${t('Confiance {n} sur {total}', { n: score, total: tr.total })}</span>` : badgeSeul(tr)}${p.intentLabel ? `<span class="dot"></span><span>${esc(t(p.intentLabel))}</span>` : ''}</button>` : ''}
         </div>
         ${cls === 'top' ? `<span class="stamp like" aria-hidden="true">${t("J'aime")}</span><span class="stamp pass" aria-hidden="true">${t('Passer')}</span>` : ''}
       </div>
@@ -2141,6 +2153,7 @@ Object.assign(SCREENS, {
             <div class="sub">${etat[c.cle] ? t('Tu l\'as.') : t(c.comment)}</div>
           </div>
         </div>`).join('')}</div>
+      ${!jaugeEnFraction() && S.me.options.jaugeCompleteLe ? `<p class="fine">${icon('clock', 14)}<span>${t('Sur les cartes, seul le selfie apparaît pour l\'instant : personne ne peut encore avoir trois mois d\'ancienneté. La jauge complète y reviendra le {date}.', { date: new Date(S.me.options.jaugeCompleteLe).toLocaleDateString(langue(), { dateStyle: 'long' }) })}</span></p>` : ''}
       <p class="fine">${icon('info', 14)}<span>${t("Une jauge pleine ne veut pas dire qu'une personne est sûre. Elle dit ce qui a été vérifié — le reste, c'est ton jugement, et les rendez-vous dans un lieu public.")}</span></p>`);
     tg.setBack(() => go(PARENT.jauge()));
     tg.setButtons({ main: { text: t('Compris'), onClick: () => go(PARENT.jauge()) } });

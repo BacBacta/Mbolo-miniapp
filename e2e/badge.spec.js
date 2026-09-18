@@ -81,3 +81,19 @@ test("sans badge, le troisième « J'aime » ouvre la feuille du quota au lieu d
   await feuille.locator('[data-feuille="non"]').click();
   await expect(page.locator('#toast')).not.toContainText(/tous tes profils/);
 });
+
+// Audit 16, n° 19 : ce serveur est lancé depuis dix jours (playwright.config.js). Personne ne peut
+// avoir trois mois d'ancienneté : la carte et la fiche ne montrent que « Vérifié », et l'écran
+// de la jauge garde la fraction en disant quand elle reviendra.
+test("tant que personne ne peut avoir trois mois, la carte dit « Vérifié » seul et la jauge explique", async ({ page }) => {
+  await ouvrir(page, nouvelIdentifiant());
+  await creerProfil(page, { prenom: 'Ivy' });
+  await page.locator('main button', { hasText: /Plus tard/ }).click();
+  await expect(onglet(page, /Découvrir/)).toBeVisible();
+  const carte = page.locator('.deck .card.top');
+  await expect(carte.locator('.overlay-trust .trust-seul')).toBeVisible();
+  await expect(carte).not.toContainText(/Confiance \d sur/);
+  await carte.locator('.overlay-trust').click();
+  await expect(page.locator('main')).toContainText(/Confiance \d sur 2/);
+  await expect(page.locator('main')).toContainText(/seul le selfie apparaît pour l'instant/);
+});

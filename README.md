@@ -657,6 +657,8 @@ La vérification par selfie ne change jamais : un geste tiré au hasard, valable
 | `gate` (défaut) | **Rien.** Tu ne vois personne, personne ne te voit | L'accès à l'app |
 | `badge` | Découvrir, aimer, matcher, écrire — avec un quota de « J'aime » réduit (`DAILY_PROFILES_UNVERIFIED`, 2 par défaut, contre 5) | Le **bouclier** sur la fiche, le droit de **proposer un rendez-vous** (des deux côtés) et de **confirmer une arrivée**, et le quota entier |
 
+**La jauge de confiance et `LANCEMENT_LE`.** La jauge compte deux critères : le selfie vérifié et trois mois d'ancienneté. Le jour du lancement, personne ne peut avoir le second, et chaque carte disait « 1 sur 2 ». `LANCEMENT_LE` (AAAA-MM-JJ, le jour des premiers vrais membres, `2026-09-13` par défaut) fixe la règle : jusqu'à ce jour plus 90 jours, les cartes et les fiches ne montrent que le selfie (« Vérifié » ou « Pas encore vérifié »), et l'écran de la jauge garde la fraction en disant quand elle reviendra. Une date illisible garde la fraction.
+
 **Cette instance tourne sur la seconde ligne depuis le 15 septembre 2026** (`VERIFICATION_POLICY = "badge"` dans `fly.toml`, décision du propriétaire). La raison n'est pas un choix de produit mais une contrainte d'exploitation : la modération est humaine et l'équipe fait une personne. Sous `gate`, personne ne voit rien tant que ce modérateur n'a pas regardé — un délai de quelques heures la nuit vide l'app de tout le monde en même temps, et c'est le premier écran de quelqu'un qui vient de s'inscrire.
 
 Ce qui reste réservé au bouclier est **ce qui met deux personnes en présence**. Écrire n'attend pas ; se retrouver en vrai, si.
