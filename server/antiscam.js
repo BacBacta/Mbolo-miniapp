@@ -267,7 +267,7 @@ export function checkMessage(text, messageCountInMatch, unlockAfter) {
       code: 'MONEY_BLOCKED',
       categorie,
       // Dire ce qui a déclenché le blocage : sans cela, la personne ne sait pas quoi corriger.
-      message: `Les demandes et offres d'argent sont bloquées sur ${config.appName}. Ce message ressemble à une ${categorie}. Retire le montant ou le moyen de paiement, et renvoie-le.`,
+      message: `Les demandes d'argent sont bloquées sur ${config.appName}. Ce message ressemble à une ${categorie} : retire le montant ou le moyen de paiement, et renvoie-le.`,
     };
   }
   const n = normalize(text);

@@ -134,3 +134,43 @@ test('la discussion se recolle en bas quand la fenêtre change de taille', () =>
   // rouvre, et l'écran se dandine à chaque message. Rejoué en vrai dans e2e/discussion.spec.js.
   assert.match(rendu, /for \(const geste of \['pointerdown', 'mousedown'\]\)[\s\S]*preventDefault/, 'le focus ne quitte pas le champ au moment du geste');
 });
+
+// ---------- Lot 0 de l'audit UI/UX (audit/15-ui-ux-premium.md) ----------
+
+test("la cible du retour natif se calcule à l'appui, jamais avant que l'écran soit dessiné", () => {
+  // « Se protéger » depuis une discussion, puis Retour, renvoyait sur Découvrir la première
+  // fois : go() lisait PARENT.protection avant que SCREENS.protection ait posé S.protection.
+  const corps = entre('function go(screen', '  SCREENS[screen](params);');
+  assert.ok(!/PARENT\[screen\]\?\.\(\)/.test(corps), "le parent n'est pas appelé au moment de la navigation");
+  assert.match(corps, /const parentDe = PARENT\[screen\];/);
+  assert.match(corps, /tg\.setBack\(parentDe \? \(\) => \{ const p = parentDe\(\);/, "il est appelé dans le gestionnaire du bouton");
+});
+
+test("les lignes de Messages portent l'heure du dernier message", () => {
+  assert.match(entre('function dessinerMessages()', 'S.matches.slice(0, 8).forEach'), /class="quand">\$\{quandCourt\(m\.lastMessage\?\.at \|\| m\.createdAt\)\}/);
+  const q = entre('function quandCourt(ts)', 'function dessinerMessages()');
+  assert.match(q, /timeLabel\(ts, langue\(\)\)/, "aujourd'hui : l'heure");
+  assert.match(q, /t\('Hier'\)/);
+});
+
+test("l'étoile Telegram est une icône, jamais l'emoji du téléphone", () => {
+  assert.ok(!app.includes('⭐'), "aucun emoji ⭐ dans l'interface");
+  assert.match(app, /icon\('star'/);
+  // Le bouton natif ne porte que du texte : un glyphe de police, et une seule ligne.
+  assert.match(app, /\$\{choisie\.stars\} ★`/);
+});
+
+test('le menu du message propose Copier, et Telegram ne reçoit jamais plus de trois boutons', () => {
+  const menu = entre('async function menuDuMessage(', 'async function copier(');
+  assert.match(menu, /id: 'copier'/);
+  assert.match(menu, /if \(buttons\.length < 3\) buttons\.push\(\{ id: 'cancel'/);
+});
+
+test("« Tester les notifications » n'est plus un réglage de la personne", () => {
+  assert.ok(!app.includes("'test-notif'"), "la ligne et son gestionnaire sont partis (c'est /test dans le bot)");
+});
+
+test("la tranche d'activité dit « Actif », la présence dit « En ligne »", () => {
+  assert.match(app, /recent: t\('Actif récemment'\), today: t\("Actif aujourd'hui"\), week: t\('Actif cette semaine'\)/);
+  assert.ok(!app.includes("t(\"En ligne aujourd'hui\")"));
+});

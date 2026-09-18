@@ -368,8 +368,12 @@ function go(screen, params = {}) {
   document.body.classList.toggle('chat-mode', screen === 'chat');
   // Le match est un écran d'encre dans les deux thèmes : le moment signature, pas une page de l'app
   document.body.classList.toggle('match-mode', screen === 'match');
-  const parent = PARENT[screen]?.();
-  tg.setBack(parent ? () => go(parent, parent === 'chat' ? { id: S.chat?.id } : {}) : null);
+  // La cible du retour se calcule **à l'appui**, pas ici : plusieurs parents lisent un état que
+  // l'écran pose lui-même en se dessinant (S.protection, S.pays). Calculée avant SCREENS[screen],
+  // elle lisait l'état de la fois d'avant — « Se protéger » depuis une discussion renvoyait sur
+  // Découvrir la première fois, et le bouton principal y était « J'aime » (audit/15, constat AF).
+  const parentDe = PARENT[screen];
+  tg.setBack(parentDe ? () => { const p = parentDe(); if (p) go(p, p === 'chat' ? { id: S.chat?.id } : {}); } : null);
   showTabs(screen);
   window.scrollTo(0, 0);
   SCREENS[screen](params);
@@ -465,7 +469,9 @@ function loadAvatar(p, { own = false } = {}) {
 }
 
 // Tranche d'activité calculée par le serveur, jamais l'heure exacte. Formulation sans accord : le genre n'est pas exposé
-const ACTIVITY_LABELS = () => ({ recent: t('En ligne récemment'), today: t("En ligne aujourd'hui"), week: t('En ligne cette semaine') });
+// « Actif », pas « En ligne » : la tranche dit qu'une personne est passée, la présence dit qu'elle
+// est là. « En ligne aujourd'hui » se lisait comme une présence en ce moment.
+const ACTIVITY_LABELS = () => ({ recent: t('Actif récemment'), today: t("Actif aujourd'hui"), week: t('Actif cette semaine') });
 
 // Langue de l'interface. Telegram donne la langue du téléphone ; le choix explicite de la
 // personne, quand il existe, l'emporte.
@@ -909,8 +915,8 @@ function dessinerLePass() {
         <button type="button" class="offre" role="radio" data-action="offre" data-jours="${o.jours}" aria-checked="${o.jours === choisie?.jours}">
           ${o.jours === infos.conseillee ? `<span class="tag">${t('Le plus choisi')}</span>` : ''}
           <span class="duree">${t('{n} jours', { n: o.jours })}</span>
-          <span class="prix">${o.stars} ⭐</span>
-          <span class="par-jour">${t('soit {n} ⭐ par jour', { n: parJour(o) })}</span>
+          <span class="prix">${o.stars} ${icon('star', 14)}</span>
+          <span class="par-jour">${t('soit {n} {etoile} par jour', { n: parJour(o), etoile: icon('star', 11) })}</span>
         </button>`).join('')}</div>
     </div>` : `<div class="notice notice-info">${icon('info', 18)}<span>${t("Le pass n'est pas en vente sur ce serveur pour l'instant.")}</span></div>`}
     <div class="group"><span class="eyebrow">${t('Ce que ça débloque')}</span>
@@ -930,7 +936,9 @@ function dessinerLePass() {
   tg.setBack(() => go(S.plusRetour || 'me'));
   if (!choisie) return tg.setButtons({ main: { text: t('Compris'), onClick: () => go(S.plusRetour || 'me') } });
   tg.setButtons({
-    main: { text: `${infos.actif ? t('Prolonger de {n} jours', { n: choisie.jours }) : t('Prendre {n} jours', { n: choisie.jours })} · ${choisie.stars} ⭐`, onClick: acheterLePass },
+    // Le bouton natif ne porte que du texte : ★ est un glyphe de police, pas l'emoji du
+    // téléphone. Et une ligne : « Prendre 30 jours · 299 (emoji) » passait sur deux.
+    main: { text: `${infos.actif ? t('Prolonger') : t('Prendre')} ${t('{n} jours', { n: choisie.jours })} · ${choisie.stars} ★`, onClick: acheterLePass },
     secondary: { text: t('Plus tard'), onClick: () => go(S.plusRetour || 'me') },
   });
 }
@@ -1432,6 +1440,18 @@ const SCREENS = {
 
 // L'onglet Messages, dessiné depuis l'état : appelé tout de suite avec ce qu'on a, puis une
 // seconde fois si le serveur a changé quelque chose.
+// L'heure d'une ligne de Messages : l'heure aujourd'hui, « Hier », le jour dans la semaine, la
+// date au-delà. C'est la première chose qu'on lit dans une liste de discussions.
+function quandCourt(ts) {
+  if (!ts) return '';
+  const d = new Date(ts), now = new Date();
+  if (isSameDay(ts, now)) return timeLabel(ts, langue());
+  const hier = new Date(now); hier.setDate(now.getDate() - 1);
+  if (isSameDay(ts, hier)) return t('Hier');
+  if (now - d < 6 * 86400000) return d.toLocaleDateString(langue(), { weekday: 'short' });
+  return d.toLocaleDateString(langue(), { day: 'numeric', month: 'short' });
+}
+
 function dessinerMessages() {
   {
     // Sans pass, la bande ne disparaît pas en silence : elle dit ce qui existe et où le voir.
@@ -1467,7 +1487,7 @@ function dessinerMessages() {
           <button type="button" class="list-row ${m.unread ? 'unread' : ''}" data-action="open-chat" data-id="${m.id}">
             ${avatar(m.other, 'sm')}
             <div class="body">
-              <div class="title">${esc(m.other.name)}${m.other.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${m.aQuiDeParler === 'moi' && !m.unread ? `<span class="tour">${t('À toi')}</span>` : ''}</div>
+              <div class="title">${esc(m.other.name)}${m.other.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${m.aQuiDeParler === 'moi' && !m.unread ? `<span class="tour">${t('À toi')}</span>` : ''}<span class="quand">${quandCourt(m.lastMessage?.at || m.createdAt)}</span></div>
               <div class="preview">${m.lastMessage ? `${m.lastMessage.mine ? t('Toi : ') : ''}${m.lastMessage.supprime ? t('Message supprimé') : m.lastMessage.photo && !m.lastMessage.text ? `${icon('image', 13)} ${t('Photo')}` : esc(m.lastMessage.text)}` : t('Nouveau match, écris le premier message')}</div>
             </div>
             ${m.unread ? `<span class="count-badge">${m.unread}</span>` : `<span class="chev">${icon('chevron-right', 18)}</span>`}
@@ -1815,7 +1835,7 @@ Object.assign(SCREENS, {
       <div class="list">${Object.entries(LANGUES).map(([code, nom]) => `
         <button type="button" class="list-row" data-action="set-langue" data-langue="${code}">
           <div class="body"><div class="title">${esc(nom)}</div></div>
-          ${code === langue() ? `<span class="c-ok">${icon('check', 18)}</span>` : `<span class="chev">${icon('chevron-right', 18)}</span>`}
+          ${code === langue() ? `<span class="c-ok">${icon('check', 18)}</span>` : ''}
         </button>`).join('')}</div>
       <p class="fine">${icon('info', 14)}<span>${t('Les profils restent écrits dans la langue de chacun : seule l\'interface change.')}</span></p>`);
     tg.setButtons(null);
@@ -1898,7 +1918,6 @@ Object.assign(SCREENS, {
               : t("Qui t'a aimé, des « J'aime » sans compter, tout le pays"),
             action: 'plus', extra: ' data-quoi="profil"' })}
           ${listRow({ iconName: 'globe', title: t('Langue'), sub: LANGUES[langue()], action: 'go', extra: ` data-screen="langue"` })}
-          ${listRow({ iconName: 'bell', title: t('Tester les notifications'), sub: t("Le bot t'envoie un message dans Telegram"), action: 'test-notif' })}
           ${listRow({ iconName: 'users', title: t("Se sont arrêtés sur ta fiche"), sub: t('Combien, en gros, et les cinq dernières fiches'), action: 'go', extra: ' data-screen="vues"' })}
           <label class="list-row">
             <span class="tile">${icon('lock', 20)}</span>
@@ -2398,17 +2417,33 @@ async function menuDuMessage(id) {
   const m = S.chat?.messages.find((x) => x.id === id);
   if (!m || m.supprime) return;
   const extrait = m.photo && !m.text ? t('Photo') : m.text.length > 80 ? `${m.text.slice(0, 80)}…` : m.text;
-  const choix = await tg.popup({
-    message: extrait,
-    buttons: [
-      { id: 'repondre', type: 'default', text: t('Répondre') },
-      ...(m.mine ? [{ id: 'supprimer', type: 'destructive', text: t('Supprimer') }] : []),
-      { id: 'cancel', type: 'cancel' },
-    ],
-  });
+  // Telegram n'accepte que trois boutons : « Annuler » ne s'ajoute que s'il reste une place —
+  // un appui à côté du popup ferme de toute façon.
+  const buttons = [
+    { id: 'repondre', type: 'default', text: t('Répondre') },
+    ...(m.text ? [{ id: 'copier', type: 'default', text: t('Copier') }] : []),
+    ...(m.mine ? [{ id: 'supprimer', type: 'destructive', text: t('Supprimer') }] : []),
+  ];
+  if (buttons.length < 3) buttons.push({ id: 'cancel', type: 'cancel' });
+  const choix = await tg.popup({ message: extrait, buttons });
   if (S.screen !== 'chat' || !S.chat) return;
   if (choix === 'repondre') preparerLaReponse(id);
+  else if (choix === 'copier') copier(m.text);
   else if (choix === 'supprimer') supprimerLeMessage(id);
+}
+
+// Copier un message : le menu remplace la sélection de texte, que l'appui long a prise.
+async function copier(texte) {
+  try {
+    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(texte);
+    else {
+      const z = document.createElement('textarea');
+      z.value = texte; z.setAttribute('readonly', ''); z.style.position = 'fixed'; z.style.opacity = '0';
+      document.body.appendChild(z); z.select(); document.execCommand('copy'); z.remove();
+    }
+    tg.haptic('select');
+    toast(t('Copié'), 'ok');
+  } catch { toast(t('Impossible de copier sur cet appareil.'), 'warn'); }
 }
 
 // La citation s'affiche au-dessus du champ, et le champ garde le clavier : rien n'est reconstruit.
@@ -2838,7 +2873,7 @@ async function sendMessage(input) {
     if (i >= 0) S.chat.messages.splice(i, 1);
     S.chat.tete = null;
     tg.haptic(e.code === 'MONEY_BLOCKED' ? 'warning' : 'error');
-    S.chat.notice = e.code === 'MONEY_BLOCKED' ? `${e.message} ${t('Reformule sans montant ni moyen de paiement.')}` : e.message;
+    S.chat.notice = e.message;
     if (!input.value.trim()) input.value = text;
     if (replyTo && !S.chat.reponseA) { S.chat.reponseA = replyTo; dessinerLaReponse(); }
     updateChat({ scroll: true });
@@ -3205,14 +3240,6 @@ app.addEventListener('click', async (e) => {
     // Les pages publiques sortent de la mini app : elles se lisent sans compte, et on ne
     // reconstruit pas un navigateur à l'intérieur de l'app pour deux documents.
     case 'page': tg.openLink(el.dataset.page); break;
-    case 'test-notif': {
-      try {
-        const r = await api('/me/test-notification', { method: 'POST' });
-        tg.haptic(r.sent ? 'success' : 'warning');
-        await tg.alert(r.message);
-      } catch (err) { showError(err); }
-      break;
-    }
     case 'delete': {
       const ok = await tg.confirm(t('Supprimer définitivement ton compte, ton profil, tes matchs et tes messages ?'));
       if (!ok) return;

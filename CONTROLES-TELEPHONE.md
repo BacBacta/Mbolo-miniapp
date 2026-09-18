@@ -257,8 +257,15 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
 - [ ] **(deux comptes)** Envoie un message : chez toi, la bulle porte une **horloge**, puis **une
       coche**, puis **deux coches en ambre** dès que l'autre l'a sous les yeux. Mets l'autre
       téléphone en arrière-plan avant d'envoyer : la seconde coche n'arrive qu'au retour.
+- [ ] **(audit 15, lot 0)** Depuis une discussion, touche le drapeau « Se protéger » puis le
+      bouton **Retour** natif : tu dois revenir **dans la discussion**, pas sur Découvrir.
+      *La première fois, l'app renvoyait sur Découvrir avec « J'aime » en bouton principal.*
+- [ ] Onglet Messages : chaque ligne porte **l'heure** du dernier message (ou « Hier », ou le jour).
+- [ ] Écran du pass : l'étoile est **dessinée** comme les autres icônes, jamais l'emoji jaune du
+      téléphone, et le bouton natif tient sur **une ligne** (« Prendre 30 jours · 299 ★ »).
 - [ ] **(deux comptes)** **Appui long** sur un message de l'autre : le menu natif de Telegram
-      s'ouvre avec **Répondre** seulement — pas « Supprimer ». Répondre : la citation apparaît
+      s'ouvre avec **Répondre** et **Copier** — pas « Supprimer ». Copier, puis colle dans le
+      champ : le texte est là. Répondre : la citation apparaît
       au-dessus du champ, le clavier reste ouvert, et le message envoyé porte la citation **chez
       les deux**. Toucher la citation remonte au message cité.
 - [ ] **(deux comptes)** Appui long sur **un de tes messages**, **Supprimer** : la bulle dit

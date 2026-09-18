@@ -469,6 +469,14 @@ export async function setupBot() {
       { app: config.appName })),
   );
 
+  // /test : la même notification que l'ancien bouton de l'onglet Profil, sorti des réglages
+  // (audit/15, constat V) — c'est un outil d'exploitation, pas un réglage de la personne.
+  bot.command('test', async (ctx) => {
+    if (ctx.chat.type !== 'private') return;
+    const r = await notify(ctx.from.id, 'Les notifications {app} fonctionnent. Tu seras prévenu(e) ici des matchs et des messages.', { app: config.appName }, { label: 'Ouvrir {app}', params: { screen: 'me' } }, 'test', 30 * 1000);
+    if (!r.sent) await ctx.reply(r.reason === 'THROTTLED' ? 'Patiente 30 secondes avant un nouveau test.' : "Ce compte n'existe pas encore dans l'app : ouvre-la d'abord.");
+  });
+
   // Enregistrer dans Telegram plutôt que dans la mini app : voir l'en-tête de server/voix.js.
   // La personne ne quitte pas un outil qu'elle connaît, et rien ne dépend d'une permission
   // micro que les mini apps Android n'accordent pas.
