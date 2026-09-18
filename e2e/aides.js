@@ -88,12 +88,19 @@ export async function passerLaVoix(page) {
 export async function seFaireVerifier(page) {
   await passerLaJauge(page);
   // Choisir la photo ne l'envoie pas : l'aperçu s'affiche d'abord, et on peut reprendre.
+  // Sous « badge » (le second serveur, e2e/badge.spec.js), l'écran porte un lien « Plus tard » ;
+  // sous « gate », non. C'est ce qui dit quelle politique sert cette page.
+  const badge = (await page.locator('main button', { hasText: /Plus tard/ }).count()) > 0;
   await page.locator('input[type=file][name=selfie]').setInputFiles(sonSelfie);
   await actionPrincipale(page).click();
-  // La décision automatique tombe au bout de trois secondes : la présentation vocale est
-  // proposée juste après, une seule fois.
+  // La décision automatique tombe au bout de trois secondes. Sous « gate », l'écran d'attente
+  // la lit et ouvre la découverte ; sous « badge », le selfie envoyé mène tout de suite à
+  // Découvrir (audit 16, lot A) et une veille la lit dans les cinq secondes : on attend alors le
+  // toast du bouclier, pour que le compte soit vérifié des deux côtés — serveur et écran —
+  // avant que le test continue.
   await passerLaVoix(page);
   await expect(onglet(page, /Découvrir/)).toBeVisible({ timeout: 25_000 });
+  if (badge) await expect(page.locator('#toast')).toContainText(/bouclier est sur ta fiche/, { timeout: 25_000 });
 }
 
 // Les onglets n'existent qu'une fois le compte vérifié : leur présence est le signal le plus sûr.
