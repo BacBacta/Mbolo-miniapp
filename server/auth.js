@@ -2,7 +2,7 @@
 // Le client envoie la chaîne brute Telegram.WebApp.initData ; le serveur vérifie sa signature
 // avec le jeton du bot (procédure officielle « Validating data received via the Mini App »).
 import crypto from 'node:crypto';
-import { config } from './config.js';
+import { config, runtime } from './config.js';
 import { store } from './store.js';
 
 function hmac(key, data) {
@@ -50,9 +50,12 @@ export function validateInitData(initData, botToken, maxAgeSec = config.initData
 // laquelle passe toute l'API, plutôt que dans chaque route.
 function refuserSiBanni(req, res) {
   if (!req.user?.banned) return false;
+  // Le nom du bot voyage avec le refus : l'écran du compte fermé en fait un bouton qui ouvre
+  // la discussion du bot, au lieu de demander de taper une commande (audit 16, n° 13).
   res.status(403).json({
     code: 'BANNED',
-    message: `Ton compte a été fermé par l'équipe de ${config.appName}. Si tu penses que c'est une erreur, écris au bot avec la commande /aide.`,
+    message: `Ton compte a été fermé par l'équipe de ${config.appName}. Si tu penses que c'est une erreur, écris au bot.`,
+    bot: runtime.botUsername || undefined,
   });
   return true;
 }

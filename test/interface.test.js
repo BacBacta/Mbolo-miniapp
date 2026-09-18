@@ -285,7 +285,7 @@ test("chaque réponse de la fiche porte un cœur quand on peut encore décider, 
   const f = entre('function ficheEnBlocs(p', 'function lazyBlocsPhoto(p)');
   assert.match(f, /decidable \? `<button type="button" class="coeur" data-action="aimer-reponse" data-q="\$\{esc\(x\.q\)\}"/);
   const ecran = entre('  person({ id }) {', '  match() {');
-  assert.match(ecran, /ficheEnBlocs\(p, \{ decidable: !match && p\.status !== 'liked' \}\)/);
+  assert.match(ecran, /const decide = !match && p\.status !== 'liked';[\s\S]*ficheEnBlocs\(p, \{ decidable: decide \}\)/);
 });
 
 test("aimer une réponse ouvre une feuille avec un champ borné, et n'envoie que sur « Envoyer »", () => {
@@ -597,4 +597,45 @@ test("chaque icône demandée par l'interface existe dans ui.js", () => {
   const absentes = [...demandees].filter((n) => !connues.has(n));
   assert.deepEqual(absentes, [], `icônes demandées sans tracé : ${absentes.join(', ')}`);
   assert.ok(connues.has('card') && connues.has('rows'), 'le sélecteur Cartes / Liste a ses deux icônes');
+});
+
+// Audit 16, lot D : les mots et les fins. Un compte fermé a son écran et un bouton vers le bot
+// (n° 13) ; un compte supprimé peut fermer la mini app (n° 14) ; la fiche décide avec les mêmes
+// ronds que le paquet (n° 16) ; remettre les filtres à zéro n'enregistre pas (n° 17) ; le bandeau
+// réseau part quand le réseau répond (n° 20) ; la carte du pass ne passe devant les discussions
+// que s'il y a quelqu'un derrière (n° 12).
+test("un compte fermé a son écran et un bouton vers le bot, pas « Réessayer »", () => {
+  const erreur = entre('function renderError(e, retry) {', 'const ACTIVITY_LABELS');
+  assert.match(erreur, /if \(e\.code === 'BANNED'\) \{[\s\S]*t\('Ton compte est fermé'\)[\s\S]*tg\.openTelegramLink\(`https:\/\/t\.me\/\$\{e\.bot\}\?start=aide`\)/);
+  assert.match(app, /\.\.\.\(data\.bot \? \{ bot: data\.bot \} : \{\}\)/, 'le nom du bot voyage avec l\'erreur');
+  const supprime = entre('  supprime() {', '  // Odo Plus');
+  assert.match(supprime, /tg\.inTelegram \? \{ main: \{ text: t\('Fermer'\), onClick: tg\.close \} \} : null/);
+});
+
+test('la fiche décide avec les mêmes boutons ronds que le paquet, jamais une barre native', () => {
+  const fiche = entre('  person({ id }) {', '  async chat({ id }) {');
+  assert.match(fiche, /class="deck-actions sous-fiche"/);
+  assert.match(fiche, /data-action="fiche-like"/);
+  assert.match(fiche, /data-action="fiche-pass"/);
+  assert.doesNotMatch(fiche, /main: \{ text: t\("J'aime"\)/);
+  assert.doesNotMatch(fiche, /secondary: \{ text: t\('Passer'\)/);
+  assert.match(app, /case 'fiche-like': swipePerson\('like'\); break;/);
+});
+
+test("remettre les filtres à zéro remplit les champs sans enregistrer, et le bandeau réseau part quand le réseau répond", () => {
+  const zero = entre('function remettreLesFiltresAZero() {', 'async function saveFilters(values) {');
+  assert.doesNotMatch(zero, /saveFilters|api\(/, 'rien ne part au serveur');
+  assert.match(zero, /SCREENS\.filters\(\);/);
+  assert.match(app, /secondary: \{ text: t\('Tout remettre à zéro'\), onClick: remettreLesFiltresAZero \}/);
+  assert.doesNotMatch(app, /t\('Tout voir'\)/);
+  const poll = entre('async function pollChat() {', 'function arreterLePoll');
+  assert.match(poll, /if \(S\.chat\.notice && S\.chat\.noticeReseau\) \{[\s\S]*S\.chat\.notice = null;/);
+  assert.equal((app.match(/S\.chat\.noticeReseau = e\.code === 'NETWORK';/g) || []).length, 2, 'les deux endroits qui posent un bandeau disent s\'il vient du réseau');
+});
+
+test("la carte du pass ne passe devant les discussions que si quelqu'un a aimé", () => {
+  const messages = entre('  async matches({ silent = false } = {}) {', '  me() {');
+  assert.match(messages, /const quelquUn = S\.likes\.length \|\| S\.likesN \|\| S\.likesFlous\.length;/);
+  assert.match(messages, /const enTete = quelquUn \? likesStrip : '';/);
+  assert.match(messages, /const enQueue = quelquUn \? '' : likesStrip;/);
 });

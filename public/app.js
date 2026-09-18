@@ -152,7 +152,11 @@ const ERREURS = () => ({
 // Deux messages dépendent d'une valeur renvoyée par le serveur : on les compose ici.
 function messageErreur(data) {
   if (data?.code === 'CONTACT_TOO_EARLY') return t('Les liens, numéros et pseudos sont débloqués après {n} messages échangés de chaque côté.', { n: data.unlockAfter ?? 10 });
-  if (data?.code === 'MONEY_BLOCKED') return t("Les demandes d'argent sont bloquées sur {app}. Ce message ressemble à une {categorie} : retire le montant ou le moyen de paiement, et renvoie-le.", { app: APP, categorie: t(data.categorie || '') });
+  if (data?.code === 'MONEY_BLOCKED') {
+    return data.categorie === 'moyen de paiement'
+      ? t('Un moyen de paiement est bloqué ici. Retire-le, et renvoie ton message.')
+      : t("Les demandes d'argent sont bloquées ici. Retire le montant, et renvoie ton message.");
+  }
   if (data?.code === 'WRONG_VENUE') return t('Ce code ne correspond pas à {lieu}. Scanne le code posé sur ta table.', { lieu: data.venue || '' });
   return ERREURS()[data?.code] || data?.message || t('Un problème est survenu.');
 }
@@ -180,7 +184,7 @@ async function api(path, { method = 'GET', body } = {}) {
     ouvrirLePass(data.quoi || 'porte');
     throw Object.assign(new Error(''), { code: 'PASS_REQUIS', status: 403, silencieux: true });
   }
-  if (!res.ok) throw Object.assign(new Error(messageErreur(data)), { code: data.code, status: res.status });
+  if (!res.ok) throw Object.assign(new Error(messageErreur(data)), { code: data.code, status: res.status, ...(data.bot ? { bot: data.bot } : {}) });
   return data;
 }
 
@@ -406,6 +410,17 @@ function render(html) {
 
 // Écran d'erreur réseau, avec le bouton principal pour réessayer
 function renderError(e, retry) {
+  // Un compte fermé n'est pas une panne (audit 16, n° 13) : le titre le dit, « Réessayer » ne
+  // sert à rien, et le recours est un bouton qui ouvre le bot — pas une commande à taper.
+  if (e.code === 'BANNED') {
+    render(`
+      <div class="empty">
+        <span class="glyph glyph-warn">${icon('ban', 34)}</span>
+        <h2>${t('Ton compte est fermé')}</h2>
+        <p>${esc(e.message)}</p>
+      </div>`);
+    return tg.setButtons(e.bot ? { main: { text: t('Écrire au bot'), onClick: () => tg.openTelegramLink(`https://t.me/${e.bot}?start=aide`) } } : null);
+  }
   render(`
     <div class="empty">
       <span class="glyph glyph-warn">${icon(e.code === 'NETWORK' ? 'wifi-off' : 'alert', 34)}</span>
@@ -1029,6 +1044,14 @@ async function changerLangue(code) {
   try { await api('/me/lang', { method: 'PUT', body: { lang: code } }); } catch { /* le choix vaut déjà pour cet écran */ }
 }
 
+function remettreLesFiltresAZero() {
+  S.filtresDraft = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, langue: '', ordre: 'defaut' };
+  S.genreDraft = '';
+  S.ordreDraft = 'defaut';
+  tg.haptic('select');
+  SCREENS.filters();
+}
+
 async function saveFilters(values) {
   const form = document.getElementById('filters-form');
   // Le pays vient du brouillon : il se choisit maintenant sur un écran à nous, plus dans un
@@ -1625,7 +1648,10 @@ const SCREENS = {
       <p class="fine">${icon('users', 14)}<span>${t('Ta zone ne vaut que pour toi : elle décide de qui tu vois, pas de qui te voit.')}</span></p>
       <p class="fine">${icon('info', 14)}<span>${t('Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.')}</span></p>`);
     document.getElementById('filters-form').addEventListener('submit', (e) => { e.preventDefault(); saveFilters(); });
-    tg.setButtons({ main: { text: t('Enregistrer'), onClick: () => saveFilters() }, secondary: { text: t('Tout voir'), onClick: () => saveFilters({ ageMin: 18, ageMax: 99, gender: '', verifiesSeulement: false, langue: '', zone: { ...zoneDe(), city: null } }) } });
+    // « Tout voir » enregistrait et sortait sans le dire (audit 16, n° 17). Remettre à zéro
+    // remplit les champs, et c'est « Enregistrer » qui enregistre. La zone reste : elle n'est
+    // pas un filtre qu'on efface, et le pays entier serait de toute façon derrière le pass.
+    tg.setButtons({ main: { text: t('Enregistrer'), onClick: () => saveFilters() }, secondary: { text: t('Tout remettre à zéro'), onClick: remettreLesFiltresAZero } });
   },
 
   person({ id }) {
@@ -1639,13 +1665,19 @@ const SCREENS = {
     const note = match ? `${icon('heart', 14)}<span>${t('Vous vous êtes plu. Vous pouvez vous écrire.')}</span>`
       : p.status === 'liked' ? `${icon('heart', 14)}<span>${t('Tu as déjà aimé ce profil. Le bot te prévient en cas de match.')}</span>`
         : p.status === 'passed' ? `${icon('clock', 14)}<span>${t('Tu avais passé ce profil. Tu peux revenir sur ta décision.')}</span>` : '';
-    render(`${ficheEnBlocs(p, { decidable: !match && p.status !== 'liked' })}${note ? `<p class="fine">${note}</p>` : ''}`);
+    // Les mêmes boutons ronds que le paquet (audit 16, n° 16) : un seul geste pour décider,
+    // pas une barre native ici et des ronds là. Un « Passer » déjà donné ne se répète pas.
+    const decide = !match && p.status !== 'liked';
+    const ronds = decide ? `
+      <div class="deck-actions sous-fiche" role="group" aria-label="${t('Décider')}">
+        ${p.status === 'passed' ? '' : `<button type="button" class="rond passer" data-action="fiche-pass" aria-label="${t('Passer')}">${icon('x', 24)}</button>`}
+        <button type="button" class="rond like${quotaEpuise() ? ' epuise' : ''}" data-action="fiche-like" aria-label="${t("J'aime")}">${icon('heart', 24, { fill: true })}</button>
+      </div>` : '';
+    render(`${ficheEnBlocs(p, { decidable: decide })}${note ? `<p class="fine">${note}</p>` : ''}${ronds}`);
     loadCardPhoto(p);
     lazyBlocsPhoto(p);
     if (match) tg.setButtons({ main: { text: t('Écrire à {nom}', { nom: p.name }), onClick: () => go('chat', { id: S.chat.id }) } });
-    else if (p.status === 'liked') tg.setButtons(null);
-    else if (p.status === 'passed') tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipePerson('like') } });
-    else tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipePerson('like') }, secondary: { text: t('Passer'), onClick: () => swipePerson('pass') } });
+    else tg.setButtons(null);
   },
 
   match() {
@@ -1734,17 +1766,22 @@ function dessinerMessages() {
         ${S.likesFlous.length ? `<div class="new-strip">${S.likesFlous.map((src) => `<button type="button" class="new-item like-item" data-action="porte-feuille" data-quoi="likes">${avatarFlou(src)}<span>${t('Qui ?')}</span></button>`).join('')}</div>` : ''}
         ${porteDuPass({ quoi: 'likes', titre: t("Voir qui t'a aimé"), sous: t('Ces personnes passent déjà devant dans ton paquet. Le pass les nomme.') })}
       </div>`;
+    // La carte du pass ne passe devant les discussions que s'il y a quelqu'un derrière
+    // (audit 16, n° 12) : sans « J'aime » reçu, elle vient après — la porte reste, pas la vente.
+    const quelquUn = S.likes.length || S.likesN || S.likesFlous.length;
+    const enTete = quelquUn ? likesStrip : '';
+    const enQueue = quelquUn ? '' : likesStrip;
     if (!S.matches.length) {
-      render(`${likesStrip}
-        <div class="empty${likesStrip ? ' top' : ''}">
+      render(`${enTete}
+        <div class="empty${enTete ? ' top' : ''}">
           <span class="glyph">${icon('message', 34)}</span>
           <h2>${t('Tes matchs apparaîtront ici')}</h2>
           <p>${t("Quand vous vous plaisez tous les deux, la discussion s'ouvre. Le bot te prévient, même app fermée.")}</p>
-        </div>`);
+        </div>${enQueue}`);
       return tg.setButtons({ main: { text: t('Découvrir des profils'), onClick: () => go('discover') } });
     }
     const fresh = S.matches.filter((m) => m.isNew);
-    render(`${likesStrip}
+    render(`${enTete}
       ${fresh.length ? `
       <div class="group"><span class="eyebrow">${t('Nouveaux matchs')}</span>
         <div class="new-strip">${fresh.map((m) => `<button type="button" class="new-item" data-action="open-chat" data-id="${m.id}">${avatar(m.other, 'md')}<span>${esc(m.other.name)}</span></button>`).join('')}</div>
@@ -1761,7 +1798,7 @@ function dessinerMessages() {
             ${m.unread ? `<span class="count-badge">${m.unread}</span>` : `<span class="chev">${icon('chevron-right', 18)}</span>`}
           </button></div>`).join('')}
         </div>
-      </div>`);
+      </div>${enQueue}`);
     balayageDesLignes();
     S.matches.slice(0, 8).forEach((m) => loadAvatar(m.other));
     S.likes.slice(0, 6).forEach((p) => loadAvatar(p));
@@ -1978,7 +2015,8 @@ Object.assign(SCREENS, {
   // Après la suppression : un écran sans aucun appel. Hors de Telegram, close() ne ferme rien,
   // et rappeler /me aurait recréé le compte qu'on vient d'effacer.
   supprime() {
-    tg.setButtons(null);
+    // Dans Telegram, close() ferme la mini app : c'est le seul geste qui reste (audit 16, n° 14).
+    tg.setButtons(tg.inTelegram ? { main: { text: t('Fermer'), onClick: tg.close } } : null);
     render(`
       <div class="step-head"><h1>${t('Ton compte et tes données ont été supprimés.')}</h1>
         <p class="lead">${t('Pour recommencer, ferme {app} et rouvre-le depuis le bot.', { app: APP })}</p></div>`);
@@ -3204,6 +3242,14 @@ async function pollChat() {
     // renvoie plus. Il ne renvoie les rendez-vous que si l'un d'eux a bougé.
     const data = await api(`/matches/${encodeURIComponent(S.chat.id)}?after=${last}&suivi=1${jEcris}`);
     if (S.screen !== 'chat' || !S.chat) return arreterLePoll();
+    // Le réseau répond : un bandeau « Pas de connexion » n'a plus de raison d'être (audit 16,
+    // n° 20). Un refus de l'anti-arnaque, lui, ne se lit pas ici — il part à la frappe suivante.
+    if (S.chat.notice && S.chat.noticeReseau) {
+      S.chat.notice = null;
+      S.chat.noticeReseau = false;
+      const bandeau = document.getElementById('chat-notice');
+      if (bandeau) bandeau.innerHTML = '';
+    }
     const dates = data.dates ?? S.chat.dates;
     const datesChanged = data.dates && JSON.stringify(data.dates) !== JSON.stringify(S.chat.dates);
     if (data.messages.length || datesChanged) {
@@ -3370,6 +3416,7 @@ async function sendMessage(input) {
     S.chat.tete = null;
     tg.haptic(e.code === 'MONEY_BLOCKED' ? 'warning' : 'error');
     S.chat.notice = e.message;
+    S.chat.noticeReseau = e.code === 'NETWORK';
     if (!input.value.trim()) input.value = text;
     if (replyTo && !S.chat.reponseA) { S.chat.reponseA = replyTo; dessinerLaReponse(); }
     updateChat({ scroll: true });
@@ -3418,6 +3465,7 @@ async function envoyerLaPhoto(file, input) {
     S.chat.tete = null;
     tg.haptic('error');
     S.chat.notice = e.message;
+    S.chat.noticeReseau = e.code === 'NETWORK';
     if (replyTo && !S.chat.reponseA) { S.chat.reponseA = replyTo; dessinerLaReponse(); }
     updateChat({ scroll: true });
   } finally {
@@ -3547,6 +3595,8 @@ app.addEventListener('click', async (e) => {
   switch (action) {
     case 'dev-back': window.__devBack?.(); break;
     case 'go': go(el.dataset.screen); break;
+    case 'fiche-like': swipePerson('like'); break;
+    case 'fiche-pass': swipePerson('pass'); break;
     case 'ouvrir-bot': ouvrirLeBot(); break;
     case 'citation': allerAuMessage(el.dataset.id); break;
     case 'swipe-like': swipe('like'); break;

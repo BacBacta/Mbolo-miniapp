@@ -586,6 +586,8 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .deck-actions .rond.retour:disabled { opacity: .3; }
 /* Le quota est à zéro : le ♥ s'éteint, mais reste un bouton — l'appui explique (audit 16, n° 6). */
 .deck-actions .rond.like.epuise { opacity: .35; box-shadow: none; }
+/* Sous une fiche, les mêmes ronds que sous le paquet (audit 16, n° 16), avec de l'air avant. */
+.deck-actions.sous-fiche { padding: 18px 0 8px; }
 /* La pastille attend son nombre : rien à lire tant que le serveur n'a pas répondu (n° 7). */
 .dbar .quota-pill.attente { opacity: .45; }
 .deck-actions .rond.passer { color: var(--hint); }
