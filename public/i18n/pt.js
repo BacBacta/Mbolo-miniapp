@@ -591,4 +591,6 @@ export default {
   "Ajouter ma photo": "Adicionar a minha foto",
   "Une légende, si tu veux": "Uma legenda, se quiseres",
   "Liens et numéros à {n}": "Links e números aos {n}",
+  "{nom} te prévient : elle ou il part à un rendez-vous maintenant. Tu es sa personne de confiance.": "{nom} avisa-te: está a sair para um encontro agora. És a sua pessoa de confiança.",
+  "sur 30 jours": "em 30 dias",
 };

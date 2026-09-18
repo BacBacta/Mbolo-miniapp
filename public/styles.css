@@ -130,9 +130,14 @@
 /* ------------------------------------------------------------ Base */
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+/* L'échelle suit le réglage du téléphone (audit 15, constat AA) : 100 % de la taille système, et
+   tout le texte en rem — une personne qui a choisi « grand » lit grand ici aussi. Les composants
+   posés sur une photo (prénom, âge, tampons, cartes de l'accueil) restent en pixels : ils sont
+   dimensionnés par l'image, pas par la lecture. */
+html { font-size: 100%; }
 html, body { margin: 0; background: var(--bg2); color: var(--text); overflow-x: clip; }
 body {
-  font: 15.5px/1.5 var(--font-ui);
+  font: .96875rem/1.5 var(--font-ui);
   letter-spacing: -.005em;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
@@ -148,18 +153,18 @@ main {
   min-height: calc(100dvh - var(--topbar-h));
 }
 h1, h2, h3, p { margin: 0; }
-h1 { font-family: var(--font-display); font-size: 27px; line-height: 1.15; font-weight: 400; letter-spacing: -.01em; }
-h2 { font-size: 21px; line-height: 1.25; font-weight: 700; letter-spacing: -.02em; }
-h3 { font-size: 16px; line-height: 1.3; font-weight: 600; }
-.display { font-family: var(--font-display); font-size: 34px; line-height: 1.06; font-weight: 400; letter-spacing: -.012em; }
-.lead { font-size: 15.5px; line-height: 1.5; color: var(--hint); }
-.eyebrow { font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--section-title); }
-.fine { font-size: 13px; line-height: 1.45; color: var(--hint); display: flex; gap: 8px; align-items: flex-start; }
+h1 { font-family: var(--font-display); font-size: 1.6875rem; line-height: 1.15; font-weight: 400; letter-spacing: -.01em; }
+h2 { font-size: 1.3125rem; line-height: 1.25; font-weight: 700; letter-spacing: -.02em; }
+h3 { font-size: 1rem; line-height: 1.3; font-weight: 600; }
+.display { font-family: var(--font-display); font-size: 2.125rem; line-height: 1.06; font-weight: 400; letter-spacing: -.012em; }
+.lead { font-size: 0.96875rem; line-height: 1.5; color: var(--hint); }
+.eyebrow { font-size: 0.71875rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--section-title); }
+.fine { font-size: 0.8125rem; line-height: 1.45; color: var(--hint); display: flex; gap: 8px; align-items: flex-start; }
 .fine svg { flex-shrink: 0; margin-top: 2px; }
 .muted { color: var(--hint); }
-.small { font-size: 13px; }
+.small { font-size: 0.8125rem; }
 .center { text-align: center; margin: auto 0; }
-.error { color: var(--danger); font-size: 14px; line-height: 1.4; }
+.error { color: var(--danger); font-size: 0.875rem; line-height: 1.4; }
 .error:empty { display: none; }
 .stack { display: grid; gap: 10px; }
 .row { display: flex; align-items: center; gap: 10px; }
@@ -172,6 +177,16 @@ a { color: var(--link); }
 :focus-visible { outline: 2px solid var(--button); outline-offset: 2px; }
 svg { display: inline-block; vertical-align: -.15em; }
 
+/* ------------------------------------------------------------ Spécification du mouvement
+   (audit 15, lot 5). Ce qui bouge, combien de temps, et sur quelle courbe — un seul endroit.
+   Durées : 120 ms pour un état (pression, coche, chip), 200 ms pour l'entrée d'un écran par
+   fondu, 220 ms pour une entrée directionnelle (gauche, droite), 260 ms pour une feuille qui
+   monte, 500 ms pour une jauge qui se remplit. Courbes : --ease pour tout ce qui arrive ou part,
+   --spring pour ce qu'on presse (bouton rond, cœur, réaction). Ce qui bouge : les écrans à
+   l'entrée, les feuilles, la carte qu'on balaie, la bulle qui arrive, les anneaux et pastilles
+   qui se remplissent, la ligne de Messages qu'on tire. Ce qui ne bouge jamais : le texte pendant
+   qu'on tape, le champ de saisie, la mise en page d'une liste sous le doigt. Tout s'éteint sous
+   prefers-reduced-motion. ------------------------------------------------------------ */
 /* Entrée en scène des écrans : léger, décalé élément par élément */
 @media (prefers-reduced-motion: no-preference) {
   /* 200 ms et pas 280 : mesuré sur un processeur bridé, l'écran « finissait d'arriver » 400 ms
@@ -212,7 +227,7 @@ svg { display: inline-block; vertical-align: -.15em; }
 .tabs button {
   position: relative; z-index: 1;
   border: 0; background: none; border-radius: 999px;
-  font-size: 13.5px; font-weight: 700; color: var(--hint);
+  font-size: 0.84375rem; font-weight: 700; color: var(--hint);
   display: inline-flex; align-items: center; justify-content: center; gap: 5px;
   padding: 0 2px; transition: color .25s;
 }
@@ -222,10 +237,10 @@ svg { display: inline-block; vertical-align: -.15em; }
   display: inline-grid; place-items: center;
   /* Le rouge du thème est trop clair en sombre et trop vif en clair pour porter du texte de
      11 px : on le fonce d'un cran et on garde le blanc, lisible dans les deux thèmes. */
-  background: color-mix(in srgb, var(--danger) 72%, #000); color: #fff; font-size: 11px; font-weight: 700;
+  background: color-mix(in srgb, var(--danger) 72%, #000); color: #fff; font-size: 0.6875rem; font-weight: 700;
 }
 .tabs button[aria-selected="true"] .badge { background: var(--button-text); color: var(--button); }
-.devback { align-self: flex-start; border: 0; background: none; color: var(--accent); font-weight: 600; font-size: 15px; padding: 4px 0; }
+.devback { align-self: flex-start; border: 0; background: none; color: var(--accent); font-weight: 600; font-size: 0.9375rem; padding: 4px 0; }
 
 /* ------------------------------------------------------------ Boutons */
 button { font: inherit; color: inherit; cursor: pointer; }
@@ -234,7 +249,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .btn {
   height: 50px; padding: 0 20px; border: 0; border-radius: 15px;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  font-size: 15px; font-weight: 700; letter-spacing: .005em;
+  font-size: 0.9375rem; font-weight: 700; letter-spacing: .005em;
   background: var(--bg); color: var(--text); box-shadow: var(--shadow-1);
 }
 .btn:disabled { opacity: .5; pointer-events: none; }
@@ -243,11 +258,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .btn-ghost { background: transparent; color: var(--accent); box-shadow: none; }
 .btn-danger { background: color-mix(in srgb, var(--danger) 10%, var(--bg)); color: var(--danger); box-shadow: none; }
 .btn-glass { background: var(--glass-photo); color: #fff; border: 1px solid rgb(255 255 255 / .3); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: none; }
-.btn-sm { height: 42px; padding: 0 14px; font-size: 14px; border-radius: 12px; }
+.btn-sm { height: 42px; padding: 0 14px; font-size: 0.875rem; border-radius: 12px; }
 .btn-block { width: 100%; }
 
 /* ------------------------------------------------------------ Puces, tuiles, avatars */
-.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 4px 9px; border-radius: 999px; background: transparent; border: 1px solid var(--line-strong); color: var(--text); white-space: nowrap; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 0.71875rem; font-weight: 600; padding: 4px 9px; border-radius: 999px; background: transparent; border: 1px solid var(--line-strong); color: var(--text); white-space: nowrap; }
 .chip-ok { color: var(--ok-ink); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
 .chip-accent { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .chip-like { background: var(--like); color: var(--like-ink); border-color: transparent; font-weight: 700; }
@@ -286,15 +301,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .list-row { display: flex; gap: 12px; align-items: center; width: 100%; min-height: 64px; padding: 12px 14px; text-align: left; background: none; border: 0; color: inherit; }
 button.list-row:active, label.list-row:active { background: var(--bg2); transform: none; }
 .list-row .body { flex: 1; min-width: 0; }
-.list-row .title { font-weight: 600; font-size: 15px; line-height: 1.3; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.list-row .sub { font-size: 13px; color: var(--hint); line-height: 1.35; margin-top: 2px; }
-.list-row .title .quand { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--hint); white-space: nowrap; }
-.list-row .preview { font-size: 13.5px; color: var(--hint); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list-row .title { font-weight: 600; font-size: 0.9375rem; line-height: 1.3; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.list-row .sub { font-size: 0.8125rem; color: var(--hint); line-height: 1.35; margin-top: 2px; }
+.list-row .title .quand { margin-left: auto; font-size: 0.75rem; font-weight: 500; color: var(--hint); white-space: nowrap; }
+.list-row .preview { font-size: 0.84375rem; color: var(--hint); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .list-row.unread .preview { color: var(--text); font-weight: 600; }
 /* Une ligne de Messages balayée vers la gauche découvre « Retirer » (audit 15, constat T) */
 .row-swipe { position: relative; overflow: hidden; }
 .row-swipe .list-row { position: relative; background: var(--bg); touch-action: pan-y; will-change: transform; }
-.row-swipe .row-action { position: absolute; top: 0; right: 0; bottom: 0; width: 88px; border: 0; background: var(--danger); color: #fff; display: grid; place-content: center; justify-items: center; gap: 2px; font-size: 12px; font-weight: 600; }
+.row-swipe .row-action { position: absolute; top: 0; right: 0; bottom: 0; width: 88px; border: 0; background: var(--danger); color: #fff; display: grid; place-content: center; justify-items: center; gap: 2px; font-size: 0.75rem; font-weight: 600; }
 .row-swipe:not(.ouverte) .row-action { pointer-events: none; }
 .chev { color: var(--hint); opacity: .55; flex-shrink: 0; }
 
@@ -306,9 +321,9 @@ input.switch:checked::after { transform: translateX(19px); }
 
 /* ------------------------------------------------------------ Formulaires */
 .field { display: grid; gap: 6px; }
-.field .label { font-size: 13px; font-weight: 500; color: var(--hint); padding-left: 4px; display: flex; justify-content: space-between; }
+.field .label { font-size: 0.8125rem; font-weight: 500; color: var(--hint); padding-left: 4px; display: flex; justify-content: space-between; }
 input:not([type="checkbox"]):not([type="file"]), select, textarea {
-  font: inherit; font-size: 16px; color: var(--text);
+  font: inherit; font-size: 1rem; color: var(--text);
   height: 52px; width: 100%; padding: 0 15px;
   background: var(--bg); border: 1px solid var(--line); border-radius: 14px;
   outline: none; transition: border-color .2s, box-shadow .2s;
@@ -321,7 +336,7 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
    ouvre un écran à nous. */
 .select-row {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  font: inherit; font-size: 16px; color: var(--text); text-align: left;
+  font: inherit; font-size: 1rem; color: var(--text); text-align: left;
   height: 52px; width: 100%; padding: 0 14px 0 15px;
   background: var(--bg); border: 1px solid var(--line); border-radius: 14px;
 }
@@ -334,7 +349,7 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chips button {
   height: 40px; padding: 0 14px; border-radius: 999px;
-  font: inherit; font-size: 13.5px; font-weight: 600;
+  font: inherit; font-size: 0.84375rem; font-weight: 600;
   background: var(--bg); color: var(--hint);
   border: 1.5px solid var(--line); transition: background .2s, color .2s, border-color .2s;
 }
@@ -342,7 +357,7 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 /* Les villes connues se collent au champ qu'elles remplissent : la gouttière ordinaire de
    `.stack` les aurait fait flotter entre deux champs, donc appartenir à aucun des deux. */
 .chips-villes { margin-top: -3px; }
-.chips-villes button { height: 34px; padding: 0 12px; font-size: 13px; }
+.chips-villes button { height: 34px; padding: 0 12px; font-size: 0.8125rem; }
 
 /* Recherche d'un pays : collée en haut, la liste défile dessous. La bande déborde les gouttières
    de `main` pour que rien ne se voie passer derrière ses coins. */
@@ -367,18 +382,18 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 /* Sous un libellé de champ, la même respiration qu'un champ : l'ombre du contrôle le collait au mot. */
 .field > .seg { margin-top: 2px; }
 .offre .prix svg, .offre .par-jour svg { color: var(--gold); vertical-align: -.12em; }
-.seg button { height: 44px; border: 0; border-radius: 10px; background: transparent; color: var(--hint); font-weight: 600; font-size: 14px; transition: background .2s, color .2s; }
+.seg button { height: 44px; border: 0; border-radius: 10px; background: transparent; color: var(--hint); font-weight: 600; font-size: 0.875rem; transition: background .2s, color .2s; }
 .seg button[aria-pressed="true"] { background: var(--button); color: var(--button-text); }
 /* Sélecteur Cartes / Liste de Découvrir : même composant, en plus compact */
 .seg-mini { padding: 3px; border-radius: 999px; box-shadow: none; background: transparent; border-color: var(--line-strong); }
-.seg-mini button { height: 36px; font-size: 12.5px; padding: 0 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; }
+.seg-mini button { height: 36px; font-size: 0.78125rem; padding: 0 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; }
 .seg-mini button[aria-pressed="true"] { background: var(--text); color: var(--bg); }
 
 .choice { display: flex; gap: 14px; align-items: center; width: 100%; text-align: left; padding: 13px 14px; border-radius: 18px; background: var(--bg); border: 1.5px solid var(--line); box-shadow: var(--shadow-1); color: inherit; }
 .choice[aria-pressed="true"] { border-color: var(--button); background: var(--tint); }
 .choice .body { flex: 1; min-width: 0; }
-.choice .title { font-weight: 600; font-size: 15px; }
-.choice .sub { font-size: 13px; color: var(--hint); margin-top: 1px; }
+.choice .title { font-weight: 600; font-size: 0.9375rem; }
+.choice .sub { font-size: 0.8125rem; color: var(--hint); margin-top: 1px; }
 .choice .check { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--line-strong); display: grid; place-items: center; color: var(--button-text); flex-shrink: 0; transition: background .2s, border-color .2s; }
 .choice .check svg { opacity: 0; transition: opacity .15s; }
 .choice[aria-pressed="true"] .check { background: var(--button); border-color: var(--button); }
@@ -430,7 +445,7 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
    couleur à elle : ce sont des faits déclarés, pas des signaux à mettre en avant. */
 .card-body .compat { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
 .card-body .chip-compat { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 10px; line-height: 1.25; }
-.card-body .chip-compat .q { font-size: 11px; opacity: .65; }
+.card-body .chip-compat .q { font-size: 0.6875rem; opacity: .65; }
 .card-body .chip-compat .a { font-weight: 600; }
 /* Les réponses de compatibilité tiennent sur plusieurs lignes quand elles sont longues */
 .seg-wrap { flex-wrap: wrap; }
@@ -448,8 +463,8 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .fiche { display: grid; gap: 12px; }
 .fiche .card-photo { max-height: 70vh; }
 .fiche .bloc-question, .fiche .bloc-faits, .fiche .bloc-confiance { display: grid; gap: 8px; padding: 20px 22px 22px; border-radius: var(--r-xl); background: var(--bg); border: 1px solid var(--line); box-shadow: var(--shadow-1); }
-.fiche .bloc-question .q { font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--hint); }
-.fiche .bloc-question .a { font-family: var(--font-display); font-size: 26px; font-weight: 400; line-height: 1.18; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.fiche .bloc-question .q { font-size: 0.71875rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--hint); }
+.fiche .bloc-question .a { font-family: var(--font-display); font-size: 1.625rem; font-weight: 400; line-height: 1.18; letter-spacing: -.01em; overflow-wrap: anywhere; }
 .fiche .bloc-question .a::before { content: '«\00a0'; } .fiche .bloc-question .a::after { content: '\00a0»'; }
 .fiche .bloc-question { position: relative; padding-right: 64px; }
 /* Le cœur d'une réponse : le « J'aime » sur un élément (lot 2). Un bouton de verre au repos ;
@@ -470,26 +485,29 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 /* Une seule ligne de contexte sous le prénom : le quartier, et l'activité en pointillé */
 .overlay .line { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: rgb(247 245 251 / .82); letter-spacing: .005em; }
 .overlay .line .dot { width: 5px; height: 5px; border-radius: 50%; background: rgb(247 245 251 / .45); }
-.overlay .line .act { color: var(--gold); }
+.overlay .line .act { color: var(--on-photo); display: inline-flex; align-items: center; gap: 5px; }
+/* L'ambre sur le voile d'une photo tombe sous 3:1 (audit 15, constat AC) : le mot est posé en
+   --on-photo, et l'ambre ne reste que sur un point devant lui — un signal, pas un texte. */
+.overlay .line .act::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
 .overlay .meta { display: flex; gap: 6px; flex-wrap: wrap; }
 .overlay .meta .pill-glass { background: rgb(247 245 251 / .10); border-color: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
 .card-body { padding: 20px 22px 20px; display: grid; gap: 14px; }
 .prompt { display: grid; gap: 6px; padding: 0 2px; }
-.prompt .q { font-size: 12.5px; font-weight: 600; color: var(--hint); }
-.prompt .a { font-family: var(--font-display); font-size: 22px; font-weight: 400; line-height: 1.2; letter-spacing: -.005em; }
+.prompt .q { font-size: 0.78125rem; font-weight: 600; color: var(--hint); }
+.prompt .a { font-family: var(--font-display); font-size: 1.375rem; font-weight: 400; line-height: 1.2; letter-spacing: -.005em; }
 .prompt .a::before { content: '«\00a0'; } .prompt .a::after { content: '\00a0»'; }
 /* Fiche en sections : la réponse, ses infos, la confiance */
 .facts-sec { display: grid; gap: 8px; }
 .facts { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
 .facts div { display: grid; gap: 2px; min-width: 0; }
-.facts dt { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--hint); }
-.facts dd { margin: 0; font-size: 14.5px; font-weight: 500; line-height: 1.3; overflow-wrap: anywhere; }
+.facts dt { font-size: 0.6875rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--hint); }
+.facts dd { margin: 0; font-size: 0.90625rem; font-weight: 500; line-height: 1.3; overflow-wrap: anywhere; }
 .card .report { justify-self: start; color: var(--hint); padding: 0 6px; height: 34px; }
 
 /* Jauge de confiance : l'élément signature de l'app */
 .trust { display: grid; gap: 7px; }
 .trust-head { display: flex; justify-content: space-between; align-items: baseline; }
-.trust-head .score { font-size: 13px; font-weight: 600; color: var(--ok-ink); }
+.trust-head .score { font-size: 0.8125rem; font-weight: 600; color: var(--ok-ink); }
 /* Confiance en une ligne : trois repères et ce qui est acquis. La grille à trois colonnes prenait quatre lignes */
 /* La ligne de confiance est un bouton depuis P1-5 : elle ouvre l'explication. Elle doit donc
    se réinitialiser comme un bouton (fond, bordures, police, alignement) sans changer d'allure. */
@@ -500,13 +518,35 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .trust-pips { display: flex; gap: 4px; flex-shrink: 0; }
 .trust-pips span { width: 18px; height: 4px; border-radius: 2px; background: var(--line-strong); }
 .trust-pips span.on { background: var(--gold); }
-.trust-text { font-size: 13px; color: var(--hint); line-height: 1.35; }
+/* La jauge montre la jauge (audit 15, constat X) : deux grandes pastilles qui se remplissent */
+.jauge-visuel { display: grid; justify-items: center; gap: 10px; padding: 8px 0 4px; }
+.jauge-visuel .trust-pips.grand { gap: 8px; }
+.jauge-visuel .trust-pips.grand span { width: 72px; height: 10px; border-radius: 5px; overflow: hidden; position: relative; }
+.jauge-visuel .trust-pips.grand span.on { background: var(--line-strong); }
+.jauge-visuel .trust-pips.grand span.on::after { content: ''; position: absolute; inset: 0; background: var(--gold); transform-origin: left; animation: remplir .5s var(--ease) .2s both; }
+.jauge-visuel .trust-pips.grand span:nth-child(2).on::after { animation-delay: .55s; }
+.jauge-visuel .score { font-family: var(--font-display); font-size: 1.375rem; }
+@keyframes remplir { from { transform: scaleX(0); } }
+/* La voix montre une onde */
+.onde { display: flex; align-items: center; justify-content: center; gap: 4px; height: 56px; padding: 4px 0; }
+.onde i { display: block; width: 4px; height: 40%; border-radius: 2px; background: var(--like); animation: onduler 1.4s ease-in-out infinite; }
+.onde i:nth-child(2n) { animation-delay: .15s; } .onde i:nth-child(3n) { animation-delay: .3s; height: 60%; } .onde i:nth-child(5n) { animation-delay: .45s; height: 90%; }
+@keyframes onduler { 0%, 100% { transform: scaleY(.45); } 50% { transform: scaleY(1); } }
+/* La personne de confiance voit le message qu'elle recevra */
+.apercu-message { display: grid; gap: 4px; padding: 12px 14px; border-radius: 18px 18px 18px 6px; background: var(--bg); border: 1px solid var(--line); box-shadow: var(--shadow-1); max-width: 88%; }
+.apercu-message .de { font-size: .75rem; font-weight: 700; color: var(--like); }
+.apercu-message p { font-size: .9375rem; line-height: 1.4; }
+/* Le nombre des vues, en grand */
+.chiffre { font-family: var(--font-display); font-size: 3.25rem; line-height: 1; letter-spacing: -.02em; }
+.chiffre small { font-size: 1rem; font-family: var(--font-ui); color: var(--hint); margin-left: 6px; letter-spacing: 0; }
+@media (prefers-reduced-motion: reduce) { .onde i, .jauge-visuel .trust-pips.grand span.on::after { animation: none; } }
+.trust-text { font-size: 0.8125rem; color: var(--hint); line-height: 1.35; }
 .trust-text strong { color: var(--text); font-weight: 600; }
-.facts-line { font-size: 13.5px; color: var(--hint); line-height: 1.4; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.facts-line { font-size: 0.84375rem; color: var(--hint); line-height: 1.4; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .facts-line .sep { width: 4px; height: 4px; border-radius: 50%; background: var(--line-strong); }
 
 /* Pile de cartes et geste de balayage */
-.dbar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--hint); flex-wrap: wrap; }
+.dbar { display: flex; align-items: center; gap: 8px; font-size: 0.8125rem; color: var(--hint); flex-wrap: wrap; }
 .dbar .pill { display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 12px; border-radius: 999px; background: transparent; border: 1px solid var(--line-strong); color: var(--text); font-weight: 500; }
 .dbar .quota { margin-left: auto; }
 .ring { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--button) var(--p, 0%), var(--line) 0); }
@@ -516,8 +556,8 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 /* Complétion du profil : ce qui manque, et ce que ça rapporte */
 .completion { display: grid; gap: 10px; }
 .completion-head { display: flex; gap: 14px; align-items: center; padding: 4px 6px 0; }
-.completion-head .title { font-weight: 600; font-size: 16px; }
-.completion-head .sub { font-size: 13px; color: var(--hint); margin-top: 2px; }
+.completion-head .title { font-weight: 600; font-size: 1rem; }
+.completion-head .sub { font-size: 0.8125rem; color: var(--hint); margin-top: 2px; }
 .deck { position: relative; margin: 0 -16px; padding: 0 16px 10px; overflow: hidden; }
 /* Photo d'abord : la carte remplit l'espace entre la barre et les boutons, la photo est le fond,
    la question et la confiance sont sur le voile. Plus de corps sous le pli. */
@@ -643,11 +683,11 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
    lise quoi que ce soit — quelqu'un qui ne comprend pas la page ne cherchera pas un réglage au
    fond d'un onglet — sans concurrencer la promesse : un jeton discret, à côté du nom. */
 .accueil-tete { display: flex; align-items: center; gap: 10px; height: 32px; }
-.marque { font-family: var(--font-display); font-size: 22px; line-height: 1; font-variation-settings: 'opsz' 144; letter-spacing: .005em; color: var(--text); }
+.marque { font-family: var(--font-display); font-size: 1.375rem; line-height: 1; font-variation-settings: 'opsz' 144; letter-spacing: .005em; color: var(--text); }
 .accueil-tete .sep { width: 1px; height: 14px; background: var(--line-strong); }
 .langue-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; margin: 0;
   border: 1px solid var(--line); border-radius: 999px; background: color-mix(in srgb, var(--bg) 72%, transparent);
-  color: var(--hint); font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .01em; line-height: 1.2;
+  color: var(--hint); font: inherit; font-size: 0.75rem; font-weight: 700; letter-spacing: .01em; line-height: 1.2;
   cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .langue-chip:active { opacity: .7; }
 .langue-chip svg { flex-shrink: 0; }
@@ -663,7 +703,7 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 
 /* Les promesses : quatre lignes au filet, pas quatre cartes. L'or n'est que sur la vérification. */
 .promesses { list-style: none; margin: 4px 0 0; padding: 0; display: grid; }
-.promesse { display: flex; align-items: center; gap: 14px; padding: 10px 4px; border-top: 1px solid var(--line); font-weight: 600; font-size: 15.5px; letter-spacing: -.01em; line-height: 1.3; }
+.promesse { display: flex; align-items: center; gap: 14px; padding: 10px 4px; border-top: 1px solid var(--line); font-weight: 600; font-size: 0.96875rem; letter-spacing: -.01em; line-height: 1.3; }
 .promesse:last-child { border-bottom: 1px solid var(--line); }
 .pictogramme { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; background: var(--tint); color: var(--text); }
 .promesse-or .pictogramme { background: color-mix(in srgb, var(--gold) 16%, var(--bg)); color: var(--ok-ink); }
@@ -671,11 +711,11 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 /* Le pied : l'âge en étiquette, les deux mentions en petit, poussées en bas de l'écran. */
 .accueil-pied { display: grid; gap: 10px; margin-top: auto; }
 .accueil-pied .fine { font-size: 12.5px; }
-.tag-age { font-size: 10.5px; font-weight: 800; letter-spacing: .12em; line-height: 1; padding: 4px 6px 3px; border-radius: 5px; border: 1px solid var(--line-strong); color: var(--hint); flex-shrink: 0; margin-top: 1px; }
+.tag-age { font-size: 0.65625rem; font-weight: 800; letter-spacing: .12em; line-height: 1; padding: 4px 6px 3px; border-radius: 5px; border: 1px solid var(--line-strong); color: var(--hint); flex-shrink: 0; margin-top: 1px; }
 
 /* ------------------------------------------------------------ Vérification et attente */
 .gesture-card { display: grid; justify-items: center; gap: 10px; text-align: center; padding: 26px 18px 22px; background: var(--bg); border-radius: 24px; border: 1px solid var(--line); box-shadow: var(--shadow-2); cursor: pointer; }
-.gesture { font-family: var(--font-display); font-size: 30px; font-weight: 400; letter-spacing: -.01em; line-height: 1.15; max-width: 20ch; }
+.gesture { font-family: var(--font-display); font-size: 1.875rem; font-weight: 400; letter-spacing: -.01em; line-height: 1.15; max-width: 20ch; }
 .gesture-card .btn { margin-top: 8px; }
 .preview-wrap { position: relative; border-radius: 22px; overflow: hidden; aspect-ratio: 4 / 5; max-height: 380px; background: var(--bg); box-shadow: var(--shadow-2); }
 .preview { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -694,8 +734,8 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .tl .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--line-strong); margin: 5px auto 0; }
 .tl .dot.done { background: var(--ok); }
 .tl .dot.now { background: var(--button); box-shadow: 0 0 0 5px var(--tint-strong); }
-.tl .t { font-weight: 600; font-size: 15px; }
-.tl .s { font-size: 13px; color: var(--hint); }
+.tl .t { font-weight: 600; font-size: 0.9375rem; }
+.tl .s { font-size: 0.8125rem; color: var(--hint); }
 
 /* ------------------------------------------------------------ Match */
 /* Le moment signature. Encre dans les deux thèmes : le match n'est pas un écran de l'app, c'est
@@ -728,7 +768,7 @@ body.match-mode main { background: var(--ink); color: #fff; }
 /* ------------------------------------------------------------ Messages */
 .new-strip { display: flex; gap: 12px; overflow-x: auto; padding: 4px 2px 6px; scrollbar-width: none; }
 .new-strip::-webkit-scrollbar { display: none; }
-.new-item { display: grid; justify-items: center; gap: 6px; width: 70px; flex-shrink: 0; background: none; border: 0; color: var(--text); font-size: 12px; font-weight: 500; padding: 3px 0; }
+.new-item { display: grid; justify-items: center; gap: 6px; width: 70px; flex-shrink: 0; background: none; border: 0; color: var(--text); font-size: 0.75rem; font-weight: 500; padding: 3px 0; }
 .new-item .avatar { box-shadow: 0 0 0 2.5px var(--bg2), 0 0 0 5px var(--button); }
 /* Ceux qui ont aimé ton profil : anneau doré, la couleur de ce qu'on t'accorde */
 .like-item .avatar { box-shadow: 0 0 0 2.5px var(--bg2), 0 0 0 5px var(--gold); }
@@ -754,10 +794,10 @@ body.chat-mode main > * { animation: none; }
 /* L'en-tête ouvre le profil : c'est le geste attendu, et le profil est déjà chargé */
 .head-profil { flex: 1; min-width: 0; display: flex; gap: 12px; align-items: center; border: 0; background: none; padding: 4px 0; color: inherit; cursor: pointer; }
 /* À qui de parler : la liste des discussions montrait la même chose des deux côtés */
-.tour { font-size: 11px; font-weight: 700; color: var(--accent); display: inline-flex; align-items: center; gap: 4px; }
+.tour { font-size: 0.6875rem; font-weight: 700; color: var(--accent); display: inline-flex; align-items: center; gap: 4px; }
 .tour::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-.chat-head .name { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 6px; }
-.chat-head .sub { font-size: 12px; color: var(--hint); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.chat-head .name { font-weight: 700; font-size: 1rem; display: flex; align-items: center; gap: 6px; }
+.chat-head .sub { font-size: 0.75rem; color: var(--hint); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .chat-head .sub .act { white-space: nowrap; }
 .chat-head .ok { color: var(--ok-ink); display: inline-flex; }
 .chat-head .enligne { display: inline-flex; align-items: center; gap: 5px; color: var(--ok-ink); font-weight: 600; }
@@ -766,14 +806,14 @@ body.chat-mode main > * { animation: none; }
 .icon-btn { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--bg); color: var(--hint); display: grid; place-items: center; box-shadow: var(--shadow-1); flex-shrink: 0; }
 .messages { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; padding: 12px 2px 8px; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .messages .spacer { flex: 1; }
-.day { align-self: center; font-size: 11px; font-weight: 600; color: var(--hint); background: var(--bg); padding: 4px 11px; border-radius: 999px; margin: 8px 0 6px; box-shadow: var(--shadow-1); }
-.bubble { position: relative; max-width: 82%; padding: 9px 13px 8px; border-radius: 20px; font-size: 15.5px; line-height: 1.38; white-space: pre-wrap; overflow-wrap: anywhere; }
+.day { align-self: center; font-size: 0.6875rem; font-weight: 600; color: var(--hint); background: var(--bg); padding: 4px 11px; border-radius: 999px; margin: 8px 0 6px; box-shadow: var(--shadow-1); }
+.bubble { position: relative; max-width: 82%; padding: 9px 13px 8px; border-radius: 20px; font-size: 0.96875rem; line-height: 1.38; white-space: pre-wrap; overflow-wrap: anywhere; }
 .bubble.mine { align-self: flex-end; background: var(--button); color: var(--button-text); border-bottom-right-radius: 5px; }
 .bubble.theirs { align-self: flex-start; background: var(--bg); color: var(--text); border-bottom-left-radius: 5px; box-shadow: var(--shadow-1); }
 .bubble.mine.cont { border-top-right-radius: 5px; }
 .bubble.theirs.cont { border-top-left-radius: 5px; }
 .bubble.gap { margin-top: 9px; }
-.bubble .time { float: right; display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; opacity: .6; margin: 7px -3px -2px 10px; }
+.bubble .time { float: right; display: inline-flex; align-items: center; gap: 3px; font-size: 0.65625rem; opacity: .6; margin: 7px -3px -2px 10px; }
 .bubble .time svg { vertical-align: -1px; }
 /* Une coche : pris par le serveur. Deux, en ambre : lu par l'autre. */
 .bubble .etat { display: inline-flex; }
@@ -800,7 +840,7 @@ body.chat-mode main > * { animation: none; }
    cartes de rendez-vous, l'aura en moins — on s'est plu, ce moment-là a déjà eu sa scène. */
 .ouverture { display: grid; gap: 10px; padding: 14px; margin: 6px 0; background: var(--bg); border-radius: 18px; border: 1px solid var(--line); box-shadow: var(--shadow-1); }
 .ouverture .eyebrow { display: inline-flex; align-items: center; gap: 6px; color: var(--like); }
-.ouverture .lead { margin: 0; font-size: 14px; color: var(--hint); }
+.ouverture .lead { margin: 0; font-size: 0.875rem; color: var(--hint); }
 /* Une amorce est une phrase, pas un mot : elle revient à la ligne, à gauche, comme un message. */
 .ouverture .amorces button { height: auto; min-height: 40px; padding: 8px 14px; text-align: left; white-space: normal; line-height: 1.3; font-weight: 500; border-radius: 16px; }
 .ouverture .fine { margin: 0; }
@@ -809,10 +849,10 @@ body.chat-mode main > * { animation: none; }
    bulles fait sauter la lecture à chaque fois que l'autre personne hésite. */
 @keyframes frappe-point { 0%, 60%, 100% { opacity: .3; } 30% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .bubble.frappe i { animation: none; opacity: .6; } }
-.system { align-self: center; text-align: center; font-size: 13px; line-height: 1.45; color: var(--hint); max-width: 88%; padding: 10px 0; }
+.system { align-self: center; text-align: center; font-size: 0.8125rem; line-height: 1.45; color: var(--hint); max-width: 88%; padding: 10px 0; }
 /* La ligne de déblocage (audit 15, constat N) : sous l'en-tête, une ligne fine, et elle disparaît
    au seuil. Plus une carte flottante au milieu du fil. */
-.unlock { display: flex; align-items: center; gap: 6px; padding: 6px 2px 8px; font-size: 12px; color: var(--hint); border-bottom: 1px solid var(--line); }
+.unlock { display: flex; align-items: center; gap: 6px; padding: 6px 2px 8px; font-size: 0.75rem; color: var(--hint); border-bottom: 1px solid var(--line); }
 .unlock .sep { opacity: .5; }
 .unlock strong { color: var(--text); font-weight: 600; }
 .unlock .track { flex: 1; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; margin-left: 6px; }
@@ -822,10 +862,10 @@ body.chat-mode main > * { animation: none; }
 @media (max-height: 480px) { .unlock { display: none; } }
 /* Les réactions (constat O) : un chip au coin bas de la bulle, la sienne en premier */
 .bubble.a-reacts { margin-bottom: 12px; }
-.bubble .reacts { position: absolute; bottom: -12px; right: 10px; display: inline-flex; gap: 2px; padding: 1px 6px; border-radius: 999px; background: var(--bg2); border: 1px solid var(--line); box-shadow: var(--shadow-1); font-size: 13px; line-height: 1.4; color: var(--text); }
+.bubble .reacts { position: absolute; bottom: -12px; right: 10px; display: inline-flex; gap: 2px; padding: 1px 6px; border-radius: 999px; background: var(--bg2); border: 1px solid var(--line); box-shadow: var(--shadow-1); font-size: 0.8125rem; line-height: 1.4; color: var(--text); }
 .bubble.theirs .reacts { right: auto; left: 10px; }
 .feuille .reactions-feuille { display: flex; justify-content: space-between; gap: 4px; padding: 2px 0 8px; }
-.feuille .reactions-feuille button { flex: 1; height: 46px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); font-size: 22px; line-height: 1; -webkit-tap-highlight-color: transparent; transition: transform .15s var(--spring); }
+.feuille .reactions-feuille button { flex: 1; height: 46px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); font-size: 1.375rem; line-height: 1; -webkit-tap-highlight-color: transparent; transition: transform .15s var(--spring); }
 .feuille .reactions-feuille button:active { transform: scale(1.15); }
 .feuille .reactions-feuille button[aria-pressed="true"] { background: color-mix(in srgb, var(--like) 16%, var(--bg)); border-color: color-mix(in srgb, var(--like) 40%, var(--line)); }
 /* L'aperçu d'une photo avant l'envoi (constat P) */
@@ -840,8 +880,8 @@ body.chat-mode main > * { animation: none; }
 .datecard .row { gap: 8px; }
 .datecard .row .btn { flex: 1; }
 .datecard .head { display: flex; gap: 12px; align-items: center; }
-.datecard .v { font-weight: 700; font-size: 15px; }
-.datecard .w { font-size: 13px; color: var(--hint); }
+.datecard .v { font-weight: 700; font-size: 0.9375rem; }
+.datecard .w { font-size: 0.8125rem; color: var(--hint); }
 /* ---- Répondre, retirer, photos ---- */
 /* L'appui long ouvre le menu du message : la sélection de texte du système prendrait le même
    geste, et le menu de copie du navigateur avec elle. */
@@ -849,8 +889,8 @@ body.chat-mode main > * { animation: none; }
 .bubble .txt { display: inline; }
 .bubble.supprime { opacity: .62; font-style: italic; }
 .bubble.supprime .txt { display: inline-flex; align-items: center; gap: 5px; }
-.bubble .quote { display: flex; flex-direction: column; gap: 1px; width: 100%; text-align: left; margin: -2px 0 6px; padding: 5px 9px; border-radius: 10px; border: 0; border-left: 3px solid var(--gold); background: color-mix(in srgb, currentColor 10%, transparent); color: inherit; font: inherit; font-size: 13px; line-height: 1.3; }
-.bubble .quote b { font-size: 12px; font-weight: 700; opacity: .85; }
+.bubble .quote { display: flex; flex-direction: column; gap: 1px; width: 100%; text-align: left; margin: -2px 0 6px; padding: 5px 9px; border-radius: 10px; border: 0; border-left: 3px solid var(--gold); background: color-mix(in srgb, currentColor 10%, transparent); color: inherit; font: inherit; font-size: 0.8125rem; line-height: 1.3; }
+.bubble .quote b { font-size: 0.75rem; font-weight: 700; opacity: .85; }
 .bubble .quote span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; opacity: .8; }
 .bubble.cible { animation: bulle-cible 1.2s var(--ease); }
 @keyframes bulle-cible { 0%, 40% { box-shadow: 0 0 0 3px var(--gold); } 100% { box-shadow: 0 0 0 0 transparent; } }
@@ -863,12 +903,12 @@ body.chat-mode main > * { animation: none; }
 .bubble.photo .img img:not([src]) { min-height: 160px; }
 .bubble.photo .voile-mot { display: none; }
 .bubble.photo.voile .img img { filter: blur(18px); transform: scale(1.08); }
-.bubble.photo.voile .voile-mot { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--button-text); background: color-mix(in srgb, var(--button) 45%, transparent); }
+.bubble.photo.voile .voile-mot { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.8125rem; font-weight: 700; color: var(--button-text); background: color-mix(in srgb, var(--button) 45%, transparent); }
 [data-verre="opaque"] .bubble.photo.voile .img img { visibility: hidden; }
 [data-verre="opaque"] .bubble.photo.voile .voile-mot { background: var(--bg3); color: var(--text); }
 .reponse-a { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-top: 8px; border-radius: 14px; background: var(--bg); box-shadow: var(--shadow-1); border-left: 3px solid var(--gold); color: var(--hint); }
-.reponse-a .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; font-size: 13px; }
-.reponse-a b { color: var(--text); font-size: 12.5px; }
+.reponse-a .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; font-size: 0.8125rem; }
+.reponse-a b { color: var(--text); font-size: 0.78125rem; }
 .reponse-a span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .composer .joindre { width: 42px; height: 46px; flex-shrink: 0; display: grid; place-items: center; color: var(--hint); cursor: pointer; border-radius: 50%; }
 .composer .joindre:active { transform: scale(.9); }
@@ -876,8 +916,8 @@ body.chat-mode main > * { animation: none; }
 .visionneuse img { max-width: 100vw; max-height: 100vh; object-fit: contain; }
 .fallback-sheet { position: fixed; inset: 0; z-index: 70; display: flex; align-items: flex-end; background: color-mix(in srgb, var(--text) 40%, transparent); }
 .fallback-sheet .sheet { width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 18px 16px 24px; border-radius: 22px 22px 0 0; background: var(--bg2); }
-.fallback-sheet h2 { margin: 0; font-size: 17px; }
-.fallback-sheet p { margin: 0 0 6px; color: var(--hint); font-size: 14px; }
+.fallback-sheet h2 { margin: 0; font-size: 1.0625rem; }
+.fallback-sheet p { margin: 0 0 6px; color: var(--hint); font-size: 0.875rem; }
 .composer { display: flex; gap: 8px; align-items: center; padding: 10px 0 2px; }
 .composer input { flex: 1; height: 46px; border-radius: 23px; padding: 0 16px; }
 .composer .send { width: 46px; height: 46px; border-radius: 50%; border: 0; flex-shrink: 0; display: grid; place-items: center; background: var(--button); color: var(--button-text); transition: transform .15s var(--spring), opacity .2s; }
@@ -885,7 +925,7 @@ body.chat-mode main > * { animation: none; }
 .composer .send:not(:disabled):active { transform: scale(.9); }
 .chat-notice:not(:empty) { padding-top: 8px; }
 
-.notice { display: flex; gap: 10px; align-items: flex-start; border-radius: 16px; padding: 12px 14px; font-size: 14px; line-height: 1.45; }
+.notice { display: flex; gap: 10px; align-items: flex-start; border-radius: 16px; padding: 12px 14px; font-size: 0.875rem; line-height: 1.45; }
 .notice svg { flex-shrink: 0; margin-top: 1px; }
 .notice-warn { background: color-mix(in srgb, var(--warn) 13%, var(--bg)); color: color-mix(in srgb, var(--warn) 85%, var(--text)); }
 .notice-info { background: var(--bg); color: var(--hint); border: 1px solid var(--line); }
@@ -895,37 +935,37 @@ body.chat-mode main > * { animation: none; }
 /* L'écran du pass : l'ambre (--gold) est sa seule couleur, l'aura reste au match et au like. */
 .plus-hero { display: grid; gap: 10px; padding: 18px 16px 16px; border-radius: var(--r-xl); border: 1px solid color-mix(in srgb, var(--gold) 38%, var(--line)); background: linear-gradient(160deg, color-mix(in srgb, var(--gold) 16%, var(--bg)) 0%, var(--bg) 70%); }
 .plus-hero .eyebrow { color: color-mix(in srgb, var(--gold) 80%, var(--text)); }
-.plus-hero h1 { font-size: 26px; }
+.plus-hero h1 { font-size: 1.625rem; }
 .plus-hero .lead { color: var(--text); opacity: .82; }
 .offres { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .offre { position: relative; display: grid; gap: 3px; justify-items: center; padding: 18px 6px 12px; border-radius: 18px; border: 1.5px solid var(--line); background: var(--bg); color: var(--text); box-shadow: var(--shadow-1); text-align: center; }
-.offre .tag { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: var(--gold); color: #1a1408; }
-.offre .duree { font-family: var(--font-display); font-size: 21px; line-height: 1.1; letter-spacing: -.01em; }
-.offre .prix { font-size: 15px; font-weight: 700; margin-top: 4px; }
-.offre .par-jour { font-size: 11.5px; color: var(--hint); line-height: 1.3; }
+.offre .tag { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.625rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: var(--gold); color: #1a1408; }
+.offre .duree { font-family: var(--font-display); font-size: 1.3125rem; line-height: 1.1; letter-spacing: -.01em; }
+.offre .prix { font-size: 0.9375rem; font-weight: 700; margin-top: 4px; }
+.offre .par-jour { font-size: 0.71875rem; color: var(--hint); line-height: 1.3; }
 .offre[aria-checked="true"] { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 12%, var(--bg)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 22%, transparent); }
 .offre[aria-checked="true"] .prix { color: color-mix(in srgb, var(--gold) 70%, var(--text)); }
 /* La porte : une ligne qui dit ce qu'il y a derrière, et qui mène au pass. */
 .porte { display: flex; gap: 12px; align-items: center; width: 100%; min-height: 64px; padding: 12px 14px; text-align: left; border-radius: 20px; border: 1px solid color-mix(in srgb, var(--gold) 38%, var(--line)); background: color-mix(in srgb, var(--gold) 7%, var(--bg)); color: inherit; box-shadow: var(--shadow-1); }
 .porte .body { flex: 1; min-width: 0; }
-.porte .title { font-weight: 600; font-size: 15px; line-height: 1.3; }
-.porte .sub { font-size: 13px; color: var(--hint); line-height: 1.35; margin-top: 2px; }
+.porte .title { font-weight: 600; font-size: 0.9375rem; line-height: 1.3; }
+.porte .sub { font-size: 0.8125rem; color: var(--hint); line-height: 1.35; margin-top: 2px; }
 .tile-plus { background: color-mix(in srgb, var(--gold) 18%, var(--bg)); color: color-mix(in srgb, var(--gold) 75%, var(--text)); }
 
 /* ------------------------------------------------------------ Rendez-vous */
 .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.slot { height: 48px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--bg); color: var(--text); font-weight: 600; font-size: 14px; box-shadow: var(--shadow-1); }
+.slot { height: 48px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--bg); color: var(--text); font-weight: 600; font-size: 0.875rem; box-shadow: var(--shadow-1); }
 .slot[aria-pressed="true"] { border-color: var(--button); background: var(--tint); color: var(--accent); }
 
 /* ------------------------------------------------------------ Profil, sécurité */
 .me-head { display: flex; gap: 14px; align-items: center; padding: 4px 2px; }
 .me-head .body { flex: 1; min-width: 0; }
-.me-head .n { font-family: var(--font-display); font-size: 28px; font-weight: 400; letter-spacing: -.012em; line-height: 1.08; }
-.me-head .c { font-size: 13px; color: var(--hint); margin-top: 3px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.me-head .n { font-family: var(--font-display); font-size: 1.75rem; font-weight: 400; letter-spacing: -.012em; line-height: 1.08; }
+.me-head .c { font-size: 0.8125rem; color: var(--hint); margin-top: 3px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .acc { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .32s var(--ease); }
 .acc.open { grid-template-rows: 1fr; }
 .acc > div { overflow: hidden; }
-.steps { margin: 0; padding: 4px 14px 14px 32px; display: grid; gap: 8px; font-size: 14px; line-height: 1.5; color: var(--text); }
+.steps { margin: 0; padding: 4px 14px 14px 32px; display: grid; gap: 8px; font-size: 0.875rem; line-height: 1.5; color: var(--text); }
 .danger-zone { padding: 4px 0 0; }
 
 /* ------------------------------------------------------------ Feuille du bas */
@@ -934,15 +974,15 @@ body.chat-mode main > * { animation: none; }
 .feuille .panneau { width: 100%; max-width: 560px; margin: 0 auto; display: grid; gap: 8px; padding: 10px 16px calc(20px + var(--safe-bottom)); border-radius: 24px 24px 0 0; background: var(--bg2); box-shadow: var(--shadow-2); animation: monte-feuille .26s var(--ease); }
 .feuille.part .panneau { animation: monte-feuille .18s var(--ease) reverse both; }
 .feuille .poignee { justify-self: center; width: 36px; height: 4px; border-radius: 2px; background: var(--line-strong); margin-bottom: 6px; }
-.feuille h2 { font-size: 19px; }
-.feuille p { color: var(--hint); font-size: 14.5px; line-height: 1.45; margin-bottom: 6px; }
+.feuille h2 { font-size: 1.1875rem; }
+.feuille p { color: var(--hint); font-size: 0.90625rem; line-height: 1.45; margin-bottom: 6px; }
 .feuille .boutons { display: grid; gap: 6px; }
 @keyframes fondu-feuille { from { opacity: 0; } }
 @keyframes monte-feuille { from { transform: translateY(24px); } }
 
 /* ------------------------------------------------------------ Barre de secours et toast */
 .fallback-bar { position: sticky; bottom: 0; z-index: 5; display: flex; gap: 8px; padding: 10px 16px calc(12px + var(--safe-bottom)); max-width: 560px; margin: 0 auto; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border-top: 1px solid var(--line); }
-.fallback-bar button { flex: 1; height: 50px; border: 0; border-radius: 16px; font-size: 15px; font-weight: 600; }
+.fallback-bar button { flex: 1; height: 50px; border: 0; border-radius: 16px; font-size: 0.9375rem; font-weight: 600; }
 /* Une règle (audit 15, constat AD) : le principal toujours à droite et toujours plein, le
    secondaire toujours fantôme — un filet, pas une surface. Dans Telegram, SecondaryButton est
    posé à gauche (tg.js) avec la surface bg3, le plus proche d'un fantôme que le natif sache faire. */
@@ -950,7 +990,7 @@ body.chat-mode main > * { animation: none; }
 .fallback-bar .secondary { background: transparent; color: var(--text); border: 1px solid var(--line-strong); }
 .fallback-bar button:disabled { opacity: .6; }
 
-.toast { position: fixed; left: 16px; right: 16px; bottom: calc(90px + var(--safe-bottom)); max-width: 520px; margin: 0 auto; z-index: 10; display: flex; gap: 10px; align-items: center; padding: 12px 16px; border-radius: 16px; background: color-mix(in srgb, var(--text) 92%, transparent); color: var(--bg); font-size: 14px; font-weight: 500; box-shadow: 0 12px 32px rgb(0 0 0 / .28); }
+.toast { position: fixed; left: 16px; right: 16px; bottom: calc(90px + var(--safe-bottom)); max-width: 520px; margin: 0 auto; z-index: 10; display: flex; gap: 10px; align-items: center; padding: 12px 16px; border-radius: 16px; background: color-mix(in srgb, var(--text) 92%, transparent); color: var(--bg); font-size: 0.875rem; font-weight: 500; box-shadow: 0 12px 32px rgb(0 0 0 / .28); }
 .toast svg { flex-shrink: 0; }
 .toast.ok svg { color: var(--ok); }
 .toast.warn svg { color: var(--warn); }
@@ -965,8 +1005,8 @@ body.chat-mode main > * { animation: none; }
 
 /* ------------------------------------------------------------ Écran de démarrage */
 .boot { margin: auto 0; display: grid; justify-items: center; gap: 6px; text-align: center; }
-.boot-mark { font-family: var(--font-display); font-size: 44px; font-weight: 400; letter-spacing: -.01em; color: var(--accent); }
-.boot-sub { font-size: 13px; color: var(--hint); }
+.boot-mark { font-family: var(--font-display); font-size: 2.75rem; font-weight: 400; letter-spacing: -.01em; color: var(--accent); }
+.boot-sub { font-size: 0.8125rem; color: var(--hint); }
 @media (prefers-reduced-motion: no-preference) {
   .boot-mark { animation: breathe 1.6s ease-in-out infinite; }
   @keyframes breathe { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
@@ -989,7 +1029,7 @@ body.chat-mode main > * { animation: none; }
 /* Trois choix au lieu de deux : « Tout le monde » est le plus long des trois, et l'écran le plus
    étroit de la cible fait 360 px. Un cran de moins en taille, et le libellé tient sans couper. */
 .seg-genre { margin-top: 2px; }
-.seg-genre button { font-size: 13px; padding: 0 4px; }
+.seg-genre button { font-size: 0.8125rem; padding: 0 4px; }
 
 /* ---------- Pages publiques : confidentialité, conditions ----------
    Servies hors de l'app, parfois hors de Telegram, parfois sans JavaScript : un document, pas un

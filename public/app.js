@@ -1875,6 +1875,7 @@ Object.assign(SCREENS, {
       </div>
       <div class="danger-zone"><button type="button" class="btn btn-danger btn-block" data-action="confiance-retirer">${t('Retirer {prenom}', { prenom: esc(c.prenom) })}</button></div>`
       : `
+      <div class="apercu-message" aria-hidden="true"><span class="de">${esc(APP)}</span><p>${t('{nom} te prévient : elle ou il part à un rendez-vous maintenant. Tu es sa personne de confiance.', { nom: esc(S.me.profile?.name || '') })}</p></div>
       <div class="list">
         ${listRow({ iconName: 'info', title: t("Elle accepte elle-même"), sub: t("Tu lui envoies un lien, elle lit ce qu'elle recevra et décide. Rien n'est enregistré avant.") })}
         ${listRow({ iconName: 'bell', title: t('Ce qu\'elle reçoit'), sub: t('Le lieu et l\'heure de ton rendez-vous, et le moment où tu arrives. Rien d\'autre.') })}
@@ -1902,6 +1903,7 @@ Object.assign(SCREENS, {
     render(`
       <div class="step-head"><h1>${t('Ta présentation vocale')}</h1>
         <p class="lead">${t("Quinze secondes de ta voix sur ta fiche. C'est facultatif, et tu peux la retirer quand tu veux.")}</p></div>
+      <div class="onde" aria-hidden="true">${'<i></i>'.repeat(21)}</div>
       ${v ? `<div class="notice ${v.status === 'approved' ? 'notice-ok' : 'notice-info'}">${icon(v.status === 'approved' ? 'check' : 'clock', 18)}<span>${v.status === 'approved'
         ? t('Validée · {duree}. Les autres peuvent l\'écouter.', { duree: dureeLisible(v.duree) })
         : t("En attente : la modération l'écoute avant les autres")}</span></div>` : ''}
@@ -1968,8 +1970,10 @@ Object.assign(SCREENS, {
       : arrondi.forme === 'aucune' ? t("Personne pour l'instant, sur les 30 derniers jours.")
         : arrondi.forme === 'moins' ? t('Moins de {n} personnes se sont arrêtées sur ta fiche ces 30 derniers jours.', { n: arrondi.n })
           : t('Plus de {n} personnes se sont arrêtées sur ta fiche ces 30 derniers jours.', { n: arrondi.n });
+    const grand = !discret && arrondi.forme !== 'aucune' ? `<p class="chiffre">${arrondi.forme === 'moins' ? '<' : '>'}${esc(arrondi.n)}<small>${t('sur 30 jours')}</small></p>` : '';
     render(`
       <div class="step-head"><h1>${t("Se sont arrêtés sur ta fiche")}</h1>
+        ${grand}
         <p class="lead">${combien}</p></div>
       ${profiles.length ? `
       <div class="group"><span class="eyebrow">${t('Les derniers')}</span>
@@ -1997,6 +2001,10 @@ Object.assign(SCREENS, {
     render(`
       <div class="step-head"><h1>${t('La jauge de confiance')}</h1>
         <p class="lead">${t("Sur chaque profil, de petites pastilles disent ce qui a été vérifié. Personne n'est noté : on montre ce qui est prouvé, et rien de plus.")}</p></div>
+      <div class="jauge-visuel" aria-hidden="true">
+        <span class="trust-pips grand">${(tr.criteres || []).map((c) => `<span class="${c.ok ? 'on' : ''}"></span>`).join('')}</span>
+        <span class="score">${t('Confiance {n} sur {total}', { n: tr.score, total: tr.total })}</span>
+      </div>
       <div class="list">${(S.me.options.criteres || []).map((c) => `
         <div class="list-row">
           <span class="tile ${etat[c.cle] ? 'tile-ok' : ''}">${icon(etat[c.cle] ? 'check' : 'shield', 20)}</span>

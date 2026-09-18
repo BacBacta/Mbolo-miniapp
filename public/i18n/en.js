@@ -602,4 +602,6 @@ export default {
   "Ajouter ma photo": "Add my photo",
   "Une légende, si tu veux": "A caption, if you like",
   "Liens et numéros à {n}": "Links and numbers at {n}",
+  "{nom} te prévient : elle ou il part à un rendez-vous maintenant. Tu es sa personne de confiance.": "{nom} is letting you know: they are leaving for a date right now. You are their trusted person.",
+  "sur 30 jours": "over 30 days",
 };

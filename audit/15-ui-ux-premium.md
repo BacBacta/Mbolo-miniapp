@@ -149,7 +149,7 @@ Réglages derrière le SettingsButton, en trois groupes (V, W) · Profil réduit
 ### Lot 4 — La discussion, dernier tiers (une semaine) — **livré le 18 septembre 2026**
 Réactions (O) · légende de photo (P) · barre de déblocage en ligne fine (N) · bouton de rendez-vous contextuel (M) · tuile floutée avec anneau et cadenas (U).
 
-### Lot 5 — La finition continue
+### Lot 5 — La finition continue — **première passe livrée le 18 septembre 2026** (rem, ambre, ancrages, mouvement) ; la passe sombre/clair se refait à chaque lot
 Échelle en rem et respect de la taille système (AA) · contraste de l'ambre sur photo mesuré et corrigé (AC) · écrans secondaires avec un ancrage visuel chacun (X) · passe sombre/clair sur chaque écran après chaque lot (les captures de ce document se refont en trois minutes) · spécification du mouvement écrite dans `styles.css` (durées, courbes, ce qui bouge et ce qui ne bouge pas).
 
 **Ce qui n'est pas dans le plan, à dessein.** Pas de nouvelle police, pas de nouvelle palette, pas d'illustrations 3D, pas d'animations de célébration à chaque geste : l'identité « Aura » est juste, et les apps qui vieillissent le mieux sont celles qui en font le moins. Le niveau « ultra premium » se gagne sur la structure, la densité, la cohérence et les gestes — pas sur l'ornement.

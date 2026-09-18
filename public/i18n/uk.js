@@ -591,4 +591,6 @@ export default {
   "Ajouter ma photo": "Додати фото",
   "Une légende, si tu veux": "Підпис, якщо хочеш",
   "Liens et numéros à {n}": "Посилання й номери після {n}",
+  "{nom} te prévient : elle ou il part à un rendez-vous maintenant. Tu es sa personne de confiance.": "{nom} попереджає: зараз іде на побачення. Ти довірена особа.",
+  "sur 30 jours": "за 30 днів",
 };
