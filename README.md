@@ -192,6 +192,16 @@ Pense aussi à renseigner ta **politique de confidentialité** dans BotFather (o
 
 ## Diffuser l'application
 
+### Être trouvé dans Telegram
+
+Deux endroits, deux gestes. **L'onglet Apps de Telegram** : déclarer la Main Mini App dans
+BotFather (`/mybots` → Bot Settings → Configure Mini App → Enable Mini App), poser les aperçus
+depuis la fiche du bot ; Telegram met en avant lui-même, dans son Mini App Store, des apps qui
+ont une Main Mini App, des aperçus soignés et encaissent en Stars — il n'y a pas de formulaire.
+**Le Telegram Apps Center** (`@tapps_bot`, l'annuaire de l'écosystème TON, sans Web3 requis) :
+un dépôt depuis ton compte Telegram, trois à huit jours de modération ; tout ce que le
+formulaire demande est prêt à coller dans `identite/tapps-center.md`, captures comprises.
+
 ### Savoir par où les gens arrivent
 
 Un lien de diffusion porte un mot : `https://t.me/TON_BOT?startapp=ref_campus`. Ce mot est rangé
