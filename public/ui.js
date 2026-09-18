@@ -47,6 +47,10 @@ const PATHS = {
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
+  // Cartes et Liste, le sélecteur de Découvrir. Ces deux noms étaient demandés sans exister ici :
+  // le segment actif se dessinait en disque blanc vide (audit 16, n° 15).
+  card: '<rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 16h6"/>',
+  rows: '<path d="M4 7h16M4 12h16M4 17h16"/>',
 };
 
 // icon('heart', 16) ; icon('heart', 16, { fill: true }) pour une version pleine

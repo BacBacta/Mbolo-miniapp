@@ -110,7 +110,8 @@ test('aucun lien entre qui invite et qui arrive', async () => {
 
 test('le lien de partage dit « membre » et ne nomme personne', () => {
   const src = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public', 'app.js'), 'utf8');
-  const invite = src.slice(src.indexOf("case 'invite'"), src.indexOf("case 'invite'") + 900);
+  // Le partage vit dans inviter() : deux portes y mènent (les réglages, et un paquet vide).
+  const invite = src.slice(src.indexOf('function inviter() {'), src.indexOf('function inviter() {') + 500);
   // `startapp` et pas `start` : seul le premier remplit start_param dans la mini app.
   assert.match(invite, /\?startapp=ref_membre/);
   // Ce qui ne doit pas s'y glisser : l'identifiant de qui partage.

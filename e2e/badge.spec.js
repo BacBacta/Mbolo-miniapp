@@ -49,3 +49,35 @@ test("sans lieu partenaire, la vérification n'annonce pas le rendez-vous ; « P
   await onglet(page, /Profil/).click();
   await expect(page.locator('main')).toContainText(/Faire vérifier mon profil/);
 });
+
+// Audit 16, n° 6 : sans badge, deux « J'aime » par jour. Le troisième n'appelle pas le serveur,
+// il ouvre la feuille du quota — avec « Me faire vérifier » en premier, puisque c'est le chemin
+// gratuit. Le ♥ s'éteint, mais reste un bouton. Avant, un toast disait « tu as vu tous tes
+// profils », ce qui était faux deux fois.
+test("sans badge, le troisième « J'aime » ouvre la feuille du quota au lieu d'un toast", async ({ page }) => {
+  await ouvrir(page, nouvelIdentifiant());
+  await creerProfil(page, { prenom: 'Bilkis' });
+  await page.locator('main button', { hasText: /Plus tard/ }).click();
+  await expect(onglet(page, /Découvrir/)).toBeVisible();
+  const pastille = page.locator('.dbar .quota-pill');
+  await expect(pastille).toHaveText(/2/);
+  for (let i = 0; i < 2; i += 1) {
+    await page.locator('.deck-actions .like').click();
+    // Un profil de démonstration rend le « J'aime » : l'écran de match s'ouvre, on le quitte.
+    await expect(page.locator('main')).toContainText(/C'est un match/i, { timeout: 20_000 });
+    await page.locator('#fallback-bar button', { hasText: /Plus tard/ }).click();
+    await expect(onglet(page, /Découvrir/)).toBeVisible();
+  }
+  await expect(pastille).toHaveText(/0/);
+  const coeur = page.locator('.deck-actions .like');
+  await expect(coeur).toHaveClass(/epuise/);
+  const appels = [];
+  page.on('request', (r) => { if (r.url().endsWith('/api/swipes') && r.method() === 'POST') appels.push(r.url()); });
+  await coeur.click();
+  const feuille = page.locator('#feuille');
+  await expect(feuille).toContainText(/Tes « J'aime » du jour sont partis/);
+  await expect(feuille.locator('[data-feuille="verif"]')).toBeVisible();
+  expect(appels, 'aucun appel au serveur pour un ♥ à zéro').toEqual([]);
+  await feuille.locator('[data-feuille="non"]').click();
+  await expect(page.locator('#toast')).not.toContainText(/tous tes profils/);
+});
