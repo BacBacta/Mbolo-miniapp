@@ -456,6 +456,7 @@ export async function setupBot() {
     // Lien venu de l'app aussi : la ligne « Le bot ne peut pas te prévenir » de l'onglet Profil
     // (audit 16, lot B). Ouvrir la discussion et appuyer sur « Démarrer » suffit à lui rendre la
     // parole : on le dit, avec le bouton pour revenir.
+    if (String(ctx.match || '') === 'aide') return aide(ctx);
     if (String(ctx.match || '') === 'prevenir') {
       const bouton = config.webAppUrl ? new InlineKeyboard().webApp(t(lang, 'Ouvrir {app}', { app: config.appName }), appUrl()) : undefined;
       return envoyerMessage(ctx.chat.id, t(lang, "C'est bon : {app} peut t'écrire ici. Tu sauras quand quelqu'un te plaît en retour, et quand on te répond.", { app: config.appName }), bouton);
@@ -470,11 +471,12 @@ export async function setupBot() {
   // Permet de connaître l'identifiant de la discussion à mettre dans ADMIN_CHAT_ID
   bot.command('id', async (ctx) => ctx.reply(t(langueDe(await store.getUser(ctx.from?.id)), 'Identifiant de cette discussion : {id}', { id: ctx.chat.id })));
 
-  bot.command('aide', async (ctx) =>
+  // L'écran d'un compte fermé mène ici par `?start=aide` : la même réponse que /aide.
+  const aide = async (ctx) =>
     ctx.reply(t(langueDe((await store.getUser(ctx.from?.id)) || { languageCode: ctx.from?.language_code }),
       "{app} ne te demandera jamais d'argent par message. Si quelqu'un le fait, même en son nom, c'est une arnaque : signale-le depuis la discussion dans l'app.\n\nPour supprimer ton compte : Paramètres dans l'app, puis « Supprimer mon compte ».",
-      { app: config.appName })),
-  );
+      { app: config.appName }));
+  bot.command('aide', aide);
 
   // /test : la même notification que l'ancien bouton de l'onglet Profil, sorti des réglages
   // (audit/15, constat V) — c'est un outil d'exploitation, pas un réglage de la personne.

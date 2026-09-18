@@ -57,3 +57,11 @@ test("/start sans paramètre garde l'accueil", async () => {
   const m = envoyes.find((e) => e.a === '503');
   assert.match(m.texte, /Salut Awa/);
 });
+
+// Audit 16, n° 13 : l'écran d'un compte fermé ouvre le bot par `?start=aide` — la même réponse
+// que /aide, pas l'accueil.
+test("/start aide répond comme /aide", async () => {
+  await start('aide', 504);
+  const m = envoyes.find((e) => e.a === '504');
+  assert.match(m.texte, /ne te demandera jamais d'argent par message/);
+});

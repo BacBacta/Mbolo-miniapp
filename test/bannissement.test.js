@@ -93,7 +93,10 @@ test('un compte banni ne peut plus entrer, et on lui dit quoi faire', async () =
   assert.equal(r.body.code, 'BANNED');
   // Règle 11 : dire ce qui se passe et quoi faire, pas seulement refuser.
   assert.match(r.body.message, /fermé/);
-  assert.match(r.body.message, /\/aide/);
+  assert.match(r.body.message, /écris au bot/);
+  // Le nom du bot voyage avec le refus : l'écran en fait un bouton (audit 16, n° 13). Ici le
+  // bot n'a pas de nom (pas de setupBot), donc la clé n'est pas là — jamais une chaîne vide.
+  assert.ok(!('bot' in r.body) || typeof r.body.bot === 'string');
 });
 
 // La porte la plus sournoise : revenir avec le même compte Telegram recrée la ligne à l'identique

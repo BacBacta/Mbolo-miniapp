@@ -71,6 +71,12 @@ test('le message de blocage nomme ce qui l\'a déclenché', () => {
   assert.equal(r.categorie, 'moyen de paiement');
   assert.match(r.message, /moyen de paiement/);
   assert.ok(!r.message.includes('!'), 'aucun point d\'exclamation dans les messages système');
+  // Audit 16, n° 10 : « une moyen de paiement » — plus d'article à accorder, deux phrases courtes.
+  assert.doesNotMatch(r.message, /une moyen|une besoin/);
+  const d = checkMessage("J'ai besoin de 5000 F, tu peux m'envoyer", 20, 10);
+  assert.equal(d.code, 'MONEY_BLOCKED');
+  assert.match(d.message, /Retire le montant/);
+  assert.doesNotMatch(d.message, /ressemble à une/);
 });
 
 // ==================================================================

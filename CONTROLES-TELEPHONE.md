@@ -267,6 +267,11 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
       secondaire « Inviter » ; le texte promet que le bot prévient quand quelqu'un arrive.
 - [ ] **(n° 15)** Le sélecteur **Cartes / Liste** en haut de Découvrir montre deux icônes (une carte,
       trois lignes), pas un disque blanc vide.
+- [ ] **(n° 16)** Ouvre une fiche par le chevron : en bas de la fiche, les **deux mêmes ronds**
+      (× et ♥) que sous le paquet, et **aucun bouton natif** « J'aime / Passer ».
+- [ ] **(n° 17)** Dans **Filtres**, « Tout remettre à zéro » remplit les champs (18–99, tout le
+      monde) **sans quitter l'écran** ; rien n'est enregistré tant que tu n'as pas touché
+      « Enregistrer ».
 - [ ] La jauge (pastilles) s'ouvre sur l'écran d'explication.
 - [ ] Le compteur du jour descend ; à 20 likes, l'écran dit de revenir demain.
 
@@ -310,6 +315,15 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
       calcul avait cassé, « Toi : » serait absent des deux côtés, ou présent des deux.*
 
 ---
+
+### Les fins (audit 16, n° 13 et 14)
+
+- [ ] Depuis le groupe de modération, ferme ton compte de test. Rouvre l'app : l'écran dit
+      **« Ton compte est fermé »**, sans « Réessayer », avec un bouton **« Écrire au bot »** qui
+      ferme la mini app sur la discussion du bot, lequel répond comme à `/aide`. Rouvre le compte
+      depuis le groupe.
+- [ ] Supprime un compte de test : l'écran de confirmation porte un bouton natif **« Fermer »**
+      qui ferme la mini app.
 
 ## 10. Discussion — le contrôle le plus important de la revue
 
