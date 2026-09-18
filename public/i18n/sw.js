@@ -579,4 +579,13 @@ export default {
   "La vue Liste vient avec le pass": "Mwonekano wa Orodha unakuja na pasi",
   "Les mêmes personnes, en liste, avec « T'a liké » sur celles qui t'ont déjà dit oui.": "Watu wale wale, kwenye orodha, na « Amekupenda » kwa wale waliokwisha sema ndiyo.",
   "Voir le pass": "Ona pasi",
+  "En bref": "Kwa ufupi",
+  "Intention": "Nia",
+  "Langues": "Lugha",
+  "Aimer cette réponse": "Penda jibu hili",
+  "Aimer sa réponse": "Penda jibu lake",
+  "Un mot pour l'accompagner (facultatif)": "Neno la kuambatana nalo (si lazima)",
+  "Envoyer le J'aime": "Tuma kupenda",
+  "{nom} a aimé ta réponse à « {question} »": "{nom} amependa jibu lako la «{question}»",
+  "Annuler": "Ghairi",
 };

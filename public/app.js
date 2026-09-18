@@ -601,14 +601,28 @@ const profilConnu = (id) => S.profiles.find((x) => x.id === id)
 // Ce qu'une carte du paquet montre de la fiche sans l'ouvrir : la réponse, sur une ligne ou deux.
 const apercuReponse = (p) => courte(p.promptA, 90);
 
-function profileCard(p, { own = false, cls = '', plein = false } = {}) {
-  // La jauge vient du serveur avec son dénominateur : la carte ne devine plus combien de
-  // critères existent, et le jour où un critère s'ajoute elle suit sans être retouchée.
-  const tr = p.trust || { score: 0, total: 0, criteres: [] };
-  const score = tr.score;
-  // Ce qui est acquis, en clair, sur une ligne : « Selfie vérifié, membre depuis 3 mois »
+// La jauge vient du serveur avec son dénominateur : la carte ne devine plus combien de
+// critères existent, et le jour où un critère s'ajoute elle suit sans être retouchée.
+const jaugeDe = (p) => p.trust || { score: 0, total: 0, criteres: [] };
+
+// La ligne de confiance, partagée par la carte et par la fiche : les repères, le score, et ce
+// qui est acquis en clair — « Selfie vérifié, membre depuis 3 mois ». Elle ouvre l'explication.
+function ligneConfiance(p) {
+  const tr = jaugeDe(p);
   const acquis = (tr.criteres || []).filter((c) => c.ok).map((c) => t(c.titre).toLowerCase());
   if (acquis.length) acquis[0] = acquis[0].charAt(0).toUpperCase() + acquis[0].slice(1);
+  return `<button type="button" class="trust-row" data-action="go" data-screen="jauge" aria-label="${t('Confiance {n} sur {total}', { n: tr.score, total: tr.total })}">
+          <span class="trust-pips">${(tr.criteres || []).map((c) => `<span class="${c.ok ? 'on' : ''}"></span>`).join('')}</span>
+          <span class="trust-text"><strong>${t('Confiance {n} sur {total}', { n: tr.score, total: tr.total })}</strong>${acquis.length ? ` · ${acquis.join(', ')}` : ` · ${t("Aucune vérification pour l'instant")}`}</span>
+        </button>`;
+}
+
+// Le bouton d'écoute, dans le corps et jamais sur la photo. Rien n'est téléchargé avant l'appui.
+const boutonVoix = (p) => (p.voix ? `<button type="button" class="btn btn-glass voix" data-action="voix" data-id="${esc(p.id)}" data-duree="${esc(dureeLisible(p.voix.duree))}" aria-label="${t('Écouter la présentation de {nom}', { nom: esc(p.name) })}"><span class="voix-icone">${icon('play', 16)}</span><span class="voix-label">${t('Écouter · {duree}', { duree: dureeLisible(p.voix.duree) })}</span></button>` : '');
+
+function profileCard(p, { own = false, cls = '', plein = false } = {}) {
+  const tr = jaugeDe(p);
+  const score = tr.score;
   return `
     <article class="card ${cls}">
       <div class="card-photo" data-photo="${esc(p.id)}"${p.photos?.length > 1 ? ' data-action="photo-nav" data-index="0"' : ''}>
@@ -637,17 +651,93 @@ function profileCard(p, { own = false, cls = '', plein = false } = {}) {
         <div class="prompt"><span class="q">${esc(libelleQuestion(p.promptQ))}</span><span class="a">${esc(p.promptA)}</span></div>
         ${(p.extras || []).map((x) => `<div class="prompt"><span class="q">${esc(libelleQuestion(x.q))}</span><span class="a">${esc(x.a)}</span></div>`).join('')}
         ${p.compat ? `<div class="compat">${p.compat.map((c) => `<span class="chip chip-compat"><span class="q">${t(c.question)}</span><span class="a">${t(c.reponse)}</span></span>`).join('')}</div>` : ''}
-        ${p.voix ? `<button type="button" class="btn btn-glass voix" data-action="voix" data-id="${esc(p.id)}" data-duree="${esc(dureeLisible(p.voix.duree))}" aria-label="${t('Écouter la présentation de {nom}', { nom: esc(p.name) })}"><span class="voix-icone">${icon('play', 16)}</span><span class="voix-label">${t('Écouter · {duree}', { duree: dureeLisible(p.voix.duree) })}</span></button>` : ''}
+        ${boutonVoix(p)}
         <div class="facts-line">
           <span>${esc(t(p.intentLabel))}</span>
           ${p.languages ? `<span class="sep"></span><span>${t('Parle {langues}', { langues: esc(p.languages.charAt(0).toLowerCase() + p.languages.slice(1)) })}</span>` : ''}
         </div>
-        <button type="button" class="trust-row" data-action="go" data-screen="jauge" aria-label="${t('Confiance {n} sur {total}', { n: score, total: tr.total })}">
-          <span class="trust-pips">${(tr.criteres || []).map((c) => `<span class="${c.ok ? 'on' : ''}"></span>`).join('')}</span>
-          <span class="trust-text"><strong>${t('Confiance {n} sur {total}', { n: score, total: tr.total })}</strong>${acquis.length ? ` · ${acquis.join(', ')}` : ` · ${t("Aucune vérification pour l'instant")}`}</span>
-        </button>
+        ${ligneConfiance(p)}
       </div>`}
     </article>`;
+}
+
+// ---------- La fiche en blocs (audit/15, lot 2) ----------
+// La fiche n'est plus la carte du paquet en plus long — photo, question, faits, jauge, la même
+// chose que ce qu'on venait de voir, ce qui n'apportait rien à l'appui. C'est une **suite de
+// blocs** : la photo, une question en carte, une autre photo, une autre question, les faits, la
+// confiance. Chaque bloc se lit seul, et les photos après la première **ne se chargent qu'en
+// apparaissant** (`lazyBlocsPhoto`) : on n'ouvre pas une fiche pour payer trois photos d'un coup.
+// Aucune donnée nouvelle : tout vient du profil public que la carte montrait déjà. L'aperçu de
+// son propre profil garde la carte, parce qu'il montre « ce que les autres voient » dans le paquet.
+// `decidable` : la personne peut encore aimer cette fiche — alors chaque réponse porte un cœur,
+// le « J'aime » sur une réponse (lot 2). Pas sur un match, pas sur un profil déjà aimé, pas sur soi.
+function ficheEnBlocs(p, { own = false, decidable = false } = {}) {
+  const questions = [p.promptA ? { q: p.promptQ, a: p.promptA } : null, ...(p.extras || [])].filter((x) => x?.a);
+  const autres = (p.photos || []).slice(1);
+  const blocPhoto = (n) => `<article class="card bloc"><div class="card-photo bloc-photo" data-photo-bloc="${esc(p.id)}" data-n="${esc(n)}"><span class="initial">${esc(p.name?.[0] || '?')}</span></div></article>`;
+  const blocQuestion = (x) => `<div class="bloc bloc-question"><span class="q">${esc(libelleQuestion(x.q))}</span><span class="a">${esc(x.a)}</span>${decidable ? `<button type="button" class="coeur" data-action="aimer-reponse" data-q="${esc(x.q)}" aria-label="${t('Aimer cette réponse')}">${icon('heart', 18)}</button>` : ''}</div>`;
+  // Une question, puis une photo, puis une question : la lecture alterne, comme dans un album.
+  const suite = [];
+  questions.forEach((x, i) => { suite.push(blocQuestion(x)); if (autres[i] !== undefined) suite.push(blocPhoto(autres[i])); });
+  autres.slice(questions.length).forEach((n) => suite.push(blocPhoto(n)));
+  const faits = [
+    p.intentLabel ? [t('Intention'), t(p.intentLabel)] : null,
+    p.languages ? [t('Langues'), p.languages] : null,
+    ...(p.compat || []).map((c) => [t(c.question), t(c.reponse)]),
+  ].filter(Boolean);
+  return `
+    <section class="fiche">
+      <article class="card bloc">
+        <div class="card-photo" data-photo="${esc(p.id)}">
+          <span class="initial">${esc(p.name?.[0] || '?')}</span>
+          <span class="scrim"></span>
+          <div class="corners">
+            ${p.likedYou && !own ? `<span class="pill-glass pill-like">${icon('heart', 13, { fill: true })} ${t("T'a liké")}</span>` : p.isNew && !own ? `<span class="pill-glass">${icon('sparkles', 13)} ${t('Nouveau')}</span>` : ''}
+            ${p.demo ? `<span class="tag-demo">${t('démo')}</span>` : ''}
+            <span class="spacer"></span>
+            ${own ? '' : `<button type="button" class="more" data-action="report-profile" data-id="${esc(p.id)}" aria-label="${t('Se protéger de ce profil')}">${icon('flag', 15)}</button>`}
+          </div>
+          <div class="overlay">
+            <div class="name">${esc(p.name)}<span class="age">${esc(p.age)}</span>${p.verified ? `<span class="shield" title="${t('Selfie vérifié')}">${icon('shield', 18)}</span>` : ''}</div>
+            <div class="line">
+              ${icon('pin', 13)}<span>${esc(p.area ? `${p.area} · ${p.city}` : p.city)}${p.country && p.country !== S.me?.profile?.country ? esc(` · ${nomPays(p.country)}`) : ''}</span>
+              ${!own && ACTIVITY_LABELS()[p.activity] ? `<span class="dot"></span><span class="act">${p.activity === 'week' ? t('Cette semaine') : p.activity === 'today' ? t("Aujourd'hui") : t('Récemment')}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      </article>
+      ${suite.join('')}
+      <div class="bloc bloc-faits">
+        <span class="eyebrow">${t('En bref')}</span>
+        ${faits.length ? `<dl class="facts">${faits.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
+        ${boutonVoix(p)}
+      </div>
+      <div class="bloc bloc-confiance">${ligneConfiance(p)}</div>
+    </section>`;
+}
+
+// Les photos de la fiche après la première : chargées quand leur bloc approche de l'écran, comme
+// les vignettes des listes. Sans IntersectionObserver, tout part — mieux qu'un bloc gris à vie.
+function lazyBlocsPhoto(p) {
+  const blocs = [...app.querySelectorAll('.fiche [data-photo-bloc]')];
+  const charger = (box) => photoUrl(p.id, Number(box.dataset.n)).then((url) => {
+    if (!url || !box.isConnected || box.querySelector('img')) return;
+    const img = Object.assign(document.createElement('img'), { src: url, alt: t('Photo de {nom}', { nom: p.name }) });
+    img.onload = () => img.classList.add('loaded');
+    box.classList.add('has-photo');
+    box.prepend(img);
+    if (img.complete) img.classList.add('loaded');
+  });
+  S.blocObserver?.disconnect();
+  if (!('IntersectionObserver' in window)) { blocs.forEach(charger); return; }
+  S.blocObserver = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      S.blocObserver.unobserve(e.target);
+      charger(e.target);
+    }
+  }, { rootMargin: '200px' });
+  blocs.forEach((b) => S.blocObserver.observe(b));
 }
 
 // La photo d'une fiche part toujours, même en économie de data : c'est sur elle qu'on décide
@@ -873,14 +963,36 @@ async function saveFilters(values) {
   }
 }
 
+// Aimer **une réponse** de la fiche, avec un mot (lot 2 de l'audit 15). C'est le geste qui a le
+// plus fait bouger le premier message sur le marché : au lieu de « J'aime » sur une personne,
+// « J'aime » sur *sa réponse à « ce qui me fait rire »*, avec « moi aussi ». Le mot est facultatif,
+// borné, et c'est la personne qui appuie — rien ne part sans elle. Au match, il devient le premier
+// message de la discussion ; d'ici là, personne ne le lit.
+async function aimerLaReponse(q) {
+  const p = S.person;
+  const x = p?.promptQ === q ? { q, a: p.promptA } : (p?.extras || []).find((e) => e.q === q);
+  if (!x) return;
+  const r = await feuille({
+    titre: t('Aimer sa réponse'),
+    texte: `« ${x.a} »`,
+    champ: { placeholder: t('Un mot pour l\'accompagner (facultatif)'), maxlength: MOT_MAX },
+    boutons: [{ id: 'aimer', texte: t("Envoyer le J'aime"), principal: true }, { id: 'non', texte: t('Annuler') }],
+  });
+  if (r?.id !== 'aimer') return;
+  swipePerson('like', { sur: q, mot: r.valeur });
+}
+const MOT_MAX = 60;
+
 // « J'aime » ou « Passer » depuis le détail d'un profil ouvert par la liste
-async function swipePerson(action) {
+async function swipePerson(action, { sur = null, mot = '' } = {}) {
   const p = S.person;
   if (!p || swiping) return;
   swiping = true;
   tg.haptic(action === 'like' ? 'medium' : 'select');
   try {
-    const r = await api('/swipes', { method: 'POST', body: { targetId: p.id, action } });
+    // `sur` et `mot` : le « J'aime » sur une réponse. Le serveur vérifie que la question est sur
+    // la fiche et passe le mot par l'anti-arnaque ; un refus revient ici comme pour un message.
+    const r = await api('/swipes', { method: 'POST', body: { targetId: p.id, action, ...(sur ? { sur, mot } : {}) } });
     S.people = []; // la liste se rechargera avec les nouveaux statuts
     S.likes = [];
     S.profiles = S.profiles.filter((x) => x.id !== p.id); // et la carte quitte le paquet
@@ -1399,8 +1511,9 @@ const SCREENS = {
     const note = match ? `${icon('heart', 14)}<span>${t('Vous vous êtes plu. Vous pouvez vous écrire.')}</span>`
       : p.status === 'liked' ? `${icon('heart', 14)}<span>${t('Tu as déjà aimé ce profil. Le bot te prévient en cas de match.')}</span>`
         : p.status === 'passed' ? `${icon('clock', 14)}<span>${t('Tu avais passé ce profil. Tu peux revenir sur ta décision.')}</span>` : '';
-    render(`<div class="deck">${profileCard(p, { cls: 'top' })}</div>${note ? `<p class="fine">${note}</p>` : ''}`);
+    render(`${ficheEnBlocs(p, { decidable: !match && p.status !== 'liked' })}${note ? `<p class="fine">${note}</p>` : ''}`);
     loadCardPhoto(p);
+    lazyBlocsPhoto(p);
     if (match) tg.setButtons({ main: { text: t('Écrire à {nom}', { nom: p.name }), onClick: () => go('chat', { id: S.chat.id }) } });
     else if (p.status === 'liked') tg.setButtons(null);
     else if (p.status === 'passed') tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipePerson('like') } });
@@ -1416,7 +1529,8 @@ const SCREENS = {
         <p class="eyebrow">${t("C'est un match")}</p>
         <div class="pair">${avatar(me, 'xl')}<span class="spark">${icon('heart', 20, { fill: true })}</span>${avatar(m.other, 'xl')}</div>
         <h1 class="display">${t('{nom} et toi, vous vous plaisez', { nom: esc(m.other.name) })}</h1>
-        <p class="lead">${t('Brise la glace avec une question sur son profil. Les liens et numéros se débloquent après quelques messages.')}</p>
+        ${m.aime ? `<p class="lead">${t('{nom} a aimé ta réponse à « {question} »', { nom: esc(m.other.name), question: esc(libelleQuestion(m.aime.q)) })}</p>${m.aime.mot ? `<p class="mot-aime">« ${esc(m.aime.mot)} »</p>` : ''}`
+    : `<p class="lead">${t('Brise la glace avec une question sur son profil. Les liens et numéros se débloquent après quelques messages.')}</p>`}
       </div>`);
     loadAvatar(me, { own: true });
     loadAvatar(m.other);
@@ -1536,7 +1650,7 @@ Object.assign(SCREENS, {
     try {
       const data = await api(`/matches/${encodeURIComponent(id)}`);
       if (perime()) return;
-      S.chat = { id, other: data.other, messages: data.messages, dates: data.dates, unlockAfter: data.unlockAfter, notice: null, tete: null, rendus: 0, bouge: Date.now(), ecritDepuis: 0, depuis: data.depuis, amorce: null, lu: Number(data.lu) || 0, enLigne: !!data.enLigne, reponseA: null, devoilees: new Set() };
+      S.chat = { id, other: data.other, messages: data.messages, dates: data.dates, unlockAfter: data.unlockAfter, notice: null, tete: null, rendus: 0, bouge: Date.now(), ecritDepuis: 0, depuis: data.depuis, aime: data.aime || null, amorce: null, lu: Number(data.lu) || 0, enLigne: !!data.enLigne, reponseA: null, devoilees: new Set() };
     } catch (e) {
       if (perime()) return;
       return renderError(e, () => go('chat', { id }));
@@ -2284,6 +2398,7 @@ function ouverture(c) {
   return `
     <div class="ouverture">
       <span class="eyebrow">${icon('heart', 13, { fill: true })} ${t('Vous vous êtes plu')}${quand ? ` · ${esc(quand.charAt(0).toLowerCase() + quand.slice(1))}` : ''}</span>
+      ${c.aime ? `<p class="lead">${t('{nom} a aimé ta réponse à « {question} »', { nom: esc(c.other.name), question: esc(libelleQuestion(c.aime.q)) })}</p>` : ''}
       <p class="lead">${t('Une question suffit à commencer. En voici tirées de sa fiche :')}</p>
       <div class="chips amorces" role="group" aria-label="${t('Amorces')}">${amorcesPour(c.other).map((a) => `
         <button type="button" data-action="amorce" data-k="${esc(a.k)}" data-texte="${esc(a.texte)}">${esc(a.texte)}</button>`).join('')}</div>
@@ -3152,6 +3267,7 @@ app.addEventListener('click', async (e) => {
     case 'ville': poserLaVille(el.dataset.champ, el.dataset.value); tg.haptic('select'); break;
     case 'amorce': poserLAmorce(el.dataset.k, el.dataset.texte); break;
     case 'report-profile': go('protection', { id: el.dataset.id }); break;
+    case 'aimer-reponse': tg.haptic('light'); aimerLaReponse(el.dataset.q); break;
     case 'report-chat': go('protection', { id: S.chat.other.id, matchId: S.chat.id }); break;
     case 'signaler': signaler(el.dataset.motif); break;
     case 'bloquer': bloquer(); break;

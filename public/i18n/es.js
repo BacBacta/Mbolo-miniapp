@@ -579,4 +579,13 @@ export default {
   "La vue Liste vient avec le pass": "La vista Lista viene con el pase",
   "Les mêmes personnes, en liste, avec « T'a liké » sur celles qui t'ont déjà dit oui.": "Las mismas personas, en lista, con « Le gustas » en las que ya te dijeron sí.",
   "Voir le pass": "Ver el pase",
+  "En bref": "En resumen",
+  "Intention": "Intención",
+  "Langues": "Idiomas",
+  "Aimer cette réponse": "Me gusta esta respuesta",
+  "Aimer sa réponse": "Me gusta su respuesta",
+  "Un mot pour l'accompagner (facultatif)": "Unas palabras para acompañarlo (opcional)",
+  "Envoyer le J'aime": "Enviar el me gusta",
+  "{nom} a aimé ta réponse à « {question} »": "A {nom} le gustó tu respuesta a «{question}»",
+  "Annuler": "Cancelar",
 };

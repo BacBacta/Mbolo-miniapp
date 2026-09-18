@@ -237,10 +237,11 @@ test("l'en-tête de la discussion montre la photo et ouvre bien la fiche", async
 
   // L'appui ouvre la fiche, et pas Découvrir.
   await entete.click();
-  // Une fiche, une seule carte — Découvrir en pose deux. Sans ce compte, le test passerait
-  // encore en étant renvoyé sur le paquet, ce qui est précisément la panne.
-  await expect(page.locator('main .card')).toHaveCount(1, { timeout: 10_000 });
-  await expect(page.locator('main .card')).toContainText(nom.split(',')[0]);
+  // Une fiche en blocs, et pas le paquet — Découvrir pose ses cartes dans `.deck`. Sans ce
+  // compte, le test passerait encore en étant renvoyé sur le paquet, ce qui est précisément la panne.
+  await expect(page.locator('main .fiche')).toHaveCount(1, { timeout: 10_000 });
+  await expect(page.locator('main .deck')).toHaveCount(0);
+  await expect(page.locator('main .fiche')).toContainText(nom.split(',')[0]);
   // Un match ne s'aime ni ne se passe : les deux gestes n'ont plus de sens ici.
   await expect(actionPrincipale(page)).toHaveText(/Écrire à/);
   await expect(page.locator('#fallback-bar button', { hasText: /^Passer$/ })).toHaveCount(0);

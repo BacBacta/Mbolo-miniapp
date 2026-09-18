@@ -579,4 +579,13 @@ export default {
   "La vue Liste vient avec le pass": "Вид «Список» открывается с пассом",
   "Les mêmes personnes, en liste, avec « T'a liké » sur celles qui t'ont déjà dit oui.": "Те же люди списком, с пометкой «Ты понравился(-ась)» у тех, кто уже сказал да.",
   "Voir le pass": "Посмотреть пасс",
+  "En bref": "Кратко",
+  "Intention": "Цель",
+  "Langues": "Языки",
+  "Aimer cette réponse": "Нравится этот ответ",
+  "Aimer sa réponse": "Нравится ответ",
+  "Un mot pour l'accompagner (facultatif)": "Пара слов в дополнение (необязательно)",
+  "Envoyer le J'aime": "Отправить лайк",
+  "{nom} a aimé ta réponse à « {question} »": "{nom} оценил(а) твой ответ на «{question}»",
+  "Annuler": "Отмена",
 };

@@ -69,8 +69,8 @@ await ecrire('Comptes', Object.values(db.users || {}),
   });
 
 await ecrire('Balayages', db.swipes || [],
-  'insert into swipes (from_id, to_id, action, at) values ($1, $2, $3, $4) on conflict (from_id, to_id) do nothing',
-  (s) => [String(s.from), String(s.to), s.action, Number(s.at) || Date.now()]);
+  'insert into swipes (from_id, to_id, action, at, sur, mot) values ($1, $2, $3, $4, $5, $6) on conflict (from_id, to_id) do nothing',
+  (s) => [String(s.from), String(s.to), s.action, Number(s.at) || Date.now(), s.sur || null, s.mot || null]);
 
 await ecrire('Matchs', Object.values(db.matches || {}),
   `insert into matches (id, pair_key, user_a, user_b, created_at, read_at)

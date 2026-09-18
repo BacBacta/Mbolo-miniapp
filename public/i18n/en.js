@@ -590,4 +590,13 @@ export default {
   "La vue Liste vient avec le pass": "The List view comes with the pass",
   "Les mêmes personnes, en liste, avec « T'a liké » sur celles qui t'ont déjà dit oui.": "The same people, as a list, with \"Liked you\" on those who already said yes.",
   "Voir le pass": "See the pass",
+  "En bref": "At a glance",
+  "Intention": "Looking for",
+  "Langues": "Languages",
+  "Aimer cette réponse": "Like this answer",
+  "Aimer sa réponse": "Like their answer",
+  "Un mot pour l'accompagner (facultatif)": "A word to go with it (optional)",
+  "Envoyer le J'aime": "Send the like",
+  "{nom} a aimé ta réponse à « {question} »": "{nom} liked your answer to \"{question}\"",
+  "Annuler": "Cancel",
 };

@@ -1100,6 +1100,25 @@ api.put('/me/discretion', requireMembre, async (req, res) => {
   res.json({ discretion: veut });
 });
 
+// Le « J'aime » sur une réponse : ce qu'on accepte du client, et rien d'autre. `sur` est la clé
+// d'une question **que la cible a sur sa fiche** ; `mot` fait MOT_MAX caractères au plus et passe
+// par checkMessage comme un message — c'est un message, il partira tel quel au match. Rend
+// `{ sur, mot }`, ou `{ erreur }` (forme), ou `{ bloque }` (anti-arnaque, avec le code de la règle).
+export const MOT_MAX = 60;
+export function lireLeJaimeSurReponse(body, target) {
+  if (!body?.sur) return {};
+  const q = String(typeof body.sur === 'object' ? body.sur.q : body.sur);
+  const questions = [target.profile?.promptQ, ...(target.profile?.extras || []).map((x) => x?.q)].filter(Boolean);
+  if (!questions.includes(q)) return { erreur: { status: 400, code: 'SWIPE_INVALID', message: "Cette question n'est pas sur sa fiche." } };
+  const mot = String(body.mot || '').replace(/\s+/g, ' ').trim();
+  if (mot.length > MOT_MAX) return { erreur: { status: 400, code: 'MOT_TROP_LONG', message: `Un mot de ${MOT_MAX} caractères au plus.` } };
+  if (mot) {
+    const check = checkMessage(mot, 0, config.contactUnlockAfter);
+    if (!check.ok) return { bloque: check };
+  }
+  return { sur: q, mot: mot || null };
+}
+
 api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {
   const me = req.user;
   const { targetId, action } = req.body || {};
@@ -1114,6 +1133,17 @@ api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {
   if (!joignable(me, rel, target)) return fail(res, 403, 'SWIPE_INVALID', "Ce profil n'est pas disponible.");
   // Déjà en match : rien à refaire, et surtout rien à renotifier.
   if (rel.match.has(target.id)) return res.json({ match: { id: rel.match.get(target.id).id, other: await publicProfile(target) } });
+  // « J'aime » **sur une réponse** (audit/15, lot 2). La question visée doit être sur la fiche de
+  // la cible — sans ça un client rangerait n'importe quel mot-clé —, et le mot passe par
+  // l'anti-arnaque comme un message, **avant** que le balayage soit rangé : un « J'aime » qui
+  // porte une demande d'argent ne doit exister nulle part, même sans son mot. Le mot ne sort du
+  // serveur qu'au match, comme premier message : d'ici là, personne ne le lit.
+  const surReponse = action === 'like' ? lireLeJaimeSurReponse(req.body, target) : {};
+  if (surReponse.erreur) return fail(res, surReponse.erreur.status, surReponse.erreur.code, surReponse.erreur.message, surReponse.erreur.extra);
+  if (surReponse.bloque) {
+    mesurer('antiscam_block', me.id, { c: surReponse.bloque.code });
+    return fail(res, 422, surReponse.bloque.code, surReponse.bloque.message, { categorie: surReponse.bloque.categorie, unlockAfter: config.contactUnlockAfter });
+  }
   if (await store.swipesToday(me.id) >= quotaDe(me)) {
     // Le palier touché, pas seulement le fait de buter : 2 (sans badge) et 5 (gratuit) ne
     // racontent pas la même histoire, et un jour où le chiffre bougera il faudra savoir lequel
@@ -1123,10 +1153,13 @@ api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {
     return fail(res, 429, 'DAILY_LIMIT', "Tu as vu tous tes profils du jour. Reviens demain.");
   }
   const previous = await store.swipeOf(me.id, target.id);
-  if (!previous) await store.addSwipe(me.id, target.id, action);
+  if (!previous) await store.addSwipe(me.id, target.id, action, surReponse);
   // Rattrapage depuis la liste : un « Passer » peut devenir un « J'aime ». L'inverse, non : un like
   // a pu prévenir la personne, on ne le retire pas en silence.
-  else if (previous.action === 'pass' && action === 'like') await store.updateSwipe(me.id, target.id, 'like');
+  else if (previous.action === 'pass' && action === 'like') await store.updateSwipe(me.id, target.id, 'like', surReponse);
+  else if (previous.action === 'like') surReponse.sur = null; // déjà aimé : le premier mot reste, rien ne s'écrase
+  // La clé de la question, jamais le mot : c'est ce qui dit si le geste sert, pas ce qu'on y écrit.
+  if (surReponse.sur && !target.demo) mesurer('like_sur', me.id, { q: surReponse.sur });
 
   if (action === 'like') {
     if (!me.firstLikeAt) await store.updateUser(me.id, { firstLikeAt: Date.now() });
@@ -1136,8 +1169,16 @@ api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {
       const match = await store.createMatch(me.id, target.id);
       // Des deux côtés : un match se fait à deux, et c'est le délai de chacun qu'on mesure.
       for (const u of [me, target]) if (!u.firstMatchAt) await store.updateUser(u.id, { firstMatchAt: Date.now() });
+      // Le mot joint à un « J'aime » devient le **premier message** de la discussion, de qui l'a
+      // écrit, dans l'ordre des deux « J'aime ». Une fois seulement : un fil déjà ouvert (deux
+      // likes simultanés) ne le reçoit pas deux fois.
+      const [leur, mien] = [await store.swipeOf(target.id, me.id), await store.swipeOf(me.id, target.id)];
+      if ((await store.messagesOf(match.id)).length === 0) {
+        for (const s of [leur, mien].filter((x) => x?.mot).sort((a, b) => a.at - b.at)) await store.addMessage(match.id, s.from, s.mot);
+      }
       notify(target.id, 'Nouveau match : {nom} et toi, vous vous plaisez.', { nom: me.profile.name }, { label: 'Écrire', params: { screen: 'chat', match: match.id } });
-      return res.json({ match: { id: match.id, other: await publicProfile(target) } });
+      // `aime` : ce que l'autre a aimé de ma fiche, pour que l'écran de match le nomme.
+      return res.json({ match: { id: match.id, other: await publicProfile(target), ...(leur?.sur ? { aime: { q: leur.sur, mot: leur.mot || '' } } : {}) } });
     }
     // Like non réciproque : on prévient la personne sans révéler qui (au plus une fois par jour).
     //
@@ -1291,7 +1332,13 @@ api.get('/matches/:id', requireMembre, async (req, res) => {
   // `lu` : jusqu'où l'autre a lu, pour les deux coches. `enLigne` : l'autre a cette discussion
   // ouverte en ce moment — pas « vu à telle heure », qui serait de la filature.
   const reponse = { id: r.m.id, messages, ...(supprimes.length ? { supprimes } : {}), ecrit: store.isTyping(r.other.id, r.m.id), lu: r.m.readAt?.[String(r.other.id)] || 0, enLigne: store.isViewing(r.other.id, r.m.id) };
-  if (premierAppel) Object.assign(reponse, { other: await publicProfile(r.other), dates, unlockAfter: config.contactUnlockAfter, depuis: r.m.createdAt });
+  if (premierAppel) {
+    Object.assign(reponse, { other: await publicProfile(r.other), dates, unlockAfter: config.contactUnlockAfter, depuis: r.m.createdAt });
+    // Ce que l'autre a aimé de ma fiche : la clé de la question, pour la carte d'ouverture. Le
+    // mot, lui, est déjà dans le fil — c'est le premier message.
+    const leur = await store.swipeOf(r.other.id, req.user.id);
+    if (leur?.sur) reponse.aime = { q: leur.sur };
+  }
   // Un rendez-vous peut naître ou changer entre deux interrogations : on renvoie les rendez-vous
   // aussi quand l'un d'eux a bougé depuis le dernier appel.
   else if (dates.some((d) => (d.updatedAt || d.createdAt || 0) > after)) reponse.dates = dates;

@@ -186,12 +186,93 @@ test("le paquet est photo d'abord : pas de corps sous le pli, la fiche au chevro
   assert.match(decouvrir, /data-action="swipe-like"/);
   assert.match(decouvrir, /tg\.setButtons\(null\)/, 'le bouton natif ne porte plus « J\'aime »');
   assert.ok(!/main: \{ text: t\("J'aime"\), onClick: \(\) => swipe/.test(decouvrir));
-  // La carte pleine ne rend pas le corps ; la fiche (person) le garde.
-  const carte = entre('function profileCard(p', 'function loadCardPhoto(');
+  // La carte pleine ne rend pas le corps ; la fiche (person) est une suite de blocs (lot 2).
+  const carte = entre('function profileCard(p', '// ---------- La fiche en blocs');
   assert.match(carte, /\$\{plein \? '' : `<div class="card-body">/);
   assert.match(carte, /data-action="fiche"/);
   const fiche = entre('  person({ id }) {', '  match() {');
-  assert.match(fiche, /profileCard\(p, \{ cls: 'top' \}\)/, 'la fiche montre la carte entière');
+  assert.match(fiche, /ficheEnBlocs\(p, \{ decidable/, 'la fiche est en blocs');
+});
+
+// ---------- Lot 2 de l'audit UI/UX : la fiche en blocs ----------
+
+// La fiche était la carte du paquet en plus long : la même photo, la même question, les mêmes
+// faits — rien que l'appui n'apportait. Elle est maintenant une suite de blocs, et les photos
+// après la première ne partent qu'en apparaissant : ouvrir une fiche ne coûte pas trois photos.
+test('la fiche est une suite de blocs : photo, question, photo, question, faits, confiance', () => {
+  const f = entre('function ficheEnBlocs(p', 'function lazyBlocsPhoto(p)');
+  // Une question par bloc, la première puis les supplémentaires, dans cet ordre.
+  assert.match(f, /const questions = \[p\.promptA \? \{ q: p\.promptQ, a: p\.promptA \} : null, \.\.\.\(p\.extras \|\| \[\]\)\]/);
+  assert.match(f, /class="bloc bloc-question"/);
+  // Les photos alternent avec les questions, et celles qui restent ferment la suite.
+  assert.match(f, /const autres = \(p\.photos \|\| \[\]\)\.slice\(1\);/);
+  assert.match(f, /if \(autres\[i\] !== undefined\) suite\.push\(blocPhoto\(autres\[i\]\)\)/);
+  assert.match(f, /autres\.slice\(questions\.length\)\.forEach\(\(n\) => suite\.push\(blocPhoto\(n\)\)\)/);
+  // Les faits, la voix et la confiance ferment la fiche ; la confiance ouvre toujours l'explication.
+  assert.match(f, /class="bloc bloc-faits"/);
+  assert.match(f, /\$\{boutonVoix\(p\)\}/);
+  assert.match(f, /class="bloc bloc-confiance">\$\{ligneConfiance\(p\)\}/);
+  assert.match(entre('function ligneConfiance(p)', 'const boutonVoix'), /data-screen="jauge"/);
+  // La photo de tête ne navigue pas entre les photos : elles sont des blocs, plus un carrousel.
+  assert.ok(!/photo-nav/.test(f), 'la fiche ne porte pas le carrousel de la carte');
+  // Rien de nouveau ne sort du serveur : la fiche ne lit que ce que la carte lisait déjà.
+  for (const champ of ['p.promptA', 'p.extras', 'p.photos', 'p.compat', 'p.languages', 'p.intentLabel', 'p.voix', 'p.trust']) {
+    assert.ok(f.includes(champ) || entre('const jaugeDe', 'function profileCard(p').includes(champ), `${champ} est un champ que la carte montrait déjà`);
+  }
+});
+
+test("les photos de la fiche après la première ne se chargent qu'en apparaissant", () => {
+  const l = entre('function lazyBlocsPhoto(p)', '// La photo d\'une fiche part toujours');
+  assert.match(l, /new IntersectionObserver/);
+  assert.match(l, /photoUrl\(p\.id, Number\(box\.dataset\.n\)\)/, 'la photo entière, pas la miniature : on la regarde');
+  assert.ok(!/mini: true/.test(l));
+  // Sans observateur, tout part : un bloc gris à vie serait pire qu'une photo de trop.
+  assert.match(l, /if \(!\('IntersectionObserver' in window\)\) \{ blocs\.forEach\(charger\); return; \}/);
+  const ecran = entre('  person({ id }) {', '  match() {');
+  assert.match(ecran, /loadCardPhoto\(p\);\s*lazyBlocsPhoto\(p\);/, 'la photo de tête part tout de suite, les autres en apparaissant');
+});
+
+// Le « J'aime » sur une réponse (lot 2, seconde moitié) : un cœur par réponse, une feuille avec
+// un champ, et c'est la personne qui appuie — rien ne part sans elle. Le mot voyage avec le
+// balayage ; l'écran de match et la carte d'ouverture nomment la réponse aimée.
+test("chaque réponse de la fiche porte un cœur quand on peut encore décider, et jamais sur un match", () => {
+  const f = entre('function ficheEnBlocs(p', 'function lazyBlocsPhoto(p)');
+  assert.match(f, /decidable \? `<button type="button" class="coeur" data-action="aimer-reponse" data-q="\$\{esc\(x\.q\)\}"/);
+  const ecran = entre('  person({ id }) {', '  match() {');
+  assert.match(ecran, /ficheEnBlocs\(p, \{ decidable: !match && p\.status !== 'liked' \}\)/);
+});
+
+test("aimer une réponse ouvre une feuille avec un champ borné, et n'envoie que sur « Envoyer »", () => {
+  const a = entre('async function aimerLaReponse(q)', '// « J\'aime » ou « Passer » depuis le détail');
+  assert.match(a, /champ: \{ placeholder: t\('Un mot pour l\\'accompagner \(facultatif\)'\), maxlength: MOT_MAX \}/);
+  assert.match(a, /if \(r\?\.id !== 'aimer'\) return;/, 'annuler ou fermer la feuille ne fait rien');
+  assert.match(a, /swipePerson\('like', \{ sur: q, mot: r\.valeur \}\)/);
+  assert.match(a, /const MOT_MAX = 60;/);
+  const sp = entre('async function swipePerson(action', 'function dessinerLePass() {');
+  assert.match(sp, /\.\.\.\(sur \? \{ sur, mot \} : \{\}\)/, 'sans réponse visée, la requête ne change pas');
+});
+
+test("la feuille avec un champ rend le mot avec le bouton, et Entrée vaut le bouton principal", () => {
+  const ui = fs.readFileSync(new URL('../public/ui.js', import.meta.url), 'utf8');
+  const f = ui.slice(ui.indexOf('export function feuille('), ui.indexOf('// ---------- Squelettes'));
+  assert.match(f, /resolve\(input \? \{ id, valeur: input\.value\.trim\(\) \} : id\)/);
+  assert.match(f, /if \(champ\.maxlength\) input\.maxLength = champ\.maxlength;/);
+  assert.match(f, /e\.key === 'Enter'/);
+});
+
+test("l'écran de match et la carte d'ouverture nomment la réponse aimée, par sa clé de question", () => {
+  const m = entre('  match() {', '  async matches(');
+  assert.match(m, /m\.aime \? `<p class="lead">\$\{t\('\{nom\} a aimé ta réponse à « \{question\} »', \{ nom: esc\(m\.other\.name\), question: esc\(libelleQuestion\(m\.aime\.q\)\) \}\)\}<\/p>/);
+  assert.match(m, /m\.aime\.mot \? `<p class="mot-aime">« \$\{esc\(m\.aime\.mot\)\} »<\/p>`/);
+  const o = entre('function ouverture(c)', 'function poserLAmorce');
+  assert.match(o, /c\.aime \? `<p class="lead">\$\{t\('\{nom\} a aimé ta réponse à « \{question\} »'/);
+  assert.match(app, /aime: data\.aime \|\| null,/, 'la discussion retient ce que le premier appel a dit');
+});
+
+test("l'aperçu de son propre profil garde la carte : c'est ce que les autres voient dans le paquet", () => {
+  const moi = entre('  me() {', 'Ton pseudo et ton numéro Telegram ne sont jamais montrés');
+  assert.match(moi, /profileCard\(pp, \{ own: true \}\)/);
+  assert.ok(!/ficheEnBlocs/.test(moi));
 });
 
 test('revenir sur le dernier balayage passe par le serveur, dans la minute, et jamais après un match', () => {

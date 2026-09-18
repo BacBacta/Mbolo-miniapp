@@ -579,4 +579,13 @@ export default {
   "La vue Liste vient avec le pass": "Вигляд «Список» відкривається з пасом",
   "Les mêmes personnes, en liste, avec « T'a liké » sur celles qui t'ont déjà dit oui.": "Ті самі люди списком, з позначкою «Ти сподобався(-лась)» у тих, хто вже сказав так.",
   "Voir le pass": "Подивитися пас",
+  "En bref": "Коротко",
+  "Intention": "Мета",
+  "Langues": "Мови",
+  "Aimer cette réponse": "Подобається ця відповідь",
+  "Aimer sa réponse": "Подобається відповідь",
+  "Un mot pour l'accompagner (facultatif)": "Кілька слів на додачу (необов'язково)",
+  "Envoyer le J'aime": "Надіслати лайк",
+  "{nom} a aimé ta réponse à « {question} »": "{nom} вподобав(ла) твою відповідь на «{question}»",
+  "Annuler": "Скасувати",
 };

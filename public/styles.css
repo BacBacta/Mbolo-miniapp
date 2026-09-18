@@ -422,10 +422,32 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 
 /* Présentation vocale : un bouton posé dans le corps de la carte, jamais sur la photo — il se
    touche pendant qu'on lit, pas pendant qu'on balaie. Rien n'est téléchargé avant l'appui. */
-.card-body .voix { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 7px 14px; border-radius: 999px; background: var(--bg3); color: var(--text); border: 1px solid var(--line); }
-.card-body .voix .voix-icone { display: inline-flex; }
-.card-body .voix.joue { background: color-mix(in srgb, var(--like) 16%, var(--bg3)); border-color: color-mix(in srgb, var(--like) 40%, var(--line)); }
-.card-body .voix.charge { opacity: .6; pointer-events: none; }
+.card-body .voix, .fiche .voix { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 7px 14px; border-radius: 999px; background: var(--bg3); color: var(--text); border: 1px solid var(--line); }
+.card-body .voix .voix-icone, .fiche .voix .voix-icone { display: inline-flex; }
+.card-body .voix.joue, .fiche .voix.joue { background: color-mix(in srgb, var(--like) 16%, var(--bg3)); border-color: color-mix(in srgb, var(--like) 40%, var(--line)); }
+.card-body .voix.charge, .fiche .voix.charge { opacity: .6; pointer-events: none; }
+
+/* La fiche en blocs (audit/15, lot 2) : la photo, une question en carte, une autre photo, une
+   autre question, les faits, la confiance. Chaque bloc a la surface d'une carte ; la question
+   se lit en Fraunces, plus grande que sur la carte du paquet parce qu'ici on s'arrête dessus. */
+.fiche { display: grid; gap: 12px; }
+.fiche .card-photo { max-height: 70vh; }
+.fiche .bloc-question, .fiche .bloc-faits, .fiche .bloc-confiance { display: grid; gap: 8px; padding: 20px 22px 22px; border-radius: var(--r-xl); background: var(--bg); border: 1px solid var(--line); box-shadow: var(--shadow-1); }
+.fiche .bloc-question .q { font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--hint); }
+.fiche .bloc-question .a { font-family: var(--font-display); font-size: 26px; font-weight: 400; line-height: 1.18; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.fiche .bloc-question .a::before { content: '«\00a0'; } .fiche .bloc-question .a::after { content: '\00a0»'; }
+.fiche .bloc-question { position: relative; padding-right: 64px; }
+/* Le cœur d'une réponse : le « J'aime » sur un élément (lot 2). Un bouton de verre au repos ;
+   le rose ne s'y pose qu'à l'appui, comme sur le bouton rond du paquet. */
+.fiche .bloc-question .coeur { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg3); color: var(--like); display: grid; place-items: center; -webkit-tap-highlight-color: transparent; transition: transform .18s var(--spring), background .18s; }
+.fiche .bloc-question .coeur:active { transform: translateY(-50%) scale(.9); background: color-mix(in srgb, var(--like) 18%, var(--bg3)); }
+.match-hero .mot-aime { margin: -4px 0 0; font-family: var(--font-display); font-size: 22px; line-height: 1.25; color: #fff; max-width: 30ch; overflow-wrap: anywhere; }
+.feuille input[name="feuille-champ"] { width: 100%; height: 48px; padding: 0 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 16px; margin-bottom: 4px; }
+.feuille input[name="feuille-champ"]:focus { outline: none; border-color: var(--button); }
+.fiche .bloc-faits { gap: 12px; }
+.fiche .bloc-faits .voix { justify-self: start; margin: 0; }
+.fiche .bloc-confiance { padding: 6px 20px 20px; }
+.fiche .bloc-confiance .trust-row { border-top: 0; }
 .overlay { position: absolute; left: 20px; right: 20px; bottom: 20px; display: grid; gap: 7px; color: var(--on-photo); }
 .overlay .name { font-family: var(--font-display); font-size: 38px; font-weight: 400; letter-spacing: -.015em; line-height: 1; display: flex; align-items: baseline; gap: 9px; text-shadow: 0 1px 2px rgb(0 0 0 / .25); }
 .overlay .name .shield { align-self: center; color: var(--gold); display: inline-flex; margin-left: -2px; }
@@ -440,7 +462,7 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .prompt { display: grid; gap: 6px; padding: 0 2px; }
 .prompt .q { font-size: 12.5px; font-weight: 600; color: var(--hint); }
 .prompt .a { font-family: var(--font-display); font-size: 22px; font-weight: 400; line-height: 1.2; letter-spacing: -.005em; }
-.prompt .a::before { content: '« '; } .prompt .a::after { content: ' »'; }
+.prompt .a::before { content: '«\00a0'; } .prompt .a::after { content: '\00a0»'; }
 /* Fiche en sections : la réponse, ses infos, la confiance */
 .facts-sec { display: grid; gap: 8px; }
 .facts { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
@@ -493,7 +515,7 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .overlay .apercu { display: grid; gap: 2px; margin-top: 4px; }
 .overlay .apercu .q { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgb(247 245 251 / .62); }
 .overlay .apercu .a { font-family: var(--font-display); font-size: 18px; line-height: 1.22; letter-spacing: -.005em; color: var(--on-photo); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.overlay .apercu .a::before { content: '« '; } .overlay .apercu .a::after { content: ' »'; }
+.overlay .apercu .a::before { content: '«\00a0'; } .overlay .apercu .a::after { content: '\00a0»'; }
 .overlay .line > span { white-space: nowrap; }
 .overlay .line { flex-wrap: wrap; row-gap: 2px; }
 .overlay-trust { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 4px; font-size: 12.5px; font-weight: 500; color: rgb(247 245 251 / .82); }
