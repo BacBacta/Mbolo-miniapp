@@ -13,7 +13,7 @@ test("abandonner le formulaire à l'étape 2, revenir, et l'étape est partie av
   await actionPrincipale(page).click();
 
   // On remplit la première étape et on passe à la seconde, puis on s'arrête là.
-  await expect(titre(page)).toHaveText(/Fais-toi connaître/);
+  await expect(titre(page)).toHaveText(/Ta photo et ton prénom/);
   await page.locator('input[name=name]').fill('Awa');
   await page.locator('input[name=age]').fill('24');
   await page.locator('main button', { hasText: /Femme/ }).first().click();
@@ -38,7 +38,7 @@ test("une fois reçue, l'étape ne repart pas à chaque ouverture", async ({ pag
   const id = nouvelIdentifiant();
   await ouvrir(page, id);
   await actionPrincipale(page).click();
-  await expect(titre(page)).toHaveText(/Fais-toi connaître/);
+  await expect(titre(page)).toHaveText(/Ta photo et ton prénom/);
 
   await page.reload();
   await expect(titre(page)).toBeVisible();

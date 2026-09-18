@@ -47,28 +47,28 @@ test("en relation sérieuse, l'écran dit la règle au lieu d'offrir le choix", 
   await expect(page.locator('main')).toContainText(/tu vois donc des hommes/);
 });
 
-// La présentation vocale : proposée une fois juste après la vérification, puis toujours
-// atteignable depuis la fiche — plus depuis le fond des réglages.
-test('la présentation vocale se propose à la vérification, et reste sur la fiche', async ({ page }) => {
+// La présentation vocale : elle ne s'intercale plus entre la vérification et le premier visage
+// (audit 15, constat A) ; elle attend dans l'onglet Profil, sous la fiche, et l'écran dit le
+// geste à faire avant le saut vers le bot.
+test("la présentation vocale ne s'impose plus après la vérification, et attend sur la fiche", async ({ page }) => {
   await ouvrir(page, nouvelIdentifiant());
   await creerProfil(page, { prenom: 'Carine' });
   await passerLaJauge(page);
   await page.locator('input[type=file][name=selfie]').setInputFiles(sonSelfie);
   await actionPrincipale(page).click();
 
-  // Elle arrive d'elle-même, sans qu'on aille la chercher.
-  await expect(titre(page)).toHaveText(/Ta présentation vocale/, { timeout: 25_000 });
-  // Et elle dit le geste à faire avant de quitter l'app, pas après.
-  await expect(page.locator('main')).toContainText(/Appuie sur le micro/);
-  await expect(page.locator('main')).toContainText(/Le micro est dans Telegram/);
-
-  await actionSecondaire(page).click();
+  // Droit à la découverte.
   await expect(onglet(page, /Découvrir/)).toBeVisible({ timeout: 25_000 });
+  await expect(page.locator('main')).not.toContainText(/Ta présentation vocale/);
 
-  // Passée une fois, elle ne revient pas s'imposer — mais la fiche garde le chemin.
+  // La fiche garde le chemin, et l'écran dit le geste à faire avant de quitter l'app.
   await onglet(page, /Profil/).click();
   const ligne = page.locator('.list-row[data-screen="voix"]');
   await expect(ligne).toBeVisible();
   await ligne.click();
   await expect(titre(page)).toHaveText(/Ta présentation vocale/);
+  await expect(page.locator('main')).toContainText(/Appuie sur le micro/);
+  await expect(page.locator('main')).toContainText(/Le micro est dans Telegram/);
+  await actionSecondaire(page).click();
+  await expect(page.locator('.list-row[data-screen="voix"]')).toBeVisible();
 });

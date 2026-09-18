@@ -2,12 +2,12 @@
 // aussitôt, le minuteur de /summary continuait, et chaque appel authentifié recréait le compte
 // (audit/09-revue-code.md, I3). Ce test compte les requêtes après la suppression.
 import { test, expect } from '@playwright/test';
-import { membreVerifie, onglet } from './aides.js';
+import { membreVerifie, ouvrirLesReglages } from './aides.js';
 
 test('après la suppression, plus aucune requête ne part, et l\'écran le dit', async ({ page }) => {
   test.setTimeout(90_000);
   await membreVerifie(page, 'Yasmine');
-  await onglet(page, /Profil/).click();
+  await ouvrirLesReglages(page);
   const bouton = page.locator('button[data-action="delete"]');
   await bouton.scrollIntoViewIfNeeded();
 

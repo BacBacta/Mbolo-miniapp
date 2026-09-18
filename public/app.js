@@ -336,16 +336,29 @@ function emplacementsPhoto() {
   return Array.from({ length: Math.max(ouverts, occupes) }, (_, i) => i + 1);
 }
 
-const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => S.personFrom || 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', pays: () => S.pays?.retour || 'me', plus: () => S.plusRetour || 'me', vues: () => 'me', voix: () => (S.voixApresVerif ? 'discover' : 'me') };
+// D'où l'on revient depuis un écran qui s'ouvre aussi bien depuis l'onglet Profil que depuis les
+// réglages : go() retient l'écran quitté, et le retour y ramène.
+const retourReglages = () => (S.ecranPrecedent === 'reglages' ? 'reglages' : 'me');
+const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => S.personFrom || 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', jauge: () => S.jaugeRetour || 'me', pays: () => S.pays?.retour || 'me', plus: () => S.plusRetour || 'me', vues: retourReglages, voix: retourReglages, reglages: () => 'me', confiance: retourReglages };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
 const TABS = [['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']];
 
 function go(screen, params = {}) {
-  if (screen === 'settings') screen = 'me';
+  if (screen === 'settings') screen = 'reglages';
+  // La direction de l'entrée (audit 15, constat AE) : le retour au parent de l'écran qu'on quitte
+  // arrive par la gauche, un écran qui a un parent arrive par la droite, un onglet fond sur place.
+  // On ne demande son parent qu'à l'écran **quitté** — celui qui arrive n'a pas encore posé son
+  // état, et le lire ici est exactement la panne du lot 0 (constat AF).
+  const dOu = S.screen;
+  const direction = PARENT[dOu]?.() === screen ? 'gauche' : PARENT[screen] ? 'droite' : 'fondu';
+  app.dataset.entree = direction;
+  S.ecranPrecedent = dOu;
   // L'écran de langue s'ouvre depuis deux endroits très éloignés : l'accueil, avant toute
   // inscription, et l'onglet Profil. On retient lequel, pour y revenir — et pour que le bouton
   // retour natif ne renvoie pas vers un onglet qui n'existe pas encore.
   if (screen === 'langue' && S.screen !== 'langue') S.langueRetour = S.screen;
+  // La jauge s'ouvre depuis une carte, une fiche, l'onglet Profil ou les réglages : on revient là.
+  if (screen === 'jauge' && S.screen !== 'jauge') S.jaugeRetour = S.screen;
   // Le brouillon des filtres ne sert qu'à l'aller-retour vers l'écran des pays. Le garder plus
   // longtemps ferait ressortir, à la prochaine ouverture des filtres, des âges que personne
   // n'a réglés — et « Enregistrer » les aurait pris pour un choix.
@@ -547,8 +560,6 @@ const fuseau = () => { try { return Intl.DateTimeFormat().resolvedOptions().time
 // valeur ne suit pas d'un appareil à l'autre — n'a pas de sens pour un abandon de formulaire,
 // qui a lieu sur un seul appareil.
 const ETAPE = 'form_step';
-const JAUGE_VUE = 'jauge_vue';
-const VOIX_VUE = 'voix_vue';
 // D'où la personne est arrivée, le temps d'un aller-retour. Même canal que l'étape du formulaire,
 // et pour la même raison : la requête existe déjà, le mot y monte sans en coûter une seconde.
 //
@@ -643,7 +654,7 @@ function profileCard(p, { own = false, cls = '', plein = false } = {}) {
           </div>
           ${plein ? `
           ${p.promptA ? `<div class="apercu"><span class="q">${esc(libelleQuestion(p.promptQ))}</span><span class="a">${esc(apercuReponse(p))}</span></div>` : ''}
-          <div class="overlay-trust"><span class="trust-pips">${(tr.criteres || []).map((c) => `<span class="${c.ok ? 'on' : ''}"></span>`).join('')}</span><span>${t('Confiance {n} sur {total}', { n: score, total: tr.total })}</span>${p.intentLabel ? `<span class="dot"></span><span>${esc(t(p.intentLabel))}</span>` : ''}</div>` : ''}
+          <button type="button" class="overlay-trust" data-action="go" data-screen="jauge" aria-label="${t('La jauge de confiance')}"><span class="trust-pips">${(tr.criteres || []).map((c) => `<span class="${c.ok ? 'on' : ''}"></span>`).join('')}</span><span>${t('Confiance {n} sur {total}', { n: score, total: tr.total })}</span>${p.intentLabel ? `<span class="dot"></span><span>${esc(t(p.intentLabel))}</span>` : ''}</button>` : ''}
         </div>
         ${cls === 'top' ? `<span class="stamp like" aria-hidden="true">${t("J'aime")}</span><span class="stamp pass" aria-hidden="true">${t('Passer')}</span>` : ''}
       </div>
@@ -820,7 +831,7 @@ function photoNav(box, e) {
 function completion() {
   const p = S.me.profile || {};
   const items = [
-    { icon: 'camera', title: t('Ajouter une photo'), sub: t('Les cartes avec photo sont bien plus regardées'), pts: 25, done: (S.me.photos || []).length > 0, step: 2 },
+    { icon: 'camera', title: t('Ajouter une photo'), sub: t('Les cartes avec photo sont bien plus regardées'), pts: 25, done: (S.me.photos || []).length > 0, step: 0 },
     { icon: 'pin', title: t('Indiquer ton quartier'), sub: t('Les profils de ton quartier passent devant'), pts: 15, done: !!p.area, step: 1 },
     { icon: 'globe', title: t('Préciser tes langues'), sub: t('Français, anglais, ewondo…'), pts: 10, done: !!p.languages, step: 2 },
   ];
@@ -894,6 +905,64 @@ async function renderPeople() {
     </div>`);
   tg.setButtons(null);
   lazyAvatars();
+}
+
+// Balayer une ligne de Messages vers la gauche découvre « Retirer », comme dans Telegram lui-même
+// (audit 15, constat T). Le geste est horizontal et franc : un défilement vertical ne l'ouvre
+// pas, un appui sur une ligne ouverte la referme au lieu d'ouvrir la discussion, et retirer passe
+// par la même confirmation que depuis « Se protéger » — c'est le même geste, un raccourci.
+const LARGEUR_RETIRER = 88;
+function balayageDesLignes() {
+  for (const rangee of app.querySelectorAll('.row-swipe')) {
+    const ligne = rangee.querySelector('.list-row');
+    let x0 = 0, y0 = 0, dx = 0, axe = null, ouverte = false, actif = false;
+    const poser = (v, anime) => { ligne.style.transition = anime ? 'transform .2s var(--ease)' : 'none'; ligne.style.transform = v ? `translateX(${v}px)` : ''; };
+    ligne.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' && e.button !== 0) return; x0 = e.clientX; y0 = e.clientY; dx = 0; axe = null; actif = true; });
+    ligne.addEventListener('pointermove', (e) => {
+      // Un mouvement ne compte que s'il a commencé sur cette ligne : un doigt posé à côté pendant
+      // qu'elle se referme hériterait d'un point de départ périmé.
+      if (!e.buttons || !actif) return;
+      const mx = e.clientX - x0, my = e.clientY - y0;
+      if (!axe && (Math.abs(mx) > 8 || Math.abs(my) > 8)) axe = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
+      if (axe !== 'x') return;
+      dx = Math.max(-LARGEUR_RETIRER, Math.min(0, (ouverte ? -LARGEUR_RETIRER : 0) + mx));
+      poser(dx, false);
+      rangee.dataset.glisse = '1';
+    });
+    const finir = () => {
+      actif = false;
+      if (axe !== 'x') return;
+      ouverte = dx < -LARGEUR_RETIRER / 2;
+      poser(ouverte ? -LARGEUR_RETIRER : 0, true);
+      rangee.classList.toggle('ouverte', ouverte);
+      setTimeout(() => delete rangee.dataset.glisse, 0);
+      axe = null;
+    };
+    ligne.addEventListener('pointerup', finir);
+    ligne.addEventListener('pointercancel', finir);
+    // Une ligne ouverte se referme au premier appui : ouvrir la discussion d'un geste qu'on
+    // voulait annuler serait pire que rien.
+    ligne.addEventListener('click', (e) => {
+      if (rangee.dataset.glisse) { e.preventDefault(); e.stopPropagation(); return; }
+      if (ouverte) { e.preventDefault(); e.stopPropagation(); ouverte = false; poser(0, true); rangee.classList.remove('ouverte'); }
+    }, true);
+  }
+}
+
+async function retirerLaLigne(matchId) {
+  const reponse = await tg.popup({
+    title: t('Retirer ce match'),
+    message: t("La discussion disparaît des deux côtés, sans que la personne soit prévenue. C'est définitif."),
+    buttons: [{ id: 'ok', type: 'destructive', text: t('Retirer') }, { id: 'cancel', type: 'cancel' }],
+  });
+  if (reponse !== 'ok') return;
+  try {
+    await api(`/matches/${encodeURIComponent(matchId)}`, { method: 'DELETE' });
+    S.matches = S.matches.filter((m) => m.id !== matchId);
+    S.matchesCharge = false;
+    toast(t('Match retiré.'));
+    if (S.screen === 'matches') SCREENS.matches();
+  } catch (e) { showError(e); }
 }
 
 // Vignettes de la liste : chargées seulement quand la ligne apparaît à l'écran. Cinquante photos
@@ -1176,7 +1245,7 @@ const SCREENS = {
     const step = S.formStep;
   noterEtape(step + 1);
     const o = S.me.options;
-    const titles = [p.name ? t('Modifie ton profil') : t('Fais-toi connaître'), t('Ce que tu cherches'), t('Ta touche personnelle')];
+    const titles = [p.name ? t('Modifie ton profil') : t('Ta photo et ton prénom'), t('Ce que tu cherches'), t('Ta touche personnelle')];
     const head = `
       <div class="step-head">
         <div class="stepper" aria-hidden="true">${[0, 1, 2].map((i) => `<span class="${i <= step ? 'on' : ''}"></span>`).join('')}</div>
@@ -1185,6 +1254,25 @@ const SCREENS = {
       </div>`;
     const bodies = [
       `
+      <!-- La photo d'abord (audit 15, constat B) : c'est l'actif principal d'une fiche, et la
+           mettre en troisième étape, en petit, disait le contraire. Le premier emplacement est
+           grand ; les autres suivent la limite. Facultative, toujours. -->
+      <div class="field"><span class="label">${t('Tes photos')} <span class="opt">${t("jusqu'à {n}, facultatif", { n: limite('photos') || 2 })}</span></span>
+        <div class="photo-slots premiere">${emplacementsPhoto().map((n) => {
+          const v = f.photos[n];
+          const existing = (S.me.photos || []).find((x) => x.n === n);
+          const src = v && v !== 'keep' ? v : v === 'keep' ? S.photoUrls[`${S.me.id}/${n}`] : null;
+          return `
+          <label class="photo-slot ${v ? 'has' : ''}" aria-label="${t('Photo {n}', { n })}">
+            ${src ? `<img src="${src}" alt="">` : v === 'keep' ? '' : `<span class="ajout">${icon('camera', 22)}${n === 1 ? `<span>${t('Ajouter ma photo')}</span>` : ''}</span>`}
+            <span class="num">${n}</span>
+            ${v ? `<button type="button" class="rm" data-action="photo-remove" data-n="${n}" aria-label="${t('Retirer la photo {n}', { n })}">${icon('x', 14)}</button>` : ''}
+            ${v === 'keep' && existing?.status === 'pending' ? `<span class="chip state">${t('En attente')}</span>` : v && v !== 'keep' ? `<span class="chip state">${t('Nouvelle')}</span>` : ''}
+            <input type="file" name="photo-${n}" accept="image/*" hidden>
+          </label>`;
+        }).join('')}</div>
+        <span class="small muted">${t('Les cartes avec photo sont bien plus regardées')}. ${t("Chaque photo est vérifiée avant d'être montrée aux autres. Compressée sur ton téléphone.")}</span>
+      </div>
       <label class="field"><span class="label">${t('Prénom')}</span><input name="name" maxlength="30" value="${esc(f.name)}" autocomplete="given-name" placeholder="${t('Ton prénom')}"></label>
       <label class="field"><span class="label">${t('Âge')}</span><input name="age" type="number" inputmode="numeric" min="18" max="99" value="${esc(f.age)}" placeholder="24"></label>
       <div class="field"><span class="label">${t('Tu es')}</span>
@@ -1213,22 +1301,6 @@ const SCREENS = {
       <label class="field"><span class="label">${t('Quartier')} <span class="opt">${t('facultatif')}</span></span><input name="area" maxlength="40" value="${esc(f.area)}" placeholder="${t('Ton quartier')}"></label>
       <p class="fine">${icon('pin', 14)}<span>${t("Tu verras d'abord les profils de ta ville. Tu pourras élargir à tout le pays, ou viser une autre ville, depuis les filtres.")}</span></p>`,
       `
-      <div class="field"><span class="label">${t('Tes photos')} <span class="opt">${t("jusqu'à {n}, facultatif", { n: limite('photos') || 2 })}</span></span>
-        <div class="photo-slots">${emplacementsPhoto().map((n) => {
-          const v = f.photos[n];
-          const existing = (S.me.photos || []).find((x) => x.n === n);
-          const src = v && v !== 'keep' ? v : v === 'keep' ? S.photoUrls[`${S.me.id}/${n}`] : null;
-          return `
-          <label class="photo-slot ${v ? 'has' : ''}" aria-label="${t('Photo {n}', { n })}">
-            ${src ? `<img src="${src}" alt="">` : v === 'keep' ? '' : icon('plus', 22)}
-            <span class="num">${n}</span>
-            ${v ? `<button type="button" class="rm" data-action="photo-remove" data-n="${n}" aria-label="${t('Retirer la photo {n}', { n })}">${icon('x', 14)}</button>` : ''}
-            ${v === 'keep' && existing?.status === 'pending' ? `<span class="chip state">${t('En attente')}</span>` : v && v !== 'keep' ? `<span class="chip state">${t('Nouvelle')}</span>` : ''}
-            <input type="file" name="photo-${n}" accept="image/*" hidden>
-          </label>`;
-        }).join('')}</div>
-        <span class="small muted">${t("Chaque photo est vérifiée avant d'être montrée aux autres. Compressée sur ton téléphone.")}</span>
-      </div>
       <div class="field"><span class="label">${t('Une question sur toi')}</span>
         <div class="chips" role="group" aria-label="${t('Une question sur toi')}">${Object.entries(QUESTIONS).map(([k, l]) => `
           <button type="button" aria-pressed="${k === f.promptQ}" data-action="question" data-value="${esc(k)}">${esc(t(l))}</button>`).join('')}</div>
@@ -1243,7 +1315,7 @@ const SCREENS = {
       <p class="fine">${icon('ban', 14)}<span>${t('Ni numéro, ni pseudo, ni lien dans ton profil : ils seraient refusés.')}</span></p>`,
     ];
     render(`${head}${bodies[step]}<p id="form-error" class="error" role="alert"></p>`);
-    if (step === 2) emplacementsPhoto().filter((n) => f.photos[n] === 'keep' && !S.photoUrls[`${S.me.id}/${n}`]).forEach((n) => photoUrl(S.me.id, n).then((url) => {
+    if (step === 0) emplacementsPhoto().filter((n) => f.photos[n] === 'keep' && !S.photoUrls[`${S.me.id}/${n}`]).forEach((n) => photoUrl(S.me.id, n).then((url) => {
       const slot = app.querySelector(`input[name="photo-${n}"]`)?.closest('.photo-slot');
       if (url && slot && !slot.querySelector('img')) slot.prepend(Object.assign(document.createElement('img'), { src: url, alt: '' }));
     }));
@@ -1588,6 +1660,9 @@ function quandCourt(ts) {
 }
 
 function dessinerMessages() {
+  // Une ligne en cours de balayage, ou ouverte sur « Retirer », ne se fait pas remplacer sous le
+  // doigt par le rafraîchissement de fond : le prochain passage redessinera.
+  if (app.querySelector('.row-swipe[data-glisse], .row-swipe.ouverte')) return;
   {
     // Sans pass, la bande ne disparaît pas en silence : elle dit ce qui existe et où le voir.
     // Un manque sans explication se lit comme une panne, et on cherche ce qu'on a mal fait.
@@ -1619,6 +1694,7 @@ function dessinerMessages() {
       </div>` : ''}
       <div class="group"><span class="eyebrow">${t('Discussions')}</span>
         <div class="list">${S.matches.map((m) => `
+          <div class="row-swipe" data-id="${m.id}"><button type="button" class="row-action" data-action="retirer-ligne" data-id="${m.id}" tabindex="-1">${icon('trash', 18)}<span>${t('Retirer')}</span></button>
           <button type="button" class="list-row ${m.unread ? 'unread' : ''}" data-action="open-chat" data-id="${m.id}">
             ${avatar(m.other, 'sm')}
             <div class="body">
@@ -1626,9 +1702,10 @@ function dessinerMessages() {
               <div class="preview">${m.lastMessage ? `${m.lastMessage.mine ? t('Toi : ') : ''}${m.lastMessage.supprime ? t('Message supprimé') : m.lastMessage.photo && !m.lastMessage.text ? `${icon('image', 13)} ${t('Photo')}` : esc(m.lastMessage.text)}` : t('Nouveau match, écris le premier message')}</div>
             </div>
             ${m.unread ? `<span class="count-badge">${m.unread}</span>` : `<span class="chev">${icon('chevron-right', 18)}</span>`}
-          </button>`).join('')}
+          </button></div>`).join('')}
         </div>
       </div>`);
+    balayageDesLignes();
     S.matches.slice(0, 8).forEach((m) => loadAvatar(m.other));
     S.likes.slice(0, 6).forEach((p) => loadAvatar(p));
     tg.setButtons(null);
@@ -1799,7 +1876,7 @@ Object.assign(SCREENS, {
         ${listRow({ iconName: 'shield', title: t('Ce qu\'on garde d\'elle'), sub: t('Son prénom et son compte Telegram. Elle peut se retirer quand elle veut.') })}
       </div>`}
     `);
-    tg.setBack(() => go('me'));
+    tg.setBack(() => go(PARENT.confiance()));
     tg.setButtons(c ? null : { main: { text: t('Envoyer une invitation'), onClick: inviterConfiance } });
   },
 
@@ -1817,7 +1894,6 @@ Object.assign(SCREENS, {
   // cinquième ligne d'une liste de réglages.
   voix() {
     const v = S.me.voix;
-    const apres = S.voixApresVerif;
     render(`
       <div class="step-head"><h1>${t('Ta présentation vocale')}</h1>
         <p class="lead">${t("Quinze secondes de ta voix sur ta fiche. C'est facultatif, et tu peux la retirer quand tu veux.")}</p></div>
@@ -1833,7 +1909,7 @@ Object.assign(SCREENS, {
     `);
     tg.setButtons({
       main: { text: v ? t('Réenregistrer') : t('Enregistrer ma présentation'), onClick: () => ouvrirLeBotVoix() },
-      secondary: { text: apres ? t('Plus tard') : t('Retour'), onClick: () => { S.voixApresVerif = false; go(apres ? 'discover' : 'me'); } },
+      secondary: { text: t('Retour'), onClick: () => go(retourReglages()) },
     });
   },
 
@@ -1903,8 +1979,8 @@ Object.assign(SCREENS, {
     // Sans ça, toucher un de ces visages ouvrait Découvrir : `profilConnu()` n'a que ce qu'on range.
     S.vues = profiles;
     profiles.forEach((p) => loadAvatar(p));
-    tg.setBack(() => go('me'));
-    tg.setButtons({ main: { text: t('Compris'), onClick: () => go('me') } });
+    tg.setBack(() => go(PARENT.vues()));
+    tg.setButtons({ main: { text: t('Compris'), onClick: () => go(PARENT.vues()) } });
   },
 
   jauge() {
@@ -1926,8 +2002,8 @@ Object.assign(SCREENS, {
           </div>
         </div>`).join('')}</div>
       <p class="fine">${icon('info', 14)}<span>${t("Une jauge pleine ne veut pas dire qu'une personne est sûre. Elle dit ce qui a été vérifié — le reste, c'est ton jugement, et les rendez-vous dans un lieu public.")}</span></p>`);
-    tg.setBack(() => go(avantVerif ? 'verify' : 'me'));
-    tg.setButtons({ main: { text: t('Compris'), onClick: () => go(avantVerif ? 'verify' : 'me') } });
+    tg.setBack(() => go(PARENT.jauge()));
+    tg.setButtons({ main: { text: t('Compris'), onClick: () => go(PARENT.jauge()) } });
   },
 
   // Choisir un pays parmi 243, sans passer par le menu du système.
@@ -2000,7 +2076,7 @@ Object.assign(SCREENS, {
         </div>
       </div>
       <div class="list">
-        ${listRow({ iconName: 'sliders', tile: 'tile-neutral', title: t('Paramètres et confidentialité'), sub: t('Données, notifications, suppression du compte'), action: 'go', extra: ' data-screen="me"' })}
+        ${listRow({ iconName: 'sliders', tile: 'tile-neutral', title: t('Réglages'), sub: t('Compte, sécurité, {app} Plus', { app: APP }), action: 'go', extra: ' data-screen="reglages"' })}
       </div>`);
     tg.setButtons(null);
   },
@@ -2046,36 +2122,61 @@ Object.assign(SCREENS, {
               : t('15 secondes de ta voix sur ta fiche, en option'),
           action: 'go', extra: ' data-screen="voix"' })}
       </div>` : `<div class="notice notice-info">${icon('info', 18)}<span>${t("Tu n'as pas encore de profil.")}</span></div>`}
-      <div class="group"><span class="eyebrow">${t('Paramètres')}</span>
+      ${tg.hasSettingsButton() ? '' : `
+      <div class="list">
+        ${listRow({ iconName: 'sliders', tile: 'tile-neutral', title: t('Réglages'), sub: t('Compte, sécurité, {app} Plus', { app: APP }), action: 'go', extra: ' data-screen="reglages"' })}
+      </div>`}
+    `);
+    if (pp) { loadCardPhoto(pp, { own: true }); loadAvatar(pp, { own: true }); }
+    tg.setButtons({ main: { text: pp ? t('Modifier mon profil') : t('Créer mon profil'), onClick: () => { S.form = null; S.formStep = 0; go('profile'); } } });
+  },
+
+  // Les réglages, derrière le SettingsButton natif de Telegram (et une ligne de l'onglet Profil
+  // là où il n'existe pas). Trois groupes, plus « faire connaître » à part : avant, le pass, la
+  // story, l'invitation et la suppression du compte se suivaient dans la même liste, sous la
+  // fiche entière — cinq écrans de hauteur (audit 15, constats V et W).
+  reglages() {
+    render(`
+      <div class="step-head"><h1>${t('Réglages')}</h1></div>
+      <div class="group"><span class="eyebrow">${t('Compte')}</span>
         <div class="list">
-          ${listRow({ iconName: 'sparkles', tile: plus() ? 'tile-ok' : '', title: t('{app} Plus', { app: APP }),
-            sub: plus() ? t('Actif jusqu\'au {date}', { date: new Date(S.me.plus.finLe).toLocaleDateString(langue(), { dateStyle: 'long' }) })
-              : t("Qui t'a aimé, des « J'aime » sans compter, tout le pays"),
-            action: 'plus', extra: ' data-quoi="profil"' })}
           ${listRow({ iconName: 'globe', title: t('Langue'), sub: LANGUES[langue()], action: 'go', extra: ` data-screen="langue"` })}
-          ${listRow({ iconName: 'users', title: t("Se sont arrêtés sur ta fiche"), sub: t('Combien, en gros, et les cinq dernières fiches'), action: 'go', extra: ' data-screen="vues"' })}
+          ${listRow({ iconName: 'shield', title: t('Confidentialité'), sub: t('Ce qu\'on sait de toi, et comment tout effacer'), action: 'page', extra: ' data-page="/confidentialite"' })}
+          ${listRow({ iconName: 'info', title: t("Conditions d'utilisation"), sub: t('Les règles, en une page'), action: 'page', extra: ' data-page="/conditions"' })}
+        </div>
+      </div>
+      <div class="group"><span class="eyebrow">${t('Sécurité')}</span>
+        <div class="list">
+          ${listRow({ iconName: 'shield', title: t('Personne de confiance'),
+            sub: S.me.confiance ? t('{prenom} est prévenu quand tu vas à un rendez-vous', { prenom: esc(S.me.confiance.prenom) }) : t("Quelqu'un qui sait où tu es quand tu vas à un rendez-vous"),
+            action: 'go', extra: ' data-screen="confiance"' })}
           <label class="list-row">
             <span class="tile">${icon('lock', 20)}</span>
             <div class="body"><div class="title">${t('Rester discret')}</div><div class="sub">${t("Tu n'apparais pas dans « qui s'est arrêté sur ta fiche », et tu ne la vois pas non plus")}</div></div>
             <input type="checkbox" class="switch" name="discretion" ${S.me.discretion ? 'checked' : ''}>
           </label>
           ${listRow({ iconName: 'shield', title: t('La jauge de confiance'), sub: t('Ce que les pastilles mesurent, et comment les obtenir'), action: 'go', extra: ' data-screen="jauge"' })}
-          ${listRow({ iconName: 'shield', title: t('Personne de confiance'),
-            sub: S.me.confiance ? t('{prenom} est prévenu quand tu vas à un rendez-vous', { prenom: esc(S.me.confiance.prenom) }) : t("Quelqu'un qui sait où tu es quand tu vas à un rendez-vous"),
-            action: 'go', extra: ' data-screen="confiance"' })}
+        </div>
+      </div>
+      <div class="group"><span class="eyebrow">${t('{app} Plus', { app: APP })}</span>
+        <div class="list">
+          ${listRow({ iconName: 'sparkles', tile: plus() ? 'tile-ok' : '', title: t('{app} Plus', { app: APP }),
+            sub: plus() ? t('Actif jusqu\'au {date}', { date: new Date(S.me.plus.finLe).toLocaleDateString(langue(), { dateStyle: 'long' }) })
+              : t("Qui t'a aimé, des « J'aime » sans compter, tout le pays"),
+            action: 'plus', extra: ' data-quoi="profil"' })}
+          ${listRow({ iconName: 'users', title: t("Se sont arrêtés sur ta fiche"), sub: t('Combien, en gros, et les cinq dernières fiches'), action: 'go', extra: ' data-screen="vues"' })}
+        </div>
+      </div>
+      <div class="group"><span class="eyebrow">${t('Faire connaître {app}', { app: APP })}</span>
+        <div class="list">
           ${listRow({ iconName: 'heart', tile: 'tile-like', title: t('Inviter une amie ou un ami'), sub: t("Plus il y a de profils vérifiés près de toi, mieux c'est"), action: 'invite', trailing: `<span class="chev">${icon('share', 18)}</span>` })}
           ${tg.canShareToStory() ? listRow({ iconName: 'sparkles', title: t('Partager en story'), sub: t('Ton profil n\'y apparaît pas'), action: 'story', trailing: `<span class="chev">${icon('share', 18)}</span>` }) : ''}
           ${tg.canAddToHome() ? listRow({ iconName: 'home', title: t("Ajouter à l'écran d'accueil"), action: 'home' }) : ''}
         </div>
       </div>
-      <div class="list">
-        ${listRow({ iconName: 'shield', title: t('Confidentialité'), sub: t('Ce qu\'on sait de toi, et comment tout effacer'), action: 'page', extra: ' data-page="/confidentialite"' })}
-        ${listRow({ iconName: 'info', title: t("Conditions d'utilisation"), sub: t('Les règles, en une page'), action: 'page', extra: ' data-page="/conditions"' })}
-      </div>
       <div class="danger-zone"><button type="button" class="btn btn-danger btn-block" data-action="delete">${icon('trash', 18)} ${t('Supprimer mon compte et mes données')}</button></div>
     `);
-    if (pp) { loadCardPhoto(pp, { own: true }); loadAvatar(pp, { own: true }); }
-    tg.setButtons({ main: { text: pp ? t('Modifier mon profil') : t('Créer mon profil'), onClick: () => { S.form = null; S.formStep = 0; go('profile'); } } });
+    tg.setButtons(null);
   },
 });
 
@@ -2242,14 +2343,12 @@ async function saveProfile() {
     S.me = await api(ME());
     oublierLesPhotos();
     tg.haptic('success');
+    // Profil → vérification → Découvrir, sans interstitiel (audit 15, constat A) : la jauge
+    // s'explique depuis la première carte, d'un appui sur ses pastilles, et la voix se propose
+    // depuis l'onglet Profil. Six écrans avant le premier visage, c'était trois de trop.
     if (verifie()) {
       toast(t('Profil mis à jour'), 'ok');
       go('me');
-    } else if (!local?.getItem(JAUGE_VUE)) {
-      // Une seule fois, à l'inscription : la jauge s'affiche partout, autant dire tout de suite
-      // ce qu'elle mesure. Retenu dans le navigateur — aucune requête de plus.
-      try { local.setItem(JAUGE_VUE, '1'); } catch { /* navigation privée : tant pis, on la remontrera */ }
-      go('jauge');
     } else {
       go('verify');
     }
@@ -2281,14 +2380,8 @@ async function refreshStatus() {
     S.me = me;
     if (verifie()) {
       tg.haptic('success');
-      // Une seule fois, au moment où le compte vient d'être vérifié : c'est là qu'on a une fiche
-      // à compléter et l'envie de s'en servir. Retenu dans le navigateur, comme la jauge — aucune
-      // requête de plus. Passer outre mène à la découverte, et la fiche garde le lien.
-      if (!me.voix && !local?.getItem(VOIX_VUE)) {
-        try { local.setItem(VOIX_VUE, '1'); } catch { /* navigation privée : on la remontrera */ }
-        S.voixApresVerif = true;
-        return go('voix');
-      }
+      // Droit à la découverte : la présentation vocale attend dans l'onglet Profil, elle ne
+      // s'impose plus entre la vérification et le premier visage (audit 15, constat A).
       go('discover');
     } else if (me.verification === 'rejected') {
       toast(t('Vérification refusée : réessaie avec le visage bien visible.'), 'warn');
@@ -2582,15 +2675,18 @@ async function menuDuMessage(id) {
   const m = S.chat?.messages.find((x) => x.id === id);
   if (!m || m.supprime) return;
   const extrait = m.photo && !m.text ? t('Photo') : m.text.length > 80 ? `${m.text.slice(0, 80)}…` : m.text;
-  // Telegram n'accepte que trois boutons : « Annuler » ne s'ajoute que s'il reste une place —
-  // un appui à côté du popup ferme de toute façon.
-  const buttons = [
-    { id: 'repondre', type: 'default', text: t('Répondre') },
-    ...(m.text ? [{ id: 'copier', type: 'default', text: t('Copier') }] : []),
-    ...(m.mine ? [{ id: 'supprimer', type: 'destructive', text: t('Supprimer') }] : []),
-  ];
-  if (buttons.length < 3) buttons.push({ id: 'cancel', type: 'cancel' });
-  const choix = await tg.popup({ message: extrait, buttons });
+  // Une feuille à nous, pas le popup de Telegram (audit 15, lot 3) : le popup natif est fait pour
+  // une confirmation — trois boutons au plus, aucune place pour une ligne de réactions —, et un
+  // menu est une liste. Le popup reste pour ce qu'il sait faire : confirmer une suppression.
+  const choix = await feuille({
+    texte: extrait,
+    boutons: [
+      { id: 'repondre', texte: t('Répondre') },
+      ...(m.text ? [{ id: 'copier', texte: t('Copier') }] : []),
+      ...(m.mine ? [{ id: 'supprimer', texte: t('Supprimer'), danger: true }] : []),
+      { id: 'cancel', texte: t('Annuler') },
+    ],
+  });
   if (S.screen !== 'chat' || !S.chat) return;
   if (choix === 'repondre') preparerLaReponse(id);
   else if (choix === 'copier') copier(m.text);
@@ -3268,6 +3364,7 @@ app.addEventListener('click', async (e) => {
     case 'amorce': poserLAmorce(el.dataset.k, el.dataset.texte); break;
     case 'report-profile': go('protection', { id: el.dataset.id }); break;
     case 'aimer-reponse': tg.haptic('light'); aimerLaReponse(el.dataset.q); break;
+    case 'retirer-ligne': tg.haptic('medium'); retirerLaLigne(el.dataset.id); break;
     case 'report-chat': go('protection', { id: S.chat.other.id, matchId: S.chat.id }); break;
     case 'signaler': signaler(el.dataset.motif); break;
     case 'bloquer': bloquer(); break;
@@ -3554,7 +3651,7 @@ async function boot() {
   // Le compte porte peut-être un choix de langue explicite, qui l'emporte sur celle de Telegram
   if (langueVoulue() !== langue()) { await chargerLangue(langueVoulue()); buildTabs(); }
   S.discoverMode = (await tg.cloudGet('discover_mode')) === 'list' ? 'list' : 'cards';
-  tg.onSettings(() => go('me'));
+  tg.onSettings(() => go('reglages'));
 
   const params = tg.launchParams();
   if (!S.me.profile) return go('welcome');

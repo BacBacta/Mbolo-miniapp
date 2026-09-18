@@ -143,7 +143,7 @@ Carte à la hauteur de l'écran, information sur le scrim, fiche au tap (F) · t
 ### Lot 2 — La fiche et le « J'aime » sur un élément (une à deux semaines) — **livré le 18 septembre 2026**
 Fiche en blocs (L) · cœur sur chaque question, mot de 60 caractères passé à l'anti-arnaque, premier message posé à l'ouverture de la discussion · l'écran de match nomme ce qui a plu. Événement `like_sur` (clé de la question, jamais le mot) pour `npm run chiffres`. C'est le lot qui touche le produit le plus profondément — et celui dont le marché a le plus mesuré l'effet.
 
-### Lot 3 — Structure et navigation (une semaine)
+### Lot 3 — Structure et navigation (une semaine) — **livré le 18 septembre 2026**
 Réglages derrière le SettingsButton, en trois groupes (V, W) · Profil réduit à l'essentiel · transitions directionnelles (AE) · feuilles du bas pour les portes du pass et les menus, popups natifs pour les seules confirmations · photo en première étape du profil (B) · interstitiels jauge et voix sortis du parcours d'entrée (A) · barres du bas unifiées (AD) · balayage sur les lignes de Messages (T).
 
 ### Lot 4 — La discussion, dernier tiers (une semaine)

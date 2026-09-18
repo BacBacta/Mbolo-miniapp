@@ -26,12 +26,12 @@ test("de l'accueil à la découverte, sans jamais rester bloqué", async ({ page
 test('tant que le profil est incomplet, on ne passe pas à l\'étape suivante', async ({ page }) => {
   await ouvrir(page, nouvelIdentifiant());
   await actionPrincipale(page).click();
-  await expect(titre(page)).toHaveText(/Fais-toi connaître/);
+  await expect(titre(page)).toHaveText(/Ta photo et ton prénom/);
 
   // Rien de rempli : le bouton refuse, et dit pourquoi plutôt que de ne rien faire.
   await actionPrincipale(page).click();
   await expect(page.locator('main')).toContainText(/prénom|Choisis/i);
-  await expect(titre(page)).toHaveText(/Fais-toi connaître/, { timeout: 3000 });
+  await expect(titre(page)).toHaveText(/Ta photo et ton prénom/, { timeout: 3000 });
 });
 
 // L'âge est la seule règle que l'app ne peut pas assouplir : elle protège des mineurs.
@@ -43,7 +43,7 @@ test('un âge de moins de 18 ans est refusé', async ({ page }) => {
   await page.locator('main button', { hasText: /Femme/ }).first().click();
   await actionPrincipale(page).click();
   await expect(page.locator('main')).toContainText(/18/);
-  await expect(titre(page)).toHaveText(/Fais-toi connaître/);
+  await expect(titre(page)).toHaveText(/Ta photo et ton prénom/);
 });
 
 // Sans vérification, la découverte reste fermée : c'est la promesse « tous les profils sont vérifiés ».
@@ -84,21 +84,27 @@ function assertRien(envois) {
   expect(envois, 'aucun selfie ne doit partir avant le clic sur Envoyer').toEqual([]);
 }
 
-// La jauge s'affiche sur chaque carte : l'explication doit donc arriver avant la première carte,
-// pas dans un menu que personne n'ouvre. Et elle doit décrire exactement ce que le score compte —
-// le garant est abandonné (P1-6), donc il n'apparaît ni dans le texte, ni au dénominateur.
-test("la jauge de confiance s'explique à l'inscription, et n'annonce que des critères atteignables", async ({ page }) => {
+// La jauge s'affiche sur chaque carte : elle s'explique donc **depuis la carte**, d'un appui sur
+// ses pastilles — plus par un écran intercalé entre le profil et la vérification (audit 15,
+// constat A : six écrans avant le premier visage). Et elle doit décrire exactement ce que le
+// score compte — le garant est abandonné (P1-6), donc ni dans le texte, ni au dénominateur.
+test("la jauge de confiance s'explique depuis la première carte, et n'annonce que des critères atteignables", async ({ page }) => {
   await ouvrir(page, nouvelIdentifiant());
   await creerProfil(page, { prenom: 'Ngo' });
 
+  // Profil → vérification, sans interstitiel.
+  await expect(titre(page)).toHaveText(/Vérifie que c'est bien toi/);
+  await seFaireVerifier(page);
+
+  // Depuis la carte : les pastilles ouvrent l'explication, et le retour ramène au paquet.
+  await onglet(page, /Découvrir/).click();
+  await page.locator('.deck .card.top .overlay-trust').click();
   await expect(titre(page)).toHaveText(/La jauge de confiance/);
   await expect(page.locator('main')).toContainText(/Selfie vérifié/);
   await expect(page.locator('main')).toContainText(/Membre depuis 3 mois/);
   await expect(page.locator('main')).not.toContainText(/garant/i);
-
   await actionPrincipale(page).click();
-  await expect(titre(page)).toHaveText(/Vérifie que c'est bien toi/);
-  await seFaireVerifier(page);
+  await expect(page.locator('.deck .card.top')).toBeVisible();
 
   // Vérifiée : un critère sur les deux ouverts, et la carte le dit avec le même dénominateur.
   await onglet(page, /Profil/).click();
@@ -129,7 +135,7 @@ test("la langue se choisit dès l'accueil, avant de créer quoi que ce soit", as
 
   // Et le choix tient pendant l'inscription : c'est tout l'intérêt de le proposer si tôt.
   await actionPrincipale(page).click();
-  await expect(titre(page)).not.toHaveText(/Fais-toi connaître/);
+  await expect(titre(page)).not.toHaveText(/Ta photo et ton prénom/);
 });
 
 // Le selfie n'ouvre pas la caméra, et l'app ne le promet plus.
@@ -200,16 +206,9 @@ test('le pays se cherche au lieu de se faire défiler, et le clavier ne se ferme
 test('les photos du profil ne demandent pas la caméra', async ({ page }) => {
   await ouvrir(page, nouvelIdentifiant());
   await actionPrincipale(page).click();
-  await expect(titre(page)).toHaveText(/Fais-toi connaître/);
-  await page.locator('input[name=name]').fill('Ada');
-  await page.locator('input[name=age]').fill('24');
-  await page.locator('main button', { hasText: /Femme/ }).first().click();
-  await actionPrincipale(page).click();
-  await expect(titre(page)).toHaveText(/Ce que tu cherches/);
-  await page.locator('main button', { hasText: /Amitié/ }).first().click();
-  await page.locator('input[name=city]').fill('Yaoundé');
-  await actionPrincipale(page).click();
-  await expect(titre(page)).toHaveText(/Ta touche personnelle/);
+  // La photo est en première étape (audit 15, constat B) : c'est là que sont les emplacements.
+  await expect(titre(page)).toHaveText(/Ta photo et ton prénom/);
+  await expect(page.locator('.photo-slots.premiere')).toBeVisible();
 
   // Deux emplacements sans pass — le nombre vient du serveur (`me.limites.photos`), et l'écran
   // ne doit pas en dessiner un de plus : un troisième cadre qu'on ne peut pas remplir est une
@@ -230,7 +229,7 @@ test('les photos du profil ne demandent pas la caméra', async ({ page }) => {
 test('les villes connues sont des pastilles, pas une boîte du système', async ({ page }) => {
   await ouvrir(page, nouvelIdentifiant());
   await actionPrincipale(page).click();
-  await expect(titre(page)).toHaveText(/Fais-toi connaître/);
+  await expect(titre(page)).toHaveText(/Ta photo et ton prénom/);
   await page.locator('input[name=name]').fill('Ada');
   await page.locator('input[name=age]').fill('24');
   await page.locator('main button', { hasText: /Femme/ }).first().click();

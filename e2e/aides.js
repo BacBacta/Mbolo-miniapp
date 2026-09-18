@@ -32,7 +32,7 @@ export async function ouvrir(page, id) {
 export async function creerProfil(page, { prenom, age = '24', genre = /Femme/, intention = /Amitié/, ville = 'Yaoundé', quartier = 'Bastos' }) {
   await actionPrincipale(page).click();
 
-  await expect(titre(page)).toHaveText(/Fais-toi connaître/);
+  await expect(titre(page)).toHaveText(/Ta photo et ton prénom/);
   await page.locator('input[name=name]').fill(prenom);
   await page.locator('input[name=age]').fill(age);
   await page.locator('main button', { hasText: genre }).first().click();
@@ -50,10 +50,17 @@ export async function creerProfil(page, { prenom, age = '24', genre = /Femme/, i
   await actionPrincipale(page).click();
 }
 
-// L'explication de la jauge de confiance s'ouvre une fois, juste après l'enregistrement du
-// profil (P1-5). « Une fois » se retient dans le navigateur : un deuxième compte créé dans le
-// même onglet ne la reverra pas. D'où le passage tolérant — le test qui vérifie qu'elle
-// s'affiche, lui, est dans inscription.spec.js et n'a rien de tolérant.
+// Les réglages vivent derrière le SettingsButton de Telegram ; hors Telegram, l'onglet Profil
+// porte une ligne qui y mène (audit 15, lot 3).
+export async function ouvrirLesReglages(page) {
+  await onglet(page, /Profil|Анкета|Профіль/).click();
+  await page.locator('.list-row[data-screen="reglages"]').click();
+  await expect(titre(page)).toHaveText(/Réglages|Settings|Настройки|Налаштування/);
+}
+
+// Depuis le lot 3 de l'audit 15, ni la jauge ni la présentation vocale ne s'intercalent entre le
+// profil et la découverte : profil → vérification → Découvrir. Les deux passages ci-dessous sont
+// gardés tolérants — ils traversent l'écran s'il est là, et ne font rien sinon.
 export async function passerLaJauge(page) {
   await expect(titre(page)).toHaveText(/La jauge de confiance|Vérifie que c'est bien toi/);
   if (/jauge/i.test((await titre(page).textContent()) || '')) await actionPrincipale(page).click();

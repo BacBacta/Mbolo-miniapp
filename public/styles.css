@@ -181,6 +181,12 @@ svg { display: inline-block; vertical-align: -.15em; }
   main > :nth-child(3) { animation-delay: 40ms; }
   main > :nth-child(n + 4) { animation-delay: 60ms; }
   @keyframes enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  /* La direction (audit 15, constat AE) : un écran enfant arrive par la droite, le retour à son
+     parent par la gauche ; les onglets fondent sur place. go() pose data-entree sur main. */
+  main[data-entree="droite"] > * { animation-name: entre-droite; animation-duration: .22s; }
+  main[data-entree="gauche"] > * { animation-name: entre-gauche; animation-duration: .22s; }
+  @keyframes entre-droite { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+  @keyframes entre-gauche { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
 }
 
 /* ------------------------------------------------------------ Barre d'onglets persistante */
@@ -285,6 +291,11 @@ button.list-row:active, label.list-row:active { background: var(--bg2); transfor
 .list-row .title .quand { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--hint); white-space: nowrap; }
 .list-row .preview { font-size: 13.5px; color: var(--hint); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .list-row.unread .preview { color: var(--text); font-weight: 600; }
+/* Une ligne de Messages balayée vers la gauche découvre « Retirer » (audit 15, constat T) */
+.row-swipe { position: relative; overflow: hidden; }
+.row-swipe .list-row { position: relative; background: var(--bg); touch-action: pan-y; will-change: transform; }
+.row-swipe .row-action { position: absolute; top: 0; right: 0; bottom: 0; width: 88px; border: 0; background: var(--danger); color: #fff; display: grid; place-content: center; justify-items: center; gap: 2px; font-size: 12px; font-weight: 600; }
+.row-swipe:not(.ouverte) .row-action { pointer-events: none; }
 .chev { color: var(--hint); opacity: .55; flex-shrink: 0; }
 
 /* Interrupteur */
@@ -381,6 +392,10 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .avatar-picker { display: grid; justify-items: center; gap: 10px; padding: 6px 0; }
 /* Trois emplacements de photo dans le formulaire */
 .photo-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+/* En première étape, le premier emplacement est grand : c'est lui qu'on demande, les autres suivent */
+.photo-slots.premiere { grid-template-columns: repeat(3, 1fr); grid-auto-rows: auto; }
+.photo-slots.premiere .photo-slot:first-child { grid-column: 1 / 3; grid-row: 1 / 3; }
+.photo-slot .ajout { display: grid; justify-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--hint); text-align: center; padding: 0 8px; }
 .photo-slot { position: relative; aspect-ratio: 4 / 5; border-radius: 18px; overflow: hidden; background: var(--btn-secondary); border: 1.5px dashed var(--line-strong); display: grid; place-items: center; color: var(--hint); cursor: pointer; }
 .photo-slot.has { border-style: solid; border-color: var(--line); }
 .photo-slot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -518,7 +533,8 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .overlay .apercu .a::before { content: '«\00a0'; } .overlay .apercu .a::after { content: '\00a0»'; }
 .overlay .line > span { white-space: nowrap; }
 .overlay .line { flex-wrap: wrap; row-gap: 2px; }
-.overlay-trust { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 4px; font-size: 12.5px; font-weight: 500; color: rgb(247 245 251 / .82); }
+.overlay-trust { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 4px; font-size: 12.5px; font-weight: 500; color: rgb(247 245 251 / .82);
+  padding: 0; border: 0; background: none; font-family: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .overlay-trust .dot { width: 5px; height: 5px; border-radius: 50%; background: rgb(247 245 251 / .45); }
 .overlay-trust .trust-pips span { background: rgb(247 245 251 / .28); }
 .overlay-trust .trust-pips span.on { background: var(--gold); }
@@ -908,8 +924,11 @@ body.chat-mode main > * { animation: none; }
 /* ------------------------------------------------------------ Barre de secours et toast */
 .fallback-bar { position: sticky; bottom: 0; z-index: 5; display: flex; gap: 8px; padding: 10px 16px calc(12px + var(--safe-bottom)); max-width: 560px; margin: 0 auto; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border-top: 1px solid var(--line); }
 .fallback-bar button { flex: 1; height: 50px; border: 0; border-radius: 16px; font-size: 15px; font-weight: 600; }
+/* Une règle (audit 15, constat AD) : le principal toujours à droite et toujours plein, le
+   secondaire toujours fantôme — un filet, pas une surface. Dans Telegram, SecondaryButton est
+   posé à gauche (tg.js) avec la surface bg3, le plus proche d'un fantôme que le natif sache faire. */
 .fallback-bar .main { background: var(--button); color: var(--button-text); }
-.fallback-bar .secondary { background: var(--btn-secondary); color: var(--text); }
+.fallback-bar .secondary { background: transparent; color: var(--text); border: 1px solid var(--line-strong); }
 .fallback-bar button:disabled { opacity: .6; }
 
 .toast { position: fixed; left: 16px; right: 16px; bottom: calc(90px + var(--safe-bottom)); max-width: 520px; margin: 0 auto; z-index: 10; display: flex; gap: 10px; align-items: center; padding: 12px 16px; border-radius: 16px; background: color-mix(in srgb, var(--text) 92%, transparent); color: var(--bg); font-size: 14px; font-weight: 500; box-shadow: 0 12px 32px rgb(0 0 0 / .28); }

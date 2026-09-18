@@ -166,6 +166,10 @@ export function setBack(fn) {
   }
 }
 
+// Vrai quand Telegram affiche le bouton « Réglages » dans son menu : l'onglet Profil n'a alors
+// pas besoin d'une ligne pour y mener. Hors Telegram, ou sur un client trop ancien, la ligne reste.
+export const hasSettingsButton = () => inTelegram && supports('7.0') && !!W.SettingsButton;
+
 export function onSettings(fn) {
   if (supports('7.0') && W.SettingsButton) {
     W.SettingsButton.onClick(fn);

@@ -79,6 +79,8 @@ redevenir sans qu'on s'en aperçoive. Le numéro dit de quel lot elles viennent.
 
 ## 3. Créer le profil
 
+- [ ] **(audit 15, lot 3)** La première étape est **la photo**, en grand, avec le prénom, l'âge et le
+      genre ; puis ce que tu cherches ; puis ta question. Sans photo, ça passe quand même.
 - [ ] Prénom, âge, genre, intention : l'écran avance étape par étape.
 - [ ] Le champ « ville » n'a **aucune suggestion pré-remplie** dans le champ lui-même.
 - [ ] **(revue, lot 4)** Écris comme ville : `Douala 677 12 34 56`. L'enregistrement doit être
@@ -113,9 +115,11 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
 
 ## 4. La jauge de confiance
 
-- [ ] Juste après l'enregistrement du profil, l'écran d'explication s'ouvre **une seule fois**.
-- [ ] Il annonce **sur 2**, pas sur 3.
-- [ ] Il ne se rouvre pas au lancement suivant ; on le retrouve depuis l'onglet Profil.
+- [ ] **(audit 15, lot 3)** Après l'enregistrement du profil, l'app va **droit à la vérification** :
+      aucun écran ne s'intercale.
+- [ ] Sur une carte de Découvrir, touche les **pastilles de confiance** : l'écran d'explication
+      s'ouvre ; il annonce **sur 2**, pas sur 3 ; « Compris » ramène **au paquet**.
+- [ ] On le retrouve aussi dans les réglages (groupe Sécurité), et le retour y revient.
 
 ---
 
@@ -171,7 +175,8 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
 
 ## 6. Présentation vocale
 
-- [ ] Juste après la vérification, l'écran de la présentation vocale est proposé **une fois**.
+- [ ] **(audit 15, lot 3)** Juste après la vérification, l'app va **droit à Découvrir** : la
+      présentation vocale attend dans l'onglet Profil, sous la fiche.
 - [ ] Le bouton ouvre la **discussion du bot**, pas un navigateur, et l'écran ne fige pas.
 - [ ] Le bot dit le geste en premier : « Appuie sur le micro, en bas de cette discussion. »
 - [ ] Enregistre un vocal de moins de 15 s (30 s avec un pass, et la consigne du bot doit dire le bon nombre) : il arrive dans le groupe de modération avec ses
@@ -249,6 +254,9 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
 - [ ] Les deux comptes reçoivent la notification « Nouveau match » du bot.
 - [ ] Dans l'onglet Messages, la discussion apparaît avec « Nouveau match, écris le premier
       message ».
+- [ ] **(audit 15, lot 3)** Balaie une ligne de Messages vers la gauche : « Retirer » apparaît ;
+      un appui sur la ligne la referme sans ouvrir la discussion ; « Retirer » demande
+      confirmation, puis la ligne disparaît. Un défilement vertical n'ouvre rien.
 - [ ] **(revue, lot 4)** Envoie un message, puis reviens à la liste : l'aperçu est précédé de
       **« Toi : »**. Depuis l'autre compte, le même aperçu s'affiche **sans** « Toi : ».
       *L'auteur de chaque message ne sort plus du serveur ; seul « c'est de moi » voyage. Si ce
@@ -366,14 +374,18 @@ Et ceux-ci doivent **passer** — c'est le vrai risque, tuer une conversation or
 
 ---
 
-## 14. Onglet Profil
+## 14. Onglet Profil et réglages
 
-- [ ] **Tester les notifications** : le message arrive, et son bouton rouvre le bon écran.
+- [ ] **(audit 15, lot 3)** L'onglet Profil tient en un écran : en-tête, complétion, la fiche, la
+      voix. Les réglages sont derrière le bouton **⋯ → Réglages** de Telegram (SettingsButton) :
+      quatre groupes — Compte, Sécurité, Odo Plus, Faire connaître Odo — puis « Supprimer mon
+      compte ». Ce qu'on ouvre depuis les réglages y revient au retour.
+- [ ] **Tester les notifications** : `/test` dans le bot ; le message arrive, et son bouton rouvre le bon écran.
 - [ ] **Confidentialité** et **Conditions** s'ouvrent dans un navigateur par-dessus l'app, sans
       figer l'écran.
 - [ ] **(revue, lot 4)** La page de confidentialité contient bien le passage sur le **genre
       recherché** — cette instance tourne sur la politique ouverte, et la page doit le dire.
-- [ ] La langue se change depuis ici aussi, et le retour renvoie à l'onglet Profil.
+- [ ] La langue se change depuis les réglages aussi, et le retour renvoie aux réglages.
 
 ---
 
