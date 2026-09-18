@@ -118,7 +118,7 @@ export default {
   "Le micro est dans Telegram, pas dans cette app": "Мікрофон у Telegram, а не в цьому застосунку",
   "Les cartes avec photo sont bien plus regardées": "Картки з фото дивляться набагато частіше",
   "Les contacts se débloquent seulement après quelques messages.": "Контакти розблоковуються лише після кількох повідомлень.",
-  "Les demandes et offres d'argent sont bloquées sur {app}. Ce message ressemble à une {categorie}. Retire le montant ou le moyen de paiement, et renvoie-le.": "Прохання про гроші та їх пропозиції заблоковані в {app}. Це повідомлення схоже на {categorie}. Прибери суму або спосіб оплати й надішли ще раз.",
+  "Les demandes d'argent sont bloquées sur {app}. Ce message ressemble à une {categorie} : retire le montant ou le moyen de paiement, et renvoie-le.": "Прохання про гроші заблоковано в {app}. Це повідомлення схоже на {categorie}: прибери суму або спосіб оплати й надішли знову.",
   "Les liens, numéros et pseudos sont débloqués après {n} messages échangés de chaque côté.": "Посилання, номери й ніки розблоковуються після {n} повідомлень з кожного боку.",
   "Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.": "Люди, які вподобали твій профіль, залишаються в Чатах, незалежно від їхнього віку та міста.",
   "Les profils de ton quartier passent devant": "Профілі з твого району йдуть першими",

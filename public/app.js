@@ -149,7 +149,7 @@ const ERREURS = () => ({
 // Deux messages dépendent d'une valeur renvoyée par le serveur : on les compose ici.
 function messageErreur(data) {
   if (data?.code === 'CONTACT_TOO_EARLY') return t('Les liens, numéros et pseudos sont débloqués après {n} messages échangés de chaque côté.', { n: data.unlockAfter ?? 10 });
-  if (data?.code === 'MONEY_BLOCKED') return t("Les demandes et offres d'argent sont bloquées sur {app}. Ce message ressemble à une {categorie}. Retire le montant ou le moyen de paiement, et renvoie-le.", { app: APP, categorie: t(data.categorie || '') });
+  if (data?.code === 'MONEY_BLOCKED') return t("Les demandes d'argent sont bloquées sur {app}. Ce message ressemble à une {categorie} : retire le montant ou le moyen de paiement, et renvoie-le.", { app: APP, categorie: t(data.categorie || '') });
   if (data?.code === 'WRONG_VENUE') return t('Ce code ne correspond pas à {lieu}. Scanne le code posé sur ta table.', { lieu: data.venue || '' });
   return ERREURS()[data?.code] || data?.message || t('Un problème est survenu.');
 }

@@ -26,10 +26,10 @@ test("sans pass, Messages explique la place laissée vide, et la porte mène à 
   await expect(offres).toHaveCount(3);
   await expect(main).toContainText(/Le plus choisi/);
   await expect(page.locator('.offre[aria-checked="true"]')).toContainText(/30 jours/);
-  await expect(actionPrincipale(page)).toHaveText(/Prendre 30 jours · 299 ⭐/);
+  await expect(actionPrincipale(page)).toHaveText(/Prendre 30 jours · 299 ★/);
   // Choisir une autre durée change le bouton sans rien recharger.
   await offres.filter({ hasText: /7 jours/ }).click();
-  await expect(actionPrincipale(page)).toHaveText(/Prendre 7 jours · 99 ⭐/);
+  await expect(actionPrincipale(page)).toHaveText(/Prendre 7 jours · 99 ★/);
   // Ce que le pass ouvre tient en cinq lignes, et la règle qui compte est écrite : pas de reconduction.
   await expect(main).toContainText(/5 par jour sans le pass/);
   await expect(main).toContainText(/Aucune reconduction/);

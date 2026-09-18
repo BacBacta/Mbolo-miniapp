@@ -118,7 +118,7 @@ export default {
   'Le micro est dans Telegram, pas dans cette app': 'Maikrofoni iko ndani ya Telegram, si katika programu hii',
   'Les cartes avec photo sont bien plus regardées': 'Kadi zenye picha huangaliwa zaidi',
   'Les contacts se débloquent seulement après quelques messages.': 'Anwani hufunguliwa tu baada ya ujumbe kadhaa.',
-  'Les demandes et offres d\'argent sont bloquées sur {app}. Ce message ressemble à une {categorie}. Retire le montant ou le moyen de paiement, et renvoie-le.': 'Kuomba au kutoa pesa kumezuiwa kwenye {app}. Ujumbe huu unafanana na {categorie}. Ondoa kiasi au njia ya malipo, kisha utume tena.',
+  "Les demandes d'argent sont bloquées sur {app}. Ce message ressemble à une {categorie} : retire le montant ou le moyen de paiement, et renvoie-le.": "Maombi ya pesa yamezuiwa kwenye {app}. Ujumbe huu unafanana na {categorie}: ondoa kiasi au njia ya malipo, kisha utume tena.",
   'Les liens, numéros et pseudos sont débloqués après {n} messages échangés de chaque côté.': 'Viungo, namba na majina ya watumiaji hufunguliwa baada ya ujumbe {n} kutoka kila upande.',
   'Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.': 'Waliopenda wasifu wako hubaki kwenye Ujumbe, bila kujali umri na mji wao.',
   'Les profils de ton quartier passent devant': 'Wasifu wa mtaa wako huja kwanza',

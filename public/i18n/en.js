@@ -115,7 +115,7 @@ export default {
   'Le micro est dans Telegram, pas dans cette app': 'The microphone is in Telegram, not in this app',
   'Les cartes avec photo sont bien plus regardées': 'Cards with a photo get far more attention',
   'Les contacts se débloquent seulement après quelques messages.': 'Contact details unlock only after a few messages.',
-  'Les demandes et offres d\'argent sont bloquées sur {app}. Ce message ressemble à une {categorie}. Retire le montant ou le moyen de paiement, et renvoie-le.': 'Asking for or offering money is blocked on {app}. This message looks like {categorie}. Remove the amount or the payment method, and send it again.',
+  "Les demandes d'argent sont bloquées sur {app}. Ce message ressemble à une {categorie} : retire le montant ou le moyen de paiement, et renvoie-le.": "Money requests are blocked on {app}. This message looks like a {categorie}: remove the amount or the payment method, and send it again.",
   'Les liens, numéros et pseudos sont débloqués après {n} messages échangés de chaque côté.': 'Links, phone numbers and usernames unlock after {n} messages from each side.',
   'Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.': 'People who liked your profile stay in Chats, whatever their age and city.',
   'Les profils de ton quartier passent devant': 'Profiles from your neighbourhood come first',
