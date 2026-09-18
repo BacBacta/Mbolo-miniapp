@@ -13,6 +13,7 @@ export const LANGUES = ['fr', 'en', 'es', 'pt', 'sw', 'ru', 'uk'];
 export const LANGUE_SOURCE = 'fr';
 
 const EN = {
+  "C'est bon : {app} peut t'écrire ici. Tu sauras quand quelqu'un te plaît en retour, et quand on te répond.": "All good: {app} can write to you here. You will know when someone likes you back, and when you get a reply.",
   "Merci. Ton pass {app} Plus est actif jusqu'au {date}. Reçu : {ref}": "Thank you. Your {app} Plus pass is active until {date}. Receipt: {ref}",
   "Ton paiement de {n} Stars a été remboursé. Les jours correspondants sont retirés de ton pass.": "Your payment of {n} Stars has been refunded. The matching days were removed from your pass.",
   "remboursé": "refunded",
@@ -94,6 +95,7 @@ const EN = {
 };
 
 const ES = {
+  "C'est bon : {app} peut t'écrire ici. Tu sauras quand quelqu'un te plaît en retour, et quand on te répond.": "Listo: {app} puede escribirte aquí. Sabrás cuando le gustes a alguien también, y cuando te respondan.",
   "Merci. Ton pass {app} Plus est actif jusqu'au {date}. Reçu : {ref}": "Gracias. Tu pase {app} Plus está activo hasta el {date}. Recibo: {ref}",
   "Ton paiement de {n} Stars a été remboursé. Les jours correspondants sont retirés de ton pass.": "Tu pago de {n} Stars ha sido reembolsado. Los días correspondientes se han retirado de tu pase.",
   "remboursé": "reembolsado",
@@ -157,6 +159,7 @@ const ES = {
 };
 
 const PT = {
+  "C'est bon : {app} peut t'écrire ici. Tu sauras quand quelqu'un te plaît en retour, et quand on te répond.": "Tudo certo: a {app} pode escrever-te aqui. Vais saber quando alguém também gostar de ti, e quando te responderem.",
   "Merci. Ton pass {app} Plus est actif jusqu'au {date}. Reçu : {ref}": "Obrigado. O teu passe {app} Plus está ativo até {date}. Recibo: {ref}",
   "Ton paiement de {n} Stars a été remboursé. Les jours correspondants sont retirés de ton pass.": "O teu pagamento de {n} Stars foi reembolsado. Os dias correspondentes foram retirados do teu passe.",
   "remboursé": "reembolsado",
@@ -220,6 +223,7 @@ const PT = {
 };
 
 const SW = {
+  "C'est bon : {app} peut t'écrire ici. Tu sauras quand quelqu'un te plaît en retour, et quand on te répond.": "Sawa: {app} inaweza kukuandikia hapa. Utajua mtu akikupenda pia, na unapojibiwa.",
   "Merci. Ton pass {app} Plus est actif jusqu'au {date}. Reçu : {ref}": "Asante. Pasi yako ya {app} Plus inatumika hadi {date}. Risiti: {ref}",
   "Ton paiement de {n} Stars a été remboursé. Les jours correspondants sont retirés de ton pass.": "Malipo yako ya Stars {n} yamerudishwa. Siku husika zimeondolewa kwenye pasi yako.",
   "remboursé": "imerudishwa",
@@ -283,6 +287,7 @@ const SW = {
 };
 
 const RU = {
+  "C'est bon : {app} peut t'écrire ici. Tu sauras quand quelqu'un te plaît en retour, et quand on te répond.": "Готово: {app} может писать тебе здесь. Ты узнаешь, когда ты понравишься кому-то в ответ, и когда тебе ответят.",
   "Merci. Ton pass {app} Plus est actif jusqu'au {date}. Reçu : {ref}": "Спасибо. Твой пропуск {app} Plus действует до {date}. Чек: {ref}",
   "Ton paiement de {n} Stars a été remboursé. Les jours correspondants sont retirés de ton pass.": "Твой платёж на {n} Stars возвращён. Соответствующие дни сняты с пропуска.",
   "remboursé": "возвращено",
@@ -364,6 +369,7 @@ const RU = {
 };
 
 const UK = {
+  "C'est bon : {app} peut t'écrire ici. Tu sauras quand quelqu'un te plaît en retour, et quand on te répond.": "Готово: {app} може писати тобі тут. Ти дізнаєшся, коли ти сподобаєшся комусь у відповідь, і коли тобі дадуть відповідь.",
   "Merci. Ton pass {app} Plus est actif jusqu'au {date}. Reçu : {ref}": "Дякуємо. Твій пропуск {app} Plus діє до {date}. Чек: {ref}",
   "Ton paiement de {n} Stars a été remboursé. Les jours correspondants sont retirés de ton pass.": "Твій платіж на {n} Stars повернуто. Відповідні дні знято з пропуску.",
   "remboursé": "повернуто",

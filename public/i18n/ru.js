@@ -609,4 +609,8 @@ export default {
   "Découvrir en attendant": "Смотреть анкеты пока",
   "Selfie envoyé. On te prévient dès qu'il est vérifié.": "Селфи отправлено. Мы сообщим, как только оно будет проверено.",
   "Ton selfie est vérifié : le bouclier est sur ta fiche.": "Твоё селфи проверено: щит на твоей анкете.",
+  "Sans ça, le bot ne peut pas te prévenir d'un match. Tu pourras l'ouvrir depuis l'onglet Profil.": "Без этого бот не сможет сообщить тебе о матче. Ты сможешь открыть его во вкладке «Анкета».",
+  "Le bot ne peut pas te prévenir": "Бот не может тебя предупредить",
+  "Ouvre-le une fois : il te dira les matchs et les messages, même app fermée.": "Открой его один раз: он будет сообщать о матчах и сообщениях, даже когда приложение закрыто.",
+  "Le bot ne peut pas encore te prévenir de sa réponse : ouvre-le une fois depuis l'onglet Profil.": "Бот пока не может сообщить тебе об ответе: открой его один раз во вкладке «Анкета».",
 };

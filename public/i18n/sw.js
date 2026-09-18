@@ -609,4 +609,8 @@ export default {
   "Découvrir en attendant": "Gundua wakati huo",
   "Selfie envoyé. On te prévient dès qu'il est vérifié.": "Selfie imetumwa. Tutakujulisha mara tu itakapothibitishwa.",
   "Ton selfie est vérifié : le bouclier est sur ta fiche.": "Selfie yako imethibitishwa: ngao iko kwenye wasifu wako.",
+  "Sans ça, le bot ne peut pas te prévenir d'un match. Tu pourras l'ouvrir depuis l'onglet Profil.": "Bila hilo, boti haiwezi kukujulisha kuhusu match. Unaweza kuifungua kutoka kichupo cha Wasifu.",
+  "Le bot ne peut pas te prévenir": "Boti haiwezi kukujulisha",
+  "Ouvre-le une fois : il te dira les matchs et les messages, même app fermée.": "Ifungue mara moja: itakuambia kuhusu match na ujumbe, hata programu ikiwa imefungwa.",
+  "Le bot ne peut pas encore te prévenir de sa réponse : ouvre-le une fois depuis l'onglet Profil.": "Boti bado haiwezi kukujulisha jibu lake: ifungue mara moja kutoka kichupo cha Wasifu.",
 };
