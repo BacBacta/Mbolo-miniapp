@@ -201,6 +201,8 @@ audit/
   importants, par fichier et ligne, avec l'ordre de correction en six lots. À lire avant la bêta.
   14-fluidite.md : le banc de mesure et ses chiffres avant/après, ce qui manquait au chat, et
   ce qui faisait attendre pour rien.
+  15-ui-ux-premium.md : la passe UI/UX du 18 septembre 2026 face aux meilleures apps de 2026 —
+  76 captures (38 écrans, sombre et clair), 33 constats lettrés, cinq lots vers « ultra premium ».
 identite/
   Ce que BotFather affiche : photo du bot, image d'accueil, textes des cinq langues.
   Jamais servi au navigateur — **à une exception** : `source/story.html` sort dans
