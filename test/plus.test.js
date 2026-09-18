@@ -248,7 +248,13 @@ test('buter sur le quota dit désormais quel mur on a rencontré', async () => {
   for (let i = 0; i < 5; i += 1) await call('9170', '/swipes', 'POST', { targetId: await pid(`918${i}`), action: 'like' });
   assert.equal((await call('9170', '/swipes', 'POST', { targetId: await pid('9185'), action: 'like' })).status, 429);
 
-  const [mur] = (await store.events()).filter((e) => e.k === 'quota_hit' && String(e.u) === '9170');
+  // L'événement part sans retenir la réponse (mesurer() n'est pas attendu dans la route) : sur
+  // PostgreSQL, il peut arriver après le 429. On l'attend, comme les notifications ailleurs.
+  let mur;
+  for (let i = 0; i < 100 && !mur; i += 1) {
+    [mur] = (await store.events()).filter((e) => e.k === 'quota_hit' && String(e.u) === '9170');
+    if (!mur) await new Promise((r) => setTimeout(r, 20));
+  }
   assert.ok(mur, 'la butée est enregistrée');
   assert.equal(mur.p.q, config.dailyProfiles, 'avec le palier touché, pas seulement le fait de buter');
   assert.equal(mur.p.action, 'like');
