@@ -334,6 +334,15 @@ Et ceux-ci doivent **passer** — c'est le vrai risque, tuer une conversation or
 
 ---
 
+## 10 ter. Finition **(audit 15, lot 5)**
+
+- [ ] Règle la taille de police du téléphone sur « grand » : le texte de l'app grandit (listes,
+      bulles, titres) ; le prénom sur la photo et les tampons ne bougent pas.
+- [ ] Sur une carte, « Cette semaine » est blanc avec un point ambré devant, pas ambre.
+- [ ] La jauge (depuis les pastilles) montre deux grandes pastilles qui se remplissent ; la voix
+      montre une onde ; la personne de confiance, un aperçu du message ; les vues, le nombre en
+      grand. Avec « réduire les animations » dans Android, rien ne bouge.
+
 ## 10 bis. Réactions, légende, déblocage **(audit 15, lot 4)**
 
 - [ ] Appui long sur un message : une ligne de six emoji au-dessus du menu. Touche ❤️ : le chip

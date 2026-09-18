@@ -591,4 +591,6 @@ export default {
   "Ajouter ma photo": "Ongeza picha yangu",
   "Une légende, si tu veux": "Maelezo, ukipenda",
   "Liens et numéros à {n}": "Viungo na namba baada ya {n}",
+  "{nom} te prévient : elle ou il part à un rendez-vous maintenant. Tu es sa personne de confiance.": "{nom} anakujulisha: anaondoka kwenda kwenye miadi sasa. Wewe ni mtu wake wa kuaminika.",
+  "sur 30 jours": "kwa siku 30",
 };

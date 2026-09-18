@@ -418,3 +418,45 @@ test("la tuile floutée porte un cadenas, et son appui ouvre une feuille, pas l'
   assert.match(pf, /if \(r === 'pass'\) ouvrirLePass\(quoi\);/);
 });
 
+// ---------- Lot 5 de l'audit UI/UX : la finition continue ----------
+
+const css = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+
+// Le texte suit le réglage du téléphone (constat AA) : 100 % de la taille système, et les tailles
+// de lecture en rem. Ce qui est posé sur une photo reste en pixels : l'image le dimensionne.
+test("le texte est en rem et suit la taille du système, les composants de photo restent en pixels", () => {
+  assert.match(css, /html \{ font-size: 100%; \}/);
+  assert.match(css, /font: \.96875rem\/1\.5 var\(--font-ui\);/, 'le corps');
+  for (const sel of ['h1 {', '.lead {', '.list-row .title {', '.bubble {', '.eyebrow {', '.fine {']) {
+    const ligne = css.split('\n').find((l) => l.startsWith(sel));
+    assert.ok(ligne, `${sel} existe`);
+    assert.ok(!/font-size: [0-9.]+px/.test(ligne), `${sel} n'est plus en pixels`);
+  }
+  const photo = css.split('\n').find((l) => l.startsWith('.overlay .name {'));
+  assert.match(photo, /font-size: 38px/, 'le prénom sur la photo garde ses pixels');
+});
+
+// L'ambre sur le voile d'une photo tombait sous 3:1 (constat AC) : le mot est en --on-photo,
+// l'ambre ne reste que sur un point devant lui.
+test("l'ambre ne porte plus un texte posé sur une photo", () => {
+  const act = css.split('\n').find((l) => l.startsWith('.overlay .line .act {'));
+  assert.match(act, /color: var\(--on-photo\)/);
+  assert.ok(!/var\(--gold\)/.test(act));
+  assert.match(css, /\.overlay \.line \.act::before \{ content: ''; .*background: var\(--gold\)/);
+});
+
+// Chaque écran secondaire a un ancrage visuel (constat X) : la jauge montre la jauge, la voix une
+// onde, la personne de confiance le message qu'elle recevra, les vues le nombre en grand.
+test('les écrans secondaires ont chacun un ancrage visuel', () => {
+  assert.match(entre('  jauge() {', '  // Choisir un pays'), /<div class="jauge-visuel" aria-hidden="true">/);
+  assert.match(entre('  voix() {', '  supprime() {'), /<div class="onde" aria-hidden="true">/);
+  assert.match(entre('  confiance() {', '  async plus() {'), /<div class="apercu-message" aria-hidden="true">/);
+  assert.match(entre('  async vues() {', '  jauge() {'), /<p class="chiffre">/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.onde i, \.jauge-visuel/, 'les ancrages animés se taisent sous reduced-motion');
+});
+
+test('la spécification du mouvement est écrite dans styles.css, avec ses durées et ses courbes', () => {
+  assert.match(css, /Spécification du mouvement/);
+  for (const mot of ['120 ms', '200 ms', '220 ms', '260 ms', '--ease', '--spring', 'prefers-reduced-motion']) assert.ok(css.includes(mot), mot);
+});
+
