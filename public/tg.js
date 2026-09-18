@@ -85,6 +85,31 @@ export function onViewport(fn) {
 }
 
 export const initData = () => (inTelegram ? W.initData : '');
+
+// Ce que le téléphone dit de sa fenêtre : les mesures que l'app ne peut pas deviner, pour
+// comprendre depuis un écran (t.me/<bot>/<app>?startapp=diag) une mise en page qui ne se voit
+// que dans la vraie WebView de Telegram. Aucune de ces valeurs ne quitte le téléphone.
+export function diagnostic() {
+  const v = (nom) => getComputedStyle(document.documentElement).getPropertyValue(nom).trim() || '—';
+  const d = {
+    telegram: inTelegram ? `${W.platform} · ${W.version}` : 'non',
+    fenetre: `${window.innerWidth} × ${window.innerHeight}`,
+    ecran: `${screen.width} × ${screen.height} · ×${window.devicePixelRatio}`,
+    visualViewport: window.visualViewport ? String(Math.round(window.visualViewport.height)) : '—',
+    '--tg-viewport-height': v('--tg-viewport-height'),
+    '--tg-viewport-stable-height': v('--tg-viewport-stable-height'),
+    '--tg-safe-area-inset-bottom': v('--tg-safe-area-inset-bottom'),
+    '--tg-content-safe-area-inset-bottom': v('--tg-content-safe-area-inset-bottom'),
+  };
+  if (inTelegram) {
+    d.viewportHeight = String(W.viewportHeight);
+    d.viewportStableHeight = String(W.viewportStableHeight);
+    d.isExpanded = String(W.isExpanded);
+    d.safeAreaInset = JSON.stringify(W.safeAreaInset || null);
+    d.contentSafeAreaInset = JSON.stringify(W.contentSafeAreaInset || null);
+  }
+  return d;
+}
 export const telegramUser = () => (inTelegram ? W.initDataUnsafe?.user : null);
 
 // Paramètres de lancement : ?screen=chat&match=... (bouton du bot) ou start_param (lien t.me)
@@ -95,6 +120,7 @@ export function launchParams() {
     const [screen, id] = sp.split('_');
     if (screen === 'chat' && id) Object.assign(p, { screen: 'chat', match: id });
     else if (screen === 'ref') p.ref = id;
+    else if (screen === 'diag') p.screen = 'diag';
   }
   return p;
 }

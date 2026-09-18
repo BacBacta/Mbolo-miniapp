@@ -784,9 +784,15 @@ body.match-mode main { background: var(--ink); color: #fff; }
 .new-item span { max-width: 70px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ------------------------------------------------------------ Discussion */
-/* --tg-viewport-height suit l'ouverture du clavier dans Telegram */
-body.chat-mode main { height: var(--tg-viewport-height, 100dvh); min-height: 0; padding-bottom: calc(6px + var(--safe-bottom)); overflow: hidden; gap: 0; }
-body.chat-mode:has(#fallback-bar:not([hidden])) main { height: calc(var(--tg-viewport-height, 100dvh) - 74px); }
+/* --tg-viewport-height suit l'ouverture du clavier dans Telegram. La discussion prend la plus
+   petite des trois mesures — la hauteur annoncée par Telegram, sa dernière valeur stable, et la
+   fenêtre elle-même : le 18 septembre 2026, sur Telegram Android, sans bouton natif en bas,
+   la hauteur annoncée dépassait l'écran d'une soixantaine de pixels et le champ de saisie
+   vivait sous la barre de navigation du téléphone. Une valeur plus grande que l'écran n'est
+   jamais la bonne : ce qui est plus haut que la fenêtre est invisible par construction. */
+body.chat-mode { --hauteur-visible: min(var(--tg-viewport-height, 100dvh), var(--tg-viewport-stable-height, 100dvh), 100dvh); }
+body.chat-mode main { height: var(--hauteur-visible); min-height: 0; padding-bottom: calc(6px + var(--safe-bottom)); overflow: hidden; gap: 0; }
+body.chat-mode:has(#fallback-bar:not([hidden])) main { height: calc(var(--hauteur-visible) - 74px); }
 body.chat-mode main > * { animation: none; }
 .chat { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .chat-head { display: flex; gap: 12px; align-items: center; padding: 6px 0 12px; border-bottom: 1px solid var(--line); }

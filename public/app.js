@@ -339,7 +339,7 @@ function emplacementsPhoto() {
 // D'où l'on revient depuis un écran qui s'ouvre aussi bien depuis l'onglet Profil que depuis les
 // réglages : go() retient l'écran quitté, et le retour y ramène.
 const retourReglages = () => (S.ecranPrecedent === 'reglages' ? 'reglages' : 'me');
-const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => S.personFrom || 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', jauge: () => S.jaugeRetour || 'me', pays: () => S.pays?.retour || 'me', plus: () => S.plusRetour || 'me', vues: retourReglages, voix: retourReglages, reglages: () => 'me', confiance: retourReglages };
+const PARENT = { profile: () => (membre() ? 'me' : 'welcome'), verify: () => (membre() ? 'me' : 'profile'), match: () => 'discover', person: () => S.personFrom || 'discover', filters: () => 'discover', chat: () => 'matches', date: () => 'chat', protection: () => (S.protection?.matchId ? 'chat' : 'discover'), langue: () => S.langueRetour || 'me', jauge: () => S.jaugeRetour || 'me', pays: () => S.pays?.retour || 'me', plus: () => S.plusRetour || 'me', vues: retourReglages, voix: retourReglages, reglages: () => 'me', confiance: retourReglages, diag: () => 'me' };
 const TAB_SCREENS = ['discover', 'matches', 'me', 'safety'];
 const TABS = [['discover', 'Découvrir'], ['matches', 'Messages'], ['me', 'Profil'], ['safety', 'Sécurité']];
 
@@ -1990,6 +1990,19 @@ Object.assign(SCREENS, {
     profiles.forEach((p) => loadAvatar(p));
     tg.setBack(() => go(PARENT.vues()));
     tg.setButtons({ main: { text: t('Compris'), onClick: () => go(PARENT.vues()) } });
+  },
+
+  // Les mesures de la fenêtre, telles que le téléphone les donne. Pas dans les réglages : on y
+  // arrive par un lien (?startapp=diag), quand une mise en page ne se comprend qu'avec les
+  // chiffres de la vraie WebView. Rien n'est envoyé nulle part : la personne lit, et dit.
+  diag() {
+    const d = tg.diagnostic();
+    render(`
+      <div class="step-head"><h1>${t('Mesures de la fenêtre')}</h1>
+        <p class="lead">${t("Ce que ton téléphone dit de l'écran de l'app. Rien ne part d'ici : envoie une capture si on te la demande.")}</p></div>
+      <div class="list">${Object.entries(d).map(([k, v]) => `
+        <div class="list-row"><div class="body"><div class="sub">${esc(k)}</div><div class="title">${esc(v)}</div></div></div>`).join('')}</div>`);
+    tg.setButtons({ main: { text: t('Mesurer à nouveau'), onClick: () => go('diag') } });
   },
 
   jauge() {
@@ -3759,6 +3772,7 @@ async function boot() {
   if (params.screen === 'chat' && /^[a-f0-9]{16}$/.test(params.match || '')) return go('chat', { id: params.match });
   if (params.screen === 'matches') return go('matches');
   if (params.screen === 'me') return go('me');
+  if (params.screen === 'diag') return go('diag');
   go('discover');
 }
 
