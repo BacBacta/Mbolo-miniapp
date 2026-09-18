@@ -8,7 +8,7 @@
 // L'accueil est déjà couvert par inscription.spec.js. Celui-ci regarde l'autre porte, celle de
 // l'onglet Profil, et surtout ce qu'une langue à quatre formes de pluriel change à l'affichage.
 import { test, expect } from '@playwright/test';
-import { membreVerifie, onglet } from './aides.js';
+import { membreVerifie, onglet, ouvrirLesReglages, titre } from './aides.js';
 
 // La ligne est désignée par l'écran qu'elle ouvre, jamais par son libellé : une fois la langue
 // changée, ce libellé n'est plus « Langue » mais « Язык », et un test écrit en français ne
@@ -18,7 +18,7 @@ const ligneLangue = (page) => page.locator('.list-row[data-screen="langue"]');
 test('les sept langues sont proposées, et le choix change vraiment l’interface', async ({ page }) => {
   await membreVerifie(page, 'Awa');
 
-  await onglet(page, /Profil/).click();
+  await ouvrirLesReglages(page);
   await ligneLangue(page).click();
 
   // Chaque langue est nommée dans sa propre langue : c'est ce qui permet de reconnaître la
@@ -33,14 +33,15 @@ test('les sept langues sont proposées, et le choix change vraiment l’interfac
   await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
 
   // Et le choix tient : on rouvre l'écran, la langue courante est cochée.
-  await onglet(page, /Анкета/).click();
+  // Le choix ramène aux réglages, d'où l'écran a été ouvert.
+  await expect(titre(page)).toHaveText(/Настройки/);
   await ligneLangue(page).click();
   await expect(page.locator('.list-row', { hasText: 'Русский' }).locator('.c-ok')).toBeVisible();
 
   // L'ukrainien, puis le retour au français : aucune langue n'est un aller simple.
   await page.locator('.list-row', { hasText: 'Українська' }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'uk');
-  await onglet(page, /Профіль|Анкета|Profil/).click();
+  await expect(titre(page)).toHaveText(/Налаштування/);
   await ligneLangue(page).click();
   await page.locator('.list-row', { hasText: 'Français' }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'fr');

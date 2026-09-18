@@ -160,10 +160,13 @@ test("l'étoile Telegram est une icône, jamais l'emoji du téléphone", () => {
   assert.match(app, /\$\{choisie\.stars\} ★`/);
 });
 
-test('le menu du message propose Copier, et Telegram ne reçoit jamais plus de trois boutons', () => {
+test("le menu du message est une feuille à nous, avec Copier, et le popup natif ne sert qu'aux confirmations", () => {
   const menu = entre('async function menuDuMessage(', 'async function copier(');
   assert.match(menu, /id: 'copier'/);
-  assert.match(menu, /if \(buttons\.length < 3\) buttons\.push\(\{ id: 'cancel'/);
+  assert.match(menu, /await feuille\(\{/, 'une feuille, pas le popup de Telegram : un menu est une liste');
+  assert.ok(!/tg\.popup/.test(menu));
+  // Le popup natif reste pour confirmer : retirer un match, supprimer un message.
+  assert.match(entre('async function retirerLaLigne(', '// Vignettes de la liste'), /tg\.popup\(/);
 });
 
 test("« Tester les notifications » n'est plus un réglage de la personne", () => {
@@ -293,3 +296,81 @@ test('sans pass, le mode Liste ouvre une feuille du bas, pas un écran', () => {
 test('six pastilles de villes au plus', () => {
   assert.match(entre('const villesProposees = (pays, champ, valeur) =>', 'function poserLaVille('), /\.slice\(0, 6\)/);
 });
+
+// ---------- Lot 3 de l'audit UI/UX : structure et navigation ----------
+
+// Six écrans avant le premier visage (constat A) : la jauge et la voix s'intercalaient entre le
+// profil et la découverte. Elles restent atteignables — la jauge depuis les pastilles de la carte,
+// la voix depuis l'onglet Profil — mais ne s'imposent plus.
+test("ni la jauge ni la voix ne s'intercalent entre le profil et la découverte", () => {
+  const save = entre('async function saveProfile()', 'async function sendSelfie()');
+  assert.ok(!/go\('jauge'\)/.test(save), "l'enregistrement du profil mène à la vérification");
+  assert.match(save, /go\('verify'\)/);
+  const statut = entre('async function refreshStatus()', 'let swiping = false;');
+  assert.ok(!/go\('voix'\)/.test(statut), 'la vérification mène à la découverte');
+  assert.ok(!app.includes('jauge_vue') && !app.includes('voix_vue'), "plus de drapeaux « vu une fois »");
+  // La jauge à un appui depuis la carte, et le retour d'où elle a été ouverte.
+  assert.match(entre('function profileCard(p', '// ---------- La fiche en blocs'), /<button type="button" class="overlay-trust" data-action="go" data-screen="jauge"/);
+  assert.match(app, /if \(screen === 'jauge' && S\.screen !== 'jauge'\) S\.jaugeRetour = S\.screen;/);
+});
+
+// La photo d'abord (constat B) : c'est l'actif principal d'une fiche, et la mettre en troisième
+// étape disait le contraire.
+test('la photo est en première étape du profil, avec le prénom et l\'âge', () => {
+  const form = entre('  profile() {', '  // Aucune entrée fichier ne porte `capture`');
+  const etape0 = form.slice(form.indexOf('const bodies = ['), form.indexOf("<label class=\"field\"><span class=\"label\">${t('Prénom')}"));
+  assert.match(etape0, /photo-slots premiere/, 'les emplacements sont dans la première étape');
+  assert.ok(!/photo-slots/.test(form.slice(form.indexOf("${t('Une question sur toi')}"))), 'et plus dans la troisième');
+  assert.match(form, /if \(step === 0\) emplacementsPhoto\(\)/, 'les photos existantes se chargent à la première étape');
+  assert.match(entre('function completion()', 'function discoverBar()'), /done: \(S\.me\.photos \|\| \[\]\)\.length > 0, step: 0/);
+});
+
+// Trois écrans en un (constats V, W) : l'onglet Profil garde l'en-tête, la complétion, la fiche et
+// la voix ; tout le reste est derrière le SettingsButton, en groupes.
+test("les réglages sont derrière le SettingsButton, en groupes, et l'onglet Profil ne les liste plus", () => {
+  assert.match(app, /tg\.onSettings\(\(\) => go\('reglages'\)\)/);
+  assert.match(app, /if \(screen === 'settings'\) screen = 'reglages';/);
+  const moi = entre('  me() {', '  reglages() {');
+  for (const partie of ['data-screen="langue"', 'data-action="delete"', 'name="discretion"', 'data-action="invite"', 'data-screen="confiance"']) {
+    assert.ok(!moi.includes(partie), `${partie} a quitté l'onglet Profil`);
+  }
+  assert.match(moi, /tg\.hasSettingsButton\(\) \? '' :/, 'la ligne « Réglages » ne double pas le bouton natif');
+  const reglages = entre('  reglages() {', '// Ce qui remplace un `<select>`');
+  for (const groupe of ["t('Compte')", "t('Sécurité')", "t('{app} Plus', { app: APP })", "t('Faire connaître {app}', { app: APP })"]) {
+    assert.ok(reglages.includes(groupe), `le groupe ${groupe} existe`);
+  }
+  assert.match(reglages, /data-action="delete"/);
+  // Ce qui s'ouvre depuis les réglages y revient.
+  assert.match(app, /const retourReglages = \(\) => \(S\.ecranPrecedent === 'reglages' \? 'reglages' : 'me'\);/);
+  assert.match(app, /vues: retourReglages, voix: retourReglages, reglages: \(\) => 'me', confiance: retourReglages/);
+});
+
+// Les transitions ont une direction (constat AE) : un enfant entre par la droite, le retour par
+// la gauche, les onglets fondent. C'est go() qui le sait, avant que l'écran change.
+test("go() donne une direction à l'entrée de l'écran, calculée avant de changer d'écran", () => {
+  const g = entre('function go(screen, params = {}) {', '  S.screen = screen;');
+  assert.match(g, /const direction = PARENT\[dOu\]\?\.\(\) === screen \? 'gauche' : PARENT\[screen\] \? 'droite' : 'fondu';/);
+  assert.ok(!/PARENT\[screen\]\?\.\(\)/.test(g), "le parent de l'écran qui arrive n'est jamais lu avant qu'il soit dessiné");
+  assert.match(g, /app\.dataset\.entree = direction;/);
+  const css = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  assert.match(css, /main\[data-entree="droite"\] > \* \{ animation-name: entre-droite/);
+  assert.match(css, /main\[data-entree="gauche"\] > \* \{ animation-name: entre-gauche/);
+  // Et le secondaire est toujours un fantôme, le principal toujours plein (constat AD).
+  assert.match(css, /\.fallback-bar \.secondary \{ background: transparent;/);
+});
+
+// Balayer une ligne de Messages vers la gauche découvre « Retirer » (constat T) : le geste est
+// horizontal, une ligne ouverte se referme au premier appui, et retirer passe par la confirmation.
+test('une ligne de Messages se balaie vers la gauche pour retirer le match, avec confirmation', () => {
+  const liste = entre('  async matches({ silent = false } = {}) {', '// La suite des écrans, après l\'onglet Messages.');
+  assert.match(liste, /<div class="row-swipe" data-id="\$\{m\.id\}"><button type="button" class="row-action" data-action="retirer-ligne"/);
+  assert.match(liste, /balayageDesLignes\(\);/);
+  const b = entre('function balayageDesLignes()', 'async function retirerLaLigne(');
+  assert.match(b, /axe = Math\.abs\(mx\) > Math\.abs\(my\) \? 'x' : 'y'/, "un défilement vertical n'ouvre pas la ligne");
+  assert.match(b, /Math\.max\(-LARGEUR_RETIRER, Math\.min\(0,/, 'vers la gauche seulement, et pas plus loin que le bouton');
+  assert.match(b, /if \(ouverte\) \{ e\.preventDefault\(\); e\.stopPropagation\(\);/, "une ligne ouverte se referme au lieu d'ouvrir la discussion");
+  const r = entre('async function retirerLaLigne(', '// Vignettes de la liste');
+  assert.match(r, /if \(reponse !== 'ok'\) return;/);
+  assert.match(r, /method: 'DELETE'/);
+});
+

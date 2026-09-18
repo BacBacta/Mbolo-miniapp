@@ -384,7 +384,7 @@ test('deux navigateurs : répondre à un message, envoyer une photo voilée, ret
   const question = b.locator('#messages .bubble.theirs', { hasText: 'quartier' });
   await expect(question).toBeVisible({ timeout: 10_000 });
   await question.click({ button: 'right' });
-  await b.locator('#fallback-sheet [data-popup="repondre"]').click();
+  await b.locator('#feuille [data-feuille="repondre"]').click();
   await expect(b.locator('#chat-reponse')).toContainText(/Répondre à Nadia/);
   await expect(b.locator('#chat-reponse')).toContainText('quartier');
   await champMessage(b).fill('De Bastos, et toi ?');
@@ -424,7 +424,7 @@ test('deux navigateurs : répondre à un message, envoyer une photo voilée, ret
   // Nadia retire sa question : les deux fils disent « Message supprimé », à la même place.
   const maQuestion = a.locator('#messages .bubble.mine', { hasText: 'quartier' });
   await maQuestion.click({ button: 'right' });
-  await a.locator('#fallback-sheet [data-popup="supprimer"]').click();
+  await a.locator('#feuille [data-feuille="supprimer"]').click();
   await expect(a.locator('#messages .bubble.supprime')).toBeVisible();
   await expect(a.locator('#messages')).not.toContainText('quel quartier');
   await expect(b.locator('#messages .bubble.supprime')).toBeVisible({ timeout: 15_000 });
@@ -433,8 +433,8 @@ test('deux navigateurs : répondre à un message, envoyer une photo voilée, ret
   await expect(b.locator('#messages .bubble.mine', { hasText: 'Bastos' }).locator('.quote')).toContainText(/Message supprimé/);
   // Le menu d'un message de l'autre ne propose pas de le retirer.
   await b.locator('#messages .bubble.theirs.photo').click({ button: 'right' });
-  await expect(b.locator('#fallback-sheet [data-popup="repondre"]')).toBeVisible();
-  await expect(b.locator('#fallback-sheet [data-popup="supprimer"]')).toHaveCount(0);
+  await expect(b.locator('#feuille [data-feuille="repondre"]')).toBeVisible();
+  await expect(b.locator('#feuille [data-feuille="supprimer"]')).toHaveCount(0);
   await ctxA.close();
   await ctxB.close();
 });

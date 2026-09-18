@@ -4,7 +4,7 @@
 // réglage de discrétion s'enregistre. Ils ne disent rien de ce qu'une personne voit : or c'est
 // exactement là qu'un manque se lit comme une panne, et qu'on cherche ce qu'on a mal fait.
 import { test, expect } from '@playwright/test';
-import { membreVerifie, actionPrincipale, actionSecondaire, titre, onglet } from './aides.js';
+import { membreVerifie, actionPrincipale, actionSecondaire, titre, onglet, ouvrirLesReglages } from './aides.js';
 
 test("sans pass, Messages explique la place laissée vide, et la porte mène à une caisse", async ({ page }) => {
   await membreVerifie(page, 'Awa');
@@ -45,7 +45,9 @@ test("sans pass, Messages explique la place laissée vide, et la porte mène à 
 // doit survivre au rechargement, sinon il ne protège de rien.
 test('le réglage de discrétion est offert à tout le monde, et il tient', async ({ page }) => {
   const id = await membreVerifie(page, 'Bea');
-  await onglet(page, /Profil/).click();
+  // Le réglage vit dans les réglages (audit 15, lot 3), groupe Sécurité, à côté de la personne
+  // de confiance — pas dans une liste de douze lignes sous la fiche.
+  await ouvrirLesReglages(page);
 
   const interrupteur = page.locator('input[name="discretion"]');
   await expect(interrupteur).toBeVisible();
@@ -65,6 +67,6 @@ test('le réglage de discrétion est offert à tout le monde, et il tient', asyn
   await expect(page.locator('.toast, #toast')).toContainText(/n'apparais plus/);
 
   await page.goto(`/?dev_user=${id}`);
-  await onglet(page, /Profil/).click();
+  await ouvrirLesReglages(page);
   await expect(page.locator('input[name="discretion"]')).toBeChecked();
 });
