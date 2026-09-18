@@ -12,7 +12,6 @@ export default {
   'Ajouter à l\'écran d\'accueil': 'Ongeza kwenye skrini ya mwanzo',
   'Amitié': 'Urafiki',
   'Aperçu du selfie': 'Onyesho la selfie',
-  'Appuie sur le micro, en bas de la discussion': 'Gusa maikrofoni chini ya mazungumzo',
   'Appuie sur le micro, en bas, et parle': 'Gusa maikrofoni chini, kisha ongea',
   'Arrivée confirmée': 'Kuwasili kumethibitishwa',
   'Aucun profil vérifié dans ta zone avec ton intention. Élargis ta zone depuis les filtres, ou reviens un peu plus tard.': 'Hakuna wasifu uliothibitishwa katika eneo lako anayetafuta kitu kile kile. Panua eneo lako kwenye vichujio, au rudi baadaye kidogo.',

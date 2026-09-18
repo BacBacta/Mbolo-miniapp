@@ -65,3 +65,19 @@ test("/start aide répond comme /aide", async () => {
   const m = envoyes.find((e) => e.a === '504');
   assert.match(m.texte, /ne te demandera jamais d'argent par message/);
 });
+
+// « Enregistrer ma présentation » envoie vers `?start=voix` : le bot doit répondre par le geste
+// (le micro, en bas de la discussion) à qui a un profil, et renvoyer vers l'app à qui n'en a pas.
+// Le 18 septembre 2026, ce chemin marchait côté bot ; c'est la mini app qui restait devant.
+test("/start voix dit le geste à qui a un profil, et renvoie vers l'app sinon", async () => {
+  await start('voix', 505);
+  const sans = envoyes.find((e) => e.a === '505');
+  assert.match(sans.texte, /Crée d'abord ton profil/);
+
+  await store.upsertTelegramUser({ id: 506, first_name: 'Awa', language_code: 'fr' });
+  await store.updateUser(506, { profile: { name: 'Awa', age: 25, gender: 'femme', intent: 'amitie', city: 'Yaoundé', promptA: 'Le poisson braisé' } });
+  await start('voix', 506);
+  const avec = envoyes.find((e) => e.a === '506');
+  assert.match(avec.texte, /Appuie sur le micro, en bas de cette discussion/);
+  assert.match(avec.texte, /15 secondes/);
+});

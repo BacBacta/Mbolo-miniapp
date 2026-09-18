@@ -9,7 +9,6 @@ export default {
   'Ajouter à l\'écran d\'accueil': 'Add to home screen',
   'Amitié': 'Friendship',
   'Aperçu du selfie': 'Selfie preview',
-  'Appuie sur le micro, en bas de la discussion': 'Tap the microphone at the bottom of the chat',
   'Appuie sur le micro, en bas, et parle': 'Tap the microphone at the bottom and speak',
   'Arrivée confirmée': 'Arrival confirmed',
   'Aucun profil vérifié dans ta zone avec ton intention. Élargis ta zone depuis les filtres, ou reviens un peu plus tard.': 'No verified profile in your area looking for the same thing. Widen your area in the filters, or come back a bit later.',

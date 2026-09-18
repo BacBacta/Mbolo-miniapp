@@ -227,7 +227,9 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
 
 - [ ] **(audit 15, lot 3)** Juste après la vérification, l'app va **droit à Découvrir** : la
       présentation vocale attend dans l'onglet Profil, sous la fiche.
-- [ ] Le bouton ouvre la **discussion du bot**, pas un navigateur, et l'écran ne fige pas.
+- [ ] Le bouton ouvre la **discussion du bot**, pas un navigateur, et **la mini app se referme** :
+      tu es dans la discussion, avec le micro en bas. *Le 18 septembre 2026, la discussion
+      s'ouvrait derrière la mini app, qui restait devant avec un toast et aucun micro.*
 - [ ] Le bot dit le geste en premier : « Appuie sur le micro, en bas de cette discussion. »
 - [ ] Enregistre un vocal de moins de 15 s (30 s avec un pass, et la consigne du bot doit dire le bon nombre) : il arrive dans le groupe de modération avec ses
       boutons, et l'app affiche « En attente ».

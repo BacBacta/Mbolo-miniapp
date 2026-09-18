@@ -419,7 +419,7 @@ function renderError(e, retry) {
         <h2>${t('Ton compte est fermé')}</h2>
         <p>${esc(e.message)}</p>
       </div>`);
-    return tg.setButtons(e.bot ? { main: { text: t('Écrire au bot'), onClick: () => tg.openTelegramLink(`https://t.me/${e.bot}?start=aide`) } } : null);
+    return tg.setButtons(e.bot ? { main: { text: t('Écrire au bot'), onClick: () => tg.openTelegramLink(`https://t.me/${e.bot}?start=aide`, { fermer: true }) } } : null);
   }
   render(`
     <div class="empty">
@@ -624,7 +624,7 @@ async function demanderLAccesAuBot() {
 function ouvrirLeBot() {
   if (!S.me?.botUsername) return toast(t("Le bot n'est pas joignable pour l'instant."));
   try { local?.removeItem(BOT_MUET); } catch { /* sans importance */ }
-  tg.openTelegramLink(`https://t.me/${S.me.botUsername}?start=prevenir`);
+  tg.openTelegramLink(`https://t.me/${S.me.botUsername}?start=prevenir`, { fermer: true });
 }
 function noterEtape(n) {
   try { if (Number(local?.getItem(ETAPE) || 0) < n) local.setItem(ETAPE, String(n)); } catch { /* stockage refusé : on ne mesure pas, l'app marche */ }
@@ -3618,10 +3618,11 @@ async function bloquer() {
 function ouvrirLeBotVoix() {
   tg.haptic('light');
   if (!S.me?.botUsername) return toast(t("Le bot n'est pas joignable pour l'instant."));
-  toast(t('Appuie sur le micro, en bas de la discussion'));
   // Un lien t.me passe par openTelegramLink : openLink ouvrirait un navigateur sur la page web
-  // de t.me, par-dessus la mini app — ce qui se voit comme un écran figé sur Android.
-  tg.openTelegramLink(`https://t.me/${S.me.botUsername}?start=voix`);
+  // de t.me, par-dessus la mini app — ce qui se voit comme un écran figé sur Android. Et la mini
+  // app se referme : openTelegramLink ne le fait pas, et la discussion s'ouvrait derrière elle —
+  // la personne restait devant un toast « appuie sur le micro » sans micro (18 septembre 2026).
+  tg.openTelegramLink(`https://t.me/${S.me.botUsername}?start=voix`, { fermer: true });
 }
 
 async function retirerMatch() {
