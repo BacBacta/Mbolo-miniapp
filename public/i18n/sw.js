@@ -120,7 +120,6 @@ export default {
   'Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.': 'Waliopenda wasifu wako hubaki kwenye Ujumbe, bila kujali umri na mji wao.',
   'Les profils de ton quartier passent devant': 'Wasifu wa mtaa wako huja kwanza',
   'Les profils restent écrits dans la langue de chacun : seule l\'interface change.': 'Wasifu hubaki umeandikwa kwa lugha ya kila mtu: kiolesura pekee ndicho hubadilika.',
-  'Liens et numéros débloqués à {n} messages': 'Viungo na namba hufunguliwa baada ya ujumbe {n}',
   'Liste': 'Orodha',
   'Léger en data': 'Nyepesi kwa data',
   'Ce qui me fait rire': 'Kinachonichekesha',
@@ -590,4 +589,6 @@ export default {
   "Faire connaître {app}": "Tangaza {app}",
   "Ta photo et ton prénom": "Picha yako na jina lako",
   "Ajouter ma photo": "Ongeza picha yangu",
+  "Une légende, si tu veux": "Maelezo, ukipenda",
+  "Liens et numéros à {n}": "Viungo na namba baada ya {n}",
 };

@@ -296,6 +296,10 @@ api.get('/me', async (req, res) => {
     },
     options: {
       intents: INTENTS, genders: GENDERS, compat: COMPAT, criteres: CRITERES, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,
+      // Un lieu partenaire dans ma ville : c'est ce qui décide si la discussion propose un
+      // rendez-vous. Tant que la liste est vide, un bouton principal qui mène à « pas disponible »
+      // coûterait de la confiance (audit/15, constat M).
+      lieuxIci: !!u.profile?.city && venues.some((v) => v.country === (u.profile.country || config.defaultCountry) && cleVille(v.city) === cleVille(u.profile.city)),
       // Qui choisit le genre recherché en « Relation sérieuse » : la politique du serveur, ou la
       // personne. L'écran des filtres montre un réglage ou la règle selon ce seul drapeau.
       genreAuChoix: genreAuChoix(),
@@ -1231,11 +1235,22 @@ async function loadMatch(req, res) {
 // l'identifiant ne voyage pas). Un message retiré ne porte plus ni texte ni photo : seulement
 // qu'il a existé, pour que la bulle dise « Message supprimé » à sa place et qu'une réponse qui
 // le citait garde sa citation.
+// Les réactions : la mienne et la sienne, jamais un identifiant. Un membre, une réaction au plus.
+const reactionsPubliques = (x, me) => {
+  const r = x.reactions || {};
+  const moi = r[String(me)] || null;
+  const autre = Object.entries(r).find(([id]) => id !== String(me))?.[1] || null;
+  return moi || autre ? { reactions: { moi, autre } } : {};
+};
+
 function messagePublic(x, me) {
   const base = { id: x.id, at: x.at, mine: x.from === me };
   if (x.deletedAt) return { ...base, supprime: true };
-  return { ...base, text: x.text, ...(x.replyTo ? { replyTo: x.replyTo } : {}), ...(x.photo ? { photo: true } : {}) };
+  return { ...base, text: x.text, ...(x.replyTo ? { replyTo: x.replyTo } : {}), ...(x.photo ? { photo: true } : {}), ...reactionsPubliques(x, me) };
 }
+
+// Les six réactions (audit/15, lot 4) : une liste fermée, comme les amorces. Rien d'autre n'entre.
+export const REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
 
 api.get('/matches', requireMembre, async (req, res) => {
   const me = req.user;
@@ -1309,6 +1324,9 @@ api.get('/matches/:id', requireMembre, async (req, res) => {
   // Les retraits depuis le dernier passage : un message retiré garde son heure d'envoi, donc
   // `after` ne le ramènerait jamais. On dit lesquels, et l'écran remplace la bulle.
   const supprimes = tous.filter((x) => x.deletedAt > after).map((x) => x.id);
+  // Les réactions qui ont bougé depuis le dernier passage, sur des messages que `after` ne
+  // ramènerait pas : l'identifiant et l'état complet, l'écran remplace en place.
+  const reagis = after ? tous.filter((x) => x.reagiAt > after && x.at <= after && !x.deletedAt).map((x) => ({ id: x.id, ...reactionsPubliques(x, req.user.id) })) : [];
   // L'heure d'arrivée de l'autre personne n'est jamais renvoyée : savoir qu'elle est sur place
   // depuis douze minutes est une information de filature, pas une information de rendez-vous.
   // proposedBy est l'identifiant Telegram de l'autre personne : il ne sort pas non plus, seul
@@ -1331,7 +1349,7 @@ api.get('/matches/:id', requireMembre, async (req, res) => {
   if (req.query.ecrit) { store.touchTyping(req.user.id, r.m.id); signaler(r.m.id, 'ecrit', '1', { sauf: req.user.id }); }
   // `lu` : jusqu'où l'autre a lu, pour les deux coches. `enLigne` : l'autre a cette discussion
   // ouverte en ce moment — pas « vu à telle heure », qui serait de la filature.
-  const reponse = { id: r.m.id, messages, ...(supprimes.length ? { supprimes } : {}), ecrit: store.isTyping(r.other.id, r.m.id), lu: r.m.readAt?.[String(r.other.id)] || 0, enLigne: store.isViewing(r.other.id, r.m.id) };
+  const reponse = { id: r.m.id, messages, ...(supprimes.length ? { supprimes } : {}), ...(reagis.length ? { reagis } : {}), ecrit: store.isTyping(r.other.id, r.m.id), lu: r.m.readAt?.[String(r.other.id)] || 0, enLigne: store.isViewing(r.other.id, r.m.id) };
   if (premierAppel) {
     Object.assign(reponse, { other: await publicProfile(r.other), dates, unlockAfter: config.contactUnlockAfter, depuis: r.m.createdAt });
     // Ce que l'autre a aimé de ma fiche : la clé de la question, pour la carte d'ouverture. Le
@@ -1496,6 +1514,21 @@ api.post('/matches/:id/messages', requireMembre, limiter('message'), async (req,
 // refuse déjà celui d'un autre. Les deux écrans montrent « Message supprimé » à sa place ; le
 // texte reste lisible par la modération si la discussion est signalée, jusqu'à ce que le match
 // soit défait. Une photo retirée cesse d'être servie tout de suite.
+// Réagir à un message : un emoji de la liste, ou `null` pour retirer le sien. Sur n'importe quel
+// message vivant de la discussion, le sien compris. **Jamais notifié** : une réaction est ce qui
+// fait vivre un fil sans écrire, pas une alerte de plus ; l'autre la voit à son prochain passage,
+// et tout de suite si son flux est ouvert.
+api.put('/matches/:id/messages/:mid/reaction', requireMembre, async (req, res) => {
+  const r = await loadMatch(req, res);
+  if (!r) return;
+  const emoji = req.body?.emoji ?? null;
+  if (emoji !== null && !REACTIONS.includes(emoji)) return fail(res, 400, 'REACTION_INVALID', 'Cette réaction n\'existe pas.');
+  const msg = await store.reagir(r.m.id, req.params.mid, req.user.id, emoji);
+  if (!msg) return fail(res, 404, 'MESSAGE_NOT_FOUND', 'Ce message n\'est plus là.');
+  signaler(r.m.id, 'signal', 'message', { sauf: req.user.id });
+  res.json({ id: msg.id, ...reactionsPubliques(msg, req.user.id) });
+});
+
 api.delete('/matches/:id/messages/:mid', requireMembre, async (req, res) => {
   const r = await loadMatch(req, res);
   if (!r) return;

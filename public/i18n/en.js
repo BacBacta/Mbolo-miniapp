@@ -117,7 +117,6 @@ export default {
   'Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.': 'People who liked your profile stay in Chats, whatever their age and city.',
   'Les profils de ton quartier passent devant': 'Profiles from your neighbourhood come first',
   'Les profils restent écrits dans la langue de chacun : seule l\'interface change.': 'Profiles stay in the language each person wrote them in: only the interface changes.',
-  'Liens et numéros débloqués à {n} messages': 'Links and numbers unlock at {n} messages',
   'Liste': 'List',
   'Léger en data': 'Light on data',
   'Ce qui me fait rire': 'What makes me laugh',
@@ -601,4 +600,6 @@ export default {
   "Faire connaître {app}": "Spread the word about {app}",
   "Ta photo et ton prénom": "Your photo and first name",
   "Ajouter ma photo": "Add my photo",
+  "Une légende, si tu veux": "A caption, if you like",
+  "Liens et numéros à {n}": "Links and numbers at {n}",
 };

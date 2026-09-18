@@ -397,10 +397,15 @@ test('deux navigateurs : répondre à un message, envoyer une photo voilée, ret
   await reponse.locator('.quote').click();
   await expect(question.or(b.locator('#messages .bubble.cible'))).toBeVisible();
 
-  // Nadia envoie une photo : chez elle en clair, chez Omar voilée jusqu'à l'appui.
+  // Nadia envoie une photo : d'abord l'aperçu et une légende (lot 4), puis chez elle en clair,
+  // chez Omar voilée jusqu'à l'appui.
   await a.locator('input[name="photo-chat"]').setInputFiles(sonSelfie);
+  await expect(a.locator('#feuille .apercu-feuille')).toBeVisible();
+  await a.locator('#feuille input[name="feuille-champ"]').fill('Le lac, hier');
+  await a.locator('#feuille [data-feuille="envoyer"]').click();
   const chezNadia = a.locator('#messages .bubble.photo.mine');
   await expect(chezNadia).toBeVisible();
+  await expect(chezNadia).toContainText('Le lac, hier');
   await expect(chezNadia).not.toHaveClass(/voile/);
   await expect(chezNadia).not.toHaveClass(/encours/, { timeout: 10_000 });
   const chezOmar = b.locator('#messages .bubble.photo.theirs');
@@ -415,9 +420,10 @@ test('deux navigateurs : répondre à un message, envoyer une photo voilée, ret
   await expect(b.locator('.visionneuse img')).toBeVisible();
   await b.locator('.visionneuse').click();
   await expect(b.locator('.visionneuse')).toHaveCount(0);
-  // La liste des discussions dit « Photo » plutôt qu'une ligne vide.
+  // La liste des discussions montre la légende derrière l'icône d'image (« Photo » sans légende).
   await b.goto(`/?dev_user=${idB}&screen=matches`);
-  await expect(b.locator('main .list-row .preview').first()).toContainText(/Photo/);
+  await expect(b.locator('main .list-row .preview').first()).toContainText(/Le lac, hier/);
+  await expect(b.locator('main .list-row .preview svg').first()).toBeVisible();
   await b.goto(`/?dev_user=${idB}&screen=chat&match=${m.match.id}`);
   await expect(champMessage(b)).toBeVisible();
 
@@ -431,10 +437,20 @@ test('deux navigateurs : répondre à un message, envoyer une photo voilée, ret
   await expect(b.locator('#messages')).not.toContainText('quel quartier');
   // Et la citation qui pointait dessus le dit aussi.
   await expect(b.locator('#messages .bubble.mine', { hasText: 'Bastos' }).locator('.quote')).toContainText(/Message supprimé/);
-  // Le menu d'un message de l'autre ne propose pas de le retirer.
+  // Le menu d'un message de l'autre ne propose pas de le retirer — mais propose de réagir (lot 4) :
+  // Omar pose un cœur sur la photo, Nadia le voit sans que rien ne soit parti du bot.
   await b.locator('#messages .bubble.theirs.photo').click({ button: 'right' });
   await expect(b.locator('#feuille [data-feuille="repondre"]')).toBeVisible();
   await expect(b.locator('#feuille [data-feuille="supprimer"]')).toHaveCount(0);
+  await expect(b.locator('#feuille .reactions-feuille button')).toHaveCount(6);
+  await b.locator('#feuille [data-reaction="❤️"]').click();
+  await expect(b.locator('#messages .bubble.theirs.photo .reacts .moi')).toHaveText('❤️');
+  await expect(a.locator('#messages .bubble.photo.mine .reacts')).toContainText('❤️', { timeout: 15_000 });
+  // La même, une seconde fois, la retire.
+  await b.locator('#messages .bubble.theirs.photo').click({ button: 'right' });
+  await expect(b.locator('#feuille [data-reaction="❤️"]')).toHaveAttribute('aria-pressed', 'true');
+  await b.locator('#feuille [data-reaction="❤️"]').click();
+  await expect(b.locator('#messages .bubble.theirs.photo .reacts')).toHaveCount(0);
   await ctxA.close();
   await ctxB.close();
 });

@@ -146,7 +146,7 @@ Fiche en blocs (L) · cœur sur chaque question, mot de 60 caractères passé à
 ### Lot 3 — Structure et navigation (une semaine) — **livré le 18 septembre 2026**
 Réglages derrière le SettingsButton, en trois groupes (V, W) · Profil réduit à l'essentiel · transitions directionnelles (AE) · feuilles du bas pour les portes du pass et les menus, popups natifs pour les seules confirmations · photo en première étape du profil (B) · interstitiels jauge et voix sortis du parcours d'entrée (A) · barres du bas unifiées (AD) · balayage sur les lignes de Messages (T).
 
-### Lot 4 — La discussion, dernier tiers (une semaine)
+### Lot 4 — La discussion, dernier tiers (une semaine) — **livré le 18 septembre 2026**
 Réactions (O) · légende de photo (P) · barre de déblocage en ligne fine (N) · bouton de rendez-vous contextuel (M) · tuile floutée avec anneau et cadenas (U).
 
 ### Lot 5 — La finition continue

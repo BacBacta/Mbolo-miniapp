@@ -58,6 +58,8 @@ const versMessage = (r) => ({
   ...(r.reply_to ? { replyTo: r.reply_to } : {}),
   ...(r.photo ? { photo: true } : {}),
   ...(r.deleted_at ? { deletedAt: Number(r.deleted_at) } : {}),
+  ...(r.reactions && Object.keys(r.reactions).length ? { reactions: r.reactions } : {}),
+  ...(r.reagi_at ? { reagiAt: Number(r.reagi_at) } : {}),
 });
 const versSwipe = (r) => (r ? { from: r.from_id, to: r.to_id, action: r.action, at: Number(r.at), ...(r.sur ? { sur: r.sur } : {}), ...(r.mot ? { mot: r.mot } : {}) } : null);
 const versDate = (r) => (r ? { ...r.data, id: r.id, matchId: r.match_id } : null);
@@ -466,6 +468,15 @@ export const store = {
   },
 
   // Le sien seulement ; la ligne reste, marquée (voir store.json.js).
+  async reagir(matchId, messageId, userId, emoji) {
+    const r = await un('select * from messages where id = $1 and match_id = $2', [String(messageId), matchId]);
+    if (!r || r.deleted_at) return null;
+    const reactions = { ...(r.reactions || {}) };
+    if (emoji) reactions[String(userId)] = emoji; else delete reactions[String(userId)];
+    const maj = await un('update messages set reactions = $3, reagi_at = $4 where id = $1 and match_id = $2 returning *', [String(messageId), matchId, JSON.stringify(reactions), Date.now()]);
+    return versMessage(maj);
+  },
+
   async supprimerMessage(matchId, messageId, from) {
     const r = await un(
       'update messages set deleted_at = coalesce(deleted_at, $4) where match_id = $1 and id = $2 and from_id = $3 returning *',

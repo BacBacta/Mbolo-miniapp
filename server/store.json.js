@@ -452,6 +452,20 @@ export const store = {
     return msg;
   },
 
+  // Une réaction sur un message : un emoji par membre et par message, `null` pour la retirer.
+  // La ligne garde l'heure du dernier changement (reagiAt), pour que l'interrogation la rattrape.
+  // Rend le message, ou null s'il n'est pas dans cette discussion ou s'il est retiré.
+  async reagir(matchId, messageId, userId, emoji) {
+    const msg = (db.messages[matchId] || []).find((x) => x.id === String(messageId));
+    if (!msg || msg.deletedAt) return null;
+    const reactions = { ...(msg.reactions || {}) };
+    if (emoji) reactions[String(userId)] = emoji; else delete reactions[String(userId)];
+    if (Object.keys(reactions).length) msg.reactions = reactions; else delete msg.reactions;
+    msg.reagiAt = Date.now();
+    save();
+    return msg;
+  },
+
   // Retirer un message : **le sien seulement**. La ligne reste, marquée — les deux écrans
   // montrent « Message supprimé », et la modération peut encore lire le texte si la discussion
   // est signalée. Rend le message marqué, ou null s'il n'est pas à cette personne.
