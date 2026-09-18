@@ -59,7 +59,7 @@ const versMessage = (r) => ({
   ...(r.photo ? { photo: true } : {}),
   ...(r.deleted_at ? { deletedAt: Number(r.deleted_at) } : {}),
 });
-const versSwipe = (r) => (r ? { from: r.from_id, to: r.to_id, action: r.action, at: Number(r.at) } : null);
+const versSwipe = (r) => (r ? { from: r.from_id, to: r.to_id, action: r.action, at: Number(r.at), ...(r.sur ? { sur: r.sur } : {}), ...(r.mot ? { mot: r.mot } : {}) } : null);
 const versDate = (r) => (r ? { ...r.data, id: r.id, matchId: r.match_id } : null);
 // La forme d'un événement doit être identique des deux côtés : le stockage JSON omet u et p quand
 // ils sont vides, PostgreSQL les garde à null. Un test compare les deux surfaces, mais pas leur
@@ -354,11 +354,11 @@ export const store = {
   // ---------- Likes et matchs ----------
   hasSwiped: async (from, to) => !!(await un('select 1 from swipes where from_id = $1 and to_id = $2', [String(from), String(to)])),
 
-  async addSwipe(from, to, action) {
+  async addSwipe(from, to, action, { sur, mot } = {}) {
     await q(
-      `insert into swipes (from_id, to_id, action, at) values ($1, $2, $3, $4)
-       on conflict (from_id, to_id) do update set action = excluded.action, at = excluded.at`,
-      [String(from), String(to), action, Date.now()],
+      `insert into swipes (from_id, to_id, action, at, sur, mot) values ($1, $2, $3, $4, $5, $6)
+       on conflict (from_id, to_id) do update set action = excluded.action, at = excluded.at, sur = excluded.sur, mot = excluded.mot`,
+      [String(from), String(to), action, Date.now(), sur || null, mot || null],
     );
   },
 
@@ -368,8 +368,8 @@ export const store = {
 
   // Rattrapage depuis la liste : un « Passer » peut devenir un « J'aime ». La date est mise à jour,
   // donc ce nouveau choix compte dans le quota du jour comme n'importe quel balayage.
-  async updateSwipe(from, to, action) {
-    const r = await un('update swipes set action = $3, at = $4 where from_id = $1 and to_id = $2 returning from_id', [String(from), String(to), action, Date.now()]);
+  async updateSwipe(from, to, action, { sur, mot } = {}) {
+    const r = await un('update swipes set action = $3, at = $4, sur = $5, mot = $6 where from_id = $1 and to_id = $2 returning from_id', [String(from), String(to), action, Date.now(), sur || null, mot || null]);
     return !!r;
   },
 

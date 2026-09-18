@@ -593,4 +593,10 @@ export default {
   "En bref": "At a glance",
   "Intention": "Looking for",
   "Langues": "Languages",
+  "Aimer cette réponse": "Like this answer",
+  "Aimer sa réponse": "Like their answer",
+  "Un mot pour l'accompagner (facultatif)": "A word to go with it (optional)",
+  "Envoyer le J'aime": "Send the like",
+  "{nom} a aimé ta réponse à « {question} »": "{nom} liked your answer to \"{question}\"",
+  "Annuler": "Cancel",
 };

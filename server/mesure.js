@@ -38,6 +38,8 @@ import { store } from './store.js';
 //                          la nouvelle a été utile. Ce qu'elle ne dit pas : si elles sont revenues
 //   amorce {k}           · un **premier message** dans un fil, parti d'une amorce proposée en haut de
 //                          la discussion vide. Jamais avec un profil de démonstration — voir routes.js
+//   like_sur {q}         · un « J'aime » qui vise une réponse de la fiche : la **clé** de la question
+//                          (liste fermée de config.js), jamais le mot qui l'accompagne
 
 // Les seules formes admises dans une charge utile. Tout le reste est un refus : c'est la barrière
 // qui empêche un texte libre d'entrer un jour par inadvertance.

@@ -582,4 +582,10 @@ export default {
   "En bref": "Кратко",
   "Intention": "Цель",
   "Langues": "Языки",
+  "Aimer cette réponse": "Нравится этот ответ",
+  "Aimer sa réponse": "Нравится ответ",
+  "Un mot pour l'accompagner (facultatif)": "Пара слов в дополнение (необязательно)",
+  "Envoyer le J'aime": "Отправить лайк",
+  "{nom} a aimé ta réponse à « {question} »": "{nom} оценил(а) твой ответ на «{question}»",
+  "Annuler": "Отмена",
 };

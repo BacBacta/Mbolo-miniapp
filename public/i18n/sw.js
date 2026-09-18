@@ -582,4 +582,10 @@ export default {
   "En bref": "Kwa ufupi",
   "Intention": "Nia",
   "Langues": "Lugha",
+  "Aimer cette réponse": "Penda jibu hili",
+  "Aimer sa réponse": "Penda jibu lake",
+  "Un mot pour l'accompagner (facultatif)": "Neno la kuambatana nalo (si lazima)",
+  "Envoyer le J'aime": "Tuma kupenda",
+  "{nom} a aimé ta réponse à « {question} »": "{nom} amependa jibu lako la «{question}»",
+  "Annuler": "Ghairi",
 };

@@ -669,11 +669,13 @@ function profileCard(p, { own = false, cls = '', plein = false } = {}) {
 // apparaissant** (`lazyBlocsPhoto`) : on n'ouvre pas une fiche pour payer trois photos d'un coup.
 // Aucune donnée nouvelle : tout vient du profil public que la carte montrait déjà. L'aperçu de
 // son propre profil garde la carte, parce qu'il montre « ce que les autres voient » dans le paquet.
-function ficheEnBlocs(p, { own = false } = {}) {
+// `decidable` : la personne peut encore aimer cette fiche — alors chaque réponse porte un cœur,
+// le « J'aime » sur une réponse (lot 2). Pas sur un match, pas sur un profil déjà aimé, pas sur soi.
+function ficheEnBlocs(p, { own = false, decidable = false } = {}) {
   const questions = [p.promptA ? { q: p.promptQ, a: p.promptA } : null, ...(p.extras || [])].filter((x) => x?.a);
   const autres = (p.photos || []).slice(1);
   const blocPhoto = (n) => `<article class="card bloc"><div class="card-photo bloc-photo" data-photo-bloc="${esc(p.id)}" data-n="${esc(n)}"><span class="initial">${esc(p.name?.[0] || '?')}</span></div></article>`;
-  const blocQuestion = (x) => `<div class="bloc bloc-question"><span class="q">${esc(libelleQuestion(x.q))}</span><span class="a">${esc(x.a)}</span></div>`;
+  const blocQuestion = (x) => `<div class="bloc bloc-question"><span class="q">${esc(libelleQuestion(x.q))}</span><span class="a">${esc(x.a)}</span>${decidable ? `<button type="button" class="coeur" data-action="aimer-reponse" data-q="${esc(x.q)}" aria-label="${t('Aimer cette réponse')}">${icon('heart', 18)}</button>` : ''}</div>`;
   // Une question, puis une photo, puis une question : la lecture alterne, comme dans un album.
   const suite = [];
   questions.forEach((x, i) => { suite.push(blocQuestion(x)); if (autres[i] !== undefined) suite.push(blocPhoto(autres[i])); });
@@ -961,14 +963,36 @@ async function saveFilters(values) {
   }
 }
 
+// Aimer **une réponse** de la fiche, avec un mot (lot 2 de l'audit 15). C'est le geste qui a le
+// plus fait bouger le premier message sur le marché : au lieu de « J'aime » sur une personne,
+// « J'aime » sur *sa réponse à « ce qui me fait rire »*, avec « moi aussi ». Le mot est facultatif,
+// borné, et c'est la personne qui appuie — rien ne part sans elle. Au match, il devient le premier
+// message de la discussion ; d'ici là, personne ne le lit.
+async function aimerLaReponse(q) {
+  const p = S.person;
+  const x = p?.promptQ === q ? { q, a: p.promptA } : (p?.extras || []).find((e) => e.q === q);
+  if (!x) return;
+  const r = await feuille({
+    titre: t('Aimer sa réponse'),
+    texte: `« ${x.a} »`,
+    champ: { placeholder: t('Un mot pour l\'accompagner (facultatif)'), maxlength: MOT_MAX },
+    boutons: [{ id: 'aimer', texte: t("Envoyer le J'aime"), principal: true }, { id: 'non', texte: t('Annuler') }],
+  });
+  if (r?.id !== 'aimer') return;
+  swipePerson('like', { sur: q, mot: r.valeur });
+}
+const MOT_MAX = 60;
+
 // « J'aime » ou « Passer » depuis le détail d'un profil ouvert par la liste
-async function swipePerson(action) {
+async function swipePerson(action, { sur = null, mot = '' } = {}) {
   const p = S.person;
   if (!p || swiping) return;
   swiping = true;
   tg.haptic(action === 'like' ? 'medium' : 'select');
   try {
-    const r = await api('/swipes', { method: 'POST', body: { targetId: p.id, action } });
+    // `sur` et `mot` : le « J'aime » sur une réponse. Le serveur vérifie que la question est sur
+    // la fiche et passe le mot par l'anti-arnaque ; un refus revient ici comme pour un message.
+    const r = await api('/swipes', { method: 'POST', body: { targetId: p.id, action, ...(sur ? { sur, mot } : {}) } });
     S.people = []; // la liste se rechargera avec les nouveaux statuts
     S.likes = [];
     S.profiles = S.profiles.filter((x) => x.id !== p.id); // et la carte quitte le paquet
@@ -1487,7 +1511,7 @@ const SCREENS = {
     const note = match ? `${icon('heart', 14)}<span>${t('Vous vous êtes plu. Vous pouvez vous écrire.')}</span>`
       : p.status === 'liked' ? `${icon('heart', 14)}<span>${t('Tu as déjà aimé ce profil. Le bot te prévient en cas de match.')}</span>`
         : p.status === 'passed' ? `${icon('clock', 14)}<span>${t('Tu avais passé ce profil. Tu peux revenir sur ta décision.')}</span>` : '';
-    render(`${ficheEnBlocs(p)}${note ? `<p class="fine">${note}</p>` : ''}`);
+    render(`${ficheEnBlocs(p, { decidable: !match && p.status !== 'liked' })}${note ? `<p class="fine">${note}</p>` : ''}`);
     loadCardPhoto(p);
     lazyBlocsPhoto(p);
     if (match) tg.setButtons({ main: { text: t('Écrire à {nom}', { nom: p.name }), onClick: () => go('chat', { id: S.chat.id }) } });
@@ -1505,7 +1529,8 @@ const SCREENS = {
         <p class="eyebrow">${t("C'est un match")}</p>
         <div class="pair">${avatar(me, 'xl')}<span class="spark">${icon('heart', 20, { fill: true })}</span>${avatar(m.other, 'xl')}</div>
         <h1 class="display">${t('{nom} et toi, vous vous plaisez', { nom: esc(m.other.name) })}</h1>
-        <p class="lead">${t('Brise la glace avec une question sur son profil. Les liens et numéros se débloquent après quelques messages.')}</p>
+        ${m.aime ? `<p class="lead">${t('{nom} a aimé ta réponse à « {question} »', { nom: esc(m.other.name), question: esc(libelleQuestion(m.aime.q)) })}</p>${m.aime.mot ? `<p class="mot-aime">« ${esc(m.aime.mot)} »</p>` : ''}`
+    : `<p class="lead">${t('Brise la glace avec une question sur son profil. Les liens et numéros se débloquent après quelques messages.')}</p>`}
       </div>`);
     loadAvatar(me, { own: true });
     loadAvatar(m.other);
@@ -1625,7 +1650,7 @@ Object.assign(SCREENS, {
     try {
       const data = await api(`/matches/${encodeURIComponent(id)}`);
       if (perime()) return;
-      S.chat = { id, other: data.other, messages: data.messages, dates: data.dates, unlockAfter: data.unlockAfter, notice: null, tete: null, rendus: 0, bouge: Date.now(), ecritDepuis: 0, depuis: data.depuis, amorce: null, lu: Number(data.lu) || 0, enLigne: !!data.enLigne, reponseA: null, devoilees: new Set() };
+      S.chat = { id, other: data.other, messages: data.messages, dates: data.dates, unlockAfter: data.unlockAfter, notice: null, tete: null, rendus: 0, bouge: Date.now(), ecritDepuis: 0, depuis: data.depuis, aime: data.aime || null, amorce: null, lu: Number(data.lu) || 0, enLigne: !!data.enLigne, reponseA: null, devoilees: new Set() };
     } catch (e) {
       if (perime()) return;
       return renderError(e, () => go('chat', { id }));
@@ -2373,6 +2398,7 @@ function ouverture(c) {
   return `
     <div class="ouverture">
       <span class="eyebrow">${icon('heart', 13, { fill: true })} ${t('Vous vous êtes plu')}${quand ? ` · ${esc(quand.charAt(0).toLowerCase() + quand.slice(1))}` : ''}</span>
+      ${c.aime ? `<p class="lead">${t('{nom} a aimé ta réponse à « {question} »', { nom: esc(c.other.name), question: esc(libelleQuestion(c.aime.q)) })}</p>` : ''}
       <p class="lead">${t('Une question suffit à commencer. En voici tirées de sa fiche :')}</p>
       <div class="chips amorces" role="group" aria-label="${t('Amorces')}">${amorcesPour(c.other).map((a) => `
         <button type="button" data-action="amorce" data-k="${esc(a.k)}" data-texte="${esc(a.texte)}">${esc(a.texte)}</button>`).join('')}</div>
@@ -3241,6 +3267,7 @@ app.addEventListener('click', async (e) => {
     case 'ville': poserLaVille(el.dataset.champ, el.dataset.value); tg.haptic('select'); break;
     case 'amorce': poserLAmorce(el.dataset.k, el.dataset.texte); break;
     case 'report-profile': go('protection', { id: el.dataset.id }); break;
+    case 'aimer-reponse': tg.haptic('light'); aimerLaReponse(el.dataset.q); break;
     case 'report-chat': go('protection', { id: S.chat.other.id, matchId: S.chat.id }); break;
     case 'signaler': signaler(el.dataset.motif); break;
     case 'bloquer': bloquer(); break;

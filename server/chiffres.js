@@ -143,6 +143,9 @@ export function calculer({ users, events, reports = [], matches = [], messages =
   // les deux côtés de la fraction excluent donc les mêmes fils.
   const premiersMessages = matchsReels.reduce((n, m) => n + new Set((messages.get(m.id) || []).map((x) => x.from)).size, 0);
   const depuisUneAmorce = evts('amorce').length;
+  // Le « J'aime » sur une réponse est-il employé ? `like_sur` est posé une fois par « J'aime »
+  // qui vise une question ; le dénominateur est le nombre de « J'aime » réels de la période.
+  const jaimeSurReponse = evts('like_sur').length;
 
   const entree = {
     verifiesActifsParVille: parVilleVerifies,
@@ -151,6 +154,7 @@ export function calculer({ users, events, reports = [], matches = [], messages =
     partDecouvertesServies: part(servis, servis + vides),
     partMatchsAvecMessage48h: part(avecMessageEn48h, matchsReels.length),
     partPremiersMessagesDepuisAmorce: part(depuisUneAmorce, premiersMessages),
+    jaimeSurReponse: jaimeSurReponse,
     partLonguesAvecProposition: part(longuesAvecRdv, longues.length),
     partPropositionsAcceptees: part(acceptes, rdvReels.length),
   };

@@ -66,6 +66,7 @@ console.log(ligne('délai médian de modération', duree(r.entree.delaiModeratio
 console.log(ligne('découvertes qui rendent une carte', pct(r.entree.partDecouvertesServies)));
 console.log(ligne('matchs avec un message en 48 h', pct(r.entree.partMatchsAvecMessage48h)));
 console.log(ligne("premiers messages partis d'une amorce", pct(r.entree.partPremiersMessagesDepuisAmorce)));
+console.log(ligne('« J\'aime » qui visent une réponse de la fiche', String(r.entree.jaimeSurReponse)));
 console.log(ligne('discussions longues avec proposition', pct(r.entree.partLonguesAvecProposition)));
 console.log(ligne('propositions acceptées', pct(r.entree.partPropositionsAcceptees)));
 

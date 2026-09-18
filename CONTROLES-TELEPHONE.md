@@ -192,6 +192,14 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
       la troisième n'arrive qu'en approchant de l'écran, sans à-coup. La photo de tête ne réagit
       pas au toucher — les photos sont des blocs, plus un carrousel. « J'aime » et « Passer »
       restent les boutons natifs du bas, et la fiche d'un match ne les propose pas.
+- [ ] **(audit 15, lot 2)** Sur la fiche, chaque réponse porte un **cœur**. Touche-le : une feuille
+      monte avec la réponse en titre et un champ « Un mot pour l'accompagner » ; le clavier
+      s'ouvre et la feuille reste visible au-dessus. « Annuler » ne fait rien. Écris un mot et
+      « Envoyer le J'aime » : avec un profil de démonstration, c'est un match, et ton mot est le
+      **premier message** de la discussion. Écris « envoie-moi 5000 FCFA » : refusé avec la même
+      explication qu'un message, et la fiche n'a pas bougé. Depuis l'autre compte (un vrai
+      match), l'écran de match dit « {prénom} a aimé ta réponse à … » avec le mot, et la carte
+      d'ouverture de la discussion le redit.
 - [ ] Passe une carte avec le bouton ✕ : la suivante arrive, le bouton **revenir** s'allume ; touche-le,
       la carte passée revient en tête. Aime une carte avec ♥ (l'aura à l'appui) : le compteur de
       la pastille baisse d'un ; reviens, il remonte. Après un **match**, revenir est éteint.

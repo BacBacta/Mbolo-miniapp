@@ -191,7 +191,7 @@ test("le paquet est photo d'abord : pas de corps sous le pli, la fiche au chevro
   assert.match(carte, /\$\{plein \? '' : `<div class="card-body">/);
   assert.match(carte, /data-action="fiche"/);
   const fiche = entre('  person({ id }) {', '  match() {');
-  assert.match(fiche, /ficheEnBlocs\(p\)/, 'la fiche est en blocs');
+  assert.match(fiche, /ficheEnBlocs\(p, \{ decidable/, 'la fiche est en blocs');
 });
 
 // ---------- Lot 2 de l'audit UI/UX : la fiche en blocs ----------
@@ -230,6 +230,43 @@ test("les photos de la fiche après la première ne se chargent qu'en apparaissa
   assert.match(l, /if \(!\('IntersectionObserver' in window\)\) \{ blocs\.forEach\(charger\); return; \}/);
   const ecran = entre('  person({ id }) {', '  match() {');
   assert.match(ecran, /loadCardPhoto\(p\);\s*lazyBlocsPhoto\(p\);/, 'la photo de tête part tout de suite, les autres en apparaissant');
+});
+
+// Le « J'aime » sur une réponse (lot 2, seconde moitié) : un cœur par réponse, une feuille avec
+// un champ, et c'est la personne qui appuie — rien ne part sans elle. Le mot voyage avec le
+// balayage ; l'écran de match et la carte d'ouverture nomment la réponse aimée.
+test("chaque réponse de la fiche porte un cœur quand on peut encore décider, et jamais sur un match", () => {
+  const f = entre('function ficheEnBlocs(p', 'function lazyBlocsPhoto(p)');
+  assert.match(f, /decidable \? `<button type="button" class="coeur" data-action="aimer-reponse" data-q="\$\{esc\(x\.q\)\}"/);
+  const ecran = entre('  person({ id }) {', '  match() {');
+  assert.match(ecran, /ficheEnBlocs\(p, \{ decidable: !match && p\.status !== 'liked' \}\)/);
+});
+
+test("aimer une réponse ouvre une feuille avec un champ borné, et n'envoie que sur « Envoyer »", () => {
+  const a = entre('async function aimerLaReponse(q)', '// « J\'aime » ou « Passer » depuis le détail');
+  assert.match(a, /champ: \{ placeholder: t\('Un mot pour l\\'accompagner \(facultatif\)'\), maxlength: MOT_MAX \}/);
+  assert.match(a, /if \(r\?\.id !== 'aimer'\) return;/, 'annuler ou fermer la feuille ne fait rien');
+  assert.match(a, /swipePerson\('like', \{ sur: q, mot: r\.valeur \}\)/);
+  assert.match(a, /const MOT_MAX = 60;/);
+  const sp = entre('async function swipePerson(action', 'function dessinerLePass() {');
+  assert.match(sp, /\.\.\.\(sur \? \{ sur, mot \} : \{\}\)/, 'sans réponse visée, la requête ne change pas');
+});
+
+test("la feuille avec un champ rend le mot avec le bouton, et Entrée vaut le bouton principal", () => {
+  const ui = fs.readFileSync(new URL('../public/ui.js', import.meta.url), 'utf8');
+  const f = ui.slice(ui.indexOf('export function feuille('), ui.indexOf('// ---------- Squelettes'));
+  assert.match(f, /resolve\(input \? \{ id, valeur: input\.value\.trim\(\) \} : id\)/);
+  assert.match(f, /if \(champ\.maxlength\) input\.maxLength = champ\.maxlength;/);
+  assert.match(f, /e\.key === 'Enter'/);
+});
+
+test("l'écran de match et la carte d'ouverture nomment la réponse aimée, par sa clé de question", () => {
+  const m = entre('  match() {', '  async matches(');
+  assert.match(m, /m\.aime \? `<p class="lead">\$\{t\('\{nom\} a aimé ta réponse à « \{question\} »', \{ nom: esc\(m\.other\.name\), question: esc\(libelleQuestion\(m\.aime\.q\)\) \}\)\}<\/p>/);
+  assert.match(m, /m\.aime\.mot \? `<p class="mot-aime">« \$\{esc\(m\.aime\.mot\)\} »<\/p>`/);
+  const o = entre('function ouverture(c)', 'function poserLAmorce');
+  assert.match(o, /c\.aime \? `<p class="lead">\$\{t\('\{nom\} a aimé ta réponse à « \{question\} »'/);
+  assert.match(app, /aime: data\.aime \|\| null,/, 'la discussion retient ce que le premier appel a dit');
 });
 
 test("l'aperçu de son propre profil garde la carte : c'est ce que les autres voient dans le paquet", () => {

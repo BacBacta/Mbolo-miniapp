@@ -147,7 +147,11 @@ export function toast(msg, kind = 'info') {
 // Une porte, un menu, une explication : ce qui n'a pas besoin d'un écran entier. Elle vit hors
 // de #app pour survivre à un render(), se ferme d'un appui à côté, et rend l'identifiant du
 // bouton choisi — ou null. Un seul principal, en bas ; les autres en fantôme.
-export function feuille({ titre = '', texte = '', boutons = [] }) {
+// `champ` : un champ de texte dans la feuille (`{ placeholder, maxlength, valeur }`). La promesse
+// rend alors `{ id, valeur }` au lieu du seul identifiant — le « J'aime » sur une réponse s'en
+// sert pour le mot qui l'accompagne. Le clavier qui s'ouvre réduit la fenêtre, et la feuille,
+// collée en bas, suit.
+export function feuille({ titre = '', texte = '', champ = null, boutons = [] }) {
   return new Promise((resolve) => {
     document.getElementById('feuille')?.remove();
     const voile = document.createElement('div');
@@ -158,10 +162,17 @@ export function feuille({ titre = '', texte = '', boutons = [] }) {
     if (titre) voile.setAttribute('aria-label', titre);
     const panneau = document.createElement('div');
     panneau.className = 'panneau';
-    panneau.innerHTML = `<span class="poignee" aria-hidden="true"></span>${titre ? `<h2></h2>` : ''}${texte ? `<p></p>` : ''}<div class="boutons"></div>`;
+    panneau.innerHTML = `<span class="poignee" aria-hidden="true"></span>${titre ? `<h2></h2>` : ''}${texte ? `<p></p>` : ''}${champ ? '<input type="text" name="feuille-champ" autocomplete="off" enterkeyhint="send">' : ''}<div class="boutons"></div>`;
     if (titre) panneau.querySelector('h2').textContent = titre;
     if (texte) panneau.querySelector('p').textContent = texte;
-    const fermer = (id) => { voile.classList.add('part'); setTimeout(() => voile.remove(), 180); resolve(id); };
+    const input = champ ? panneau.querySelector('input') : null;
+    if (input) {
+      input.placeholder = champ.placeholder || '';
+      if (champ.maxlength) input.maxLength = champ.maxlength;
+      input.value = champ.valeur || '';
+    }
+    const fermer = (id) => { voile.classList.add('part'); setTimeout(() => voile.remove(), 180); resolve(input ? { id, valeur: input.value.trim() } : id); };
+    if (input) input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); fermer(boutons.find((b) => b.principal)?.id ?? null); } });
     for (const b of boutons) {
       const bouton = document.createElement('button');
       bouton.type = 'button';
@@ -174,6 +185,7 @@ export function feuille({ titre = '', texte = '', boutons = [] }) {
     voile.addEventListener('click', (e) => { if (e.target === voile) fermer(null); });
     voile.appendChild(panneau);
     document.body.appendChild(voile);
+    if (input) setTimeout(() => input.focus(), 60);
   });
 }
 

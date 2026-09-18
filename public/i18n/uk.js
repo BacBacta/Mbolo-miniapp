@@ -582,4 +582,10 @@ export default {
   "En bref": "Коротко",
   "Intention": "Мета",
   "Langues": "Мови",
+  "Aimer cette réponse": "Подобається ця відповідь",
+  "Aimer sa réponse": "Подобається відповідь",
+  "Un mot pour l'accompagner (facultatif)": "Кілька слів на додачу (необов'язково)",
+  "Envoyer le J'aime": "Надіслати лайк",
+  "{nom} a aimé ta réponse à « {question} »": "{nom} вподобав(ла) твою відповідь на «{question}»",
+  "Annuler": "Скасувати",
 };

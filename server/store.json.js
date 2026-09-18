@@ -321,8 +321,10 @@ export const store = {
   // ---------- Likes et matchs ----------
   hasSwiped: async (from, to) => db.swipes.some((s) => s.from === String(from) && s.to === String(to)),
 
-  async addSwipe(from, to, action) {
-    db.swipes.push({ from: String(from), to: String(to), action, at: Date.now() });
+  // `sur` et `mot` : le « J'aime » sur une réponse (migration 008 côté PostgreSQL). Absents,
+  // ils ne sont pas écrits : la ligne garde la forme qu'elle a toujours eue.
+  async addSwipe(from, to, action, { sur, mot } = {}) {
+    db.swipes.push({ from: String(from), to: String(to), action, at: Date.now(), ...(sur ? { sur } : {}), ...(mot ? { mot } : {}) });
     save();
   },
 
@@ -332,11 +334,13 @@ export const store = {
 
   // Rattrapage depuis la liste : un « Passer » peut devenir un « J'aime ». La date est mise à jour,
   // donc ce nouveau choix compte dans le quota du jour comme n'importe quel balayage.
-  async updateSwipe(from, to, action) {
+  async updateSwipe(from, to, action, { sur, mot } = {}) {
     const s = db.swipes.find((x) => x.from === String(from) && x.to === String(to));
     if (!s) return false;
     s.action = action;
     s.at = Date.now();
+    if (sur) s.sur = sur; else delete s.sur;
+    if (mot) s.mot = mot; else delete s.mot;
     save();
     return true;
   },

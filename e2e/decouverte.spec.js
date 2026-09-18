@@ -64,3 +64,40 @@ test('sans pass, le mode Liste ouvre une feuille, et le pass seulement si on le 
   await expect(page.locator('main')).toContainText(/Odo Plus|Plus/);
   await expect(page.locator('.offre').first()).toBeVisible();
 });
+
+// Le « J'aime » sur une réponse (lot 2, seconde moitié) : depuis la fiche, chaque réponse porte un
+// cœur ; il ouvre une feuille avec un mot facultatif ; rien ne part sans « Envoyer ». Le profil de
+// démonstration rend le « J'aime », donc c'est un match — et le mot est le premier message du fil,
+// de mon côté. Un vrai navigateur seul voit la feuille, le champ et le clavier.
+test("aimer une réponse avec un mot ouvre un match dont le mot est le premier message", async ({ page }) => {
+  await membreVerifie(page, 'Cléa');
+  await onglet(page, /Découvrir/).click();
+  const carte = page.locator('.deck .card.top');
+  await expect(carte).toBeVisible();
+  const nom = (await carte.locator('.overlay .name').innerText()).split('\n')[0].trim();
+  await carte.locator('.fiche-btn').click();
+  const fiche = page.locator('main .fiche');
+  const coeur = fiche.locator('.bloc-question .coeur').first();
+  await expect(coeur).toBeVisible();
+  await coeur.click();
+  const feuille = page.locator('#feuille');
+  await expect(feuille).toBeVisible();
+  await expect(feuille.locator('h2')).toHaveText(/Aimer sa réponse/);
+  const champ = feuille.locator('input[name="feuille-champ"]');
+  await expect(champ).toHaveAttribute('maxlength', '60');
+  // Annuler ne fait rien : la fiche est toujours là, sans « J'aime ».
+  await feuille.locator('[data-feuille="non"]').click();
+  await expect(feuille).toHaveCount(0);
+  await expect(fiche).toBeVisible();
+  await coeur.click();
+  await page.locator('#feuille input[name="feuille-champ"]').fill('Moi aussi, tous les dimanches');
+  await page.locator('#feuille [data-feuille="aimer"]').click();
+  // Le profil de démonstration rend le « J'aime » : match, puis la discussion.
+  await expect(page.locator('main')).toContainText(/C'est un match/i, { timeout: 20_000 });
+  await expect(page.locator('main')).toContainText(nom);
+  await page.locator('#fallback-bar button', { hasText: /Écrire à/ }).click();
+  const premiere = page.locator('#messages .bubble').first();
+  await expect(premiere).toBeVisible({ timeout: 15_000 });
+  await expect(premiere).toHaveClass(/mine/);
+  await expect(premiere).toContainText('Moi aussi, tous les dimanches');
+});

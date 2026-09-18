@@ -582,4 +582,10 @@ export default {
   "En bref": "Em resumo",
   "Intention": "Intenção",
   "Langues": "Idiomas",
+  "Aimer cette réponse": "Gostar desta resposta",
+  "Aimer sa réponse": "Gostar da resposta",
+  "Un mot pour l'accompagner (facultatif)": "Uma palavra para acompanhar (opcional)",
+  "Envoyer le J'aime": "Enviar o gosto",
+  "{nom} a aimé ta réponse à « {question} »": "{nom} gostou da tua resposta a «{question}»",
+  "Annuler": "Cancelar",
 };
