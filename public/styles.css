@@ -494,7 +494,10 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .overlay .apercu .q { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgb(247 245 251 / .62); }
 .overlay .apercu .a { font-family: var(--font-display); font-size: 18px; line-height: 1.22; letter-spacing: -.005em; color: var(--on-photo); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .overlay .apercu .a::before { content: '« '; } .overlay .apercu .a::after { content: ' »'; }
-.overlay-trust { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 12.5px; font-weight: 500; color: rgb(247 245 251 / .82); }
+.overlay .line > span { white-space: nowrap; }
+.overlay .line { flex-wrap: wrap; row-gap: 2px; }
+.overlay-trust { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 4px; font-size: 12.5px; font-weight: 500; color: rgb(247 245 251 / .82); }
+.overlay-trust .dot { width: 5px; height: 5px; border-radius: 50%; background: rgb(247 245 251 / .45); }
 .overlay-trust .trust-pips span { background: rgb(247 245 251 / .28); }
 .overlay-trust .trust-pips span.on { background: var(--gold); }
 /* Les trois gestes : revenir, passer, aimer. Ronds, sous la carte, sans lire. */
