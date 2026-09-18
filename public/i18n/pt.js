@@ -579,4 +579,7 @@ export default {
   "La vue Liste vient avec le pass": "A vista Lista vem com o passe",
   "Les mêmes personnes, en liste, avec « T'a liké » sur celles qui t'ont déjà dit oui.": "As mesmas pessoas, em lista, com « Gostou de ti » nas que já disseram sim.",
   "Voir le pass": "Ver o passe",
+  "En bref": "Em resumo",
+  "Intention": "Intenção",
+  "Langues": "Idiomas",
 };

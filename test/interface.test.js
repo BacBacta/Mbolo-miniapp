@@ -186,12 +186,56 @@ test("le paquet est photo d'abord : pas de corps sous le pli, la fiche au chevro
   assert.match(decouvrir, /data-action="swipe-like"/);
   assert.match(decouvrir, /tg\.setButtons\(null\)/, 'le bouton natif ne porte plus « J\'aime »');
   assert.ok(!/main: \{ text: t\("J'aime"\), onClick: \(\) => swipe/.test(decouvrir));
-  // La carte pleine ne rend pas le corps ; la fiche (person) le garde.
-  const carte = entre('function profileCard(p', 'function loadCardPhoto(');
+  // La carte pleine ne rend pas le corps ; la fiche (person) est une suite de blocs (lot 2).
+  const carte = entre('function profileCard(p', '// ---------- La fiche en blocs');
   assert.match(carte, /\$\{plein \? '' : `<div class="card-body">/);
   assert.match(carte, /data-action="fiche"/);
   const fiche = entre('  person({ id }) {', '  match() {');
-  assert.match(fiche, /profileCard\(p, \{ cls: 'top' \}\)/, 'la fiche montre la carte entière');
+  assert.match(fiche, /ficheEnBlocs\(p\)/, 'la fiche est en blocs');
+});
+
+// ---------- Lot 2 de l'audit UI/UX : la fiche en blocs ----------
+
+// La fiche était la carte du paquet en plus long : la même photo, la même question, les mêmes
+// faits — rien que l'appui n'apportait. Elle est maintenant une suite de blocs, et les photos
+// après la première ne partent qu'en apparaissant : ouvrir une fiche ne coûte pas trois photos.
+test('la fiche est une suite de blocs : photo, question, photo, question, faits, confiance', () => {
+  const f = entre('function ficheEnBlocs(p', 'function lazyBlocsPhoto(p)');
+  // Une question par bloc, la première puis les supplémentaires, dans cet ordre.
+  assert.match(f, /const questions = \[p\.promptA \? \{ q: p\.promptQ, a: p\.promptA \} : null, \.\.\.\(p\.extras \|\| \[\]\)\]/);
+  assert.match(f, /class="bloc bloc-question"/);
+  // Les photos alternent avec les questions, et celles qui restent ferment la suite.
+  assert.match(f, /const autres = \(p\.photos \|\| \[\]\)\.slice\(1\);/);
+  assert.match(f, /if \(autres\[i\] !== undefined\) suite\.push\(blocPhoto\(autres\[i\]\)\)/);
+  assert.match(f, /autres\.slice\(questions\.length\)\.forEach\(\(n\) => suite\.push\(blocPhoto\(n\)\)\)/);
+  // Les faits, la voix et la confiance ferment la fiche ; la confiance ouvre toujours l'explication.
+  assert.match(f, /class="bloc bloc-faits"/);
+  assert.match(f, /\$\{boutonVoix\(p\)\}/);
+  assert.match(f, /class="bloc bloc-confiance">\$\{ligneConfiance\(p\)\}/);
+  assert.match(entre('function ligneConfiance(p)', 'const boutonVoix'), /data-screen="jauge"/);
+  // La photo de tête ne navigue pas entre les photos : elles sont des blocs, plus un carrousel.
+  assert.ok(!/photo-nav/.test(f), 'la fiche ne porte pas le carrousel de la carte');
+  // Rien de nouveau ne sort du serveur : la fiche ne lit que ce que la carte lisait déjà.
+  for (const champ of ['p.promptA', 'p.extras', 'p.photos', 'p.compat', 'p.languages', 'p.intentLabel', 'p.voix', 'p.trust']) {
+    assert.ok(f.includes(champ) || entre('const jaugeDe', 'function profileCard(p').includes(champ), `${champ} est un champ que la carte montrait déjà`);
+  }
+});
+
+test("les photos de la fiche après la première ne se chargent qu'en apparaissant", () => {
+  const l = entre('function lazyBlocsPhoto(p)', '// La photo d\'une fiche part toujours');
+  assert.match(l, /new IntersectionObserver/);
+  assert.match(l, /photoUrl\(p\.id, Number\(box\.dataset\.n\)\)/, 'la photo entière, pas la miniature : on la regarde');
+  assert.ok(!/mini: true/.test(l));
+  // Sans observateur, tout part : un bloc gris à vie serait pire qu'une photo de trop.
+  assert.match(l, /if \(!\('IntersectionObserver' in window\)\) \{ blocs\.forEach\(charger\); return; \}/);
+  const ecran = entre('  person({ id }) {', '  match() {');
+  assert.match(ecran, /loadCardPhoto\(p\);\s*lazyBlocsPhoto\(p\);/, 'la photo de tête part tout de suite, les autres en apparaissant');
+});
+
+test("l'aperçu de son propre profil garde la carte : c'est ce que les autres voient dans le paquet", () => {
+  const moi = entre('  me() {', 'Ton pseudo et ton numéro Telegram ne sont jamais montrés');
+  assert.match(moi, /profileCard\(pp, \{ own: true \}\)/);
+  assert.ok(!/ficheEnBlocs/.test(moi));
 });
 
 test('revenir sur le dernier balayage passe par le serveur, dans la minute, et jamais après un match', () => {
