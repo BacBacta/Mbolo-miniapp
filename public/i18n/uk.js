@@ -407,7 +407,8 @@ export default {
   "Présentation vocale": "Голосова візитівка",
   "Validée · {duree} — les autres peuvent l'écouter": "Схвалено · {duree} — інші можуть її послухати",
   "Le bot n'est pas joignable pour l'instant.": "Наразі бот недоступний.",
-  "Choisir mon selfie": "Вибрати селфі",
+  "Choisir mon selfie dans la galerie": "Вибрати селфі з галереї",
+  "L'appareil photo ne s'ouvre pas d'ici : prends d'abord la photo, puis reviens.": "Камера звідси не відкривається: спочатку зроби фото, потім повернися.",
   "Prends un selfie avec ce geste, puis choisis-le ici.": "Зроби селфі з цим жестом, потім вибери його тут.",
   "Changer": "Замінити",
 

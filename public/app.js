@@ -1370,7 +1370,8 @@ const SCREENS = {
           <span class="eyebrow">${t('Geste demandé')}</span>
           <span class="gesture">${esc(S.gesture)}</span>
           <span class="muted small">${t('Prends un selfie avec ce geste, puis choisis-le ici.')}</span>
-          <span class="btn btn-primary">${icon('image', 18)} ${t('Choisir mon selfie')}</span>
+          <span class="muted small">${t("L'appareil photo ne s'ouvre pas d'ici : prends d'abord la photo, puis reviens.")}</span>
+          <span class="btn btn-primary">${icon('image', 18)} ${t('Choisir mon selfie dans la galerie')}</span>
           <input type="file" name="selfie" accept="image/*" hidden>
         </label>`}
       <div class="list">

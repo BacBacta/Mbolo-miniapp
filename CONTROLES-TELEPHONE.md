@@ -159,7 +159,9 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
       que tu n'es pas vérifié, tu ne vois personne ». Elle doit parler du bouclier.
 
 - [ ] L'écran demande un geste aléatoire et dit l'ordre réel : prendre le selfie **puis** le
-      choisir. Le mot « caméra » n'y figure pas.
+      choisir. Le bouton dit « Choisir mon selfie dans la galerie », une ligne dit que l'appareil
+      photo ne s'ouvre pas d'ici (18 septembre 2026 : la galerie qui s'ouvrait avait été prise
+      pour une panne). Le mot « caméra » n'y figure pas.
 - [ ] Le sélecteur ouvre la galerie. *C'est normal : la WebView de Telegram sur Android ignore
       toute demande d'ouvrir la caméra. C'est le geste qui vérifie, pas l'appareil.*
 - [ ] Le selfie arrive dans le groupe de modération, avec la légende (prénom, âge, geste demandé)
