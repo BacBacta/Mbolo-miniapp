@@ -229,6 +229,9 @@ audit/
   ce qui faisait attendre pour rien.
   15-ui-ux-premium.md : la passe UI/UX du 18 septembre 2026 face aux meilleures apps de 2026 —
   76 captures (38 écrans, sombre et clair), 33 constats lettrés, cinq lots vers « ultra premium ».
+  16-frictions.md : l'audit des frictions du 18 septembre 2026, sous les politiques de la production —
+  170 captures dans 16-captures/ (85 écrans, sombre et clair), vingt frictions prouvées avec leur
+  cause dans le code, cinq lots, la recette téléphone, et ce qui vient d'une décision et n'est pas rouvert.
 identite/
   Ce que BotFather affiche : photo du bot, image d'accueil, textes des cinq langues.
   Jamais servi au navigateur — **à une exception** : `source/story.html` sort dans
