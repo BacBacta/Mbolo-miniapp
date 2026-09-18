@@ -211,6 +211,18 @@ test('/paysupport montre ses reçus, et /aidepaiement transmet à l\'équipe', a
   assert.ok(envoyes.some((m) => m.chatId === '-100777' && /Aide paiement demandée par 8801 : je n'ai pas reçu mon pass/.test(m.text)));
 });
 
+// La mesure ne retient jamais la réponse (mesure.js, principe 3) : l'événement s'écrit après que
+// la route a répondu, et sur PostgreSQL il peut encore être en vol quand le test relit la table.
+// Un test qui compte des événements doit donc les attendre, comme les notifications dans
+// rendezvous.test.js — sans quoi il tombait une fois sur cinq en CI, jamais ici.
+async function evenementsVus(attendus) {
+  const lire = async () => (await store.events({ k: 'pass_vu' })).filter((e) => e.u === '8801');
+  let vus = await lire();
+  for (let i = 0; i < 200 && vus.length < attendus; i += 1) { await new Promise((r) => setTimeout(r, 5)); vus = await lire(); }
+  await new Promise((r) => setTimeout(r, 40));
+  return lire();
+}
+
 test('l\'écran du pass laisse une trace de sa porte, et rend les reçus sans la référence entière', async () => {
   const r = await call('8801', '/plus?quoi=likes');
   assert.equal(r.status, 200);
@@ -218,13 +230,13 @@ test('l\'écran du pass laisse une trace de sa porte, et rend les reçus sans la
   assert.deepEqual(r.body.offres.map((o) => o.jours), [7, 30, 90]);
   assert.ok(r.body.achats.length >= 2);
   assert.ok(r.body.achats.every((a) => a.ref.length === 6 && !('chargeId' in a)), 'six caractères, pas la référence entière');
-  const vus = (await store.events({ k: 'pass_vu' })).filter((e) => e.u === '8801');
+  const vus = await evenementsVus(1);
   assert.equal(vus.length, 1);
   assert.deepEqual(vus[0].p, { quoi: 'likes' });
   await call('8801', '/plus?quoi=likes');
-  assert.equal((await store.events({ k: 'pass_vu' })).filter((e) => e.u === '8801').length, 1, 'ralenti par porte : la même porte deux fois ne compte qu\'une');
+  assert.equal((await evenementsVus(1)).length, 1, 'ralenti par porte : la même porte deux fois ne compte qu\'une');
   await call('8801', '/plus?quoi=<script>');
-  const tous = (await store.events({ k: 'pass_vu' })).filter((e) => e.u === '8801');
+  const tous = await evenementsVus(2);
   assert.equal(tous.length, 2, 'une autre porte compte à part');
   assert.deepEqual(tous[1].p, { quoi: 'profil' }, 'et une porte inconnue devient la porte par défaut, jamais le texte reçu');
 });

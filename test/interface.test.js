@@ -174,3 +174,41 @@ test("la tranche d'activité dit « Actif », la présence dit « En ligne »", 
   assert.match(app, /recent: t\('Actif récemment'\), today: t\("Actif aujourd'hui"\), week: t\('Actif cette semaine'\)/);
   assert.ok(!app.includes("t(\"En ligne aujourd'hui\")"));
 });
+
+// ---------- Lot 1 de l'audit UI/UX : la découverte photo d'abord ----------
+
+test("le paquet est photo d'abord : pas de corps sous le pli, la fiche au chevron, trois boutons ronds", () => {
+  const decouvrir = entre('  async discover() {', '  filters() {');
+  assert.match(decouvrir, /class="deck plein"/);
+  assert.match(decouvrir, /profileCard\(p, \{ cls: 'top', plein: true \}\)/);
+  assert.match(decouvrir, /data-action="revenir"/);
+  assert.match(decouvrir, /data-action="swipe-pass"/);
+  assert.match(decouvrir, /data-action="swipe-like"/);
+  assert.match(decouvrir, /tg\.setButtons\(null\)/, 'le bouton natif ne porte plus « J\'aime »');
+  assert.ok(!/main: \{ text: t\("J'aime"\), onClick: \(\) => swipe/.test(decouvrir));
+  // La carte pleine ne rend pas le corps ; la fiche (person) le garde.
+  const carte = entre('function profileCard(p', 'function loadCardPhoto(');
+  assert.match(carte, /\$\{plein \? '' : `<div class="card-body">/);
+  assert.match(carte, /data-action="fiche"/);
+  const fiche = entre('  person({ id }) {', '  match() {');
+  assert.match(fiche, /profileCard\(p, \{ cls: 'top' \}\)/, 'la fiche montre la carte entière');
+});
+
+test('revenir sur le dernier balayage passe par le serveur, dans la minute, et jamais après un match', () => {
+  const s = entre('async function swipe(action)', '// ---------- Discussion ----------');
+  assert.match(s, /S\.dernierBalayage = \{ profil: p, action, at: Date\.now\(\) \}/);
+  assert.match(s, /if \(r\.match\) \{\s*S\.dernierBalayage = null;/);
+  assert.match(s, /api\(`\/swipes\/\$\{encodeURIComponent\(d\.profil\.id\)\}`, \{ method: 'DELETE' \}\)/);
+  assert.match(entre('  async discover() {', '  filters() {'), /Date\.now\(\) - S\.dernierBalayage\.at < 60_000/);
+});
+
+test('sans pass, le mode Liste ouvre une feuille du bas, pas un écran', () => {
+  const mode = entre("    case 'mode':", "    case 'venue':");
+  assert.match(mode, /feuille\(\{/);
+  assert.ok(!/go\('plus'\); break; \}/.test(mode.split('feuille(')[0]), "plus d'écran plein direct");
+  assert.match(mode, /if \(choix === 'pass'\) \{ S\.plusRetour = 'discover'; go\('plus'\); \}/);
+});
+
+test('six pastilles de villes au plus', () => {
+  assert.match(entre('const villesProposees = (pays, champ, valeur) =>', 'function poserLaVille('), /\.slice\(0, 6\)/);
+});

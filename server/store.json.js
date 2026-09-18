@@ -341,6 +341,16 @@ export const store = {
     return true;
   },
 
+  // Revenir sur un balayage : la ligne part, donc le quota du jour la rend et la carte revient
+  // dans le paquet. Rend le balayage retiré, ou null s'il n'y en avait pas.
+  async removeSwipe(from, to) {
+    const i = db.swipes.findIndex((x) => x.from === String(from) && x.to === String(to));
+    if (i < 0) return null;
+    const [s] = db.swipes.splice(i, 1);
+    save();
+    return s;
+  },
+
   matchBetween: async (a, b) => Object.values(db.matches).find((m) => m.key === pairKey(a, b)) || null,
 
   // Seuls les « J'aime » comptent dans le quota : passer un profil qui ne convient pas ne doit pas

@@ -182,6 +182,15 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
 
 ## 7. Découvrir
 
+- [ ] **(audit 15, lot 1)** La carte remplit l'écran entre la barre du haut et les trois boutons
+      ronds ; la question et la jauge sont **sur la photo** ; aucun bouton natif en bas. Le
+      chevron en haut à droite du prénom ouvre la fiche entière ; le retour natif revient au paquet.
+- [ ] Passe une carte avec le bouton ✕ : la suivante arrive, le bouton **revenir** s'allume ; touche-le,
+      la carte passée revient en tête. Aime une carte avec ♥ (l'aura à l'appui) : le compteur de
+      la pastille baisse d'un ; reviens, il remonte. Après un **match**, revenir est éteint.
+- [ ] Sans pass, touche « Liste » : une **feuille du bas** monte, la carte reste derrière ; « Plus
+      tard » la ferme, « Voir le pass » ouvre le pass.
+
 - [ ] Des cartes apparaissent (avec un second compte vérifié dans la même ville).
 - [ ] **(revue, lot 4)** **Les photos des autres se chargent.**
       *C'est le contrôle visible du changement le plus profond de la revue : l'API ne désigne plus

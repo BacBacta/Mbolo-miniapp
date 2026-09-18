@@ -373,6 +373,11 @@ export const store = {
     return !!r;
   },
 
+  // Revenir sur un balayage (voir store.json.js).
+  async removeSwipe(from, to) {
+    return versSwipe(await un('delete from swipes where from_id = $1 and to_id = $2 returning *', [String(from), String(to)]));
+  },
+
   matchBetween: async (a, b) => versMatch(await un('select * from matches where pair_key = $1', [pairKey(a, b)])),
 
   // Nombre de lignes de balayage, tous types confondus : sert à vérifier qu'un rattrapage réutilise
