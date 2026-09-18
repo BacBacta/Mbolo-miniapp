@@ -852,7 +852,7 @@ function discoverBar() {
         <button type="button" data-action="mode" data-mode="cards" aria-pressed="${!list}" aria-label="${t('Cartes')}">${icon('card', 15)}<span>${t('Cartes')}</span></button>
         <button type="button" data-action="mode" data-mode="list" aria-pressed="${list}" aria-label="${t('Liste')}">${icon(limite('liste') ? 'rows' : 'lock', 15)}<span>${t('Liste')}</span></button>
       </div>
-      ${list || sansLimite() ? '' : `<span class="pill quota-pill" role="status" aria-label="${t("J'aime restants aujourd'hui : {n}", { n: S.remaining })}"><i class="ring" style="--p: ${Math.round((100 * S.remaining) / Math.max(1, S.quota || S.remaining || 1))}%"></i>${icon('heart', 13, { fill: true })} ${S.remaining}</span>`}
+      ${list || sansLimite() ? '' : `<button type="button" class="pill quota-pill" data-action="quota" aria-label="${t("J'aime restants aujourd'hui : {n}", { n: S.remaining })}"><i class="ring" style="--p: ${Math.round((100 * S.remaining) / Math.max(1, S.quota || S.remaining || 1))}%"></i>${icon('heart', 13, { fill: true })} ${S.remaining}</button>`}
     </div>`;
 }
 
@@ -2729,6 +2729,26 @@ async function menuDuMessage(id) {
 
 // Une porte du pass en feuille du bas : ce qu'il y a derrière, et le pass seulement si on le
 // demande — une tuile floutée ne mène plus d'un coup sur un écran de vente.
+// La pastille « ♥ 2 » ne se comprend pas seule (retour du propriétaire, 18 septembre 2026) : un
+// appui ouvre une feuille qui dit où en est le compteur, ce qui compte (un « J'aime », jamais
+// « Passer »), quand il repart, et ce qui l'ouvre — le badge d'abord si la personne ne l'a pas,
+// parce que c'est gratuit, le pass ensuite. Les nombres viennent du serveur (`limites`).
+async function expliquerLeQuota() {
+  const marches = S.me?.limites?.jaimeParJour || {};
+  const reste = S.remaining > 0
+    ? t("Il t'en reste {n} sur {total} aujourd'hui.", { n: S.remaining, total: S.quota })
+    : t("Tes « J'aime » du jour sont partis.");
+  const lignes = [reste, t("Seul un « J'aime » compte : passer une carte ne coûte rien. Le compteur repart chaque nuit.")];
+  if (!verifie() && marches.avecBadge) lignes.push(t('Avec le badge de vérification, tu en as {n} par jour.', { n: marches.avecBadge }));
+  lignes.push(t("Avec le pass, il n'y a plus de compteur."));
+  const boutons = verifie()
+    ? [{ id: 'pass', texte: t('Voir le pass'), principal: true }, { id: 'non', texte: t("D'accord") }]
+    : [{ id: 'verif', texte: t('Me faire vérifier'), principal: true }, { id: 'pass', texte: t('Voir le pass') }, { id: 'non', texte: t("D'accord") }];
+  const r = await feuille({ titre: t("Tes « J'aime » du jour"), texte: lignes.join(' '), boutons });
+  if (r === 'pass') ouvrirLePass('quota');
+  else if (r === 'verif') go(S.me.verification === 'pending' ? 'pending' : 'verify');
+}
+
 async function porteEnFeuille(quoi) {
   const titres = { likes: t("Voir qui t'a aimé"), vues: t('Se sont arrêtés sur ta fiche') };
   const r = await feuille({
@@ -3445,6 +3465,7 @@ app.addEventListener('click', async (e) => {
     // Le pass s'ouvre de plusieurs endroits : on retient d'où, pour que le retour ramène là.
     case 'plus': ouvrirLePass(el.dataset.quoi || 'profil'); break;
     case 'porte-feuille': porteEnFeuille(el.dataset.quoi || 'profil'); break;
+    case 'quota': expliquerLeQuota(); break;
     case 'offre': tg.haptic('select'); S.offre = Number(el.dataset.jours); dessinerLePass(); break;
     // L'enregistrement se fait dans Telegram, pas ici : le micro n'est pas accessible depuis une
     // mini app sur Android. On ouvre donc la discussion avec le bot, qui explique la marche à suivre.

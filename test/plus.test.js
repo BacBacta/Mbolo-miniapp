@@ -298,10 +298,10 @@ test('sans pass, la zone est sa ville ; le réglage dort au lieu de disparaître
 test('les paliers voyagent jusqu\'à l\'interface, qui ne les recopie pas', async () => {
   await membre('9260', 'Pia', 'femme', 22);
   const sans = (await call('9260', '/me')).body.limites;
-  assert.deepEqual(sans, { photos: 2, voixSecondes: 15, questions: 1, liste: false, paysEntier: false, filtreLangue: false, ordreDuPaquet: false, avecPass: { photos: 6, voixSecondes: 30, questions: 3 } });
+  assert.deepEqual(sans, { photos: 2, voixSecondes: 15, questions: 1, liste: false, paysEntier: false, filtreLangue: false, ordreDuPaquet: false, avecPass: { photos: 6, voixSecondes: 30, questions: 3 }, jaimeParJour: { sansBadge: 2, avecBadge: 5 } });
   await donnerLePass('9260');
   const avec = (await call('9260', '/me')).body.limites;
-  assert.deepEqual(avec, { photos: 6, voixSecondes: 30, questions: 3, liste: true, paysEntier: true, filtreLangue: true, ordreDuPaquet: true, avecPass: { photos: 6, voixSecondes: 30, questions: 3 } });
+  assert.deepEqual(avec, { photos: 6, voixSecondes: 30, questions: 3, liste: true, paysEntier: true, filtreLangue: true, ordreDuPaquet: true, avecPass: { photos: 6, voixSecondes: 30, questions: 3 }, jaimeParJour: { sansBadge: 2, avecBadge: 5 } });
 });
 
 // ---------- Trois questions, et le filtre par langue ----------
