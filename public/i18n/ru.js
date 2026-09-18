@@ -12,7 +12,6 @@ export default {
   "Ajouter à l'écran d'accueil": "Добавить на главный экран",
   "Amitié": "Дружба",
   "Aperçu du selfie": "Предпросмотр селфи",
-  "Appuie sur le micro, en bas de la discussion": "Нажми на микрофон внизу чата",
   "Appuie sur le micro, en bas, et parle": "Нажми на микрофон внизу и говори",
   "Arrivée confirmée": "Приход подтверждён",
   "Aucun profil vérifié dans ta zone avec ton intention. Élargis ta zone depuis les filtres, ou reviens un peu plus tard.": "В твоей зоне нет проверенных анкет с той же целью. Расширь зону в фильтрах или зайди чуть позже.",

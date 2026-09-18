@@ -3,7 +3,8 @@
 // Telegram expose deux méthodes, et elles ne font pas la même chose :
 //
 //   openLink(url)          ouvre un navigateur, par-dessus la mini app.
-//   openTelegramLink(url)  referme la mini app et ouvre la discussion visée.
+//   openTelegramLink(url)  ouvre la discussion visée dans Telegram — sans refermer la mini app.
+//                          Quand le geste est d'aller parler au bot, `{ fermer: true }` la referme.
 //
 // Le bouton « Enregistrer ma présentation » employait la première sur un lien t.me. Telegram
 // ouvrait donc un navigateur sur la page web de t.me, laquelle cherche à rouvrir Telegram
@@ -78,4 +79,18 @@ test('hors de Telegram, les deux retombent sur le navigateur', () => {
     const bloc = tg.slice(debut, tg.indexOf('\n}', debut));
     assert.match(bloc, /window\.open\(/, `${nom} doit avoir un secours hors de Telegram`);
   }
+});
+
+// Le 18 septembre 2026, « Enregistrer ma présentation » ouvrait bien la discussion du bot… derrière
+// la mini app, qui restait devant avec un toast « appuie sur le micro » et aucun micro :
+// openTelegramLink ne referme pas la mini app. Les trois liens qui envoient parler au bot (la
+// voix, « le bot ne peut pas te prévenir », le compte fermé) la referment donc explicitement.
+test('aller parler au bot referme la mini app', () => {
+  const app = sansCommentaires(lire('app.js'));
+  const versLeBot = [...app.matchAll(/openTelegramLink\(`https:\/\/t\.me\/\$\{[^}]+\}\?start=(voix|prevenir|aide)`([^)]*)\)/g)];
+  assert.equal(versLeBot.length, 3, 'les trois portes vers le bot');
+  for (const m of versLeBot) assert.match(m[2], /\{ fermer: true \}/, `${m[1]} doit refermer la mini app`);
+  const tg = sansCommentaires(lire('tg.js'));
+  assert.match(tg, /export function openTelegramLink\(url, \{ fermer = false \} = \{\}\)/);
+  assert.match(tg, /W\.openTelegramLink\(url\);\s*if \(fermer\) W\.close\(\);/, 'la fermeture suit l\'ouverture, dans Telegram seulement');
 });

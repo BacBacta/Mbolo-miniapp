@@ -555,7 +555,7 @@ test("le droit d'écrire au bot se demande dès le premier profil, et un refus l
   const me = entre('  me() {', '  async reglages() {');
   assert.match(me, /pp && botMuet\(\) \?[\s\S]*action: 'ouvrir-bot'/, 'la ligne de l\'onglet Profil quand le bot est muet');
   const ouvrir = entre('function ouvrirLeBot() {', 'function noterEtape(');
-  assert.match(ouvrir, /tg\.openTelegramLink\(`https:\/\/t\.me\/\$\{S\.me\.botUsername\}\?start=prevenir`\)/);
+  assert.match(ouvrir, /tg\.openTelegramLink\(`https:\/\/t\.me\/\$\{S\.me\.botUsername\}\?start=prevenir`, \{ fermer: true \}\)/);
 });
 
 // Audit 16, lot C : le quota et le paquet. À zéro, le ♥ n'appelle pas le serveur et ouvre la
@@ -606,7 +606,7 @@ test("chaque icône demandée par l'interface existe dans ui.js", () => {
 // que s'il y a quelqu'un derrière (n° 12).
 test("un compte fermé a son écran et un bouton vers le bot, pas « Réessayer »", () => {
   const erreur = entre('function renderError(e, retry) {', 'const ACTIVITY_LABELS');
-  assert.match(erreur, /if \(e\.code === 'BANNED'\) \{[\s\S]*t\('Ton compte est fermé'\)[\s\S]*tg\.openTelegramLink\(`https:\/\/t\.me\/\$\{e\.bot\}\?start=aide`\)/);
+  assert.match(erreur, /if \(e\.code === 'BANNED'\) \{[\s\S]*t\('Ton compte est fermé'\)[\s\S]*tg\.openTelegramLink\(`https:\/\/t\.me\/\$\{e\.bot\}\?start=aide`, \{ fermer: true \}\)/);
   assert.match(app, /\.\.\.\(data\.bot \? \{ bot: data\.bot \} : \{\}\)/, 'le nom du bot voyage avec l\'erreur');
   const supprime = entre('  supprime() {', '  // Odo Plus');
   assert.match(supprime, /tg\.inTelegram \? \{ main: \{ text: t\('Fermer'\), onClick: tg\.close \} \} : null/);

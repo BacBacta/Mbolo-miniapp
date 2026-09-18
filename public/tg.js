@@ -321,8 +321,10 @@ export function shareToStory(mediaUrl, text, lien) {
 // Ce n'est pas openLink() : celui-là ouvre un navigateur, et un navigateur ouvert sur t.me
 // affiche une page web qui cherche à rouvrir Telegram par-dessus la mini app. Sur Android, ça
 // se voit comme un écran figé, et c'est ce que faisait le bouton « Enregistrer ma présentation ».
-// openTelegramLink(), lui, referme la mini app et ouvre la discussion, ce qui est justement le
-// geste attendu : aller parler au bot.
+// openTelegramLink(), lui, ouvre la discussion dans Telegram. **Il ne referme pas la mini app**
+// (Telegram Android, 18 septembre 2026 : la discussion s'ouvrait derrière, et la personne ne
+// voyait qu'un toast « appuie sur le micro » devant un écran qui n'en a pas). Quand le geste est
+// d'aller parler au bot, on referme donc nous-mêmes, juste après : `fermer: true`.
 // Ouvre une facture Telegram (Stars) par-dessus la mini app, et rend son issue : « paid »,
 // « cancelled », « failed », « pending ». Hors de Telegram, rien ne peut encaisser : on le dit,
 // on ne fait pas semblant.
@@ -333,9 +335,11 @@ export function openInvoice(url) {
   });
 }
 
-export function openTelegramLink(url) {
-  if (inTelegram) W.openTelegramLink(url);
-  else window.open(url, '_blank', 'noopener');
+export function openTelegramLink(url, { fermer = false } = {}) {
+  if (inTelegram) {
+    W.openTelegramLink(url);
+    if (fermer) W.close();
+  } else window.open(url, '_blank', 'noopener');
 }
 
 // Ouvre une page du site hors de la mini app : les pages publiques (confidentialité, conditions)

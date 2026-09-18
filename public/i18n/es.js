@@ -12,7 +12,6 @@ export default {
   'Ajouter à l\'écran d\'accueil': 'Añadir a la pantalla de inicio',
   'Amitié': 'Amistad',
   'Aperçu du selfie': 'Vista previa del selfi',
-  'Appuie sur le micro, en bas de la discussion': 'Pulsa el micrófono, abajo en la conversación',
   'Appuie sur le micro, en bas, et parle': 'Pulsa el micrófono, abajo, y habla',
   'Arrivée confirmée': 'Llegada confirmada',
   'Aucun profil vérifié dans ta zone avec ton intention. Élargis ta zone depuis les filtres, ou reviens un peu plus tard.': 'Ningún perfil verificado en tu zona que busque lo mismo. Amplía tu zona desde los filtros, o vuelve un poco más tarde.',
