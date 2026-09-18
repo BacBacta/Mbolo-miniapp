@@ -605,4 +605,8 @@ export default {
   "Liens et numéros à {n}": "Ссылки и номера после {n}",
   "{nom} te prévient : elle ou il part à un rendez-vous maintenant. Tu es sa personne de confiance.": "{nom} предупреждает: сейчас идёт на свидание. Ты доверенное лицо.",
   "sur 30 jours": "за 30 дней",
+  "En général quelques minutes. Le bot t'écrit dans Telegram dès que c'est fait. En attendant, tu peux déjà découvrir des profils.": "Обычно несколько минут. Бот напишет тебе в Telegram, как только всё готово. А пока ты уже можешь смотреть анкеты.",
+  "Découvrir en attendant": "Смотреть анкеты пока",
+  "Selfie envoyé. On te prévient dès qu'il est vérifié.": "Селфи отправлено. Мы сообщим, как только оно будет проверено.",
+  "Ton selfie est vérifié : le bouclier est sur ta fiche.": "Твоё селфи проверено: щит на твоей анкете.",
 };

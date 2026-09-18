@@ -82,6 +82,9 @@ redevenir sans qu'on s'en aperçoive. Le numéro dit de quel lot elles viennent.
 - [ ] **(audit 15, lot 3)** La première étape est **la photo**, en grand, avec le prénom, l'âge et le
       genre ; puis ce que tu cherches ; puis ta question. Sans photo, ça passe quand même.
 - [ ] Prénom, âge, genre, intention : l'écran avance étape par étape.
+- [ ] **(audit 16, n° 3)** À l'étape 1, laisse l'âge vide, clavier ouvert, et touche
+      « Continuer » : l'erreur « Indique ton âge. » **se voit sans défiler**, et le champ Âge a
+      le focus. *Avant, l'erreur s'écrivait sous le pli et le bouton avait l'air mort.*
 - [ ] Le champ « ville » n'a **aucune suggestion pré-remplie** dans le champ lui-même.
 - [ ] **(revue, lot 4)** Écris comme ville : `Douala 677 12 34 56`. L'enregistrement doit être
       **refusé**, avec : « Ton profil ne doit contenir ni numéro, ni lien, ni pseudo, ni demande
@@ -129,12 +132,20 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
 > porte mais un badge. Les cases marquées « badge » n'existent que sous ce réglage ; sous `gate`,
 > l'écran de vérification n'a pas de « Plus tard » et rien ne s'ouvre avant la décision.
 
-- [ ] **(badge)** L'écran de vérification annonce ce que le bouclier donne : le bouclier sur la
-      fiche, le rendez-vous, plus de profils par jour.
-- [ ] **(badge)** Il porte un bouton **Plus tard**. Touche-le : tu arrives sur **Découvrir**,
-      avec les onglets, sans être vérifié.
+- [ ] **(badge)** L'écran de vérification montre **d'abord le geste et le bouton de la galerie**,
+      et annonce ensuite ce que le bouclier donne : le bouclier sur la fiche et plus de profils
+      par jour. La ligne du rendez-vous n'y est **pas** tant qu'aucun lieu partenaire n'existe
+      dans ta ville (audit 16, n° 18).
+- [ ] **(badge)** Il n'y a **aucun bouton natif** tant que le selfie n'est pas choisi. « Plus
+      tard » est un lien texte sous la carte du geste : touche-le, tu arrives sur **Découvrir**,
+      avec les onglets, sans être vérifié (audit 16, n° 1).
+- [ ] **(badge)** Selfie choisi, le bouton natif dit « Envoyer pour vérification ». Envoie : tu
+      arrives **sur Découvrir**, avec un toast « Selfie envoyé », pas sur un écran d'attente
+      (audit 16, n° 2). Quand la modération valide, un toast dit que le bouclier est sur ta
+      fiche, sans changer d'écran si tu es dans une discussion.
 - [ ] **(badge)** Depuis l'onglet Profil, la ligne **« Faire vérifier mon profil »** est toujours
-      là et ramène ici. Pendant l'attente, elle devient « Vérification en cours ».
+      là et ramène ici. Pendant l'attente, elle devient « Vérification en cours » et ouvre
+      l'écran d'attente, dont le bouton principal est « Découvrir en attendant ».
 - [ ] **(badge)** Dans **Découvrir**, les profils avec le bouclier passent devant ceux qui ne
       l'ont pas — mais les deux sont visibles.
 - [ ] **(badge)** Dans **Filtres**, l'interrupteur « Profils vérifiés seulement » ne laisse plus

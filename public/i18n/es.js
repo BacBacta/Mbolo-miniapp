@@ -605,4 +605,8 @@ export default {
   "Liens et numéros à {n}": "Enlaces y números a los {n}",
   "{nom} te prévient : elle ou il part à un rendez-vous maintenant. Tu es sa personne de confiance.": "{nom} te avisa: sale hacia una cita ahora. Eres su persona de confianza.",
   "sur 30 jours": "en 30 días",
+  "En général quelques minutes. Le bot t'écrit dans Telegram dès que c'est fait. En attendant, tu peux déjà découvrir des profils.": "Normalmente unos minutos. El bot te escribe en Telegram en cuanto esté hecho. Mientras tanto, ya puedes descubrir perfiles.",
+  "Découvrir en attendant": "Descubrir mientras tanto",
+  "Selfie envoyé. On te prévient dès qu'il est vérifié.": "Selfie enviado. Te avisamos en cuanto esté verificado.",
+  "Ton selfie est vérifié : le bouclier est sur ta fiche.": "Tu selfie está verificado: el escudo está en tu perfil.",
 };

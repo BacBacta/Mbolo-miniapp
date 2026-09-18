@@ -503,3 +503,41 @@ test('la spécification du mouvement est écrite dans styles.css, avec ses duré
   for (const mot of ['120 ms', '200 ms', '220 ms', '260 ms', '--ease', '--spring', 'prefers-reduced-motion']) assert.ok(css.includes(mot), mot);
 });
 
+
+// Audit 16, lot A : l'entrée sous « badge ». Le bouton natif de l'écran de vérification ne dit
+// plus « Plus tard » (n° 1), le selfie envoyé mène à Découvrir et non à une salle d'attente
+// (n° 2), l'erreur d'un formulaire revient à l'écran avec le focus sur le champ fautif (n° 3),
+// rien n'est vendu à la première inscription (n° 11), et le rendez-vous n'est annoncé que là
+// où un lieu partenaire existe (n° 18).
+test("l'écran de vérification met le geste devant, et « Plus tard » n'est plus le bouton principal", () => {
+  const verify = entre('  async verify(', '  pending() {');
+  assert.doesNotMatch(verify, /main: \{ text: t\('Plus tard'\)/, '« Plus tard » n\'est jamais le bouton principal');
+  assert.match(verify, /data-action="go" data-screen="discover">\$\{t\('Plus tard'\)\}/, 'il est un lien texte sous la carte du geste');
+  assert.ok(verify.indexOf('gesture-card') < verify.indexOf('${gains}'), 'le geste et le bouton passent avant les avantages');
+  assert.match(verify, /S\.me\.options\?\.lieuxIci \? listRow\(\{ iconName: 'coffee'/, 'le rendez-vous n\'est annoncé que là où un lieu existe');
+});
+
+test('sous « badge », le selfie envoyé mène à Découvrir, et une veille dit quand le bouclier arrive', () => {
+  const envoi = entre('async function sendSelfie() {', 'async function refreshStatus() {');
+  assert.match(envoi, /if \(entreeLibre\(\)\) \{[\s\S]*veillerLaVerification\(\);\s*go\('discover'\);[\s\S]*\} else \{\s*go\('pending'\);/);
+  const veille = entre('function veillerLaVerification() {', 'async function refreshStatus() {');
+  assert.match(veille, /if \(S\.screen === 'discover' \|\| S\.screen === 'me'\) go\(S\.screen\);/, 'seuls les écrans qui montrent le badge sont redessinés');
+  assert.doesNotMatch(veille, /go\('discover'\)|go\('chat'/, 'la veille ne change jamais d\'écran');
+  const pending = entre('  pending() {', '  // Le paquet');
+  assert.match(pending, /entreeLibre\(\)\s*\? \{ main: \{ text: t\('Découvrir en attendant'\)/, 'l\'écran d\'attente ouvre la découverte sous « badge »');
+});
+
+test("l'erreur d'un formulaire revient à l'écran, avec le focus sur le champ fautif", () => {
+  const erreur = entre('function showError(', 'const listRow =');
+  assert.match(erreur, /scrollIntoView/);
+  assert.match(erreur, /if \(e\.champ\) app\.querySelector\(`\[name="\$\{e\.champ\}"\]`\)\?\.focus\(\)/);
+  const etape = entre('function erreurDEtape(step) {', 'function nextStep() {');
+  assert.match(etape, /champ: 'age'/);
+  assert.match(etape, /champ: 'name'/);
+  assert.match(etape, /champ: 'promptA'/);
+});
+
+test("rien n'est vendu à la première inscription", () => {
+  const suite = entre('  const suite = extras.length < plafond', '  return blocs + suite;');
+  assert.match(suite, /extras\.length < total - 1 && S\.me\?\.profile\s*\? porteDuPass\(\{ quoi: 'questions'/);
+});

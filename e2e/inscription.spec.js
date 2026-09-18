@@ -268,3 +268,19 @@ test('les villes connues sont des pastilles, pas une boîte du système', async 
   await expect(titre(page)).toHaveText(/Ce que tu cherches/);
   await expect(page.locator('input[name=city]')).toHaveValue('Douala');
 });
+
+// Audit 16, n° 3 : l'erreur d'une étape était écrite au bas d'un formulaire plus haut que
+// l'écran, et « Continuer » avait l'air mort. Elle revient à la vue, et le champ fautif prend
+// le focus.
+test("l'erreur d'une étape se voit sans défiler, et le champ fautif prend le focus", async ({ page }) => {
+  await ouvrir(page, nouvelIdentifiant());
+  await actionPrincipale(page).click();
+  await expect(titre(page)).toHaveText(/Ta photo et ton prénom/);
+  await page.locator('input[name=name]').fill('Awa');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await actionPrincipale(page).click();
+  const erreur = page.locator('#form-error');
+  await expect(erreur).toHaveText(/Indique ton âge/);
+  await expect(erreur).toBeInViewport();
+  await expect(page.locator('input[name=age]')).toBeFocused();
+});

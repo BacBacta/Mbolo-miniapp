@@ -504,7 +504,7 @@ Les deux modes de stockage sont lancés à chaque pull request par GitHub Action
 npm run e2e
 ```
 
-Playwright lance le serveur en mode développement, ouvre Chromium à la taille d'un téléphone et refait le parcours : accueil, profil, selfie, vérification, découverte, match, discussion, pages publiques. Treize tests, environ deux minutes et demie.
+Playwright lance le serveur en mode développement, ouvre Chromium à la taille d'un téléphone et refait le parcours : accueil, profil, selfie, vérification, découverte, match, discussion, pages publiques. Un second serveur tourne sous `VERIFICATION_POLICY=badge`, la politique de la production, pour `e2e/badge.spec.js` : le parcours d'entrée réellement servi (la vérification puis Découvrir tout de suite). Cinquante-six tests, environ six minutes : chaque serveur démarre seul, et les tests tournent en série.
 
 Ils disent ce que `npm test` ne peut pas dire — qu'un écran s'affiche, qu'un bouton existe, qu'un message refusé explique quoi corriger, et que **le champ de saisie survit à l'arrivée d'un message pendant la frappe** (règle 16 : sinon le clavier se fermerait au milieu d'un mot).
 

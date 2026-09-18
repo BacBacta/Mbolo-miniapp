@@ -39,6 +39,7 @@ const S = {
   chatEnBas: true,
   summary: { unread: 0, newMatches: 0 },
   pendingTimer: null,
+  veilleVerif: null,
   lastMatch: null,
   selfie: null,
   gesture: null,
@@ -769,11 +770,18 @@ function loadCardPhoto(p, { own = false } = {}) {
   });
 }
 
+// L'erreur d'un formulaire vit sous les champs, donc souvent hors de l'écran (audit 16, n° 3) :
+// on la ramène à la vue, et le champ fautif, s'il est nommé, prend le focus.
 function showError(e, el = document.getElementById('form-error')) {
   if (e?.silencieux) return;
   tg.haptic('error');
-  if (el) el.textContent = e.message;
-  else toast(e.message, 'warn');
+  if (el) {
+    el.textContent = e.message;
+    // Le focus d'abord : il fait défiler jusqu'au champ. L'erreur ensuite, au plus près : les deux
+    // tiennent dans l'écran, et un défilement animé serait annulé par le focus qui suit.
+    if (e.champ) app.querySelector(`[name="${e.champ}"]`)?.focus();
+    el.scrollIntoView?.({ block: 'nearest' });
+  } else toast(e.message, 'warn');
 }
 
 const listRow = ({ iconName, tile = '', title, sub = '', action = '', extra = '', trailing = 'chev' }) => `
@@ -803,7 +811,9 @@ function blocsQuestionsSupplementaires(f) {
   }).join('');
   const suite = extras.length < plafond
     ? `<button type="button" class="btn btn-ghost btn-sm" data-action="extra-add">${icon('plus', 15)} ${t('Ajouter une question')}</button>`
-    : extras.length < total - 1
+    // Rien à vendre avant le premier visage (audit 16, n° 11) : la porte n'apparaît qu'en
+    // modification, jamais pendant la première inscription.
+    : extras.length < total - 1 && S.me?.profile
       ? porteDuPass({ quoi: 'questions', titre: t('{n} questions sur ta fiche', { n: total }), sous: t('Avec {app} Plus', { app: APP }) })
       : '';
   return blocs + suite;
@@ -1348,18 +1358,24 @@ const SCREENS = {
     // Ce que la vérification donne dépend de la politique du serveur. Sous « gate », elle ouvre
     // l'app : rien avant elle. Sous « badge », l'app est déjà ouverte et elle donne le bouclier,
     // le rendez-vous et le quota entier. Annoncer la mauvaise des deux, c'est mentir.
+    // La ligne du rendez-vous ne s'annonce que là où un lieu partenaire existe (audit 16, n° 18) :
+    // promettre un avantage qu'on ne retrouve nulle part coûte de la confiance.
     const gains = entreeLibre()
       ? `
       <div class="list">
         ${listRow({ iconName: 'shield', tile: 'tile-ok', title: t('Le bouclier sur ta fiche'), sub: t('Les autres voient que ton selfie a été vérifié') })}
-        ${listRow({ iconName: 'coffee', title: t('Proposer un rendez-vous'), sub: t('Réservé aux profils vérifiés, des deux côtés') })}
+        ${S.me.options?.lieuxIci ? listRow({ iconName: 'coffee', title: t('Proposer un rendez-vous'), sub: t('Réservé aux profils vérifiés, des deux côtés') }) : ''}
         ${listRow({ iconName: 'heart', tile: 'tile-like', title: t('Plus de profils par jour'), sub: t('Ton quota du jour passe au maximum') })}
       </div>`
       : '';
+    // Le geste et le bouton d'abord, les avantages après (audit 16, n° 1) : le bouton qui fait
+    // avancer était sous le pli, derrière trois avantages, et le bouton natif disait « Plus tard ».
+    // Le bouton natif ne peut pas ouvrir la galerie — l'appui natif n'est pas un geste utilisateur
+    // pour la WebView —, donc « Plus tard » est un lien texte sous la carte, et il n'y a pas de
+    // bouton natif tant que le selfie n'est pas choisi.
     render(`
       ${head}
       <p class="lead">${t("Un selfie avec le geste demandé. Seule l'équipe de vérification le voit, puis il est supprimé.")}</p>
-      ${gains}
       ${S.selfie ? `
         <div class="preview-wrap">
           <img class="preview" src="${S.selfie}" alt="${t('Aperçu du selfie')}">
@@ -1373,7 +1389,9 @@ const SCREENS = {
           <span class="muted small">${t("L'appareil photo ne s'ouvre pas d'ici : prends d'abord la photo, puis reviens.")}</span>
           <span class="btn btn-primary">${icon('image', 18)} ${t('Choisir mon selfie dans la galerie')}</span>
           <input type="file" name="selfie" accept="image/*" hidden>
-        </label>`}
+        </label>
+        ${entreeLibre() ? `<p class="center"><button type="button" class="btn btn-ghost btn-sm" data-action="go" data-screen="discover">${t('Plus tard')}</button></p>` : ''}`}
+      ${gains}
       <div class="list">
         ${listRow({ iconName: 'lock', title: t('Jamais montré aux autres membres') })}
         ${listRow({ iconName: 'trash', title: t('Supprimé dès la décision'), tile: 'tile-neutral' })}
@@ -1382,10 +1400,11 @@ const SCREENS = {
       <p id="form-error" class="error" role="alert"></p>
     `);
     // « Plus tard » n'existe que sous « badge » : sous « gate », il n'y a nulle part où aller.
+    // Sans selfie choisi, aucun bouton natif : le seul geste utile est dans la page.
     const plusTard = entreeLibre() ? { secondary: { text: t('Plus tard'), onClick: () => go('discover') } } : {};
     tg.setButtons(S.selfie
       ? { main: { text: t('Envoyer pour vérification'), onClick: sendSelfie }, ...plusTard }
-      : (entreeLibre() ? { main: { text: t('Plus tard'), onClick: () => go('discover') } } : null));
+      : null);
   },
 
   pending() {
@@ -1393,15 +1412,23 @@ const SCREENS = {
       <div class="empty top">
         <div class="pulse" aria-hidden="true"><span class="ring"></span><span class="ring"></span><span class="core">${icon('shield', 34)}</span></div>
         <h1>${t('Vérification en cours')}</h1>
-        <p>${t("En général quelques minutes. Le bot t'écrit dans Telegram dès que c'est fait : tu peux fermer l'app.")}</p>
+        <p>${entreeLibre()
+          ? t("En général quelques minutes. Le bot t'écrit dans Telegram dès que c'est fait. En attendant, tu peux déjà découvrir des profils.")
+          : t("En général quelques minutes. Le bot t'écrit dans Telegram dès que c'est fait : tu peux fermer l'app.")}</p>
       </div>
       <div class="list"><div class="timeline">
         <div class="tl"><span class="dot done"></span><div><div class="t">${t('Selfie envoyé')}</div><div class="s">${t('Il sera supprimé dès la décision')}</div></div></div>
         <div class="tl"><span class="dot now"></span><div><div class="t">${t("Vérification par l'équipe")}</div><div class="s">${t('Une vraie personne regarde le geste et le visage')}</div></div></div>
-        <div class="tl"><span class="dot"></span><div><div class="t">${t('Profil visible')}</div><div class="s">${t('Tu découvres les profils de ta zone')}</div></div></div>
+        ${entreeLibre()
+          ? `<div class="tl"><span class="dot"></span><div><div class="t">${t('Le bouclier sur ta fiche')}</div><div class="s">${t('Les autres voient que ton selfie a été vérifié')}</div></div></div>`
+          : `<div class="tl"><span class="dot"></span><div><div class="t">${t('Profil visible')}</div><div class="s">${t('Tu découvres les profils de ta zone')}</div></div></div>`}
       </div></div>
     `);
-    tg.setButtons({ main: { text: t('Actualiser'), onClick: refreshStatus }, secondary: { text: t('Fermer'), onClick: tg.close } });
+    // Sous « badge », la découverte est ouverte depuis le profil (audit 16, n° 2) : la première
+    // session ne finit pas sur une salle d'attente. Sous « gate », il n'y a rien d'autre à montrer.
+    tg.setButtons(entreeLibre()
+      ? { main: { text: t('Découvrir en attendant'), onClick: () => go('discover') }, secondary: { text: t('Actualiser'), onClick: refreshStatus } }
+      : { main: { text: t('Actualiser'), onClick: refreshStatus }, secondary: { text: t('Fermer'), onClick: tg.close } });
     S.pendingTimer = setInterval(refreshStatus, 5000);
   },
 
@@ -2298,19 +2325,20 @@ function dateSummary() {
 // Actions
 // ============================================================
 // Vérifie les champs d'une étape du profil ; renvoie le message d'erreur ou null
-function stepError(step) {
+// Le message de l'erreur, et le champ qui la porte (pour lui donner le focus).
+function erreurDEtape(step) {
   const f = S.form;
   const age = Number(f.age);
   if (step === 0) {
-    if (!f.name.trim()) return t('Indique ton prénom.');
-    if (!String(f.age).trim()) return t('Indique ton âge.');
-    if (!Number.isInteger(age) || age > 99) return t('Indique ton âge en chiffres, entre 18 et 99.');
-    if (age < 18) return t('{app} est réservé aux 18 ans et plus.', { app: APP });
-    if (!f.gender) return t('Indique si tu es une femme ou un homme.');
+    if (!f.name.trim()) return { message: t('Indique ton prénom.'), champ: 'name' };
+    if (!String(f.age).trim()) return { message: t('Indique ton âge.'), champ: 'age' };
+    if (!Number.isInteger(age) || age > 99) return { message: t('Indique ton âge en chiffres, entre 18 et 99.'), champ: 'age' };
+    if (age < 18) return { message: t('{app} est réservé aux 18 ans et plus.', { app: APP }), champ: 'age' };
+    if (!f.gender) return { message: t('Indique si tu es une femme ou un homme.') };
   }
-  if (step === 1 && !f.intent) return t('Choisis ce que tu cherches.');
-  if (step === 2 && f.promptA.trim().length < 3) return t('Réponds à la question sur toi.');
-  if (step === 2 && (f.extras || []).some((x) => x.a.trim().length < 3)) return t('Réponds à chaque question que tu as choisie, ou retire-la.');
+  if (step === 1 && !f.intent) return { message: t('Choisis ce que tu cherches.') };
+  if (step === 2 && f.promptA.trim().length < 3) return { message: t('Réponds à la question sur toi.'), champ: 'promptA' };
+  if (step === 2 && (f.extras || []).some((x) => x.a.trim().length < 3)) return { message: t('Réponds à chaque question que tu as choisie, ou retire-la.') };
   return null;
 }
 
@@ -2338,8 +2366,8 @@ async function inviterConfiance() {
 }
 
 function nextStep() {
-  const err = stepError(S.formStep);
-  if (err) return showError(new Error(err));
+  const err = erreurDEtape(S.formStep);
+  if (err) return showError(Object.assign(new Error(err.message), { champ: err.champ }));
   tg.haptic('select');
   S.formStep += 1;
   SCREENS.profile();
@@ -2347,10 +2375,10 @@ function nextStep() {
 
 async function saveProfile() {
   for (let s = 0; s < 3; s += 1) {
-    const err = stepError(s);
+    const err = erreurDEtape(s);
     if (err) {
       if (S.formStep !== s) { S.formStep = s; SCREENS.profile(); }
-      return showError(new Error(err));
+      return showError(Object.assign(new Error(err.message), { champ: err.champ }));
     }
   }
   const f = S.form;
@@ -2394,11 +2422,42 @@ async function sendSelfie() {
     S.me.verification = 'pending';
     // Autorise le bot à écrire à l'utilisateur (utile s'il a ouvert l'app par un lien sans démarrer le bot)
     await tg.requestWriteAccess();
-    go('pending');
+    if (entreeLibre()) {
+      // Sous « badge », la découverte est ouverte : on y va, et une veille dit quand le bouclier
+      // arrive (audit 16, n° 2). L'écran d'attente reste atteignable depuis l'onglet Profil.
+      toast(t("Selfie envoyé. On te prévient dès qu'il est vérifié."), 'ok');
+      veillerLaVerification();
+      go('discover');
+    } else {
+      go('pending');
+    }
   } catch (e) {
     showError(e);
     tg.setButtons({ main: { text: t('Envoyer pour vérification'), onClick: sendSelfie } });
   }
+}
+
+// La veille après le selfie, sous « badge » : tant que la décision n'est pas tombée, on relit
+// /me toutes les cinq secondes, sans changer d'écran. À la décision, un toast, et l'écran courant
+// est redessiné seulement s'il montre le badge ou le quota (Découvrir, Profil) — jamais une
+// discussion en cours de frappe. Un seul minuteur, arrêté à la décision ou à la suppression.
+function veillerLaVerification() {
+  clearInterval(S.veilleVerif);
+  S.veilleVerif = setInterval(async () => {
+    if (S.supprime || !S.me || S.me.verification !== 'pending') return clearInterval(S.veilleVerif);
+    let me;
+    try { me = await api(ME()); } catch { return; }
+    if (me.verification === 'pending') return;
+    clearInterval(S.veilleVerif);
+    S.me = me;
+    if (me.verification === 'approved') {
+      tg.haptic('success');
+      toast(t('Ton selfie est vérifié : le bouclier est sur ta fiche.'), 'ok');
+    } else {
+      toast(t('Vérification refusée : réessaie avec le visage bien visible.'), 'warn');
+    }
+    if (S.screen === 'discover' || S.screen === 'me') go(S.screen);
+  }, 5000);
 }
 
 async function refreshStatus() {

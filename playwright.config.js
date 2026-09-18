@@ -12,6 +12,43 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PORT = Number(process.env.E2E_PORT || 3210);
 export const BASE_URL = `http://127.0.0.1:${PORT}`;
+// La production tourne sous VERIFICATION_POLICY=badge depuis le 15 septembre 2026, et la suite
+// tournait sous `gate`, le défaut du dépôt : le parcours d'entrée réellement servi n'était vu par
+// aucun test de navigateur (audit 16, lot A). Un second serveur tourne donc sous « badge », sur le
+// port suivant, et un projet à part ne lit que `e2e/badge.spec.js` contre lui.
+const PORT_BADGE = PORT + 1;
+export const BASE_URL_BADGE = `http://127.0.0.1:${PORT_BADGE}`;
+const DATA_DIR = process.env.E2E_DATA_DIR || './.e2e-data';
+
+const serveur = (port, url, dataDir, extra = {}) => ({
+  command: 'node server/index.js',
+  url: `${url}/health`,
+  reuseExistingServer: false,
+  timeout: 60_000,
+  stdout: 'pipe',
+  stderr: 'pipe',
+  env: {
+    PORT: String(port),
+    // Une base neuve à chaque exécution : les tests ne doivent rien devoir à l'exécution d'avant.
+    DATA_DIR: dataDir,
+    NODE_ENV: 'development',
+    BOT_TOKEN: '123456:E2E_TOKEN',
+    WEBAPP_URL: url,
+    ALLOW_DEV_AUTH: 'true',
+    AUTO_APPROVE: 'true',
+    SEED_DEMO: 'true',
+    USE_WEBHOOK: 'false',
+    ADMIN_CHAT_ID: '',
+    // Le fichier JSON suffit : ce qu'on teste ici est l'interface, pas le stockage.
+    DATABASE_URL: '',
+    // Les tests enchaînent les actions bien plus vite qu'une personne : sans cela, la
+    // limitation de débit refuserait des gestes parfaitement légitimes.
+    RATE_LIMIT: 'false',
+    DEMO_REPLY_DELAY_MS: '400',
+    DEMO_LIKE_DELAY_MS: '400',
+    ...extra,
+  },
+});
 
 export default defineConfig({
   testDir: './e2e',
@@ -34,33 +71,12 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'android', use: { ...devices['Pixel 5'], timezoneId: 'Africa/Douala', locale: 'fr-FR' } }],
-  webServer: {
-    command: 'node server/index.js',
-    url: `${BASE_URL}/health`,
-    reuseExistingServer: false,
-    timeout: 60_000,
-    stdout: 'pipe',
-    stderr: 'pipe',
-    env: {
-      PORT: String(PORT),
-      // Une base neuve à chaque exécution : les tests ne doivent rien devoir à l'exécution d'avant.
-      DATA_DIR: process.env.E2E_DATA_DIR || './.e2e-data',
-      NODE_ENV: 'development',
-      BOT_TOKEN: '123456:E2E_TOKEN',
-      WEBAPP_URL: BASE_URL,
-      ALLOW_DEV_AUTH: 'true',
-      AUTO_APPROVE: 'true',
-      SEED_DEMO: 'true',
-      USE_WEBHOOK: 'false',
-      ADMIN_CHAT_ID: '',
-      // Le fichier JSON suffit : ce qu'on teste ici est l'interface, pas le stockage.
-      DATABASE_URL: '',
-      // Les tests enchaînent les actions bien plus vite qu'une personne : sans cela, la
-      // limitation de débit refuserait des gestes parfaitement légitimes.
-      RATE_LIMIT: 'false',
-      DEMO_REPLY_DELAY_MS: '400',
-      DEMO_LIKE_DELAY_MS: '400',
-    },
-  },
+  projects: [
+    { name: 'android', testIgnore: /badge\.spec\.js/, use: { ...devices['Pixel 5'], timezoneId: 'Africa/Douala', locale: 'fr-FR' } },
+    { name: 'android-badge', testMatch: /badge\.spec\.js/, use: { ...devices['Pixel 5'], timezoneId: 'Africa/Douala', locale: 'fr-FR', baseURL: BASE_URL_BADGE } },
+  ],
+  webServer: [
+    serveur(PORT, BASE_URL, DATA_DIR),
+    serveur(PORT_BADGE, BASE_URL_BADGE, `${DATA_DIR}-badge`, { VERIFICATION_POLICY: 'badge', MATCH_POLICY: 'open' }),
+  ],
 });
