@@ -120,7 +120,6 @@ export default {
   "Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.": "Люди, які вподобали твій профіль, залишаються в Чатах, незалежно від їхнього віку та міста.",
   "Les profils de ton quartier passent devant": "Профілі з твого району йдуть першими",
   "Les profils restent écrits dans la langue de chacun : seule l'interface change.": "Профілі залишаються написаними мовою кожного: змінюється лише інтерфейс.",
-  "Liens et numéros débloqués à {n} messages": "Посилання й номери розблоковуються після {n} повідомлень",
   "Liste": "Список",
   "Léger en data": "Мало трафіку",
   "Ce qui me fait rire": "Що мене смішить",
@@ -590,4 +589,6 @@ export default {
   "Faire connaître {app}": "Розповісти про {app}",
   "Ta photo et ton prénom": "Твоє фото та ім’я",
   "Ajouter ma photo": "Додати фото",
+  "Une légende, si tu veux": "Підпис, якщо хочеш",
+  "Liens et numéros à {n}": "Посилання й номери після {n}",
 };

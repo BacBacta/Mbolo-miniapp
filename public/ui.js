@@ -151,7 +151,10 @@ export function toast(msg, kind = 'info') {
 // rend alors `{ id, valeur }` au lieu du seul identifiant — le « J'aime » sur une réponse s'en
 // sert pour le mot qui l'accompagne. Le clavier qui s'ouvre réduit la fenêtre, et la feuille,
 // collée en bas, suit.
-export function feuille({ titre = '', texte = '', champ = null, boutons = [] }) {
+// `image` : un aperçu (adresse ou data:) au-dessus du champ — la légende d'une photo se choisit en
+// la regardant. `reactions` : une ligne d'emoji au-dessus des boutons ; en choisir un rend
+// `{ id: 'reaction', valeur }`, et `mienne` marque celui déjà posé.
+export function feuille({ titre = '', texte = '', image = null, champ = null, reactions = null, mienne = null, boutons = [] }) {
   return new Promise((resolve) => {
     document.getElementById('feuille')?.remove();
     const voile = document.createElement('div');
@@ -162,16 +165,29 @@ export function feuille({ titre = '', texte = '', champ = null, boutons = [] }) 
     if (titre) voile.setAttribute('aria-label', titre);
     const panneau = document.createElement('div');
     panneau.className = 'panneau';
-    panneau.innerHTML = `<span class="poignee" aria-hidden="true"></span>${titre ? `<h2></h2>` : ''}${texte ? `<p></p>` : ''}${champ ? '<input type="text" name="feuille-champ" autocomplete="off" enterkeyhint="send">' : ''}<div class="boutons"></div>`;
+    panneau.innerHTML = `<span class="poignee" aria-hidden="true"></span>${titre ? `<h2></h2>` : ''}${texte ? `<p></p>` : ''}${image ? '<img class="apercu-feuille" alt="">' : ''}${champ ? '<input type="text" name="feuille-champ" autocomplete="off" enterkeyhint="send">' : ''}${reactions ? '<div class="reactions-feuille" role="group"></div>' : ''}<div class="boutons"></div>`;
     if (titre) panneau.querySelector('h2').textContent = titre;
     if (texte) panneau.querySelector('p').textContent = texte;
+    if (image) panneau.querySelector('img').src = image;
     const input = champ ? panneau.querySelector('input') : null;
     if (input) {
       input.placeholder = champ.placeholder || '';
       if (champ.maxlength) input.maxLength = champ.maxlength;
       input.value = champ.valeur || '';
     }
-    const fermer = (id) => { voile.classList.add('part'); setTimeout(() => voile.remove(), 180); resolve(input ? { id, valeur: input.value.trim() } : id); };
+    const fermer = (id, valeur) => { voile.classList.add('part'); setTimeout(() => voile.remove(), 180); resolve(valeur !== undefined ? { id, valeur } : input ? { id, valeur: input.value.trim() } : id); };
+    if (reactions) {
+      const ligne = panneau.querySelector('.reactions-feuille');
+      for (const emoji of reactions) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.reaction = emoji;
+        b.textContent = emoji;
+        if (emoji === mienne) b.setAttribute('aria-pressed', 'true');
+        b.addEventListener('click', () => fermer('reaction', emoji));
+        ligne.appendChild(b);
+      }
+    }
     if (input) input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); fermer(boutons.find((b) => b.principal)?.id ?? null); } });
     for (const b of boutons) {
       const bouton = document.createElement('button');

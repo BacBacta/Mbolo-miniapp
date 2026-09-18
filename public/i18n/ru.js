@@ -120,7 +120,6 @@ export default {
   "Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.": "Люди, которым понравилась твоя анкета, остаются в «Сообщениях» независимо от их возраста и города.",
   "Les profils de ton quartier passent devant": "Анкеты из твоего района показываются первыми",
   "Les profils restent écrits dans la langue de chacun : seule l'interface change.": "Анкеты остаются на языке, на котором их написали: меняется только интерфейс.",
-  "Liens et numéros débloqués à {n} messages": "Ссылки и номера открываются на {n} сообщениях",
   "Liste": "Список",
   "Léger en data": "Экономит трафик",
   "Ce qui me fait rire": "Что меня смешит",
@@ -590,4 +589,6 @@ export default {
   "Faire connaître {app}": "Рассказать о {app}",
   "Ta photo et ton prénom": "Твоё фото и имя",
   "Ajouter ma photo": "Добавить фото",
+  "Une légende, si tu veux": "Подпись, если хочешь",
+  "Liens et numéros à {n}": "Ссылки и номера после {n}",
 };

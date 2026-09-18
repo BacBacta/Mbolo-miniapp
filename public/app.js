@@ -464,7 +464,9 @@ const avatar = (p, size = 'sm') => `<span class="avatar ${size}${p.verified ? ' 
 // pixels de côté en `data:` — pas d'identifiant, pas d'adresse de photo, pas d'initiale (elle
 // dirait la première lettre du prénom). Sans photo : une tuile neutre, pas un point
 // d'interrogation qui aurait l'air d'une panne.
-const avatarFlou = (src, size = 'md') => `<span class="avatar ${size} flou" aria-hidden="true">${src ? `<img src="${esc(src)}" alt="">` : ''}</span>`;
+// Un anneau doré et un cadenas (audit 15, constat U) : sans eux, la tache de couleur se lisait
+// comme une image cassée. L'appui ouvre une feuille, pas un écran.
+const avatarFlou = (src, size = 'md') => `<span class="avatar ${size} flou" aria-hidden="true">${src ? `<img src="${esc(src)}" alt="">` : ''}<span class="cadenas">${icon('lock', 12)}</span></span>`;
 
 // **Aucun réglage ne retient une photo.** L'« économie de data » a été retirée le 17 septembre
 // 2026 : après avoir cessé de cacher la fiche qu'on décide, puis l'avatar de la discussion, elle
@@ -1674,7 +1676,7 @@ function dessinerMessages() {
         <div class="new-strip">${S.likes.map((p) => `<button type="button" class="new-item like-item" data-action="person" data-id="${esc(p.id)}">${avatar(p, 'md')}<span>${esc(p.name)}</span></button>`).join('')}</div>
       </div>` : plus() ? '' : `
       <div class="group"><span class="eyebrow">${S.likesN ? tn('{n} personne a aimé ton profil', '{n} personnes ont aimé ton profil', S.likesN) : t('Ont aimé ton profil')}</span>
-        ${S.likesFlous.length ? `<div class="new-strip">${S.likesFlous.map((src) => `<button type="button" class="new-item like-item" data-action="plus" data-quoi="likes">${avatarFlou(src)}<span>${t('Qui ?')}</span></button>`).join('')}</div>` : ''}
+        ${S.likesFlous.length ? `<div class="new-strip">${S.likesFlous.map((src) => `<button type="button" class="new-item like-item" data-action="porte-feuille" data-quoi="likes">${avatarFlou(src)}<span>${t('Qui ?')}</span></button>`).join('')}</div>` : ''}
         ${porteDuPass({ quoi: 'likes', titre: t("Voir qui t'a aimé"), sous: t('Ces personnes passent déjà devant dans ton paquet. Le pass les nomme.') })}
       </div>`;
     if (!S.matches.length) {
@@ -1699,7 +1701,7 @@ function dessinerMessages() {
             ${avatar(m.other, 'sm')}
             <div class="body">
               <div class="title">${esc(m.other.name)}${m.other.verified ? `<span class="c-ok">${icon('shield', 14)}</span>` : ''}${m.aQuiDeParler === 'moi' && !m.unread ? `<span class="tour">${t('À toi')}</span>` : ''}<span class="quand">${quandCourt(m.lastMessage?.at || m.createdAt)}</span></div>
-              <div class="preview">${m.lastMessage ? `${m.lastMessage.mine ? t('Toi : ') : ''}${m.lastMessage.supprime ? t('Message supprimé') : m.lastMessage.photo && !m.lastMessage.text ? `${icon('image', 13)} ${t('Photo')}` : esc(m.lastMessage.text)}` : t('Nouveau match, écris le premier message')}</div>
+              <div class="preview">${m.lastMessage ? `${m.lastMessage.mine ? t('Toi : ') : ''}${m.lastMessage.supprime ? t('Message supprimé') : m.lastMessage.photo ? `${icon('image', 13)} ${m.lastMessage.text ? esc(m.lastMessage.text) : t('Photo')}` : esc(m.lastMessage.text)}` : t('Nouveau match, écris le premier message')}</div>
             </div>
             ${m.unread ? `<span class="count-badge">${m.unread}</span>` : `<span class="chev">${icon('chevron-right', 18)}</span>`}
           </button></div>`).join('')}
@@ -1736,10 +1738,13 @@ Object.assign(SCREENS, {
     // Le second bouton est celui qui protège vraiment au lancement : les notifications
     // automatiques dépendent d'un rendez-vous accepté dans un lieu partenaire, et il n'y en a
     // aucun. Celui-ci ne dépend de rien — il part au moment où on quitte la maison.
-    tg.setButtons({
-      main: { text: t('Proposer un rendez-vous'), onClick: () => go('date') },
-      ...(S.me.confiance ? { secondary: { text: t('Je pars au rendez-vous'), onClick: prevenirConfiance } } : {}),
-    });
+    // Sans lieu partenaire dans la ville, pas de bouton principal (audit 15, constat M) : un
+    // bouton qui mène à « pas disponible » coûte de la confiance. « Je pars au rendez-vous » reste,
+    // en secondaire, dès qu'une personne de confiance existe — il ne dépend d'aucun lieu.
+    const jePars = S.me.confiance ? { secondary: { text: t('Je pars au rendez-vous'), onClick: prevenirConfiance } } : {};
+    tg.setButtons(S.me.options?.lieuxIci
+      ? { main: { text: t('Proposer un rendez-vous'), onClick: () => go('date') }, ...jePars }
+      : (S.me.confiance ? jePars : null));
     // Jamais deux minuteurs : une réponse tardive en posait un second, orphelin pour toujours.
     relancerLePoll();
     ouvrirLeFlux();
@@ -1972,7 +1977,7 @@ Object.assign(SCREENS, {
       </div>` : ''}
       ${flou && apercus?.length ? `
       <div class="group"><span class="eyebrow">${t('Les derniers')}</span>
-        <div class="new-strip">${apercus.map((src) => `<button type="button" class="new-item" data-action="plus" data-quoi="vues">${avatarFlou(src)}<span>${t('Qui ?')}</span></button>`).join('')}</div>
+        <div class="new-strip">${apercus.map((src) => `<button type="button" class="new-item" data-action="porte-feuille" data-quoi="vues">${avatarFlou(src)}<span>${t('Qui ?')}</span></button>`).join('')}</div>
         ${porteDuPass({ quoi: 'vues', titre: t('Voir qui c\'est'), sous: t("Le pass montre les fiches, jamais ce qu'elles ont décidé.") })}
       </div>` : ''}
       <p class="fine">${icon('lock', 14)}<span>${t("On ne montre jamais ce que ces personnes ont décidé, et jamais la liste entière : c'est ce qui empêche de deviner qui n'a pas voulu de toi.")}</span></p>`);
@@ -2538,7 +2543,7 @@ function chatTete(c) {
     </div>`;
   }).join('');
 
-  return `${dateCards}<div class="spacer"></div>${ouverture(c)}${barreDeDeblocage(c)}`;
+  return `${dateCards}<div class="spacer"></div>${ouverture(c)}`;
 }
 
 // **La barre compte l'échange, pas le total.** Le serveur débloque sur `Math.min(les miens, les
@@ -2551,13 +2556,15 @@ const echangeDe = (c) => Math.min(
   c.messages.filter((m) => !m.mine).length,
 );
 
+// Une ligne fine sous l'en-tête, plus une carte flottante au milieu du fil (audit 15, constat N) :
+// « Liens et numéros à 10 · 3/10 », et elle disparaît au seuil.
 function barreDeDeblocage(c) {
   const n = Math.min(echangeDe(c), c.unlockAfter);
   if (n >= c.unlockAfter) return '';
   return `
-    <div class="unlock">
-      <div class="head"><span>${t('Liens et numéros débloqués à {n} messages', { n: c.unlockAfter })}</span><strong id="unlock-n">${n}/${c.unlockAfter}</strong></div>
-      <div class="track"><div class="fill" id="unlock-fill" style="width:${Math.round((100 * n) / c.unlockAfter)}%"></div></div>
+    <div class="unlock" role="status">
+      <span class="txt">${t('Liens et numéros à {n}', { n: c.unlockAfter })}</span><span class="sep">·</span><strong id="unlock-n">${n}/${c.unlockAfter}</strong>
+      <span class="track"><span class="fill" id="unlock-fill" style="width:${Math.round((100 * n) / c.unlockAfter)}%"></span></span>
     </div>`;
 }
 
@@ -2590,7 +2597,8 @@ function chatBulles(c, depuis = 0, { neuves = false } = {}) {
       // appui. Les siennes se voient en clair, on sait ce qu'on a envoyé.
       if (!m.mine && !c.devoilees.has(m.id)) classes.push('voile');
     }
-    out += `<div class="${classes.join(' ')}"${attrs}>${m.replyTo ? citation(c, m.replyTo) : ''}${m.photo ? imageDuMessage(m) : ''}${m.text ? `<span class="txt">${esc(m.text)}</span>` : ''}${heureEtEtat(m, c)}</div>`;
+    if (m.reactions?.moi || m.reactions?.autre) classes.push('a-reacts');
+    out += `<div class="${classes.join(' ')}"${attrs}>${m.replyTo ? citation(c, m.replyTo) : ''}${m.photo ? imageDuMessage(m) : ''}${m.text ? `<span class="txt">${esc(m.text)}</span>` : ''}${heureEtEtat(m, c)}${reactionsHtml(m)}</div>`;
   }
   return out;
 }
@@ -2680,6 +2688,10 @@ async function menuDuMessage(id) {
   // menu est une liste. Le popup reste pour ce qu'il sait faire : confirmer une suppression.
   const choix = await feuille({
     texte: extrait,
+    // Six réactions au-dessus du menu (audit 15, constat O) : le geste qui fait vivre un fil sans
+    // écrire. La liste est fermée des deux côtés, et le serveur ne prévient jamais personne.
+    reactions: REACTIONS,
+    mienne: m.reactions?.moi || null,
     boutons: [
       { id: 'repondre', texte: t('Répondre') },
       ...(m.text ? [{ id: 'copier', texte: t('Copier') }] : []),
@@ -2688,9 +2700,70 @@ async function menuDuMessage(id) {
     ],
   });
   if (S.screen !== 'chat' || !S.chat) return;
+  if (choix?.id === 'reaction') return reagir(id, choix.valeur === m.reactions?.moi ? null : choix.valeur);
   if (choix === 'repondre') preparerLaReponse(id);
   else if (choix === 'copier') copier(m.text);
   else if (choix === 'supprimer') supprimerLeMessage(id);
+}
+
+// Une porte du pass en feuille du bas : ce qu'il y a derrière, et le pass seulement si on le
+// demande — une tuile floutée ne mène plus d'un coup sur un écran de vente.
+async function porteEnFeuille(quoi) {
+  const titres = { likes: t("Voir qui t'a aimé"), vues: t('Se sont arrêtés sur ta fiche') };
+  const r = await feuille({
+    titre: titres[quoi] || t('{app} Plus', { app: APP }),
+    texte: PLUS_CONTEXTES()[quoi] || '',
+    boutons: [{ id: 'pass', texte: t('Voir le pass'), principal: true }, { id: 'non', texte: t('Plus tard') }],
+  });
+  if (r === 'pass') ouvrirLePass(quoi);
+}
+
+// La même liste que le serveur (REACTIONS dans routes.js) : un emoji hors liste est refusé là-bas.
+const REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🔥'];
+
+// Réagir : la bulle change tout de suite, le serveur suit, et un refus remet l'état d'avant.
+// `null` retire la sienne. Rien n'est notifié : l'autre la voit à son prochain passage.
+async function reagir(id, emoji) {
+  const m = S.chat?.messages.find((x) => x.id === id);
+  if (!m) return;
+  const avant = m.reactions ? { ...m.reactions } : null;
+  m.reactions = { moi: emoji, autre: m.reactions?.autre || null };
+  if (!m.reactions.moi && !m.reactions.autre) m.reactions = null;
+  peindreReactions(m);
+  tg.haptic('light');
+  try {
+    const r = await api(`/matches/${encodeURIComponent(S.chat.id)}/messages/${encodeURIComponent(id)}/reaction`, { method: 'PUT', body: { emoji } });
+    m.reactions = r.reactions || null;
+    peindreReactions(m);
+  } catch (e) {
+    m.reactions = avant;
+    peindreReactions(m);
+    showError(e, null);
+  }
+}
+
+// Le chip de réactions d'une bulle : la sienne, puis celle de l'autre. Vide, il n'est pas là.
+const reactionsHtml = (m) => (m.reactions?.moi || m.reactions?.autre
+  ? `<span class="reacts">${m.reactions.moi ? `<span class="moi">${esc(m.reactions.moi)}</span>` : ''}${m.reactions.autre ? `<span>${esc(m.reactions.autre)}</span>` : ''}</span>` : '');
+
+// Redessine le chip **en place** : refaire le fil pour un emoji effacerait la sélection en cours.
+function peindreReactions(m) {
+  const bulle = document.querySelector(`#messages .bubble[data-id="${CSS.escape(m.id)}"]`);
+  if (!bulle) return;
+  bulle.querySelector('.reacts')?.remove();
+  if (m.reactions?.moi || m.reactions?.autre) bulle.insertAdjacentHTML('beforeend', reactionsHtml(m));
+  bulle.classList.toggle('a-reacts', !!(m.reactions?.moi || m.reactions?.autre));
+}
+
+// Les réactions arrivées par l'interrogation, sur des messages déjà à l'écran.
+function majReactions(liste) {
+  if (!S.chat || !liste?.length) return;
+  for (const r of liste) {
+    const m = S.chat.messages.find((x) => x.id === r.id);
+    if (!m) continue;
+    m.reactions = r.reactions || null;
+    peindreReactions(m);
+  }
 }
 
 // Copier un message : le menu remplace la sélection de texte, que l'appui long a prise.
@@ -2823,6 +2896,7 @@ function renderChat() {
         </button>
         <button type="button" class="icon-btn" data-action="report-chat" aria-label="${t('Se protéger')}">${icon('flag', 18)}</button>
       </div>
+      ${barreDeDeblocage(c)}
       <div class="messages" id="messages" aria-live="polite"></div>
       <div id="chat-notice" class="chat-notice"></div>
       <div id="chat-reponse"></div>
@@ -2891,8 +2965,8 @@ function majBarreDeDeblocage() {
   const compte = document.getElementById('unlock-n');
   const fill = document.getElementById('unlock-fill');
   if (!compte || !fill) return;
-  // Seuil atteint : la barre disparaît, et la tête change — la prochaine mise à jour reconstruit.
-  if (n >= S.chat.unlockAfter) { compte.closest('.unlock')?.remove(); S.chat.tete = null; return; }
+  // Seuil atteint : la ligne disparaît.
+  if (n >= S.chat.unlockAfter) { compte.closest('.unlock')?.remove(); return; }
   compte.textContent = `${n}/${S.chat.unlockAfter}`;
   fill.style.width = `${Math.round((100 * n) / S.chat.unlockAfter)}%`;
 }
@@ -2981,6 +3055,7 @@ async function pollChat() {
       if (data.messages.some((m) => !m.mine)) tg.haptic('light');
     }
     if (data.supprimes?.length) marquerSupprimes(data.supprimes);
+    if (data.reagis?.length) majReactions(data.reagis);
     S.chat.ecritDepuis = data.ecrit ? Date.now() : 0;
     montrerLaFrappe();
     if (data.lu) majLecture(data.lu);
@@ -3152,8 +3227,17 @@ async function envoyerLaPhoto(file, input) {
   if (!S.chat || !file) return;
   let photo;
   try { photo = await compressImage(file, 1280, 0.8); } catch (e) { return showError(e); }
+  // Un aperçu et une légende avant l'envoi (audit 15, constat P) : la photo ne part plus à
+  // l'instant du choix dans la galerie. « Annuler » ne fait rien.
+  const feuilleLegende = await feuille({
+    image: photo,
+    champ: { placeholder: t('Une légende, si tu veux'), maxlength: 200 },
+    boutons: [{ id: 'envoyer', texte: t('Envoyer'), principal: true }, { id: 'non', texte: t('Annuler') }],
+  });
+  if (feuilleLegende?.id !== 'envoyer' || S.screen !== 'chat' || !S.chat) { if (input) input.value = ''; return; }
+  const legende = feuilleLegende.valeur || '';
   const replyTo = S.chat.reponseA || null;
-  const brouillon = { tmp: `t${++provisoires}`, text: '', photo: true, photoLocale: photo, mine: true, at: Date.now(), enCours: true, ...(replyTo ? { replyTo } : {}) };
+  const brouillon = { tmp: `t${++provisoires}`, text: legende, photo: true, photoLocale: photo, mine: true, at: Date.now(), enCours: true, ...(replyTo ? { replyTo } : {}) };
   S.chat.messages.push(brouillon);
   S.chat.bouge = Date.now();
   S.chat.notice = null;
@@ -3161,7 +3245,7 @@ async function envoyerLaPhoto(file, input) {
   tg.haptic('light');
   updateChat({ scroll: true });
   try {
-    const { message } = await api(`/matches/${encodeURIComponent(S.chat.id)}/messages`, { method: 'POST', body: { photo, ...(replyTo ? { replyTo } : {}) } });
+    const { message } = await api(`/matches/${encodeURIComponent(S.chat.id)}/messages`, { method: 'POST', body: { photo, ...(legende ? { text: legende } : {}), ...(replyTo ? { replyTo } : {}) } });
     Object.assign(brouillon, message, { enCours: false, tmp: null, photoLocale: null });
     // L'image qu'on vient d'envoyer est déjà là : inutile de la redemander au serveur.
     S.photoUrls[`chat/${message.id}/mini`] = photo;
@@ -3339,6 +3423,7 @@ app.addEventListener('click', async (e) => {
     case 'voix': tg.haptic('light'); ecouterLaVoix(el.dataset.id); break;
     // Le pass s'ouvre de plusieurs endroits : on retient d'où, pour que le retour ramène là.
     case 'plus': ouvrirLePass(el.dataset.quoi || 'profil'); break;
+    case 'porte-feuille': porteEnFeuille(el.dataset.quoi || 'profil'); break;
     case 'offre': tg.haptic('select'); S.offre = Number(el.dataset.jours); dessinerLePass(); break;
     // L'enregistrement se fait dans Telegram, pas ici : le micro n'est pas accessible depuis une
     // mini app sur Android. On ouvre donc la discussion avec le bot, qui explique la marche à suivre.

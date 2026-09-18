@@ -737,6 +737,10 @@ body.match-mode main { background: var(--ink); color: #fff; }
 .avatar.flou img { filter: blur(3px); transform: scale(1.12); }
 [data-verre="opaque"] .avatar.flou img { filter: none; }
 .new-item .avatar.flou { background: var(--bg3); }
+/* La tuile floutée (constat U) : un anneau doré et un cadenas, sinon une image cassée */
+.new-item .avatar.flou { box-shadow: 0 0 0 2.5px var(--bg2), 0 0 0 5px var(--gold); }
+.avatar.flou .cadenas { position: absolute; inset: 0; display: grid; place-items: center; color: var(--on-photo); }
+.avatar.flou .cadenas svg { filter: drop-shadow(0 1px 2px rgb(0 0 0 / .5)); }
 .new-item span { max-width: 70px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ------------------------------------------------------------ Discussion */
@@ -806,11 +810,26 @@ body.chat-mode main > * { animation: none; }
 @keyframes frappe-point { 0%, 60%, 100% { opacity: .3; } 30% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .bubble.frappe i { animation: none; opacity: .6; } }
 .system { align-self: center; text-align: center; font-size: 13px; line-height: 1.45; color: var(--hint); max-width: 88%; padding: 10px 0; }
-.unlock { align-self: center; width: min(100%, 300px); display: grid; gap: 7px; padding: 10px 14px; margin: 4px 0; background: var(--bg); border-radius: 16px; box-shadow: var(--shadow-1); font-size: 12px; color: var(--hint); }
-.unlock .head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+/* La ligne de déblocage (audit 15, constat N) : sous l'en-tête, une ligne fine, et elle disparaît
+   au seuil. Plus une carte flottante au milieu du fil. */
+.unlock { display: flex; align-items: center; gap: 6px; padding: 6px 2px 8px; font-size: 12px; color: var(--hint); border-bottom: 1px solid var(--line); }
+.unlock .sep { opacity: .5; }
 .unlock strong { color: var(--text); font-weight: 600; }
-.unlock .track { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
-.unlock .fill { height: 100%; border-radius: 2px; background: var(--button); transition: width .5s var(--ease); }
+.unlock .track { flex: 1; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; margin-left: 6px; }
+.unlock .fill { display: block; height: 100%; border-radius: 2px; background: var(--button); transition: width .5s var(--ease); }
+/* Clavier ouvert (la fenêtre fait moins de 480 px de haut) : la ligne s'efface pour rendre ses
+   trente pixels au fil — c'est le dernier message qu'on veut voir en écrivant, pas le compteur. */
+@media (max-height: 480px) { .unlock { display: none; } }
+/* Les réactions (constat O) : un chip au coin bas de la bulle, la sienne en premier */
+.bubble.a-reacts { margin-bottom: 12px; }
+.bubble .reacts { position: absolute; bottom: -12px; right: 10px; display: inline-flex; gap: 2px; padding: 1px 6px; border-radius: 999px; background: var(--bg2); border: 1px solid var(--line); box-shadow: var(--shadow-1); font-size: 13px; line-height: 1.4; color: var(--text); }
+.bubble.theirs .reacts { right: auto; left: 10px; }
+.feuille .reactions-feuille { display: flex; justify-content: space-between; gap: 4px; padding: 2px 0 8px; }
+.feuille .reactions-feuille button { flex: 1; height: 46px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); font-size: 22px; line-height: 1; -webkit-tap-highlight-color: transparent; transition: transform .15s var(--spring); }
+.feuille .reactions-feuille button:active { transform: scale(1.15); }
+.feuille .reactions-feuille button[aria-pressed="true"] { background: color-mix(in srgb, var(--like) 16%, var(--bg)); border-color: color-mix(in srgb, var(--like) 40%, var(--line)); }
+/* L'aperçu d'une photo avant l'envoi (constat P) */
+.feuille .apercu-feuille { width: 100%; max-height: 42vh; object-fit: contain; border-radius: 16px; background: var(--photo); margin-bottom: 4px; }
 .datecard { display: grid; gap: 10px; padding: 14px; margin: 6px 0; background: var(--bg); border-radius: 18px; border: 1px solid var(--line); box-shadow: var(--shadow-1); }
 .datecard.ok { border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
 /* Refusé ou annulé : la carte reste au fil de la discussion, c'est une trace de ce qui s'est

@@ -334,6 +334,22 @@ Et ceux-ci doivent **passer** — c'est le vrai risque, tuer une conversation or
 
 ---
 
+## 10 bis. Réactions, légende, déblocage **(audit 15, lot 4)**
+
+- [ ] Appui long sur un message : une ligne de six emoji au-dessus du menu. Touche ❤️ : le chip
+      apparaît au coin de la bulle tout de suite ; l'autre compte le voit sans avoir rien reçu du
+      bot. Touche 🔥 : il remplace ❤️. Retouche 🔥 : il part.
+- [ ] Envoie une photo : une feuille montre l'aperçu et propose une légende ; « Annuler » ne
+      fait rien ; « Envoyer » part avec la légende sous l'image.
+- [ ] La ligne « Liens et numéros à 10 · 3/10 » est **sous l'en-tête**, fine ; elle disparaît au
+      dixième échange.
+- [ ] Sans lieu partenaire dans ta ville (c'est le cas au lancement), la discussion n'a **aucun
+      bouton principal** ; avec une personne de confiance, « Je pars au rendez-vous » reste.
+- [ ] Onglet Messages sans pass : la tuile floutée a un anneau doré et un cadenas ; l'appui monte
+      une feuille (« Voir le pass » / « Plus tard »), pas l'écran du pass.
+
+---
+
 ## 11. Rendez-vous
 
 - [ ] L'écran dit : « Pas encore de lieu partenaire dans ton pays… Vous pouvez convenir d'un lieu

@@ -258,7 +258,7 @@ test("aimer une réponse ouvre une feuille avec un champ borné, et n'envoie que
 test("la feuille avec un champ rend le mot avec le bouton, et Entrée vaut le bouton principal", () => {
   const ui = fs.readFileSync(new URL('../public/ui.js', import.meta.url), 'utf8');
   const f = ui.slice(ui.indexOf('export function feuille('), ui.indexOf('// ---------- Squelettes'));
-  assert.match(f, /resolve\(input \? \{ id, valeur: input\.value\.trim\(\) \} : id\)/);
+  assert.match(f, /resolve\(valeur !== undefined \? \{ id, valeur \} : input \? \{ id, valeur: input\.value\.trim\(\) \} : id\)/);
   assert.match(f, /if \(champ\.maxlength\) input\.maxLength = champ\.maxlength;/);
   assert.match(f, /e\.key === 'Enter'/);
 });
@@ -372,5 +372,49 @@ test('une ligne de Messages se balaie vers la gauche pour retirer le match, avec
   const r = entre('async function retirerLaLigne(', '// Vignettes de la liste');
   assert.match(r, /if \(reponse !== 'ok'\) return;/);
   assert.match(r, /method: 'DELETE'/);
+});
+
+// ---------- Lot 4 de l'audit UI/UX : la discussion, dernier tiers ----------
+
+test("les réactions sont six, fermées, dans la feuille du menu, et la bulle change en place", () => {
+  assert.match(app, /const REACTIONS = \['❤️', '😂', '😮', '😢', '👍', '🔥'\];/);
+  const menu = entre('async function menuDuMessage(', 'async function porteEnFeuille(');
+  assert.match(menu, /reactions: REACTIONS,/);
+  assert.match(menu, /mienne: m\.reactions\?\.moi \|\| null,/);
+  assert.match(menu, /if \(choix\?\.id === 'reaction'\) return reagir\(id, choix\.valeur === m\.reactions\?\.moi \? null : choix\.valeur\);/, 'la même réaction une seconde fois la retire');
+  const r = entre('async function reagir(id, emoji)', 'const reactionsHtml');
+  assert.match(r, /peindreReactions\(m\);\s*tg\.haptic\('light'\);/, "la bulle change avant la réponse du serveur");
+  assert.match(r, /m\.reactions = avant;/, 'un refus remet l\'état d\'avant');
+  assert.match(entre('function peindreReactions(m)', 'function majReactions('), /bulle\.querySelector\('\.reacts'\)\?\.remove\(\);/);
+  assert.match(app, /if \(data\.reagis\?\.length\) majReactions\(data\.reagis\);/, "l'interrogation rattrape les réactions");
+});
+
+test("la photo passe par un aperçu et une légende avant de partir, et Annuler ne fait rien", () => {
+  const f = entre('async function envoyerLaPhoto(file, input)', 'async function sendDate()');
+  assert.match(f, /const feuilleLegende = await feuille\(\{\s*image: photo,/);
+  assert.match(f, /if \(feuilleLegende\?\.id !== 'envoyer' \|\| S\.screen !== 'chat' \|\| !S\.chat\) \{ if \(input\) input\.value = ''; return; \}/);
+  assert.match(f, /body: \{ photo, \.\.\.\(legende \? \{ text: legende \} : \{\}\)/);
+});
+
+test("la ligne de déblocage est sous l'en-tête, fine, et plus dans le fil", () => {
+  const rc = entre('function renderChat()', 'function updateChat(');
+  assert.match(rc, /<\/div>\s*\$\{barreDeDeblocage\(c\)\}\s*<div class="messages"/, "sous l'en-tête, avant le fil");
+  assert.match(app, /return `\$\{dateCards\}<div class="spacer"><\/div>\$\{ouverture\(c\)\}`;/, 'plus dans la tête du fil');
+  assert.match(entre('function barreDeDeblocage(c)', 'function chatBulles('), /t\('Liens et numéros à \{n\}', \{ n: c\.unlockAfter \}\)/);
+});
+
+test("sans lieu partenaire dans la ville, la discussion n'a pas de bouton principal", () => {
+  const c = entre('  async chat({ id }) {', '  async date() {');
+  assert.match(c, /tg\.setButtons\(S\.me\.options\?\.lieuxIci\s*\? \{ main: \{ text: t\('Proposer un rendez-vous'\)/);
+  assert.match(c, /: \(S\.me\.confiance \? jePars : null\)\)/, "« Je pars » reste en secondaire quand une personne de confiance existe");
+});
+
+test("la tuile floutée porte un cadenas, et son appui ouvre une feuille, pas l'écran du pass", () => {
+  assert.match(app, /const avatarFlou = \(src, size = 'md'\) => .*<span class="cadenas">\$\{icon\('lock', 12\)\}<\/span>/);
+  assert.ok(!/data-action="plus" data-quoi="likes">\$\{avatarFlou/.test(app) && !/data-action="plus" data-quoi="vues">\$\{avatarFlou/.test(app));
+  assert.match(app, /data-action="porte-feuille" data-quoi="likes">\$\{avatarFlou\(src\)\}/);
+  assert.match(app, /data-action="porte-feuille" data-quoi="vues">\$\{avatarFlou\(src\)\}/);
+  const pf = entre('async function porteEnFeuille(quoi)', 'const REACTIONS');
+  assert.match(pf, /if \(r === 'pass'\) ouvrirLePass\(quoi\);/);
 });
 

@@ -120,7 +120,6 @@ export default {
   'Les personnes qui ont aimé ton profil restent dans Messages, quels que soient leur âge et leur ville.': 'Quienes han dado me gusta a tu perfil siguen en Mensajes, sea cual sea su edad y su ciudad.',
   'Les profils de ton quartier passent devant': 'Los perfiles de tu barrio van primero',
   'Les profils restent écrits dans la langue de chacun : seule l\'interface change.': 'Los perfiles siguen escritos en el idioma de cada persona: solo cambia la interfaz.',
-  'Liens et numéros débloqués à {n} messages': 'Enlaces y números desbloqueados a los {n} mensajes',
   'Liste': 'Lista',
   'Léger en data': 'Ligero en datos',
   'Ce qui me fait rire': 'Lo que me hace reír',
@@ -590,4 +589,6 @@ export default {
   "Faire connaître {app}": "Dar a conocer {app}",
   "Ta photo et ton prénom": "Tu foto y tu nombre",
   "Ajouter ma photo": "Añadir mi foto",
+  "Une légende, si tu veux": "Un pie de foto, si quieres",
+  "Liens et numéros à {n}": "Enlaces y números a los {n}",
 };
