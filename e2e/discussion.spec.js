@@ -11,10 +11,9 @@ async function aimerUnProfil(page) {
   const carte = page.locator('main article').nth(1);
   await expect(carte).toBeVisible();
   const nom = (await carte.innerText()).split('\n')[0];
-  // « J'aime » est l'action principale de l'écran, pas un bouton dans la carte : les marques
-  // « J'aime » et « Passer » qu'on voit sur la carte sont les tampons du geste de balayage.
-  await expect(actionPrincipale(page)).toHaveText(/J'aime/);
-  await actionPrincipale(page).click();
+  // « J'aime » est le bouton rond sous la carte (audit/15, lot 1) : les marques « J'aime » et
+  // « Passer » qu'on voit sur la carte sont les tampons du geste de balayage.
+  await page.locator('.deck-actions .like').click();
   return nom;
 }
 

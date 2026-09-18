@@ -134,10 +134,10 @@ Chaque point donne le constat, pourquoi c'est en dessous de la barre, et la corr
 
 Chaque lot est livrable seul, dans une pull request, avec ses tests. L'ordre suit l'impact sur ce qu'une personne ressent dans la première minute.
 
-### Lot 0 — Les corrections d'une journée
+### Lot 0 — Les corrections d'une journée — **livré le 18 septembre 2026** (PR #123)
 Retour calculé à l'appui (AF) · heure sur les lignes de Messages (S) · étoile en icône (Y) · libellés de bouton en une ligne (Z) · chevrons de la langue (E) · « Tester les notifications » retiré des réglages (V, partie) · eyebrow 11,5 px (AB) · « Actif aujourd'hui » (R) · message anti-arnaque en deux lignes (Q) · « Copier » dans le menu du message (O, partie) · gouttière du contrôle « Tu es » (D). Aucun changement de données. Tests : `interface.test.js` pour le retour, `discussion.test.js` pour « Copier ».
 
-### Lot 1 — La découverte photo d'abord (une semaine)
+### Lot 1 — La découverte photo d'abord (une semaine) — **livré le 18 septembre 2026**, sauf les portraits (K), qui restent à fournir
 Carte à la hauteur de l'écran, information sur le scrim, fiche au tap (F) · trois boutons ronds avec retour en arrière (G, route `DELETE /api/swipes/dernier`) · quota en pastille (H) · feuille du bas pour le mode Liste (I) · six pastilles de villes (C) · **portraits de démonstration** (K, à fournir par le propriétaire). Mesure : temps jusqu'au premier « J'aime », taux de fiches ouvertes.
 
 ### Lot 2 — La fiche et le « J'aime » sur un élément (une à deux semaines)

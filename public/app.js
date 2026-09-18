@@ -1,5 +1,5 @@
 import * as tg from './tg.js';
-import { icon, toast, skeleton, attachSwipe, throwCard, dayLabel, timeLabel, isSameDay, reglerLeVerre } from './ui.js';
+import { icon, toast, feuille, skeleton, attachSwipe, throwCard, dayLabel, timeLabel, isSameDay, reglerLeVerre } from './ui.js';
 import { t, tn, langue, chargerLangue, LANGUES } from './i18n.js';
 
 // ============================================================
@@ -50,6 +50,8 @@ const S = {
   screen: null,
   detachSwipe: null,
   swiped: false,
+  // Le dernier balayage, pour le bouton « revenir » : la fiche, le geste, l'instant.
+  dernierBalayage: null,
 };
 
 const app = document.getElementById('app');
@@ -586,14 +588,20 @@ const activityChip = (p, cls = 'chip') => (ACTIVITY_LABELS()[p.activity] ? `<spa
 // « se sont arrêtés sur ta fiche », et l'en-tête de la discussion. Depuis les deux derniers,
 // l'appui **renvoyait silencieusement sur Découvrir** : un bouton qui ramène ailleurs se lit
 // comme une panne, et c'en était une. Une porte de plus s'ajoute ici, une seule fois.
-const profilConnu = (id) => S.people.find((x) => x.id === id)
+// Cinq portes vers une fiche : le paquet (depuis le chevron de la carte), la vue Liste, « qui
+// t'a aimé », « se sont arrêtés sur ta fiche », et la discussion ouverte.
+const profilConnu = (id) => S.profiles.find((x) => x.id === id)
+  || S.people.find((x) => x.id === id)
   || S.likes.find((x) => x.id === id)
   || (S.vues || []).find((x) => x.id === id)
   || (S.chat?.other?.id === id ? S.chat.other : null);
 
 // Carte de profil, partagée entre la découverte et l'aperçu de son propre profil.
 // cls = 'top' (carte manipulable) ou 'next' (carte suivante, en retrait)
-function profileCard(p, { own = false, cls = '' } = {}) {
+// Ce qu'une carte du paquet montre de la fiche sans l'ouvrir : la réponse, sur une ligne ou deux.
+const apercuReponse = (p) => courte(p.promptA, 90);
+
+function profileCard(p, { own = false, cls = '', plein = false } = {}) {
   // La jauge vient du serveur avec son dénominateur : la carte ne devine plus combien de
   // critères existent, et le jour où un critère s'ajoute elle suit sans être retouchée.
   const tr = p.trust || { score: 0, total: 0, criteres: [] };
@@ -614,15 +622,18 @@ function profileCard(p, { own = false, cls = '' } = {}) {
           ${own ? '' : `<button type="button" class="more" data-action="report-profile" data-id="${esc(p.id)}" aria-label="${t('Se protéger de ce profil')}">${icon('flag', 15)}</button>`}
         </div>
         <div class="overlay">
-          <div class="name">${esc(p.name)}<span class="age">${esc(p.age)}</span>${p.verified ? `<span class="shield" title="${t('Selfie vérifié')}">${icon('shield', 18)}</span>` : ''}</div>
+          <div class="name">${esc(p.name)}<span class="age">${esc(p.age)}</span>${p.verified ? `<span class="shield" title="${t('Selfie vérifié')}">${icon('shield', 18)}</span>` : ''}${plein ? `<button type="button" class="fiche-btn" data-action="fiche" data-id="${esc(p.id)}" aria-label="${t('Voir la fiche')}">${icon('chevron-up', 18)}</button>` : ''}</div>
           <div class="line">
             ${icon('pin', 13)}<span>${esc(p.area ? `${p.area} · ${p.city}` : p.city)}${p.country && p.country !== S.me?.profile?.country ? esc(` · ${nomPays(p.country)}`) : ''}</span>
             ${!own && ACTIVITY_LABELS()[p.activity] ? `<span class="dot"></span><span class="act">${p.activity === 'week' ? t('Cette semaine') : p.activity === 'today' ? t("Aujourd'hui") : t('Récemment')}</span>` : ''}
           </div>
+          ${plein ? `
+          ${p.promptA ? `<div class="apercu"><span class="q">${esc(libelleQuestion(p.promptQ))}</span><span class="a">${esc(apercuReponse(p))}</span></div>` : ''}
+          <div class="overlay-trust"><span class="trust-pips">${(tr.criteres || []).map((c) => `<span class="${c.ok ? 'on' : ''}"></span>`).join('')}</span><span>${t('Confiance {n} sur {total}', { n: score, total: tr.total })}</span></div>` : ''}
         </div>
         ${cls === 'top' ? `<span class="stamp like" aria-hidden="true">${t("J'aime")}</span><span class="stamp pass" aria-hidden="true">${t('Passer')}</span>` : ''}
       </div>
-      <div class="card-body">
+      ${plein ? '' : `<div class="card-body">
         <div class="prompt"><span class="q">${esc(libelleQuestion(p.promptQ))}</span><span class="a">${esc(p.promptA)}</span></div>
         ${(p.extras || []).map((x) => `<div class="prompt"><span class="q">${esc(libelleQuestion(x.q))}</span><span class="a">${esc(x.a)}</span></div>`).join('')}
         ${p.compat ? `<div class="compat">${p.compat.map((c) => `<span class="chip chip-compat"><span class="q">${t(c.question)}</span><span class="a">${t(c.reponse)}</span></span>`).join('')}</div>` : ''}
@@ -635,7 +646,7 @@ function profileCard(p, { own = false, cls = '' } = {}) {
           <span class="trust-pips">${(tr.criteres || []).map((c) => `<span class="${c.ok ? 'on' : ''}"></span>`).join('')}</span>
           <span class="trust-text"><strong>${t('Confiance {n} sur {total}', { n: score, total: tr.total })}</strong>${acquis.length ? ` · ${acquis.join(', ')}` : ` · ${t("Aucune vérification pour l'instant")}`}</span>
         </button>
-      </div>
+      </div>`}
     </article>`;
 }
 
@@ -733,12 +744,12 @@ function discoverBar() {
   const range = f.ageMin > 18 || f.ageMax < 99 ? ` · ${f.ageMin}–${f.ageMax}` : '';
   return `
     <div class="dbar">
-      <button type="button" class="pill" data-action="filters" aria-label="${t('Filtres')}">${icon('pin', 15)} ${esc(zoneLabel(zoneDe()))}${range} ${icon('sliders', 14)}</button>
+      <button type="button" class="pill" data-action="filters" aria-label="${t('Filtres')}">${icon('pin', 15)}<span>${esc(zoneLabel(zoneDe()))}${range}</span>${icon('sliders', 14)}</button>
       <div class="seg seg-mini" aria-label="${t('Affichage')}">
-        <button type="button" data-action="mode" data-mode="cards" aria-pressed="${!list}">${icon('card', 15)} ${t('Cartes')}</button>
-        <button type="button" data-action="mode" data-mode="list" aria-pressed="${list}">${icon(limite('liste') ? 'rows' : 'lock', 15)} ${t('Liste')}</button>
+        <button type="button" data-action="mode" data-mode="cards" aria-pressed="${!list}" aria-label="${t('Cartes')}">${icon('card', 15)}<span>${t('Cartes')}</span></button>
+        <button type="button" data-action="mode" data-mode="list" aria-pressed="${list}" aria-label="${t('Liste')}">${icon(limite('liste') ? 'rows' : 'lock', 15)}<span>${t('Liste')}</span></button>
       </div>
-      ${list || sansLimite() ? '' : `<span class="quota">${tn('{n} restant', '{n} restants', S.remaining)}</span>`}
+      ${list || sansLimite() ? '' : `<span class="pill quota-pill" role="status" aria-label="${t("J'aime restants aujourd'hui : {n}", { n: S.remaining })}"><i class="ring" style="--p: ${Math.round((100 * S.remaining) / Math.max(1, S.quota || S.remaining || 1))}%"></i>${icon('heart', 13, { fill: true })} ${S.remaining}</span>`}
     </div>`;
 }
 
@@ -1275,16 +1286,26 @@ const SCREENS = {
       const verifier = entreeLibre() && !verifie();
       return tg.setButtons(versLePass ? (verifier ? { main: bouton, secondary: versLePass } : { main: versLePass, secondary: bouton }) : { main: bouton });
     }
+    // **Photo d'abord** (audit/15, lot 1). La carte remplit l'espace entre la barre et les
+    // boutons ; la photo est le fond, la question et la confiance sont posées sur le voile, et
+    // la fiche entière s'ouvre d'un appui sur le chevron — plus un corps de texte sous le pli
+    // qu'il fallait faire défiler sur la même surface que le balayage. Les gestes sont trois
+    // boutons ronds : revenir, passer, aimer. Le bouton natif ne sert plus ici.
+    const peutRevenir = !!S.dernierBalayage && Date.now() - S.dernierBalayage.at < 60_000;
     render(`
       ${dbar()}
-      <div class="deck">${next ? profileCard(next, { cls: 'next' }) : ''}${profileCard(p, { cls: 'top' })}</div>
-      ${S.swiped ? '' : `<p class="fine">${icon('hand', 14)}<span>${t('Glisse la carte vers la droite pour aimer, vers la gauche pour passer.')}</span></p>`}`);
+      <div class="deck plein">${next ? profileCard(next, { cls: 'next', plein: true }) : ''}${profileCard(p, { cls: 'top', plein: true })}</div>
+      <div class="deck-actions" role="group" aria-label="${t('Décider')}">
+        <button type="button" class="rond retour" data-action="revenir" aria-label="${t('Revenir sur le dernier profil')}" ${peutRevenir ? '' : 'disabled'}>${icon('refresh', 18)}</button>
+        <button type="button" class="rond passer" data-action="swipe-pass" aria-label="${t('Passer')}">${icon('x', 24)}</button>
+        <button type="button" class="rond like" data-action="swipe-like" aria-label="${t("J'aime")}">${icon('heart', 24, { fill: true })}</button>
+      </div>`);
     loadCardPhoto(p);
     // Les deux cartes suivantes : leur photo se télécharge pendant qu'on regarde celle-ci, pour
     // qu'un balayage ne montre jamais une carte grise qui attend son image.
     for (const q of [next, S.profiles[2]]) if (q?.hasPhoto) photoUrl(q.id, q.photos?.[0] || 1);
     S.detachSwipe = attachSwipe(app.querySelector('.deck .card.top'), { onLike: () => swipe('like'), onPass: () => swipe('pass') });
-    tg.setButtons({ main: { text: t("J'aime"), onClick: () => swipe('like') }, secondary: { text: t('Passer'), onClick: () => swipe('pass') } });
+    tg.setButtons(null);
   },
 
   filters() {
@@ -1960,7 +1981,9 @@ const ligneDeChoix = (action, valeur, data = {}) => `
 // pouvait l'atteindre. Ces villes se comptent sur les doigts : elles ne se cachent donc pas
 // derrière un appui, exactement comme les questions du profil (`.chips`).
 const villesProposees = (pays, champ, valeur) => {
-  const villes = S.me.options.knownCities[pays] || [];
+  // Six, pas quinze : quatre rangées de pastilles pour un choix qui tient en trois villes dans
+  // presque tous les cas. Le champ reste là pour les autres.
+  const villes = (S.me.options.knownCities[pays] || []).slice(0, 6);
   if (!villes.length) return '';
   return `
     <div class="chips chips-villes" role="group" aria-label="${t('Villes connues')}">${villes.map((v) => `
@@ -2175,12 +2198,15 @@ async function swipe(action) {
       throwCard(card, action === 'like' ? 1 : -1),
     ]);
     S.profiles.shift();
-    if (!sansLimite()) S.remaining = Math.max(0, S.remaining - 1);
+    // Passer ne consomme rien : seul un « J'aime » entame le quota (routes.js, swipesToday).
+    if (!sansLimite() && action === 'like') S.remaining = Math.max(0, S.remaining - 1);
     S.people = []; // les statuts de la liste ont changé
     if (r.match) {
+      S.dernierBalayage = null;
       S.lastMatch = r.match;
       go('match');
     } else {
+      S.dernierBalayage = { profil: p, action, at: Date.now() };
       go('discover');
     }
   } catch (e) {
@@ -2191,6 +2217,30 @@ async function swipe(action) {
       card.querySelectorAll('.stamp').forEach((s) => (s.style.opacity = 0));
     }
     showError(e);
+  } finally {
+    swiping = false;
+  }
+}
+
+// Revenir sur le dernier balayage : la carte revient en tête du paquet, le quota aussi. Le
+// serveur ne l'accepte que dans la minute et jamais sur un match (routes.js) ; ici, le bouton
+// n'est actif que dans ces cas-là, et un refus dit pourquoi.
+async function revenir() {
+  const d = S.dernierBalayage;
+  if (!d || swiping) return;
+  swiping = true;
+  try {
+    await api(`/swipes/${encodeURIComponent(d.profil.id)}`, { method: 'DELETE' });
+    S.dernierBalayage = null;
+    S.profiles.unshift(d.profil);
+    if (!sansLimite() && d.action === 'like') S.remaining += 1;
+    S.people = [];
+    tg.haptic('light');
+    go('discover');
+  } catch (e) {
+    S.dernierBalayage = null;
+    showError(e);
+    go('discover');
   } finally {
     swiping = false;
   }
@@ -3043,6 +3093,10 @@ app.addEventListener('click', async (e) => {
     case 'dev-back': window.__devBack?.(); break;
     case 'go': go(el.dataset.screen); break;
     case 'citation': allerAuMessage(el.dataset.id); break;
+    case 'swipe-like': swipe('like'); break;
+    case 'swipe-pass': swipe('pass'); break;
+    case 'revenir': revenir(); break;
+    case 'fiche': S.personFrom = 'discover'; go('person', { id: el.dataset.id }); break;
     case 'reponse-annuler': annulerLaReponse(); break;
     case 'visionneuse-fermer': el.remove(); break;
     case 'photo-chat': {
@@ -3187,7 +3241,16 @@ app.addEventListener('click', async (e) => {
       tg.haptic('select');
       // Sans pass, la vue Liste mène à l'écran du pass plutôt qu'à un 403 muet — et le mode
       // retenu ne bascule pas, sinon on reviendrait sur Découvrir coincé dans une vue fermée.
-      if (el.dataset.mode === 'list' && !limite('liste')) { S.plusRetour = 'discover'; go('plus'); break; }
+      // Sans pass, une feuille du bas dit ce qu'il y a derrière ; le pass en plein écran ne
+      // s'ouvre que si la personne le demande. Le mode retenu ne bascule pas.
+      if (el.dataset.mode === 'list' && !limite('liste')) {
+        feuille({
+          titre: t('La vue Liste vient avec le pass'),
+          texte: t('Les mêmes personnes, en liste, avec « T\'a liké » sur celles qui t\'ont déjà dit oui.'),
+          boutons: [{ id: 'pass', texte: t('Voir le pass'), principal: true }, { id: 'non', texte: t('Plus tard') }],
+        }).then((choix) => { if (choix === 'pass') { S.plusRetour = 'discover'; go('plus'); } });
+        break;
+      }
       S.discoverMode = el.dataset.mode;
       tg.cloudSet('discover_mode', el.dataset.mode);
       SCREENS.discover();

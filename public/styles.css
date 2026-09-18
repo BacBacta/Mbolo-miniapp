@@ -482,6 +482,40 @@ input::placeholder { color: color-mix(in srgb, var(--hint) 70%, transparent); }
 .completion-head .title { font-weight: 600; font-size: 16px; }
 .completion-head .sub { font-size: 13px; color: var(--hint); margin-top: 2px; }
 .deck { position: relative; margin: 0 -16px; padding: 0 16px 10px; overflow: hidden; }
+/* Photo d'abord : la carte remplit l'espace entre la barre et les boutons, la photo est le fond,
+   la question et la confiance sont sur le voile. Plus de corps sous le pli. */
+.deck.plein { flex: 1; min-height: 0; display: flex; padding-bottom: 0; }
+.deck.plein .card.top { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.deck.plein .card-photo { flex: 1; min-height: 0; aspect-ratio: auto; max-height: none; }
+.deck.plein .card-photo .scrim { height: 70%; }
+.deck.plein .card.next { bottom: 0; }
+.overlay .name .fiche-btn { margin-left: auto; align-self: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgb(247 245 251 / .16); background: var(--glass-photo); color: var(--on-photo); display: grid; place-items: center; -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); flex-shrink: 0; }
+.overlay .apercu { display: grid; gap: 2px; margin-top: 4px; }
+.overlay .apercu .q { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgb(247 245 251 / .62); }
+.overlay .apercu .a { font-family: var(--font-display); font-size: 18px; line-height: 1.22; letter-spacing: -.005em; color: var(--on-photo); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.overlay .apercu .a::before { content: '« '; } .overlay .apercu .a::after { content: ' »'; }
+.overlay-trust { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 12.5px; font-weight: 500; color: rgb(247 245 251 / .82); }
+.overlay-trust .trust-pips span { background: rgb(247 245 251 / .28); }
+.overlay-trust .trust-pips span.on { background: var(--gold); }
+/* Les trois gestes : revenir, passer, aimer. Ronds, sous la carte, sans lire. */
+.deck-actions { display: flex; justify-content: center; align-items: center; gap: 22px; padding: 6px 0 2px; }
+.deck-actions .rond { width: 58px; height: 58px; border-radius: 50%; border: 0; display: grid; place-items: center; background: var(--bg); color: var(--text); box-shadow: var(--shadow-1); transition: transform .12s var(--ease), background .2s, opacity .2s; }
+.deck-actions .rond:active { transform: scale(.9); }
+.deck-actions .rond.retour { width: 44px; height: 44px; color: var(--hint); }
+.deck-actions .rond.retour:disabled { opacity: .3; }
+.deck-actions .rond.passer { color: var(--hint); }
+.deck-actions .rond.like { background: var(--button); color: var(--button-text); }
+.deck-actions .rond.like:active { background: var(--aura); color: #fff; }
+/* Le quota, en pastille : un anneau et le nombre, dans la barre — plus un mot flottant. */
+.dbar .quota-pill { margin-left: auto; gap: 6px; padding: 0 12px 0 9px; font-weight: 600; }
+/* Une seule ligne : la zone, le mode, le quota. Sur un écran étroit, le mode garde ses icônes et
+   perd ses mots — c'est le sélecteur grille/liste que tout le monde connaît, et aria-label le dit. */
+.dbar { flex-wrap: nowrap; }
+.dbar .pill { min-width: 0; }
+.dbar .pill > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seg-mini button span { margin-left: 5px; }
+@media (max-width: 420px) { .seg-mini button span { display: none; } .seg-mini button { padding: 0 12px; } }
+.dbar .quota-pill .ring { width: 16px; height: 16px; }
 .deck .card.top { position: relative; z-index: 2; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 .deck .card.top.dragging { transition: none; will-change: transform; }
 .deck .card.top.settle { transition: transform .45s var(--spring); }
@@ -833,6 +867,18 @@ body.chat-mode main > * { animation: none; }
 .acc > div { overflow: hidden; }
 .steps { margin: 0; padding: 4px 14px 14px 32px; display: grid; gap: 8px; font-size: 14px; line-height: 1.5; color: var(--text); }
 .danger-zone { padding: 4px 0 0; }
+
+/* ------------------------------------------------------------ Feuille du bas */
+.feuille { position: fixed; inset: 0; z-index: 65; display: flex; align-items: flex-end; background: color-mix(in srgb, var(--ink) 46%, transparent); animation: fondu-feuille .18s var(--ease); }
+.feuille.part { animation: fondu-feuille .18s var(--ease) reverse both; }
+.feuille .panneau { width: 100%; max-width: 560px; margin: 0 auto; display: grid; gap: 8px; padding: 10px 16px calc(20px + var(--safe-bottom)); border-radius: 24px 24px 0 0; background: var(--bg2); box-shadow: var(--shadow-2); animation: monte-feuille .26s var(--ease); }
+.feuille.part .panneau { animation: monte-feuille .18s var(--ease) reverse both; }
+.feuille .poignee { justify-self: center; width: 36px; height: 4px; border-radius: 2px; background: var(--line-strong); margin-bottom: 6px; }
+.feuille h2 { font-size: 19px; }
+.feuille p { color: var(--hint); font-size: 14.5px; line-height: 1.45; margin-bottom: 6px; }
+.feuille .boutons { display: grid; gap: 6px; }
+@keyframes fondu-feuille { from { opacity: 0; } }
+@keyframes monte-feuille { from { transform: translateY(24px); } }
 
 /* ------------------------------------------------------------ Barre de secours et toast */
 .fallback-bar { position: sticky; bottom: 0; z-index: 5; display: flex; gap: 8px; padding: 10px 16px calc(12px + var(--safe-bottom)); max-width: 560px; margin: 0 auto; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border-top: 1px solid var(--line); }

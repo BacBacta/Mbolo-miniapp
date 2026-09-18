@@ -39,6 +39,7 @@ const PATHS = {
   hand: '<path d="M7 11V6a1.5 1.5 0 013 0v5M10 11V4.5a1.5 1.5 0 013 0V11M13 11V6a1.5 1.5 0 013 0v7M16 11V8a1.5 1.5 0 013 0v6a7 7 0 01-7 7h-1a7 7 0 01-6-3.5L3 12.8a1.5 1.5 0 012.5-1.6L7 13"/>',
   message: '<path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v9a2 2 0 01-2 2H9l-5 4V6z"/>',
   reply: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 016 6v4"/>',
+  'chevron-up': '<path d="M6 15l6-6 6 6"/>',
   star: '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1.1 5.9L12 16.9l-5.3 2.8 1.1-5.9-4.3-4.1 5.9-.8L12 3.5z"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>',
   compass: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5 5-2z"/>',
@@ -140,6 +141,40 @@ export function toast(msg, kind = 'info') {
   el.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => (el.hidden = true), 2800);
+}
+
+// ---------- Feuille du bas ----------
+// Une porte, un menu, une explication : ce qui n'a pas besoin d'un écran entier. Elle vit hors
+// de #app pour survivre à un render(), se ferme d'un appui à côté, et rend l'identifiant du
+// bouton choisi — ou null. Un seul principal, en bas ; les autres en fantôme.
+export function feuille({ titre = '', texte = '', boutons = [] }) {
+  return new Promise((resolve) => {
+    document.getElementById('feuille')?.remove();
+    const voile = document.createElement('div');
+    voile.id = 'feuille';
+    voile.className = 'feuille';
+    voile.setAttribute('role', 'dialog');
+    voile.setAttribute('aria-modal', 'true');
+    if (titre) voile.setAttribute('aria-label', titre);
+    const panneau = document.createElement('div');
+    panneau.className = 'panneau';
+    panneau.innerHTML = `<span class="poignee" aria-hidden="true"></span>${titre ? `<h2></h2>` : ''}${texte ? `<p></p>` : ''}<div class="boutons"></div>`;
+    if (titre) panneau.querySelector('h2').textContent = titre;
+    if (texte) panneau.querySelector('p').textContent = texte;
+    const fermer = (id) => { voile.classList.add('part'); setTimeout(() => voile.remove(), 180); resolve(id); };
+    for (const b of boutons) {
+      const bouton = document.createElement('button');
+      bouton.type = 'button';
+      bouton.className = `btn btn-block ${b.principal ? 'btn-primary' : b.danger ? 'btn-danger' : 'btn-ghost'}`;
+      bouton.dataset.feuille = b.id;
+      bouton.textContent = b.texte;
+      bouton.addEventListener('click', () => fermer(b.id));
+      panneau.querySelector('.boutons').appendChild(bouton);
+    }
+    voile.addEventListener('click', (e) => { if (e.target === voile) fermer(null); });
+    voile.appendChild(panneau);
+    document.body.appendChild(voile);
+  });
 }
 
 // ---------- Squelettes : la forme de l'écran s'affiche pendant le chargement ----------

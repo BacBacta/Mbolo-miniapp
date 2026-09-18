@@ -1158,6 +1158,23 @@ api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {
   res.json({ match: null });
 });
 
+// Revenir sur le dernier balayage. Le filet qui rend le balayage rapide acceptable : un pouce qui
+// glisse trop vite, et la carte revient. **Une minute**, pas plus — au-delà la personne a pu être
+// prévenue (« tu as plu à quelqu'un ») et la retirer en silence n'aurait plus de sens — et
+// **jamais sur un match** : un match se défait par « Retirer ce match », qui dit ce qu'il fait.
+// La ligne part pour de bon : le quota du jour la rend, et la carte revient dans le paquet.
+export const RETOUR_BALAYAGE_MS = 60_000;
+api.delete('/swipes/:targetId', requireMembre, limiter('swipe'), async (req, res) => {
+  const me = req.user;
+  const target = await parIdPublic(req.params.targetId);
+  const s = target && (await store.swipeOf(me.id, target.id));
+  if (!s) return fail(res, 404, 'SWIPE_NOT_FOUND', 'Rien à annuler.');
+  if (await store.matchBetween(me.id, target.id)) return fail(res, 409, 'SWIPE_MATCHED', "C'est un match : retire-le depuis la discussion si tu veux.");
+  if (Date.now() - s.at > RETOUR_BALAYAGE_MS) return fail(res, 410, 'SWIPE_TOO_OLD', 'Trop tard pour revenir sur ce profil.');
+  await store.removeSwipe(me.id, target.id);
+  res.json({ annule: true, profile: await publicProfile(target) });
+});
+
 // ---------- Matchs et messages ----------
 // Réponses de démo déjà programmées, pour ne pas répondre à chaque message envoyé rapidement
 const demoPending = new Map();

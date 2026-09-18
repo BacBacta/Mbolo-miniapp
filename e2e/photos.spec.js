@@ -36,8 +36,7 @@ test('la liste Messages montre le visage de chaque discussion, en miniature', as
   await membreVerifie(page, 'Coco');
   // Un « J'aime » sur un profil de démonstration est rendu : le match est immédiat.
   await onglet(page, /Découvrir/).click();
-  await expect(actionPrincipale(page)).toHaveText(/J'aime/);
-  await actionPrincipale(page).click();
+  await page.locator('.deck-actions .like').click();
   await expect(page.locator('main')).toContainText(/C'est un match/i, { timeout: 20_000 });
   // L'écran de match masque les onglets : on le quitte d'abord.
   await page.locator('#fallback-bar button', { hasText: /Plus tard/ }).click();
