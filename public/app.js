@@ -626,6 +626,7 @@ function profileCard(p, { own = false, cls = '', plein = false } = {}) {
           <div class="line">
             ${icon('pin', 13)}<span>${esc(p.area ? `${p.area} · ${p.city}` : p.city)}${p.country && p.country !== S.me?.profile?.country ? esc(` · ${nomPays(p.country)}`) : ''}</span>
             ${!own && ACTIVITY_LABELS()[p.activity] ? `<span class="dot"></span><span class="act">${p.activity === 'week' ? t('Cette semaine') : p.activity === 'today' ? t("Aujourd'hui") : t('Récemment')}</span>` : ''}
+            ${plein && p.intentLabel ? `<span class="dot"></span><span>${esc(t(p.intentLabel))}</span>` : ''}
           </div>
           ${plein ? `
           ${p.promptA ? `<div class="apercu"><span class="q">${esc(libelleQuestion(p.promptQ))}</span><span class="a">${esc(apercuReponse(p))}</span></div>` : ''}
