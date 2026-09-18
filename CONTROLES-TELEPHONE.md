@@ -106,6 +106,14 @@ redevenir sans qu'on s'en aperçoive. Le numéro dit de quel lot elles viennent.
       le moindre échange.*
 - [ ] Corrige en `Douala` : l'enregistrement passe.
 - [ ] Ajoute une photo : elle se compresse et part en modération.
+- [ ] **(audit 16, n° 8)** À l'étape 2, écris un quartier, puis ferme la mini app (le geste vers
+      le bas, ou une notification Telegram). Rouvre : l'accueil, « Créer mon profil », et tu es à
+      l'étape 2 avec ton quartier. *Avant, tout était à retaper.* Une fois le profil enregistré,
+      rien ne reste.
+- [ ] **(n° 9)** En **2G seulement** (Paramètres → Réseau), ajoute une photo et enregistre : le
+      bouton dit « Envoi des photos », et ça passe — ou, si le réseau tombe, l'écran dit « Ton
+      profil est enregistré. La photo n'est pas partie » avec **« Renvoyer les photos »**, qui ne
+      renvoie que la photo. *Avant : « Pas de connexion » après 12 s, et tout repartait.*
 - [ ] En **Relation sérieuse**, les deux questions facultatives (mariage, enfants) apparaissent.
       En **Amitié**, elles disparaissent.
 

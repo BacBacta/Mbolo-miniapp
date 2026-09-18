@@ -624,4 +624,8 @@ export default {
   "Ton compte est fermé": "Your account is closed",
   "Écrire au bot": "Write to the bot",
   "Tout remettre à zéro": "Reset everything",
+  "Envoi des photos": "Sending photos",
+  "Renvoyer les photos": "Send the photos again",
+  "Ton profil est enregistré.": "Your profile is saved.",
+  "La photo n'est pas partie : réessaie.": "The photo did not go through: try again.",
 };

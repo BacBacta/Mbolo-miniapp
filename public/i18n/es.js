@@ -613,4 +613,8 @@ export default {
   "Ton compte est fermé": "Tu cuenta está cerrada",
   "Écrire au bot": "Escribir al bot",
   "Tout remettre à zéro": "Restablecer todo",
+  "Envoi des photos": "Enviando las fotos",
+  "Renvoyer les photos": "Reenviar las fotos",
+  "Ton profil est enregistré.": "Tu perfil está guardado.",
+  "La photo n'est pas partie : réessaie.": "La foto no se ha enviado: inténtalo de nuevo.",
 };

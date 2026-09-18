@@ -161,13 +161,13 @@ function messageErreur(data) {
   return ERREURS()[data?.code] || data?.message || t('Un problème est survenu.');
 }
 
-async function api(path, { method = 'GET', body } = {}) {
+async function api(path, { method = 'GET', body, delai = DELAI_MAX_MS } = {}) {
   // Après la suppression du compte, plus aucun appel : chaque requête authentifiée recrée une
   // ligne côté serveur, et c'est ce qui rendait la suppression fausse dans la seconde.
   if (S.supprime) throw Object.assign(new Error(t('Ton compte et tes données ont été supprimés.')), { code: 'SUPPRIME' });
   const headers = { 'Content-Type': 'application/json', ...authHeaders() };
   const stop = new AbortController();
-  const minuteur = setTimeout(() => stop.abort(), DELAI_MAX_MS);
+  const minuteur = setTimeout(() => stop.abort(), delai);
   let res;
   try {
     res = await fetch(`/api${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: stop.signal });
@@ -592,6 +592,23 @@ const local = (() => { try { return window.localStorage; } catch { return null; 
 // une affiche, une story, une invitation — n'avait jamais démarré le bot, et match, message,
 // « tu as plu » mouraient en silence. On le demande à l'enregistrement du profil, et un refus
 // laisse une ligne dans l'onglet Profil qui ouvre le bot. Le drapeau vit sur l'appareil.
+// Le brouillon de la première inscription (audit 16, n° 8) : Telegram ferme une mini app d'un
+// geste, Android tue une WebView en arrière-plan, et tout était à retaper. Le texte du formulaire
+// et l'étape vivent sur l'appareil, jamais la photo (trop lourde, et elle repart en modération),
+// jamais après l'enregistrement : le brouillon s'efface avec le profil enregistré, et avec le compte.
+const BROUILLON = 'brouillon_profil';
+function sauverLeBrouillon() {
+  if (!S.form || S.me?.profile) return;
+  const { photos, ...texte } = S.form;
+  try { local?.setItem(BROUILLON, JSON.stringify({ form: texte, step: S.formStep })); } catch { /* stockage refusé : on retape */ }
+}
+function lireLeBrouillon() {
+  try {
+    const b = JSON.parse(local?.getItem(BROUILLON) || 'null');
+    return b && b.form && typeof b.form === 'object' ? b : null;
+  } catch { return null; }
+}
+const oublierLeBrouillon = () => { try { local?.removeItem(BROUILLON); } catch { /* sans importance */ } };
 const BOT_MUET = 'bot_muet';
 const botMuet = () => { try { return local?.getItem(BOT_MUET) === '1'; } catch { return false; } };
 async function demanderLAccesAuBot() {
@@ -1283,6 +1300,9 @@ const SCREENS = {
   // Formulaire en trois étapes : identité, recherche, touche personnelle
   profile() {
     const p = S.me.profile || {};
+    // Une première inscription interrompue reprend où elle en était : le texte et l'étape.
+    const brouillon = !S.form && !S.me.profile ? lireLeBrouillon() : null;
+    if (brouillon && Number.isInteger(brouillon.step) && brouillon.step >= 0 && brouillon.step <= 2) S.formStep = brouillon.step;
     const f = (S.form ||= {
       name: p.name || tg.telegramUser()?.first_name || '',
       age: p.age || '',
@@ -1297,6 +1317,7 @@ const SCREENS = {
       extras: (p.extras || []).map((x) => ({ q: x.q, a: x.a || '' })),
       languages: p.languages || '',
       compat: { ...(p.compat || {}) },
+      ...(brouillon?.form || {}),
       // Par emplacement : 'keep' (photo existante), une image encodée (nouvelle), ou null (vide ou à retirer)
       photos: Object.fromEntries(emplacementsPhoto().map((n) => [n, (S.me.photos || []).some((x) => x.n === n) ? 'keep' : null])),
     });
@@ -2439,6 +2460,7 @@ function nextStep() {
   if (err) return showError(Object.assign(new Error(err.message), { champ: err.champ }));
   tg.haptic('select');
   S.formStep += 1;
+  sauverLeBrouillon();
   SCREENS.profile();
 }
 
@@ -2459,30 +2481,59 @@ async function saveProfile() {
     // Dès qu'il y a un profil, le bot peut avoir quelque chose à dire (un « J'aime », un match) :
     // c'est ici qu'on lui demande le droit d'écrire, pas seulement à l'envoi du selfie.
     if (premiere) await demanderLAccesAuBot();
+  } catch (e) {
+    showError(e);
+    return tg.setButtons({ main: { text: t('Enregistrer'), onClick: saveProfile } });
+  }
+  // Le profil est enregistré : le brouillon n'a plus de raison d'être, quoi qu'il arrive aux photos.
+  oublierLeBrouillon();
+  await envoyerLesPhotosPuisFinir();
+}
+
+// Un envoi a droit à plus de temps qu'une lecture (audit 16, n° 9) : douze secondes, plus une
+// par dizaine de kilo-octets — une photo de 720 px pèse 80 à 150 Ko, et sur EDGE elle passait
+// le délai commun de douze secondes, ce qui affichait « Pas de connexion » pour un profil
+// pourtant enregistré.
+const delaiPourEnvoyer = (dataUrl) => DELAI_MAX_MS + Math.ceil((String(dataUrl).length * 0.75) / 10_000) * 1000;
+
+// Les photos partent après le profil, et à part : si l'une ne passe pas, le profil est déjà là,
+// on le dit, et on ne renvoie que les photos — pas tout le formulaire.
+async function envoyerLesPhotosPuisFinir() {
+  const photos = S.form?.photos || {};
+  tg.setButtons({ main: { text: t('Envoi des photos'), progress: true } });
+  try {
     // Emplacements : une nouvelle image part en modération, un emplacement vidé est supprimé
     for (const n of emplacementsPhoto()) {
       const v = photos[n];
       const existed = (S.me.photos || []).some((x) => x.n === n);
-      if (v && v !== 'keep') await api(`/me/photos/${n}`, { method: 'PUT', body: { photo: v } });
-      else if (!v && existed) await api(`/me/photos/${n}`, { method: 'DELETE' });
-    }
-    S.form = null;
-    S.formStep = 0;
-    S.me = await api(ME());
-    oublierLesPhotos();
-    tg.haptic('success');
-    // Profil → vérification → Découvrir, sans interstitiel (audit 15, constat A) : la jauge
-    // s'explique depuis la première carte, d'un appui sur ses pastilles, et la voix se propose
-    // depuis l'onglet Profil. Six écrans avant le premier visage, c'était trois de trop.
-    if (verifie()) {
-      toast(t('Profil mis à jour'), 'ok');
-      go('me');
-    } else {
-      go('verify');
+      if (v && v !== 'keep') {
+        await api(`/me/photos/${n}`, { method: 'PUT', body: { photo: v }, delai: delaiPourEnvoyer(v) });
+        photos[n] = 'keep'; // partie : un nouvel essai ne la renvoie pas
+      } else if (!v && existed) {
+        await api(`/me/photos/${n}`, { method: 'DELETE' });
+      }
     }
   } catch (e) {
-    showError(e);
-    tg.setButtons({ main: { text: t('Enregistrer'), onClick: saveProfile } });
+    // Le réseau a lâché : on le dit avec le profil sauvé. Un refus du serveur (modération
+    // injoignable, image refusée) garde son propre message, qui dit quoi faire.
+    const raison = e?.code === 'NETWORK' ? t("La photo n'est pas partie : réessaie.") : e?.message;
+    if (!e?.silencieux) showError(Object.assign(new Error(`${t('Ton profil est enregistré.')} ${raison || ''}`.trim()), { code: e?.code }));
+    return tg.setButtons({ main: { text: t('Renvoyer les photos'), onClick: envoyerLesPhotosPuisFinir } });
+  }
+  S.form = null;
+  S.formStep = 0;
+  oublierLeBrouillon();
+  S.me = await api(ME());
+  oublierLesPhotos();
+  tg.haptic('success');
+  // Profil → vérification → Découvrir, sans interstitiel (audit 15, constat A) : la jauge
+  // s'explique depuis la première carte, d'un appui sur ses pastilles, et la voix se propose
+  // depuis l'onglet Profil. Six écrans avant le premier visage, c'était trois de trop.
+  if (verifie()) {
+    toast(t('Profil mis à jour'), 'ok');
+    go('me');
+  } else {
+    go('verify');
   }
 }
 
@@ -3618,6 +3669,7 @@ app.addEventListener('click', async (e) => {
     case 'set':
       tg.haptic('select');
       S.form[el.dataset.field] = el.dataset.value;
+      sauverLeBrouillon();
       pressOnly(el, '[data-action="set"]');
       document.getElementById('form-error').textContent = '';
       break;
@@ -3704,6 +3756,7 @@ app.addEventListener('click', async (e) => {
     case 'question':
       tg.haptic('select');
       S.form.promptQ = el.dataset.value;
+      sauverLeBrouillon();
       pressOnly(el, '[data-action="question"]');
       break;
     case 'question-extra':
@@ -3812,6 +3865,7 @@ app.addEventListener('click', async (e) => {
         clearInterval(S.summaryTimer);
         await api('/me', { method: 'DELETE' });
         S.supprime = true;
+        oublierLeBrouillon();
         S.me = null;
         await tg.alert(t('Ton compte et tes données ont été supprimés.'));
         tg.close();
@@ -3827,8 +3881,10 @@ app.addEventListener('input', (e) => {
   const extra = /^extra-a-(\d)$/.exec(name || '');
   if (S.screen === 'profile' && S.form && extra && S.form.extras[Number(extra[1])]) {
     S.form.extras[Number(extra[1])].a = value;
+    sauverLeBrouillon();
   } else if (S.screen === 'profile' && S.form && name in S.form && name !== 'photo') {
     S.form[name] = value;
+    sauverLeBrouillon();
     const err = document.getElementById('form-error');
     if (err) err.textContent = '';
   } else if (S.screen === 'pays' && name === 'recherche-pays') {

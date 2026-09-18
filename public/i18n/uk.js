@@ -613,4 +613,8 @@ export default {
   "Ton compte est fermé": "Твій акаунт закрито",
   "Écrire au bot": "Написати боту",
   "Tout remettre à zéro": "Скинути все",
+  "Envoi des photos": "Надсилання фото",
+  "Renvoyer les photos": "Надіслати фото знову",
+  "Ton profil est enregistré.": "Твою анкету збережено.",
+  "La photo n'est pas partie : réessaie.": "Фото не надіслалося: спробуй ще раз.",
 };

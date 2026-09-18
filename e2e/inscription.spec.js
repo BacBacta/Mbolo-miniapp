@@ -284,3 +284,32 @@ test("l'erreur d'une étape se voit sans défiler, et le champ fautif prend le f
   await expect(erreur).toBeInViewport();
   await expect(page.locator('input[name=age]')).toBeFocused();
 });
+
+// Audit 16, n° 8 : Telegram ferme une mini app d'un geste, et tout l'inscription était à
+// retaper. Le texte et l'étape reprennent où ils en étaient ; le profil enregistré efface le
+// brouillon.
+test("une inscription interrompue reprend où elle en était, et le profil enregistré l'efface", async ({ page }) => {
+  const id = nouvelIdentifiant();
+  await ouvrir(page, id);
+  await actionPrincipale(page).click();
+  await page.locator('input[name=name]').fill('Ngo');
+  await page.locator('input[name=age]').fill('24');
+  await page.locator('main button', { hasText: /Femme/ }).first().click();
+  await actionPrincipale(page).click();
+  await expect(titre(page)).toHaveText(/Ce que tu cherches/);
+  await page.locator('input[name=area]').fill('Bastos');
+
+  // Fermée, rouverte : l'accueil, puis le formulaire à l'étape 2 avec ce qui était écrit.
+  await ouvrir(page, id);
+  await expect(titre(page)).toHaveText(/Des rencontres vérifiées/);
+  await actionPrincipale(page).click();
+  await expect(titre(page)).toHaveText(/Ce que tu cherches/);
+  await expect(page.locator('input[name=area]')).toHaveValue('Bastos');
+  await page.locator('main button', { hasText: /Amitié/ }).first().click();
+  await page.locator('input[name=city]').fill('Yaoundé');
+  await actionPrincipale(page).click();
+  await page.locator('input[name=promptA]').fill('Le poisson braisé');
+  await actionPrincipale(page).click();
+  await expect(titre(page)).toHaveText(/Vérifie que c'est bien toi/);
+  expect(await page.evaluate(() => localStorage.getItem('brouillon_profil'))).toBeNull();
+});

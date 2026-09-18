@@ -613,4 +613,8 @@ export default {
   "Ton compte est fermé": "Akaunti yako imefungwa",
   "Écrire au bot": "Andikia boti",
   "Tout remettre à zéro": "Weka upya yote",
+  "Envoi des photos": "Inatuma picha",
+  "Renvoyer les photos": "Tuma picha tena",
+  "Ton profil est enregistré.": "Wasifu wako umehifadhiwa.",
+  "La photo n'est pas partie : réessaie.": "Picha haikutumwa: jaribu tena.",
 };

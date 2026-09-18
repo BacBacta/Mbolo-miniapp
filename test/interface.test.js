@@ -639,3 +639,35 @@ test("la carte du pass ne passe devant les discussions que si quelqu'un a aimé"
   assert.match(messages, /const enTete = quelquUn \? likesStrip : '';/);
   assert.match(messages, /const enQueue = quelquUn \? '' : likesStrip;/);
 });
+
+// Audit 16, lot E : ce qui se perd. La première inscription a un brouillon sur l'appareil, sans
+// la photo, effacé à l'enregistrement et à la suppression (n° 8) ; un envoi de photo a son
+// propre délai, et un profil déjà enregistré ne repart pas avec la photo qui a échoué (n° 9).
+test("la première inscription a un brouillon sans photo, effacé à l'enregistrement et à la suppression", () => {
+  const brouillon = entre('const BROUILLON =', "const BOT_MUET = 'bot_muet';");
+  assert.match(brouillon, /if \(!S\.form \|\| S\.me\?\.profile\) return;/, 'jamais après le premier profil');
+  assert.match(brouillon, /const \{ photos, \.\.\.texte \} = S\.form;/, 'jamais la photo');
+  const profil = entre('  profile() {', '    const step = S.formStep;');
+  assert.match(profil, /const brouillon = !S\.form && !S\.me\.profile \? lireLeBrouillon\(\) : null;/);
+  assert.match(profil, /\.\.\.\(brouillon\?\.form \|\| \{\}\),/);
+  const saisie = entre("app.addEventListener('input'", "} else if (S.screen === 'pays'");
+  assert.equal((saisie.match(/sauverLeBrouillon\(\);/g) || []).length, 2, 'chaque saisie le sauve');
+  const fin = entre('async function envoyerLesPhotosPuisFinir() {', '// Aujourd');
+  assert.match(fin, /S\.form = null;\s*S\.formStep = 0;\s*oublierLeBrouillon\(\);/, 'effacé à l\'enregistrement');
+  assert.match(app, /S\.supprime = true;\s*oublierLeBrouillon\(\);/, 'et avec le compte');
+});
+
+test("une photo a son propre délai, et un profil enregistré ne repart pas avec elle", () => {
+  assert.match(app, /async function api\(path, \{ method = 'GET', body, delai = DELAI_MAX_MS \} = \{\}\)/);
+  assert.match(app, /setTimeout\(\(\) => stop\.abort\(\), delai\)/);
+  const save = entre('async function saveProfile() {', 'const delaiPourEnvoyer');
+  assert.doesNotMatch(save, /me\/photos/, 'le profil ne renvoie plus les photos lui-même');
+  assert.match(save, /await envoyerLesPhotosPuisFinir\(\);/);
+  const photos = entre('async function envoyerLesPhotosPuisFinir() {', '  S.form = null;');
+  assert.match(photos, /delai: delaiPourEnvoyer\(v\)/);
+  assert.match(photos, /photos\[n\] = 'keep';/, 'une photo partie ne repart pas');
+  assert.match(photos, /e\?\.code === 'NETWORK' \? t\("La photo n'est pas partie : réessaie\."\) : e\?\.message/, 'le réseau a son mot, le serveur garde le sien');
+  assert.match(photos, /t\('Ton profil est enregistré\.'\)/);
+  assert.match(save, /oublierLeBrouillon\(\);\s*await envoyerLesPhotosPuisFinir\(\);/, 'le brouillon part dès que le profil est enregistré');
+  assert.match(photos, /onClick: envoyerLesPhotosPuisFinir/, 'réessayer ne renvoie que les photos');
+});
