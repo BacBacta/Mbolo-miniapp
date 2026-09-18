@@ -453,6 +453,13 @@ export async function setupBot() {
     // Lien venu de l'app : « Présentation vocale » y renvoie ici, faute de micro accessible
     // depuis une mini app. On enchaîne directement sur la consigne d'enregistrement.
     if (String(ctx.match || '') === 'voix') return expliquerLaVoix(ctx, lang);
+    // Lien venu de l'app aussi : la ligne « Le bot ne peut pas te prévenir » de l'onglet Profil
+    // (audit 16, lot B). Ouvrir la discussion et appuyer sur « Démarrer » suffit à lui rendre la
+    // parole : on le dit, avec le bouton pour revenir.
+    if (String(ctx.match || '') === 'prevenir') {
+      const bouton = config.webAppUrl ? new InlineKeyboard().webApp(t(lang, 'Ouvrir {app}', { app: config.appName }), appUrl()) : undefined;
+      return envoyerMessage(ctx.chat.id, t(lang, "C'est bon : {app} peut t'écrire ici. Tu sauras quand quelqu'un te plaît en retour, et quand on te répond.", { app: config.appName }), bouton);
+    }
     const text = t(lang, "Salut {nom}. {app} te fait rencontrer des personnes vérifiées de ta ville, sans rien te faire payer pour ça.\n\nRéservé aux 18 ans et plus.", { nom: ctx.from?.first_name || '', app: config.appName });
     const reply_markup = config.webAppUrl ? new InlineKeyboard().webApp(t(lang, 'Ouvrir {app}', { app: config.appName }), appUrl()) : undefined;
     // Pas ctx.reply : c'est envoyerMessage qui sait renvoyer le texte seul si Telegram refuse le

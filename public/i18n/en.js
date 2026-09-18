@@ -620,4 +620,8 @@ export default {
   "Découvrir en attendant": "Discover meanwhile",
   "Selfie envoyé. On te prévient dès qu'il est vérifié.": "Selfie sent. We will let you know as soon as it is verified.",
   "Ton selfie est vérifié : le bouclier est sur ta fiche.": "Your selfie is verified: the shield is on your profile.",
+  "Sans ça, le bot ne peut pas te prévenir d'un match. Tu pourras l'ouvrir depuis l'onglet Profil.": "Without it, the bot cannot tell you about a match. You can open it from the Profile tab.",
+  "Le bot ne peut pas te prévenir": "The bot cannot notify you",
+  "Ouvre-le une fois : il te dira les matchs et les messages, même app fermée.": "Open it once: it will tell you about matches and messages, even with the app closed.",
+  "Le bot ne peut pas encore te prévenir de sa réponse : ouvre-le une fois depuis l'onglet Profil.": "The bot cannot notify you of the reply yet: open it once from the Profile tab.",
 };

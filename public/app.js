@@ -572,6 +572,28 @@ const ETAPE = 'form_step';
 // venus de nulle part, et le canal qui marche le mieux serait justement celui qu'on ne verrait pas.
 const SOURCE = 'venu_de';
 const local = (() => { try { return window.localStorage; } catch { return null; } })();
+// Le bot ne peut écrire qu'à qui l'a autorisé (audit 16, n° 4). L'accès n'était demandé qu'à
+// l'envoi du selfie : sous « badge », qui disait « Plus tard » et était arrivé par un lien —
+// une affiche, une story, une invitation — n'avait jamais démarré le bot, et match, message,
+// « tu as plu » mouraient en silence. On le demande à l'enregistrement du profil, et un refus
+// laisse une ligne dans l'onglet Profil qui ouvre le bot. Le drapeau vit sur l'appareil.
+const BOT_MUET = 'bot_muet';
+const botMuet = () => { try { return local?.getItem(BOT_MUET) === '1'; } catch { return false; } };
+async function demanderLAccesAuBot() {
+  let ok = true;
+  try { ok = await tg.requestWriteAccess(); } catch { ok = true; }
+  try { if (ok) local?.removeItem(BOT_MUET); else local?.setItem(BOT_MUET, '1'); } catch { /* sans importance */ }
+  if (!ok) toast(t("Sans ça, le bot ne peut pas te prévenir d'un match. Tu pourras l'ouvrir depuis l'onglet Profil."), 'warn');
+  return ok;
+}
+// Ouvrir le bot referme la mini app : ce qu'il faut, puisque c'est dans sa discussion que
+// « Démarrer » lui rend la parole. Le drapeau tombe ici — on ne saura pas si la personne a
+// appuyé, et la redemander à chaque ouverture serait pire qu'un faux « c'est bon ».
+function ouvrirLeBot() {
+  if (!S.me?.botUsername) return toast(t("Le bot n'est pas joignable pour l'instant."));
+  try { local?.removeItem(BOT_MUET); } catch { /* sans importance */ }
+  tg.openTelegramLink(`https://t.me/${S.me.botUsername}?start=prevenir`);
+}
 function noterEtape(n) {
   try { if (Number(local?.getItem(ETAPE) || 0) < n) local.setItem(ETAPE, String(n)); } catch { /* stockage refusé : on ne mesure pas, l'app marche */ }
 }
@@ -1633,6 +1655,7 @@ const SCREENS = {
         <h1 class="display">${t('{nom} et toi, vous vous plaisez', { nom: esc(m.other.name) })}</h1>
         ${m.aime ? `<p class="lead">${t('{nom} a aimé ta réponse à « {question} »', { nom: esc(m.other.name), question: esc(libelleQuestion(m.aime.q)) })}</p>${m.aime.mot ? `<p class="mot-aime">« ${esc(m.aime.mot)} »</p>` : ''}`
     : `<p class="lead">${t('Brise la glace avec une question sur son profil. Les liens et numéros se débloquent après quelques messages.')}</p>`}
+        ${botMuet() ? `<p class="fine">${icon('bell', 14)}<span>${t("Le bot ne peut pas encore te prévenir de sa réponse : ouvre-le une fois depuis l'onglet Profil.")}</span></p>` : ''}
       </div>`);
     loadAvatar(me, { own: true });
     loadAvatar(m.other);
@@ -2146,6 +2169,10 @@ Object.assign(SCREENS, {
           <div class="c"><span class="chip ${status[1]}">${S.me.verification === 'approved' ? icon('shield', 13) : ''}${status[0]}</span>${pp ? `<span>${icon('pin', 13)} ${esc(pp.city)}</span>` : ''}</div>
         </div>
       </div>
+      ${pp && botMuet() ? `
+      <div class="list">
+        ${listRow({ iconName: 'bell', title: t('Le bot ne peut pas te prévenir'), sub: t('Ouvre-le une fois : il te dira les matchs et les messages, même app fermée.'), action: 'ouvrir-bot' })}
+      </div>` : ''}
       ${pp && !verifie() ? `
       <div class="list">
         ${S.me.verification === 'pending'
@@ -2382,10 +2409,14 @@ async function saveProfile() {
     }
   }
   const f = S.form;
+  const premiere = !S.me.profile;
   tg.setButtons({ main: { text: t('Enregistrement'), progress: true } });
   try {
     const { photos, ...fields } = f;
     await api('/me/profile', { method: 'PUT', body: { ...fields, age: Number(f.age) } });
+    // Dès qu'il y a un profil, le bot peut avoir quelque chose à dire (un « J'aime », un match) :
+    // c'est ici qu'on lui demande le droit d'écrire, pas seulement à l'envoi du selfie.
+    if (premiere) await demanderLAccesAuBot();
     // Emplacements : une nouvelle image part en modération, un emplacement vidé est supprimé
     for (const n of emplacementsPhoto()) {
       const v = photos[n];
@@ -2420,8 +2451,9 @@ async function sendSelfie() {
     S.selfie = null;
     S.gesture = null;
     S.me.verification = 'pending';
-    // Autorise le bot à écrire à l'utilisateur (utile s'il a ouvert l'app par un lien sans démarrer le bot)
-    await tg.requestWriteAccess();
+    // Le bot doit pouvoir dire la décision : la même demande qu'à l'enregistrement du profil
+    // (Telegram ne redemande rien si l'accès est déjà accordé).
+    await demanderLAccesAuBot();
     if (entreeLibre()) {
       // Sous « badge », la découverte est ouverte : on y va, et une veille dit quand le bouclier
       // arrive (audit 16, n° 2). L'écran d'attente reste atteignable depuis l'onglet Profil.
@@ -3488,6 +3520,7 @@ app.addEventListener('click', async (e) => {
   switch (action) {
     case 'dev-back': window.__devBack?.(); break;
     case 'go': go(el.dataset.screen); break;
+    case 'ouvrir-bot': ouvrirLeBot(); break;
     case 'citation': allerAuMessage(el.dataset.id); break;
     case 'swipe-like': swipe('like'); break;
     case 'swipe-pass': swipe('pass'); break;

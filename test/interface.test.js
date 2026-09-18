@@ -541,3 +541,19 @@ test("rien n'est vendu à la première inscription", () => {
   const suite = entre('  const suite = extras.length < plafond', '  return blocs + suite;');
   assert.match(suite, /extras\.length < total - 1 && S\.me\?\.profile\s*\? porteDuPass\(\{ quoi: 'questions'/);
 });
+
+// Audit 16, lot B (n° 4) : le bot ne peut écrire qu'à qui l'a autorisé, et la demande ne vivait
+// qu'à l'envoi du selfie. Elle vit maintenant à l'enregistrement du premier profil aussi, un
+// refus laisse une ligne dans l'onglet Profil, et cette ligne ouvre le bot par openTelegramLink.
+test("le droit d'écrire au bot se demande dès le premier profil, et un refus laisse une porte", () => {
+  const save = entre('async function saveProfile() {', 'async function sendSelfie() {');
+  assert.match(save, /const premiere = !S\.me\.profile;/);
+  assert.match(save, /if \(premiere\) await demanderLAccesAuBot\(\);/, 'demandé à la première inscription');
+  const selfie = entre('async function sendSelfie() {', 'function veillerLaVerification() {');
+  assert.match(selfie, /await demanderLAccesAuBot\(\);/, 'et toujours à l\'envoi du selfie');
+  assert.doesNotMatch(app.replace(/function demanderLAccesAuBot[\s\S]*?\n\}/, ''), /tg\.requestWriteAccess\(/, 'une seule porte vers la demande');
+  const me = entre('  me() {', '  async reglages() {');
+  assert.match(me, /pp && botMuet\(\) \?[\s\S]*action: 'ouvrir-bot'/, 'la ligne de l\'onglet Profil quand le bot est muet');
+  const ouvrir = entre('function ouvrirLeBot() {', 'function noterEtape(');
+  assert.match(ouvrir, /tg\.openTelegramLink\(`https:\/\/t\.me\/\$\{S\.me\.botUsername\}\?start=prevenir`\)/);
+});

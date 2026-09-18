@@ -609,4 +609,8 @@ export default {
   "Découvrir en attendant": "Descobrir entretanto",
   "Selfie envoyé. On te prévient dès qu'il est vérifié.": "Selfie enviada. Avisamos-te assim que estiver verificada.",
   "Ton selfie est vérifié : le bouclier est sur ta fiche.": "A tua selfie está verificada: o escudo está no teu perfil.",
+  "Sans ça, le bot ne peut pas te prévenir d'un match. Tu pourras l'ouvrir depuis l'onglet Profil.": "Sem isso, o bot não pode avisar-te de um match. Podes abri-lo a partir do separador Perfil.",
+  "Le bot ne peut pas te prévenir": "O bot não pode avisar-te",
+  "Ouvre-le une fois : il te dira les matchs et les messages, même app fermée.": "Abre-o uma vez: dir-te-á os matches e as mensagens, mesmo com a app fechada.",
+  "Le bot ne peut pas encore te prévenir de sa réponse : ouvre-le une fois depuis l'onglet Profil.": "O bot ainda não pode avisar-te da resposta: abre-o uma vez a partir do separador Perfil.",
 };

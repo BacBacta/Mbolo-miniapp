@@ -49,6 +49,19 @@ redevenir sans qu'on s'en aperçoive. Le numéro dit de quel lot elles viennent.
 - [ ] La fiche du bot affiche **Odo**, pas Mbolo — y compris si ton Telegram est en français.
 - [ ] `/aide` répond.
 
+### Le bot doit pouvoir écrire (audit 16, n° 4) **(deux comptes)**
+
+- [ ] Sur un compte qui **n'a jamais écrit au bot**, ouvre `t.me/<bot>/<app>?startapp=ref_campus`
+      (pas `/start`). Crée un profil : à l'enregistrement, Telegram demande **« Autoriser le bot à
+      t'écrire ? »**. Refuse.
+- [ ] Un toast dit que le bot ne pourra pas te prévenir. L'onglet Profil porte la ligne
+      **« Le bot ne peut pas te prévenir »**. Touche-la : la mini app se ferme sur la discussion
+      du bot, qui dit qu'il peut maintenant t'écrire.
+- [ ] Recommence avec un autre compte neuf, et **accepte** cette fois. Depuis le second compte,
+      aime ce profil puis matche : la notification de match **arrive** sur le premier téléphone.
+      *Avant, elle mourait en silence : `Notification impossible pour … : Forbidden` dans
+      `flyctl logs -a mbolo-miniapp`, et rien à l'écran.*
+
 ---
 
 ### Ce que le bot promet sur l'argent
