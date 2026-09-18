@@ -407,7 +407,8 @@ export default {
   "Présentation vocale": "Голосовое представление",
   "Validée · {duree} — les autres peuvent l'écouter": "Одобрено · {duree} — другие могут послушать",
   "Le bot n'est pas joignable pour l'instant.": "Бот сейчас недоступен.",
-  "Choisir mon selfie": "Выбрать селфи",
+  "Choisir mon selfie dans la galerie": "Выбрать селфи из галереи",
+  "L'appareil photo ne s'ouvre pas d'ici : prends d'abord la photo, puis reviens.": "Камера отсюда не открывается: сначала сделай фото, потом вернись.",
   "Prends un selfie avec ce geste, puis choisis-le ici.": "Сделай селфи с этим жестом, затем выбери его здесь.",
   "Changer": "Заменить",
 

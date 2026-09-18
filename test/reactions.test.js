@@ -50,7 +50,15 @@ test.before(async () => {
   matchId = r.body.match.id;
   const m = await call('8201', `/matches/${matchId}/messages`, 'POST', { text: 'Salut Ben' });
   message = m.body.message;
+  // Les notifications partent sans retenir la réponse HTTP (deux pour le match, une pour le
+  // message) : on les attend ici, sinon la troisième arrivait pendant le test qui compte
+  // « aucune notification » et le faisait tomber sur PostgreSQL, où elle est plus lente.
+  await attendreLesEnvois(3);
 });
+async function attendreLesEnvois(n) {
+  for (let i = 0; i < 100 && envoyes.length < n; i++) await new Promise((r) => setTimeout(r, 20));
+  assert.equal(envoyes.length, n, `les ${n} notifications du décor sont parties`);
+}
 
 test('la liste des réactions est fermée, et six', () => {
   assert.equal(REACTIONS.length, 6);

@@ -160,6 +160,10 @@ test("le selfie ne promet pas la caméra : c'est la galerie qui s'ouvre", async 
   // Et la consigne dit quoi faire, dans l'ordre où ça se fait.
   const carte = page.locator('.gesture-card');
   await expect(carte).toContainText(/puis choisis-le ici/i);
+  // Depuis le 18 septembre 2026 : le bouton nomme la galerie, et une ligne dit que l'appareil
+  // photo ne s'ouvre pas d'ici — la galerie qui s'ouvrait avait été prise pour une panne.
+  await expect(carte).toContainText(/Choisir mon selfie dans la galerie/);
+  await expect(carte).toContainText(/L'appareil photo ne s'ouvre pas d'ici/);
   await expect(carte).not.toContainText(/caméra/i);
 });
 
