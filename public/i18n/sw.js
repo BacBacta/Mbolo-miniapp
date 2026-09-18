@@ -579,4 +579,7 @@ export default {
   "La vue Liste vient avec le pass": "Mwonekano wa Orodha unakuja na pasi",
   "Les mêmes personnes, en liste, avec « T'a liké » sur celles qui t'ont déjà dit oui.": "Watu wale wale, kwenye orodha, na « Amekupenda » kwa wale waliokwisha sema ndiyo.",
   "Voir le pass": "Ona pasi",
+  "En bref": "Kwa ufupi",
+  "Intention": "Nia",
+  "Langues": "Lugha",
 };

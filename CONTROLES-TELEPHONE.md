@@ -185,6 +185,13 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
 - [ ] **(audit 15, lot 1)** La carte remplit l'écran entre la barre du haut et les trois boutons
       ronds ; la question et la jauge sont **sur la photo** ; aucun bouton natif en bas. Le
       chevron en haut à droite du prénom ouvre la fiche entière ; le retour natif revient au paquet.
+- [ ] **(audit 15, lot 2)** La fiche est une **suite de blocs** : la photo de tête (le prénom, l'âge,
+      le bouclier, le quartier), puis la question dans sa propre carte, puis une autre photo, une
+      autre question, « En bref » (intention, langues, compatibilité, le bouton d'écoute), et la
+      ligne de confiance qui ouvre l'explication. Sur un profil à trois photos, fais défiler :
+      la troisième n'arrive qu'en approchant de l'écran, sans à-coup. La photo de tête ne réagit
+      pas au toucher — les photos sont des blocs, plus un carrousel. « J'aime » et « Passer »
+      restent les boutons natifs du bas, et la fiche d'un match ne les propose pas.
 - [ ] Passe une carte avec le bouton ✕ : la suivante arrive, le bouton **revenir** s'allume ; touche-le,
       la carte passée revient en tête. Aime une carte avec ♥ (l'aura à l'appui) : le compteur de
       la pastille baisse d'un ; reviens, il remonte. Après un **match**, revenir est éteint.

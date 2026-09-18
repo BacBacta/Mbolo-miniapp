@@ -590,4 +590,7 @@ export default {
   "La vue Liste vient avec le pass": "The List view comes with the pass",
   "Les mêmes personnes, en liste, avec « T'a liké » sur celles qui t'ont déjà dit oui.": "The same people, as a list, with \"Liked you\" on those who already said yes.",
   "Voir le pass": "See the pass",
+  "En bref": "At a glance",
+  "Intention": "Looking for",
+  "Langues": "Languages",
 };

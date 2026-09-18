@@ -579,4 +579,7 @@ export default {
   "La vue Liste vient avec le pass": "Вид «Список» открывается с пассом",
   "Les mêmes personnes, en liste, avec « T'a liké » sur celles qui t'ont déjà dit oui.": "Те же люди списком, с пометкой «Ты понравился(-ась)» у тех, кто уже сказал да.",
   "Voir le pass": "Посмотреть пасс",
+  "En bref": "Кратко",
+  "Intention": "Цель",
+  "Langues": "Языки",
 };

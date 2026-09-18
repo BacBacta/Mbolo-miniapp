@@ -17,10 +17,23 @@ test('la carte remplit l\'écran, la fiche s\'ouvre au chevron, et revenir remet
   expect(boite.y + boite.height).toBeLessThanOrEqual(fenetre.height);
   const nom = (await carte.locator('.overlay .name').innerText()).split('\n')[0].trim();
 
-  // Le chevron ouvre la fiche entière, avec son corps ; le retour revient au paquet.
+  // Le chevron ouvre la fiche en blocs (lot 2) : la photo de tête, puis la question dans sa
+  // propre carte, puis les faits et la confiance ; le retour revient au paquet.
   await carte.locator('.fiche-btn').click();
-  await expect(page.locator('main .card .card-body')).toBeVisible();
-  await expect(page.locator('main')).toContainText(nom);
+  const fiche = page.locator('main .fiche');
+  await expect(fiche.locator('.bloc-question').first()).toBeVisible();
+  await expect(fiche.locator('.bloc-faits')).toHaveCount(1);
+  await expect(fiche.locator('.bloc-confiance .trust-row')).toHaveCount(1);
+  await expect(fiche).toContainText(nom);
+  // Les photos après la première sont des blocs à part, chargés en apparaissant — jamais un
+  // carrousel sur la photo de tête, et jamais tout d'un coup.
+  await expect(fiche.locator('.card-photo[data-action="photo-nav"]')).toHaveCount(0);
+  const autres = fiche.locator('[data-photo-bloc]');
+  if (await autres.count()) {
+    const dernier = autres.last();
+    await dernier.scrollIntoViewIfNeeded();
+    await expect(dernier.locator('img.loaded')).toBeVisible({ timeout: 15_000 });
+  }
   await page.locator('.devback').click();
   await expect(page.locator('.deck .card.top')).toBeVisible();
 

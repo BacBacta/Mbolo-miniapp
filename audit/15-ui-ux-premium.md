@@ -140,7 +140,7 @@ Retour calculé à l'appui (AF) · heure sur les lignes de Messages (S) · étoi
 ### Lot 1 — La découverte photo d'abord (une semaine) — **livré le 18 septembre 2026**, sauf les portraits (K), qui restent à fournir
 Carte à la hauteur de l'écran, information sur le scrim, fiche au tap (F) · trois boutons ronds avec retour en arrière (G, route `DELETE /api/swipes/dernier`) · quota en pastille (H) · feuille du bas pour le mode Liste (I) · six pastilles de villes (C) · **portraits de démonstration** (K, à fournir par le propriétaire). Mesure : temps jusqu'au premier « J'aime », taux de fiches ouvertes.
 
-### Lot 2 — La fiche et le « J'aime » sur un élément (une à deux semaines)
+### Lot 2 — La fiche et le « J'aime » sur un élément (une à deux semaines) — **la fiche en blocs est livrée le 18 septembre 2026** ; le « J'aime » sur une réponse attend l'accord du propriétaire, parce qu'il range un mot de plus
 Fiche en blocs (L) · cœur sur chaque question, mot de 60 caractères passé à l'anti-arnaque, premier message posé à l'ouverture de la discussion · l'écran de match nomme ce qui a plu. Événement `like_sur` (clé de la question, jamais le mot) pour `npm run chiffres`. C'est le lot qui touche le produit le plus profondément — et celui dont le marché a le plus mesuré l'effet.
 
 ### Lot 3 — Structure et navigation (une semaine)
