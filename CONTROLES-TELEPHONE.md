@@ -149,6 +149,10 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
   `https://t.me/<bot>/<app>?startapp=diag` : l'écran « Mesures de la fenêtre » s'affiche, et
   `--tg-viewport-height` ne dépasse pas la hauteur de la fenêtre de plus de quelques pixels.
   Si le champ manque encore, envoie une capture de cet écran-là.
+- [ ] **(18 septembre 2026)** Sur Découvrir, touche la pastille **« ♥ n »** de la barre : une feuille
+  « Tes « J'aime » du jour » dit combien il t'en reste, que passer ne coûte rien, et propose
+  « Me faire vérifier » si tu n'as pas le badge, « Voir le pass » sinon. « D'accord » la referme
+  sans rien changer au nombre.
 - [ ] **(badge)** Aime cinq profils d'affilée sans être vérifié : le sixième doit dire que la
       limite du jour est atteinte, et proposer de se faire vérifier.
 - [ ] **(badge)** Ouvre `/conditions` depuis l'onglet Profil : la page ne doit **pas** dire « tant

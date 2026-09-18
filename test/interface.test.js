@@ -56,6 +56,19 @@ test('la discussion ne dépasse jamais la fenêtre : la plus petite des trois ha
 
 // Les mesures de la fenêtre se lisent depuis un lien (?startapp=diag), jamais depuis un menu :
 // c'est un outil pour comprendre une mise en page qui ne se voit que dans la vraie WebView.
+// La pastille « ♥ 2 » ne se comprend pas seule : un appui ouvre une feuille qui explique le
+// compteur. Les nombres viennent du serveur (`limites.jaimeParJour`), jamais d'une constante ici.
+test('la pastille du quota est un bouton, et sa feuille lit les marches du serveur', () => {
+  const barre = entre('    <div class="dbar">', '</div>`;');
+  assert.match(barre, /<button type="button" class="pill quota-pill" data-action="quota"/, 'la pastille se touche');
+  const feuilleQuota = entre('async function expliquerLeQuota() {', 'async function porteEnFeuille(quoi) {');
+  assert.match(feuilleQuota, /S\.me\?\.limites\?\.jaimeParJour/, 'les marches viennent du serveur');
+  assert.ok(!/\b[25]\s*par jour|: [25]\b/.test(feuilleQuota), 'aucun nombre de quota recopié dans l\'interface');
+  assert.match(feuilleQuota, /ouvrirLePass\('quota'\)/, 'la feuille mène au pass par la porte « quota »');
+  assert.match(feuilleQuota, /go\(S\.me\.verification === 'pending' \? 'pending' : 'verify'\)/, 'et à la vérification quand le badge manque');
+  assert.match(app, /case 'quota': expliquerLeQuota\(\); break;/);
+});
+
 test("le lien de diagnostic ouvre l'écran des mesures, et le SDK n'est lu que dans tg.js", () => {
   const boot = entre('async function boot() {', '\nboot();');
   assert.match(boot, /params\.screen === 'diag'[^\n]*go\('diag'\)/);

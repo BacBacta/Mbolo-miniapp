@@ -293,6 +293,10 @@ api.get('/me', async (req, res) => {
       // Les droits sans nombre : la vue Liste, le pays entier, le filtre par langue.
       ...Object.fromEntries(DROITS_DU_PASS.map((d) => [d, estPlus(u)])),
       avecPass: Object.fromEntries(Object.entries(PALIERS).map(([k, v]) => [k, v.avec])),
+      // Les « J'aime » par jour, en deux marches : sans le badge et avec. La feuille du quota les
+      // dit à côté du compteur — pour que se faire vérifier ait un nombre, pas une promesse. Le
+      // pass, lui, n'a pas de marche : c'est `quota: null`, juste au-dessus.
+      jaimeParJour: { sansBadge: config.dailyProfilesNonVerifie, avecBadge: config.dailyProfiles },
     },
     options: {
       intents: INTENTS, genders: GENDERS, compat: COMPAT, criteres: CRITERES, countries: COUNTRY_CODES, knownCities: VILLES_CONNUES,

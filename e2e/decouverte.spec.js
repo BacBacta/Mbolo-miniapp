@@ -101,3 +101,24 @@ test("aimer une réponse avec un mot ouvre un match dont le mot est le premier m
   await expect(premiere).toHaveClass(/mine/);
   await expect(premiere).toContainText('Moi aussi, tous les dimanches');
 });
+
+// La pastille « ♥ n » de la barre ne se comprend pas seule : un appui ouvre une feuille qui dit où
+// en est le compteur et ce qui l'ouvre, et « D'accord » la referme sans rien changer.
+test("la pastille du quota ouvre une feuille qui explique le compteur", async ({ page }) => {
+  await membreVerifie(page, 'Awa');
+  await onglet(page, /Découvrir/).click();
+  const pastille = page.locator('.dbar .quota-pill');
+  await expect(pastille).toBeVisible();
+  const reste = (await pastille.innerText()).trim();
+  await pastille.click();
+  const feuille = page.locator('#feuille');
+  await expect(feuille).toContainText(/Tes « J'aime » du jour/);
+  await expect(feuille).toContainText(new RegExp(`Il t'en reste ${reste} sur \\d+`));
+  await expect(feuille).toContainText(/passer une carte ne coûte rien/);
+  // Vérifiée, la personne n'a pas besoin du badge : la feuille propose le pass, pas le selfie.
+  await expect(feuille.locator('[data-feuille="verif"]')).toHaveCount(0);
+  await feuille.locator('[data-feuille="non"]').click();
+  await expect(feuille).toBeHidden();
+  // Rien n'a bougé : le compteur affiche le même nombre.
+  await expect(pastille).toHaveText(reste);
+});
