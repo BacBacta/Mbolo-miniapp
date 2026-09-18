@@ -1158,7 +1158,9 @@ api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {
     // des deux murs les gens rencontraient. Les lignes posées avant ce jour n'ont pas de `q` :
     // `chiffres.js` les range à part plutôt que de les attribuer au hasard.
     mesurer('quota_hit', me.id, { action, q: quotaDe(me) });
-    return fail(res, 429, 'DAILY_LIMIT', "Tu as vu tous tes profils du jour. Reviens demain.");
+    // « Tu as vu tous tes profils » était faux deux fois : passer marche toujours, et on n'a rien
+    // vu. Le message dit ce qui est parti, et ce qui reste (audit 16, n° 6).
+    return fail(res, 429, 'DAILY_LIMIT', "Tes « J'aime » du jour sont partis. Passer reste possible.");
   }
   const previous = await store.swipeOf(me.id, target.id);
   if (!previous) await store.addSwipe(me.id, target.id, action, surReponse);

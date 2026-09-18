@@ -135,7 +135,7 @@ const ERREURS = () => ({
   NOT_VERIFIED: t('Vérifie ton profil pour accéder à cette fonction.'),
   FILTERS_INVALID: t('Indique des âges entre 18 et 99 ans.'),
   ZONE_INVALID: t('Indique une ville, ou choisis tout le pays.'),
-  DAILY_LIMIT: t('Tu as vu tous tes profils du jour. Reviens demain.'),
+  DAILY_LIMIT: t('Tes « J\'aime » du jour sont partis. Passer reste possible.'),
   SWIPE_INVALID: t('Action impossible.'),
   MATCH_NOT_FOUND: t('Discussion introuvable.'),
   BLOCKED: t('Cette discussion est fermée.'),
@@ -884,7 +884,7 @@ function discoverBar() {
         <button type="button" data-action="mode" data-mode="cards" aria-pressed="${!list}" aria-label="${t('Cartes')}">${icon('card', 15)}<span>${t('Cartes')}</span></button>
         <button type="button" data-action="mode" data-mode="list" aria-pressed="${list}" aria-label="${t('Liste')}">${icon(limite('liste') ? 'rows' : 'lock', 15)}<span>${t('Liste')}</span></button>
       </div>
-      ${list || sansLimite() ? '' : `<button type="button" class="pill quota-pill" data-action="quota" aria-label="${t("J'aime restants aujourd'hui : {n}", { n: S.remaining })}"><i class="ring" style="--p: ${Math.round((100 * S.remaining) / Math.max(1, S.quota || S.remaining || 1))}%"></i>${icon('heart', 13, { fill: true })} ${S.remaining}</button>`}
+      ${list || sansLimite() ? '' : !S.quota ? `<span class="pill quota-pill attente" aria-hidden="true"><i class="ring" style="--p: 0%"></i>${icon('heart', 13, { fill: true })}</span>` : `<button type="button" class="pill quota-pill" data-action="quota" aria-label="${t("J'aime restants aujourd'hui : {n}", { n: S.remaining })}"><i class="ring" style="--p: ${Math.round((100 * S.remaining) / Math.max(1, S.quota || S.remaining || 1))}%"></i>${icon('heart', 13, { fill: true })} ${S.remaining}</button>`}
     </div>`;
 }
 
@@ -1090,6 +1090,7 @@ const MOT_MAX = 60;
 async function swipePerson(action, { sur = null, mot = '' } = {}) {
   const p = S.person;
   if (!p || swiping) return;
+  if (action === 'like' && quotaEpuise()) return expliquerLeQuota();
   swiping = true;
   tg.haptic(action === 'like' ? 'medium' : 'select');
   try {
@@ -1109,7 +1110,7 @@ async function swipePerson(action, { sur = null, mot = '' } = {}) {
       go(S.personFrom || 'discover');
     }
   } catch (e) {
-    showError(e, null);
+    if (!surLaLimite(e)) showError(e, null);
   } finally {
     swiping = false;
   }
@@ -1481,7 +1482,7 @@ const SCREENS = {
       const v = S.vivier || {};
       const ville = zoneLabel(zoneDe());
       const intention = t((S.me.options?.intents || {})[S.me.profile.intent] || '');
-      let titre, texte, bouton;
+      let titre, texte, bouton, secondaire = null;
       if (!sansLimite() && !S.remaining) {
         titre = t('Ta limite du jour est atteinte');
         // Le nombre vient du serveur : il dépend du badge, et le recopier ici le ferait mentir.
@@ -1494,9 +1495,12 @@ const SCREENS = {
         titre = t("Personne d'autre dans cette zone pour l'instant");
         // La zone entre parenthèses : « à {zone} » donnait « à États-Unis ». Un article correct
         // demanderait le genre de 243 pays ; la parenthèse marche pour une ville comme pour un pays.
-        // Ne rien promettre que le code ne tient pas : aucune alerte d'arrivée n'existe aujourd'hui.
-        texte = t('Personne ne cherche « {intention} » dans ta zone ({zone}) pour le moment. Change de zone, reviens dans quelques jours, ou parle de {app} autour de toi.', { intention: esc(intention), zone: esc(ville), app: esc(APP) });
-        bouton = { text: t('Changer de zone'), onClick: () => go('filters') };
+        // Ce qui est promis existe : server/nouveaux.js prévient qui cherche la même chose quand
+        // quelqu'un arrive (audit 16, n° 5). Et ce qu'on propose est ouvert à tout le monde : une
+        // autre ville, ou inviter — « Changer de zone » menait au cadenas du pays entier.
+        texte = t('Personne ne cherche « {intention} » dans ta zone ({zone}) pour le moment. Le bot te prévient quand quelqu\'un arrive. En attendant, essaie une autre ville, ou parle de {app} autour de toi.', { intention: esc(intention), zone: esc(ville), app: esc(APP) });
+        bouton = { text: t('Changer de ville'), onClick: () => go('filters') };
+        secondaire = { text: t('Inviter'), onClick: inviter };
       } else if (v.horsTranche) {
         titre = t("Tu as vu tous les profils de ta tranche d'âge");
         texte = tn("{n} profil de ta zone est en dehors de la tranche que tu as choisie. Tu peux l'élargir.", "{n} profils de ta zone sont en dehors de la tranche que tu as choisie. Tu peux l'élargir.", v.horsTranche);
@@ -1520,7 +1524,7 @@ const SCREENS = {
       // gratuit qui ouvre le même quota, auquel cas il reste devant.
       const versLePass = !sansLimite() && !S.remaining && !plus() ? { text: t('Continuer avec {app} Plus', { app: APP }), onClick: () => ouvrirLePass('quota') } : null;
       const verifier = entreeLibre() && !verifie();
-      return tg.setButtons(versLePass ? (verifier ? { main: bouton, secondary: versLePass } : { main: versLePass, secondary: bouton }) : { main: bouton });
+      return tg.setButtons(versLePass ? (verifier ? { main: bouton, secondary: versLePass } : { main: versLePass, secondary: bouton }) : { main: bouton, ...(secondaire ? { secondary: secondaire } : {}) });
     }
     // **Photo d'abord** (audit/15, lot 1). La carte remplit l'espace entre la barre et les
     // boutons ; la photo est le fond, la question et la confiance sont posées sur le voile, et
@@ -1534,7 +1538,7 @@ const SCREENS = {
       <div class="deck-actions" role="group" aria-label="${t('Décider')}">
         <button type="button" class="rond retour" data-action="revenir" aria-label="${t('Revenir sur le dernier profil')}" ${peutRevenir ? '' : 'disabled'}>${icon('refresh', 18)}</button>
         <button type="button" class="rond passer" data-action="swipe-pass" aria-label="${t('Passer')}">${icon('x', 24)}</button>
-        <button type="button" class="rond like" data-action="swipe-like" aria-label="${t("J'aime")}">${icon('heart', 24, { fill: true })}</button>
+        <button type="button" class="rond like${quotaEpuise() ? ' epuise' : ''}" data-action="swipe-like" aria-label="${t("J'aime")}">${icon('heart', 24, { fill: true })}</button>
       </div>`);
     loadCardPhoto(p);
     // Les deux cartes suivantes : leur photo se télécharge pendant qu'on regarde celle-ci, pour
@@ -2510,9 +2514,32 @@ async function refreshStatus() {
 
 let swiping = false;
 // La carte part sur le côté pendant que le serveur enregistre le choix ; elle revient en cas d'erreur
+// Inviter, depuis les réglages et depuis un paquet vide.
+// `startapp` et pas `start` : seul le premier remplit start_param dans la mini app, donc seul
+// le premier permet de savoir que l'arrivée vient d'un partage. Il demande que la mini app
+// soit déclarée dans BotFather (/newapp) ; sans ça le lien ouvre simplement le bot, ce qui
+// marche — on perd l'attribution, pas l'invitation.
+//
+// `ref_membre` dit « quelqu'un a partagé l'app ». Pas qui : voir SOURCES dans config.js.
+function inviter() {
+  const url = S.me.botUsername ? `https://t.me/${S.me.botUsername}?startapp=ref_membre` : location.origin;
+  tg.share(url, t("Je t'invite sur {app} : des rencontres avec des profils vérifiés, sans arnaques.", { app: APP }));
+}
+
+// Le quota est à zéro : le ♥ n'appelle pas le serveur, il explique (audit 16, n° 6). Un 429 qui
+// arriverait quand même (compteur d'un autre appareil) ouvre la même feuille, jamais un toast.
+const quotaEpuise = () => !sansLimite() && !S.remaining;
+function surLaLimite(e) {
+  if (e?.code !== 'DAILY_LIMIT') return false;
+  S.remaining = 0;
+  expliquerLeQuota();
+  return true;
+}
+
 async function swipe(action) {
   const p = S.profiles[0];
   if (!p || swiping) return;
+  if (action === 'like' && quotaEpuise()) return expliquerLeQuota();
   swiping = true;
   S.swiped = true;
   tg.haptic(action === 'like' ? 'medium' : 'select');
@@ -2541,7 +2568,7 @@ async function swipe(action) {
       card.style.transform = '';
       card.querySelectorAll('.stamp').forEach((s) => (s.style.opacity = 0));
     }
-    showError(e);
+    if (!surLaLimite(e)) showError(e);
   } finally {
     swiping = false;
   }
@@ -3714,17 +3741,7 @@ app.addEventListener('click', async (e) => {
       } catch (e) { showError(e); }
       break;
     }
-    case 'invite': {
-      // `startapp` et pas `start` : seul le premier remplit start_param dans la mini app, donc seul
-      // le premier permet de savoir que l'arrivée vient d'un partage. Il demande que la mini app
-      // soit déclarée dans BotFather (/newapp) ; sans ça le lien ouvre simplement le bot, ce qui
-      // marche — on perd l'attribution, pas l'invitation.
-      //
-      // `ref_membre` dit « quelqu'un a partagé l'app ». Pas qui : voir SOURCES dans config.js.
-      const url = S.me.botUsername ? `https://t.me/${S.me.botUsername}?startapp=ref_membre` : location.origin;
-      tg.share(url, t("Je t'invite sur {app} : des rencontres avec des profils vérifiés, sans arnaques.", { app: APP }));
-      break;
-    }
+    case 'invite': inviter(); break;
     // La story ne montre que la marque : pas de photo, pas de prénom, rien du profil. Publier
     // qu'on cherche quelqu'un se choisit ; publier à quoi on ressemble en le faisant, non.
     case 'story': {

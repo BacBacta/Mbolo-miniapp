@@ -557,3 +557,44 @@ test("le droit d'écrire au bot se demande dès le premier profil, et un refus l
   const ouvrir = entre('function ouvrirLeBot() {', 'function noterEtape(');
   assert.match(ouvrir, /tg\.openTelegramLink\(`https:\/\/t\.me\/\$\{S\.me\.botUsername\}\?start=prevenir`\)/);
 });
+
+// Audit 16, lot C : le quota et le paquet. À zéro, le ♥ n'appelle pas le serveur et ouvre la
+// feuille du quota ; un 429 ouvre la même feuille et jamais un toast (n° 6) ; la pastille attend
+// son nombre (n° 7) ; le paquet vide mène à une ville et à l'invitation, pas au cadenas (n° 5) ;
+// et chaque icône demandée existe dans PATHS (n° 15 : « card » et « rows » n'existaient pas).
+test("à zéro, le ♥ explique au lieu d'appeler, et le 429 ouvre la même feuille", () => {
+  const swipe = entre('async function swipe(action) {', 'async function revenir() {');
+  assert.match(swipe, /if \(action === 'like' && quotaEpuise\(\)\) return expliquerLeQuota\(\);/);
+  assert.match(swipe, /if \(!surLaLimite\(e\)\) showError\(e\);/);
+  const personne = entre('async function swipePerson(action', '// Écrans');
+  assert.match(personne, /if \(action === 'like' && quotaEpuise\(\)\) return expliquerLeQuota\(\);/);
+  assert.match(personne, /if \(!surLaLimite\(e\)\) showError\(e, null\);/);
+  const limite = entre('function surLaLimite(e) {', 'async function swipe(action) {');
+  assert.match(limite, /e\?\.code !== 'DAILY_LIMIT'/);
+  assert.match(limite, /S\.remaining = 0;\s*expliquerLeQuota\(\);/);
+  assert.match(app, /class="rond like\$\{quotaEpuise\(\) \? ' epuise' : ''\}"/, 'le ♥ s\'éteint à zéro, et reste un bouton');
+  assert.doesNotMatch(app, /Tu as vu tous tes profils du jour/, 'le message faux ne revient pas');
+});
+
+test("la pastille du quota attend son nombre, et le paquet vide mène à une porte ouverte", () => {
+  const barre = entre('function discoverBar() {', 'function profileCard(');
+  assert.match(barre, /!S\.quota \? `<span class="pill quota-pill attente" aria-hidden="true">/);
+  const vide = entre('        titre = t("Personne d\'autre dans cette zone pour l\'instant");', '      } else if (v.horsTranche) {');
+  assert.match(vide, /t\('Changer de ville'\)/);
+  assert.match(vide, /secondaire = \{ text: t\('Inviter'\), onClick: inviter \};/);
+  assert.doesNotMatch(vide, /t\('Changer de zone'\)/);
+});
+
+test("chaque icône demandée par l'interface existe dans ui.js", () => {
+  const ui = fs.readFileSync(new URL('../public/ui.js', import.meta.url), 'utf8');
+  const paths = ui.slice(ui.indexOf('const PATHS = {'), ui.indexOf('};', ui.indexOf('const PATHS = {')));
+  const connues = new Set([...paths.matchAll(/^  '?([a-z-]+)'?: '/gm)].map((m) => m[1]));
+  const demandees = new Set([
+    ...[...app.matchAll(/icon\('([a-z-]+)'/g)].map((m) => m[1]),
+    ...[...app.matchAll(/iconName: '([a-z-]+)'/g)].map((m) => m[1]),
+    ...[...app.matchAll(/icon\(limite\('liste'\) \? '([a-z-]+)' : '([a-z-]+)'/g)].flatMap((m) => [m[1], m[2]]),
+  ]);
+  const absentes = [...demandees].filter((n) => !connues.has(n));
+  assert.deepEqual(absentes, [], `icônes demandées sans tracé : ${absentes.join(', ')}`);
+  assert.ok(connues.has('card') && connues.has('rows'), 'le sélecteur Cartes / Liste a ses deux icônes');
+});

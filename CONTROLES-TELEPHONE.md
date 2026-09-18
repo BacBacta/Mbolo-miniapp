@@ -257,6 +257,16 @@ typographie d'Android, sans recherche, et 243 pays à faire défiler depuis l'Af
 - [ ] Le bouton d'écoute de la présentation vocale est **dans le corps de la carte**, pas sur la
       photo. Il joue le son, un seul à la fois.
 - [ ] Le balayage fonctionne dans les deux sens ; le tampon « J'aime » apparaît au like.
+- [ ] **(audit 16, n° 6)** Épuise tes « J'aime » du jour (2 sans badge, 5 avec) : la pastille dit
+      « ♥ 0 », le ♥ **s'éteint** mais reste un bouton. Touche-le : la feuille du quota s'ouvre
+      (« Tes « J'aime » du jour sont partis »), avec « Me faire vérifier » en premier si tu n'as
+      pas le badge. *Avant, un toast disait « tu as vu tous tes profils », et passer marchait.*
+- [ ] **(n° 7)** À l'ouverture de Découvrir sur un réseau lent, la pastille ne dit jamais « ♥ 0 »
+      pendant le chargement : elle est vide et pâle, puis le nombre arrive.
+- [ ] **(n° 5)** Sur un paquet vide, le bouton principal dit « Changer de ville » et le
+      secondaire « Inviter » ; le texte promet que le bot prévient quand quelqu'un arrive.
+- [ ] **(n° 15)** Le sélecteur **Cartes / Liste** en haut de Découvrir montre deux icônes (une carte,
+      trois lignes), pas un disque blanc vide.
 - [ ] La jauge (pastilles) s'ouvre sur l'écran d'explication.
 - [ ] Le compteur du jour descend ; à 20 likes, l'écran dit de revenir demain.
 
