@@ -12,6 +12,11 @@ aux questions une par une avec les champs ci-dessous. Tout ce que le formulaire 
 prend de trois à huit jours. Les libellés exacts des menus du bot ne sont pas documentés
 publiquement ; ce qui est sûr, c'est la liste des champs.
 
+> **Le 19 septembre 2026, le dépôt est en pause.** `tapps.center` n'affiche plus que « Something new
+> is coming. We're building the next chapter for apps on TON & Telegram », sans lien de dépôt, et
+> `@app_moderation_bot` ne répond pas. Aucune date de réouverture n'est annoncée. La fiche reste
+> prête pour ce jour-là ; en attendant, le repli est FindMini.app, en bas de ce fichier.
+
 ## Avant d'appuyer sur « Envoyer »
 
 - [ ] La **Main Mini App** est activée dans BotFather (`/mybots` → Bot Settings → Configure
@@ -85,6 +90,30 @@ des membres qui ont accepté — jamais une banque d'images.
 
 **Blockchain / jeton** : aucun. Si le formulaire exige d'en choisir un, réponds « none » ou
 « not a Web3 app » : l'annuaire accepte les apps sans Web3.
+
+## Repli : FindMini.app
+
+`https://www.findmini.app/submit/` — un annuaire tiers de mini apps (6 600 apps), gratuit, mis en
+ligne sous 24 h, formulaire web depuis le téléphone. Il refuse « les apps 18+ » au sens du contenu
+adulte : Odo est réservé aux adultes, ce n'est pas la même chose, et la description longue le dit
+par la vérification, les lieux publics et l'argent bloqué — pas par le seul mot « 18+ ».
+
+| Champ | Quoi mettre |
+|---|---|
+| Bot/App Start link | le lien `t.me` de la Main Mini App, tel que BotFather le donne |
+| App Name | `Odo` |
+| Profile picture | `identite/tapps-center/icone-512.png` (512 × 512, 186 Ko — l'icône de 1024 px pèse un peu plus d'un mégaoctet, la limite du formulaire) |
+| Screenshots | les six captures de `identite/tapps-center/`, toutes en 786 × 1454 : le formulaire exige la même taille pour toutes |
+| Short description in English (20 mots) | la phrase courte de la fiche anglaise (16 mots) |
+| Short description in Russian | vide, ou la même phrase dans le dictionnaire russe de l'app |
+| Full description in English | la description de la fiche anglaise |
+| TON blockchain | décoché |
+| Interface languages | EN, RU, ES, PT, et « Others » pour le français, le swahili et l'ukrainien |
+| Additional links | les deux pages publiques, et le lien du bot |
+| Developer's Telegram contact | ton pseudo Telegram ; il n'est pas publié |
+
+Les images se téléchargent sur le téléphone depuis GitHub (« Raw » sur chaque fichier de
+`identite/tapps-center/`), puis se choisissent depuis la galerie.
 
 ## Ce qui peut faire refuser
 

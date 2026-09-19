@@ -202,7 +202,8 @@ ont une Main Mini App, des aperçus soignés et encaissent en Stars — il n'y a
 requis) : un dépôt depuis ton compte Telegram dans le bot de modération `@app_moderation_bot`,
 trois à huit jours de modération ; tout ce que le
 formulaire demande est prêt à coller dans `identite/tapps-center.md` (et en anglais, la langue de
-la modération, dans `identite/tapps-center.en.md`), captures comprises.
+la modération, dans `identite/tapps-center.en.md`), captures comprises. **Depuis le 19 septembre 2026, ce dépôt est en pause** (« Something new is coming » sur
+`tapps.center`, bot muet) ; le repli est FindMini.app, décrit au bas des deux fiches.
 
 ### Savoir par où les gens arrivent
 
@@ -237,6 +238,7 @@ sont rangés sous « — », qui n'est pas un canal mais l'absence de canal.
 |---|---|
 | **Lien direct de mini app** | Gratuit, dix minutes de BotFather (étape 7). À faire avant tout le reste |
 | **Telegram Apps Center** (`@tapps_bot`) | L'annuaire officiel des mini apps, soumission gratuite. Vérifie leur politique sur le contenu 18+ avant de soumettre |
+| **FindMini.app** | Annuaire tiers, formulaire web gratuit, en ligne sous 24 h : le repli tant que l'Apps Center est en pause (19 septembre 2026). Les champs sont dans `identite/tapps-center.md` |
 | **Partage par les membres** | Le seul levier qui compose. Bouton « Inviter une amie ou un ami » dans l'onglet Profil (`ref_membre`), et **partage en story** là où Telegram le permet (`ref_story`) |
 | **Telegram Ads** | Ticket d'entrée élevé, et une politique publicitaire qui restreint le contenu de rencontre. À vérifier chez eux avant d'y compter |
 
