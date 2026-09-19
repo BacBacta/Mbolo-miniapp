@@ -1,0 +1,53 @@
+# Les chiffres de la bêta, chaque lundi matin, postés dans le groupe de modération.
+#
+# Le calcul tourne sur la machine Fly, comme la sauvegarde : la base n'est pas joignable depuis
+# un runner GitHub. La page part au groupe par l'API du bot (ADMIN_CHAT_ID, posé en secret Fly),
+# en messages découpés entre les sections. Rien n'est écrit, rien n'est gardé ici : le journal
+# du travail montre la page, et c'est tout. Aucune donnée personnelle n'y figure — des comptes,
+# des parts, des villes.
+name: Chiffres
+
+on:
+  schedule:
+    # 06 h 00 UTC le lundi, soit 07 h 00 à Yaoundé : la semaine commence avec la page.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: "Nom de l'app Fly"
+        required: true
+        default: mbolo-miniapp
+
+concurrency: chiffres-${{ inputs.app_name || 'mbolo-miniapp' }}
+
+permissions:
+  contents: read
+
+jobs:
+  poster:
+    runs-on: ubuntu-latest
+    env:
+      APP: ${{ inputs.app_name || 'mbolo-miniapp' }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - name: Vérifier les entrées
+        run: |
+          case "$APP" in ''|*[!a-z0-9-]*) echo "Nom d'app invalide : $APP" >&2; exit 1;; esac
+
+      # Même version fixe que la sauvegarde, même script officiel (audit/09-revue-code.md, I10).
+      - name: Installer flyctl
+        env:
+          FLYCTL_VERSION: '0.4.102'
+        run: |
+          curl -fsSL https://fly.io/install.sh | sh -s "$FLYCTL_VERSION"
+          echo "$HOME/.fly/bin" >> "$GITHUB_PATH"
+
+      - name: Réveiller la machine
+        run: |
+          curl -fsS --max-time 60 "https://$APP.fly.dev/health" >/dev/null || true
+          sleep 5
+
+      - name: Calculer, et poster dans le groupe
+        run: |
+          flyctl ssh console -a "$APP" -C "node scripts/chiffres.js --groupe" | tee sortie.txt
+          grep -q "Chiffres envoyés au groupe" sortie.txt

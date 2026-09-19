@@ -339,3 +339,40 @@ export function calculer({ users, events, reports = [], matches = [], messages =
     avertissements,
   };
 }
+
+// ---------- La page, en messages Telegram ----------
+//
+// Le travail « Chiffres » (GitHub Actions, chaque lundi) poste la page dans le groupe de
+// modération. Telegram borne un message à 4 096 caractères et la page en fait plus : elle se
+// découpe **entre les sections**, jamais au milieu d'un tableau, et chaque morceau part en
+// <pre> pour que les colonnes restent alignées. Les codes de couleur du terminal sont retirés,
+// le HTML est échappé. Fonction pure : le script l'appelle, le test la lit.
+const SANS_ANSI = /\x1b\[[0-9;]*m/g;
+const echapper = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+export function enMessagesTelegram(texte, max = 4000) {
+  const propre = String(texte || '').replace(SANS_ANSI, '').replace(/\r/g, '').trim();
+  // Une section commence par une ligne vide suivie d'un titre ; la première n'a pas de ligne vide.
+  const sections = propre.split(/\n(?=\n)/).map((b) => b.replace(/^\n+/, '')).filter(Boolean);
+  const messages = [];
+  let courant = '';
+  const pousser = () => { if (courant) messages.push(courant); courant = ''; };
+  for (const section of sections) {
+    const bloc = echapper(section);
+    if (courant && courant.length + 2 + bloc.length > max) pousser();
+    // Une section plus longue que le plafond à elle seule se coupe entre deux lignes.
+    if (bloc.length > max) {
+      pousser();
+      let reste = bloc;
+      while (reste.length > max) {
+        const coupe = Math.max(reste.lastIndexOf('\n', max), 1);
+        messages.push(reste.slice(0, coupe));
+        reste = reste.slice(coupe + 1);
+      }
+      courant = reste;
+      continue;
+    }
+    courant = courant ? `${courant}\n\n${bloc}` : bloc;
+  }
+  pousser();
+  return messages.map((m) => `<pre>${m}</pre>`);
+}

@@ -3,15 +3,19 @@
 //
 //   npm run chiffres
 //   npm run --silent chiffres -- --json   (sortie lisible à la machine)
+//   node scripts/chiffres.js --groupe     (la page, postée dans le groupe de modération)
 //
 // --silent, sinon npm écrit sa bannière sur la sortie standard et le JSON n'est plus du JSON.
 // Les diagnostics du serveur (migrations, mode de stockage) partent sur la sortie d'erreur,
 // justement pour que celle-ci reste propre.
 //
-// Rien n'est envoyé nulle part : le script lit, calcule, affiche. Le plan est dans
-// audit/05-mesure-produit.md, le calcul dans server/chiffres.js.
+// Sans --groupe, rien n'est envoyé nulle part : le script lit, calcule, affiche. Avec, la même
+// page part dans le groupe de modération (ADMIN_CHAT_ID) par l'API du bot, en messages de
+// 4 000 caractères au plus, découpés entre les sections (enMessagesTelegram). C'est ce que le
+// travail « Chiffres » lance chaque lundi depuis la machine déployée : lire la bêta sans rien
+// lancer. Le plan est dans audit/05-mesure-produit.md, le calcul dans server/chiffres.js.
 import { store, modeStockage } from '../server/store.js';
-import { collecter, calculer } from '../server/chiffres.js';
+import { collecter, calculer, enMessagesTelegram } from '../server/chiffres.js';
 import { config } from '../server/config.js';
 
 const pct = (x) => (x === null || x === undefined ? '—' : `${Math.round(x * 1000) / 10} %`);
@@ -37,86 +41,113 @@ if (process.argv.includes('--json')) {
 const e = r.entonnoir;
 const p = (n) => (e.comptes ? `${Math.round((n / e.comptes) * 1000) / 10} %` : '—');
 
-console.log(`\nMesure produit — ${config.appName}, stockage ${modeStockage}, ${new Date().toLocaleString('fr-FR')}`);
-console.log(`Comptes écartés du calcul : ${r.exclus.total} (démonstration ${r.exclus.demo}, développement ${r.exclus.dev}, fermés ${r.exclus.fermes})`);
+// La page se construit en lignes, puis s'affiche d'un coup : la même page part au groupe.
+const lignes = [];
+const out = (...morceaux) => lignes.push(morceaux.join(' '));
 
-console.log(titre("Entonnoir d'inscription"));
-console.log(ligne('comptes réels', e.comptes));
-console.log(ligne('profil enregistré', e.profil, p(e.profil)));
-console.log(ligne('selfie envoyé', e.selfie, p(e.selfie)));
-console.log(ligne('vérifié par un humain', e.verifieParHumain, p(e.verifieParHumain)));
-console.log(ligne('premier « J\'aime »', e.premierLike, p(e.premierLike)));
-console.log(ligne('premier match', e.premierMatch, p(e.premierMatch)));
-console.log(ligne('premier message à une personne réelle', e.premierMessage, p(e.premierMessage)));
+out(`\nMesure produit — ${config.appName}, stockage ${modeStockage}, ${new Date().toLocaleString('fr-FR')}`);
+out(`Comptes écartés du calcul : ${r.exclus.total} (démonstration ${r.exclus.demo}, développement ${r.exclus.dev}, fermés ${r.exclus.fermes})`);
 
-console.log(titre('Activation, churn'));
-console.log(ligne('activées en 14 jours', `${r.activation.actives}/${r.activation.sur}`, pct(r.activation.part)));
-console.log(ligne('comptes supprimés', r.churn.dur));
-console.log(ligne('inactifs depuis plus de 21 jours', r.churn.silencieux));
+out(titre("Entonnoir d'inscription"));
+out(ligne('comptes réels', e.comptes));
+out(ligne('profil enregistré', e.profil, p(e.profil)));
+out(ligne('selfie envoyé', e.selfie, p(e.selfie)));
+out(ligne('vérifié par un humain', e.verifieParHumain, p(e.verifieParHumain)));
+out(ligne('premier « J\'aime »', e.premierLike, p(e.premierLike)));
+out(ligne('premier match', e.premierMatch, p(e.premierMatch)));
+out(ligne('premier message à une personne réelle', e.premierMessage, p(e.premierMessage)));
 
-console.log(titre('Métrique phare : rendez-vous confirmés des deux côtés'));
-console.log(ligne('check-in réciproques', r.phare.reciproques));
-console.log(ligne('sur propositions', r.phare.propositions));
-console.log('  par ville :');
-console.log(liste(r.phare.parVille));
+out(titre('Activation, churn'));
+out(ligne('activées en 14 jours', `${r.activation.actives}/${r.activation.sur}`, pct(r.activation.part)));
+out(ligne('comptes supprimés', r.churn.dur));
+out(ligne('inactifs depuis plus de 21 jours', r.churn.silencieux));
 
-console.log(titre("Ce qui la fait monter"));
-console.log('  vérifiés et actifs, par ville :');
-console.log(liste(r.entree.verifiesActifsParVille));
-console.log(ligne('délai médian de modération', duree(r.entree.delaiModerationMedianMs), `sur ${r.entree.delaiModerationMesuresSur} décision(s) humaine(s)`));
-console.log(ligne('découvertes qui rendent une carte', pct(r.entree.partDecouvertesServies)));
-console.log(ligne('matchs avec un message en 48 h', pct(r.entree.partMatchsAvecMessage48h)));
-console.log(ligne("premiers messages partis d'une amorce", pct(r.entree.partPremiersMessagesDepuisAmorce)));
-console.log(ligne('« J\'aime » qui visent une réponse de la fiche', String(r.entree.jaimeSurReponse)));
-console.log(ligne('discussions longues avec proposition', pct(r.entree.partLonguesAvecProposition)));
-console.log(ligne('propositions acceptées', pct(r.entree.partPropositionsAcceptees)));
+out(titre('Métrique phare : rendez-vous confirmés des deux côtés'));
+out(ligne('check-in réciproques', r.phare.reciproques));
+out(ligne('sur propositions', r.phare.propositions));
+out('  par ville :');
+out(liste(r.phare.parVille));
 
-console.log(titre('Odo Plus — la demande, l\'argent, et l\'usage'));
-console.log(ligne('pass actifs en ce moment', r.plus.actifs));
-console.log(ligne('pass posés à la main', r.plus.passPoses, r.plus.passRetires ? `${r.plus.passRetires} retiré(s)` : ''));
-console.log(ligne('ont ouvert l\'écran du pass', r.plus.vusPersonnes, 'personne(s)'));
-console.log('  par porte :');
-console.log(liste(r.plus.vusParPorte));
-console.log(ligne('factures demandées', r.plus.facturesDemandees));
-console.log(ligne('pass achetés en Stars', r.plus.achats, `${r.plus.achatsPersonnes} personne(s), ${r.plus.joursVendus} jour(s) vendus`));
-console.log('  par durée :');
-console.log(liste(r.plus.achatsParDuree));
-console.log(ligne('Stars encaissées', r.plus.starsEncaisses, r.plus.rembourses ? `après ${r.plus.rembourses} remboursement(s)` : ''));
-console.log(ligne('ont acheté, parmi ceux qui ont vu l\'écran', pct(r.plus.partVusQuiAchetent)));
-console.log(ligne('refusés faute de pass', r.plus.refusGestes, `${r.plus.refusPersonnes} personne(s)`));
-console.log('  par porte fermée :');
-console.log(liste(r.plus.refusParPorte));
-console.log(ligne('s\'en sont servis', r.plus.usagePersonnes, pct(r.plus.partQuiSEnServent) + ' de ceux qui l\'ont eu'));
-console.log('  par porte ouverte :');
-console.log(liste(r.plus.usageParPorte));
-console.log(ligne('ont buté sur le quota du jour', r.plus.murDuQuotaGestes, `${r.plus.murDuQuotaPersonnes} personne(s)`));
-console.log('  par palier touché :');
-console.log(liste(r.plus.murParPalier));
+out(titre("Ce qui la fait monter"));
+out('  vérifiés et actifs, par ville :');
+out(liste(r.entree.verifiesActifsParVille));
+out(ligne('délai médian de modération', duree(r.entree.delaiModerationMedianMs), `sur ${r.entree.delaiModerationMesuresSur} décision(s) humaine(s)`));
+out(ligne('découvertes qui rendent une carte', pct(r.entree.partDecouvertesServies)));
+out(ligne('matchs avec un message en 48 h', pct(r.entree.partMatchsAvecMessage48h)));
+out(ligne("premiers messages partis d'une amorce", pct(r.entree.partPremiersMessagesDepuisAmorce)));
+out(ligne('« J\'aime » qui visent une réponse de la fiche', String(r.entree.jaimeSurReponse)));
+out(ligne('discussions longues avec proposition', pct(r.entree.partLonguesAvecProposition)));
+out(ligne('propositions acceptées', pct(r.entree.partPropositionsAcceptees)));
 
-console.log(titre('Provenance — par où les gens arrivent, et lesquels restent'));
+out(titre('Odo Plus — la demande, l\'argent, et l\'usage'));
+out(ligne('pass actifs en ce moment', r.plus.actifs));
+out(ligne('pass posés à la main', r.plus.passPoses, r.plus.passRetires ? `${r.plus.passRetires} retiré(s)` : ''));
+out(ligne('ont ouvert l\'écran du pass', r.plus.vusPersonnes, 'personne(s)'));
+out('  par porte :');
+out(liste(r.plus.vusParPorte));
+out(ligne('factures demandées', r.plus.facturesDemandees));
+out(ligne('pass achetés en Stars', r.plus.achats, `${r.plus.achatsPersonnes} personne(s), ${r.plus.joursVendus} jour(s) vendus`));
+out('  par durée :');
+out(liste(r.plus.achatsParDuree));
+out(ligne('Stars encaissées', r.plus.starsEncaisses, r.plus.rembourses ? `après ${r.plus.rembourses} remboursement(s)` : ''));
+out(ligne('ont acheté, parmi ceux qui ont vu l\'écran', pct(r.plus.partVusQuiAchetent)));
+out(ligne('refusés faute de pass', r.plus.refusGestes, `${r.plus.refusPersonnes} personne(s)`));
+out('  par porte fermée :');
+out(liste(r.plus.refusParPorte));
+out(ligne('s\'en sont servis', r.plus.usagePersonnes, pct(r.plus.partQuiSEnServent) + ' de ceux qui l\'ont eu'));
+out('  par porte ouverte :');
+out(liste(r.plus.usageParPorte));
+out(ligne('ont buté sur le quota du jour', r.plus.murDuQuotaGestes, `${r.plus.murDuQuotaPersonnes} personne(s)`));
+out('  par palier touché :');
+out(liste(r.plus.murParPalier));
+
+out(titre('Provenance — par où les gens arrivent, et lesquels restent'));
 {
   // Tri par activation d'abord, par volume ensuite : le canal qui amène le plus de monde n'est
   // pas celui qu'il faut pousser, c'est celui dont les gens restent.
   const rangs = Object.entries(r.provenance).sort((a, b) => (b[1].partActivation ?? -1) - (a[1].partActivation ?? -1) || b[1].comptes - a[1].comptes);
-  console.log(`  ${'canal'.padEnd(14)}${'comptes'.padStart(9)}${'profil'.padStart(10)}${'vérifiés'.padStart(11)}${'activés'.padStart(11)}`);
-  if (!rangs.length) console.log('  (aucun)');
+  out(`  ${'canal'.padEnd(14)}${'comptes'.padStart(9)}${'profil'.padStart(10)}${'vérifiés'.padStart(11)}${'activés'.padStart(11)}`);
+  if (!rangs.length) out('  (aucun)');
   for (const [canal, v] of rangs) {
-    console.log(`  ${canal.padEnd(14)}${String(v.comptes).padStart(9)}${pct(v.partProfil).padStart(10)}${String(v.verifies).padStart(11)}${pct(v.partActivation).padStart(11)}`);
+    out(`  ${canal.padEnd(14)}${String(v.comptes).padStart(9)}${pct(v.partProfil).padStart(10)}${String(v.verifies).padStart(11)}${pct(v.partActivation).padStart(11)}`);
   }
-  console.log(`  — = arrivé sans lien de diffusion, ou avant que la provenance existe.`);
+  out(`  — = arrivé sans lien de diffusion, ou avant que la provenance existe.`);
 }
 
-console.log(titre('Contre-métriques — si l\'une monte, la phare ne compte plus'));
-console.log(ligne('signalements pour 100 matchs', nb(r.contre.signalementsPour100Matchs)));
-console.log(ligne('blocages anti-arnaque pour 100 messages', nb(r.contre.blocagesPour100Messages)));
-console.log('  par code :');
-console.log(liste(r.contre.blocagesParCode));
-console.log(ligne('blocages sans signalement ni blocage ensuite', pct(r.contre.fauxPositifsApparents), 'faux positifs apparents'));
-console.log(ligne('suppressions pour 100 vérifiés', nb(r.contre.suppressionsPour100Verifies)));
-console.log(ligne('vérifiés n\'ayant jamais vu une carte', r.contre.verifiesSansAucuneCarte));
-console.log(ligne('check-in où une seule personne est venue', r.contre.checkinsNonReciproques));
+out(titre('Contre-métriques — si l\'une monte, la phare ne compte plus'));
+out(ligne('signalements pour 100 matchs', nb(r.contre.signalementsPour100Matchs)));
+out(ligne('blocages anti-arnaque pour 100 messages', nb(r.contre.blocagesPour100Messages)));
+out('  par code :');
+out(liste(r.contre.blocagesParCode));
+out(ligne('blocages sans signalement ni blocage ensuite', pct(r.contre.fauxPositifsApparents), 'faux positifs apparents'));
+out(ligne('suppressions pour 100 vérifiés', nb(r.contre.suppressionsPour100Verifies)));
+out(ligne('vérifiés n\'ayant jamais vu une carte', r.contre.verifiesSansAucuneCarte));
+out(ligne('check-in où une seule personne est venue', r.contre.checkinsNonReciproques));
 
-console.log(titre('À lire avant de conclure'));
-for (const a of r.avertissements) console.log(`  • ${a}`);
-console.log('');
+out(titre('À lire avant de conclure'));
+for (const a of r.avertissements) out(`  • ${a}`);
+out('');
+console.log(lignes.join('\n'));
+
+if (process.argv.includes('--groupe')) {
+  if (!config.botToken || !config.adminChatId) {
+    console.error('--groupe : BOT_TOKEN et ADMIN_CHAT_ID sont nécessaires pour poster dans le groupe. Rien n\'a été envoyé.');
+    process.exit(2);
+  }
+  // TELEGRAM_API_ROOT ne sert qu'aux tests, qui pointent un faux serveur local.
+  const racine = (process.env.TELEGRAM_API_ROOT || 'https://api.telegram.org').replace(/\/$/, '');
+  const messages = enMessagesTelegram(lignes.join('\n'));
+  for (const texte of messages) {
+    const reponse = await fetch(`${racine}/bot${config.botToken}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: config.adminChatId, text: texte, parse_mode: 'HTML', disable_notification: true }),
+    });
+    const corps = await reponse.json().catch(() => ({}));
+    if (!reponse.ok || !corps.ok) {
+      console.error(`Envoi au groupe refusé : ${corps.description || reponse.status}`);
+      process.exit(3);
+    }
+  }
+  console.log(`Chiffres envoyés au groupe : ${messages.length} message(s)`);
+}
 process.exit(0);
