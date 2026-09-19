@@ -200,7 +200,8 @@ depuis la fiche du bot ; Telegram met en avant lui-même, dans son Mini App Stor
 ont une Main Mini App, des aperçus soignés et encaissent en Stars — il n'y a pas de formulaire.
 **Le Telegram Apps Center** (`@tapps_bot`, l'annuaire de l'écosystème TON, sans Web3 requis) :
 un dépôt depuis ton compte Telegram, trois à huit jours de modération ; tout ce que le
-formulaire demande est prêt à coller dans `identite/tapps-center.md`, captures comprises.
+formulaire demande est prêt à coller dans `identite/tapps-center.md` (et en anglais, la langue de
+la modération, dans `identite/tapps-center.en.md`), captures comprises.
 
 ### Savoir par où les gens arrivent
 
