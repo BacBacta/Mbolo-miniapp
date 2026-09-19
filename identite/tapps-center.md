@@ -1,12 +1,14 @@
 # Odo · fiche pour le Telegram Apps Center
 
-Le Telegram Apps Center (`tapps.center`, bot `@tapps_bot`) est l'annuaire tenu par l'écosystème
-TON. Il n'est pas le Mini App Store de Telegram (celui-là se règle dans BotFather, voir
+Le Telegram Apps Center (`tapps.center`, catalogue `@tapps_bot`) est l'annuaire tenu par
+l'écosystème TON. **On y dépose une app par le bot de modération `@app_moderation_bot`**
+(« Telegram Apps Moderation »), pas par le catalogue lui-même. Il n'est pas le Mini App Store de Telegram (celui-là se règle dans BotFather, voir
 `identite/textes-botfather.md`), et il ne demande aucune intégration blockchain : Odo y entre tel
 quel, sans jeton ni portefeuille — la règle 8 de `CLAUDE.md` ne bouge pas.
 
-**Le dépôt se fait depuis ton compte Telegram**, dans `@tapps_bot` : personne d'autre ne peut le
-faire à ta place. Tout ce que le formulaire demande est ci-dessous, prêt à coller. La modération
+**Le dépôt se fait depuis ton compte Telegram**, dans `@app_moderation_bot` : personne d'autre ne
+peut le faire à ta place. Ouvre le bot, appuie sur Démarrer, choisis d'ajouter une app, et réponds
+aux questions une par une avec les champs ci-dessous. Tout ce que le formulaire demande est ci-dessous, prêt à coller. La modération
 prend de trois à huit jours. Les libellés exacts des menus du bot ne sont pas documentés
 publiquement ; ce qui est sûr, c'est la liste des champs.
 

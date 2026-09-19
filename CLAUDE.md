@@ -244,8 +244,9 @@ audit/
   cause dans le code, cinq lots, la recette téléphone, et ce qui vient d'une décision et n'est pas rouvert.
 identite/
   Ce que BotFather affiche : photo du bot, image d'accueil, textes des cinq langues.
-  `tapps-center.md` et `tapps-center/` : la fiche prête à coller pour le Telegram Apps Center
-  (`@tapps_bot`, l'annuaire de l'écosystème TON, sans Web3 requis) — accroche, description en
+  `tapps-center.md` (français), `tapps-center.en.md` (anglais, la langue de la modération) et
+  `tapps-center/` : la fiche prête à coller pour le Telegram Apps Center
+  (catalogue `@tapps_bot`, dépôt par `@app_moderation_bot`, l'annuaire de l'écosystème TON, sans Web3 requis) — accroche, description en
   anglais et en français, six captures sans marqueur « démo », liens des pages publiques. Le
   dépôt se fait depuis le compte Telegram du propriétaire, jamais depuis le code.
   Jamais servi au navigateur — **à une exception** : `source/story.html` sort dans
