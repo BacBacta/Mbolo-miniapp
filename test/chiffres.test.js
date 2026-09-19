@@ -10,7 +10,7 @@
 // permet d'éprouver des cas qu'un vrai parcours mettrait des semaines à produire.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculer, reel } from '../server/chiffres.js';
+import { calculer, reel, enMessagesTelegram } from '../server/chiffres.js';
 
 const JOUR = 86400e3;
 const MAINTENANT = Date.parse('2026-09-12T12:00:00Z');
@@ -325,4 +325,77 @@ test('un profil de démonstration ne gonfle ni la demande ni l\'usage', () => {
   assert.equal(r.plus.passPoses, 0);
   assert.equal(r.plus.murDuQuotaGestes, 0);
   assert.equal(r.plus.actifs, 0, 'et son pass ne compte pas non plus');
+});
+
+
+// ---------- La page, postée dans le groupe ----------
+//
+// Le travail « Chiffres » poste la page chaque lundi. Telegram borne un message à 4 096
+// caractères : la page se découpe entre les sections, sans code de couleur, HTML échappé.
+
+test('la page se découpe entre les sections, sous le plafond de Telegram, sans couleur ni HTML nu', () => {
+  // Comme la vraie page : un titre en gras précédé d'une ligne vide (titre() dans le script).
+  const section = (titre, n) => `\n\n\x1b[1m${titre}\x1b[0m\n${Array.from({ length: n }, (_, i) => `  ligne ${i} <a & b>`).join('\n')}`;
+  const page = `Mesure produit — test\nComptes écartés : 0${section('Un', 30)}${section('Deux', 30)}${section('Trois', 30)}`;
+  const messages = enMessagesTelegram(page, 900);
+  assert.ok(messages.length >= 2, 'plus d\'un message');
+  for (const m of messages) {
+    assert.ok(m.length <= 900 + '<pre></pre>'.length, `sous le plafond : ${m.length}`);
+    assert.match(m, /^<pre>[\s\S]*<\/pre>$/);
+    assert.doesNotMatch(m, /\x1b\[/, 'aucun code de couleur');
+    assert.doesNotMatch(m, /<a & b>/, 'le HTML est échappé');
+  }
+  assert.match(messages.join(''), /&lt;a &amp; b&gt;/, 'échappé, pas retiré');
+  // Chaque titre ouvre un message ou suit une ligne vide : jamais coupé au milieu d'un tableau.
+  for (const t of ['Un', 'Deux', 'Trois']) {
+    const m = messages.find((x) => x.includes(`\n${t}\n`) || x.startsWith(`<pre>${t}\n`));
+    assert.ok(m, `la section ${t} est entière dans un message`);
+  }
+  assert.equal(messages.join('').replace(/<\/?pre>/g, '').match(/ligne \d+/g).length, 90, 'aucune ligne perdue');
+  // Une section plus longue que le plafond se coupe entre deux lignes, jamais au milieu d'une.
+  const longue = enMessagesTelegram(section('Longue', 200), 400);
+  assert.ok(longue.length > 1);
+  for (const m of longue) assert.doesNotMatch(m, /ligne \d+ &lt;a$/m);
+});
+
+test('--groupe poste la page dans le groupe par l\'API du bot, et refuse sans groupe', async () => {
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const http = await import('node:http');
+  const recus = [];
+  const faux = http.createServer((req, res) => {
+    let corps = '';
+    req.on('data', (c) => { corps += c; });
+    req.on('end', () => { recus.push({ url: req.url, corps: JSON.parse(corps) }); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ok: true, result: { message_id: recus.length } })); });
+  });
+  await new Promise((r) => faux.listen(0, r));
+  const racine = `http://127.0.0.1:${faux.address().port}`;
+  const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'rencontres-chiffres3-'));
+  try {
+    const { stdout } = await promisify(execFile)('node', ['scripts/chiffres.js', '--groupe'], {
+      env: { ...process.env, DATA_DIR: dossier, DATABASE_URL: '', SEED_DEMO: 'false', BOT_TOKEN: '123:JETON', ADMIN_CHAT_ID: '-100777', TELEGRAM_API_ROOT: racine },
+    });
+    assert.match(stdout, /Chiffres envoyés au groupe : \d+ message\(s\)/);
+    assert.ok(recus.length >= 1, 'au moins un message est parti');
+    for (const { url, corps } of recus) {
+      assert.equal(url, '/bot123:JETON/sendMessage', 'le jeton du bot, la méthode sendMessage');
+      assert.equal(corps.chat_id, '-100777', 'le groupe de modération, et lui seul');
+      assert.equal(corps.parse_mode, 'HTML');
+      assert.ok(corps.text.length <= 4096, `sous la borne de Telegram : ${corps.text.length}`);
+      assert.doesNotMatch(corps.text, /\x1b\[/, 'aucun code de couleur');
+    }
+    assert.match(recus[0].corps.text, /Mesure produit/);
+    assert.match(recus.at(-1).corps.text, /À lire avant de conclure/);
+
+    // Sans groupe, rien ne part, et le script le dit en sortant en erreur.
+    recus.length = 0;
+    await assert.rejects(
+      promisify(execFile)('node', ['scripts/chiffres.js', '--groupe'], { env: { ...process.env, DATA_DIR: dossier, DATABASE_URL: '', SEED_DEMO: 'false', BOT_TOKEN: '123:JETON', ADMIN_CHAT_ID: '', TELEGRAM_API_ROOT: racine } }),
+      (e) => e.code === 2 && /ADMIN_CHAT_ID/.test(e.stderr),
+    );
+    assert.equal(recus.length, 0, 'rien n\'est parti');
+  } finally { faux.close(); }
 });

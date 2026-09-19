@@ -264,6 +264,13 @@ artefacts GitHub pour quatre-vingt-dix jours.
 GitHub ne voit que le fichier chiffré : le secret n'y est pas. Une copie qui ne quitte pas la
 machine disparaîtrait avec le volume qui porte aussi la base — c'est pour ça qu'elle en sort.
 
+Le travail **Chiffres** (onglet Actions) part chaque lundi à 06 h 00 UTC, et se lance aussi à la
+main : il calcule la page de `npm run chiffres` **sur la machine** et la poste dans le groupe de
+modération, en quelques messages. C'est la lecture hebdomadaire de la bêta, sans rien lancer.
+Tu dois lire `Chiffres envoyés au groupe` dans le journal ; sinon, `BOT_TOKEN` ou
+`ADMIN_CHAT_ID` manque sur la machine, ou Telegram a refusé — le journal dit lequel. À la main,
+depuis la machine : `flyctl ssh console -a mbolo-miniapp -C "node scripts/chiffres.js --groupe"`.
+
 ### À la main, depuis la machine
 
 ```powershell

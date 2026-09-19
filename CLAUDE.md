@@ -215,7 +215,8 @@ e2e/
   suite tourne sous `gate`, le défaut du dépôt)
   (59 tests Playwright, npm run e2e)
 scripts/
-  chiffres.js    npm run chiffres : entonnoir et contre-métriques, --json pour la machine
+  chiffres.js    npm run chiffres : entonnoir et contre-métriques, --json pour la machine,
+                 --groupe pour poster la page dans le groupe (travail GitHub « Chiffres », le lundi)
   demo-photos.mjs npm run demo-photos : refait les images de démonstration (Chromium, dev seulement)
   import-json.js Reprise d'un db.json existant vers PostgreSQL, événements compris
   etat-stockage.js Compare fichier et base table par table ; sort en erreur si la base en porte moins
