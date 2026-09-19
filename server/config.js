@@ -85,6 +85,9 @@ export const config = {
   // Pays proposé par défaut à l'inscription. L'app est ouverte à tous les pays : ce réglage
   // ne fait que pré-remplir le menu, il n'en exclut aucun.
   defaultCountry: (process.env.DEFAULT_COUNTRY || 'CM').toUpperCase(),
+  // Les pays où le pass n'est pas vendu : codes ISO séparés par des virgules, ou le mot
+  // « afrique ». Lu une fois par server/plus.js (passEnVente). Vide : vendu partout.
+  plusSansVentePays: process.env.PLUS_SANS_VENTE_PAYS || '',
   // Vide : stockage dans un fichier JSON. Renseigné : PostgreSQL, avec migrations au démarrage.
   databaseUrl: process.env.DATABASE_URL || '',
   // Schéma PostgreSQL à utiliser. Vide : « public ». Sert à loger plusieurs installations dans

@@ -8,7 +8,7 @@ import { mesurer } from './mesure.js';
 import { PREFIXE, porteurDuCode, accepter, refuser, retirer, membresQuiMOntChoisi } from './confiance.js';
 import { refusDuree, fichierVoix } from './voix.js';
 import { consommer } from './limites.js';
-import { estPlus, prolonger, palier, retirer as retirerDuPass, DUREES, offre, lireChargeUtile } from './plus.js';
+import { estPlus, passEnVente, prolonger, palier, retirer as retirerDuPass, DUREES, offre, lireChargeUtile } from './plus.js';
 
 export const bot = config.botToken ? new Bot(config.botToken) : null;
 
@@ -666,6 +666,9 @@ export async function setupBot() {
     if (q.currency !== 'XTR' || Number(q.total_amount) !== o.stars) return ctx.answerPreCheckoutQuery(false, { error_message: 'Le prix a changé depuis cette facture. Rouvre l\'app pour en refaire une.' });
     const u = await store.getUser(ctx.from.id);
     if (!u || u.banned) return ctx.answerPreCheckoutQuery(false, { error_message: 'Ce compte ne peut pas prendre de pass.' });
+    // Une facture ouverte avant un changement de pays, ou de liste : on ne débite pas ce
+    // qu'on n'aurait pas vendu.
+    if (!passEnVente(u)) return ctx.answerPreCheckoutQuery(false, { error_message: "Le pass n'est pas proposé dans ton pays pour l'instant : ce qu'il ouvre est déjà à toi." });
     await ctx.answerPreCheckoutQuery(true);
   });
 
