@@ -83,9 +83,13 @@ theme, taken on `main` on 18 September 2026):
 | 5 | `05-discussion.png` | The chat, with the links-and-numbers unlock line |
 | 6 | `06-se-proteger.png` | "Protect yourself from this person": remove, block, report |
 
-The screenshots are in French, the app's source language. If the form asks for English
-screenshots, open the app with Telegram set to English and take them again on your phone: every
-screen is translated. The profiles shown are demo profiles with initials, as there are no
+The screenshots are in French, the app's source language. **The same six screens in English** are in
+`identite/tapps-center/en/`, same names, same size (786 × 1454), interface in English and the
+production policy (`badge`, "Verified" alone). Three texts were translated by hand in the capture
+because they do not come from the dictionaries: the demo profile's answer, its reply in the chat,
+and **the verification gesture** — `GESTURES` in `server/routes.js` exists in French only, so an
+English-speaking member today reads "Touche ton oreille gauche" on their verification screen. That
+is a real gap, separate from the screenshots. The profiles shown are demo profiles with initials, as there are no
 portraits yet (audit 15, finding K). If you prefer real faces, take the screenshots on your phone
 with members who agreed — never a stock photo library.
 
@@ -110,7 +114,7 @@ through verification, public places and blocked money requests — not through t
 | Bot/App Start link | the `t.me` link of the Main Mini App, as BotFather gives it |
 | App Name | `Odo` |
 | Profile picture | `identite/tapps-center/icone-512.png` (512 × 512, 186 KB — the 1024 px icon is just over one megabyte, the form's limit) |
-| Screenshots | the six captures in `identite/tapps-center/`, all 786 × 1454: the form requires the same size for all |
+| Screenshots | the six captures in `identite/tapps-center/en/` (interface in English), all 786 × 1454: the form requires the same size for all |
 | Short description in English (20 words) | the short description above (16 words) |
 | Short description in Russian | empty, or the same sentence from the app's Russian dictionary |
 | Full description in English | the description above |

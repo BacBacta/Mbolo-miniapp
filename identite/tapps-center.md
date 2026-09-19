@@ -80,6 +80,14 @@ thème sombre, prises sur `main` le 18 septembre 2026) :
 | 5 | `05-discussion.png` | La discussion, avec la ligne de déblocage des liens et numéros |
 | 6 | `06-se-proteger.png` | « Te protéger de cette personne » : retirer, bloquer, signaler |
 
+**Les mêmes six écrans en anglais** sont dans `identite/tapps-center/en/`, mêmes noms, même taille
+(786 × 1454), l'interface en anglais et la politique de la production (`badge`, « Vérifié » seul).
+Trois textes y ont été traduits à la main dans la capture, parce qu'ils ne viennent pas des
+dictionnaires : la réponse du profil de démonstration, sa réponse dans la discussion, et **le
+geste de vérification** — `GESTURES` dans `server/routes.js` n'existe qu'en français, donc un
+membre anglophone lit aujourd'hui « Touche ton oreille gauche » sur son écran de vérification.
+C'est un trou réel, à part des captures.
+
 Les profils des captures sont ceux de démonstration, à initiales : il n'y a pas encore de portraits
 (audit 15, constat K). Si tu préfères de vrais visages, prends les captures sur ton téléphone avec
 des membres qui ont accepté — jamais une banque d'images.
@@ -103,7 +111,7 @@ par la vérification, les lieux publics et l'argent bloqué — pas par le seul 
 | Bot/App Start link | le lien `t.me` de la Main Mini App, tel que BotFather le donne |
 | App Name | `Odo` |
 | Profile picture | `identite/tapps-center/icone-512.png` (512 × 512, 186 Ko — l'icône de 1024 px pèse un peu plus d'un mégaoctet, la limite du formulaire) |
-| Screenshots | les six captures de `identite/tapps-center/`, toutes en 786 × 1454 : le formulaire exige la même taille pour toutes |
+| Screenshots | les six captures de `identite/tapps-center/en/` (l'interface en anglais), toutes en 786 × 1454 : le formulaire exige la même taille pour toutes |
 | Short description in English (20 mots) | la phrase courte de la fiche anglaise (16 mots) |
 | Short description in Russian | vide, ou la même phrase dans le dictionnaire russe de l'app |
 | Full description in English | la description de la fiche anglaise |
