@@ -1,12 +1,14 @@
 # Odo · Telegram Apps Center listing (English)
 
-The Telegram Apps Center (`tapps.center`, bot `@tapps_bot`) is the directory run by the TON
-ecosystem. It is not Telegram's own Mini App Store (that one is set up in BotFather, see
+The Telegram Apps Center (`tapps.center`, catalogue `@tapps_bot`) is the directory run by the TON
+ecosystem. **Apps are submitted through the moderation bot `@app_moderation_bot`** ("Telegram
+Apps Moderation"), not through the catalogue itself. It is not Telegram's own Mini App Store (that one is set up in BotFather, see
 `identite/textes-botfather.md`), and it does not require any blockchain integration: Odo is
 listed as it is, with no token and no wallet — rule 8 of `CLAUDE.md` stands.
 
-**The submission is made from your own Telegram account**, inside `@tapps_bot`: nobody can do it
-for you. Everything the form asks for is below, ready to paste. Moderation takes three to eight
+**The submission is made from your own Telegram account**, inside `@app_moderation_bot`: nobody
+can do it for you. Open the bot, press Start, choose to add an app, and answer its questions one by
+one with the fields below. Everything the form asks for is below, ready to paste. Moderation takes three to eight
 days. The exact labels of the bot's menus are not documented publicly; what is certain is the
 list of fields. The French version of this file is `identite/tapps-center.md`.
 
