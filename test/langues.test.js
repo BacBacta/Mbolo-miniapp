@@ -236,7 +236,7 @@ test('toute clé employée par l\'interface est traduite dans chaque langue', as
 // variable : `t(l)`. Ils échappent donc entièrement au contrôle précédent, et la première fois
 // qu'on s'en aperçoit, c'est en voyant du français dans une interface anglaise.
 test('les libellés envoyés par le serveur sont traduits, eux aussi', async () => {
-  const { INTENTS, GENDERS, COMPAT } = await import('../server/config.js');
+  const { INTENTS, GENDERS, GESTURES, COMPAT } = await import('../server/config.js');
   const { CRITERES } = await import('../server/jauge.js');
 
   // Les questions de profil vivent dans public/app.js et traversent t() sous forme de variable,
@@ -256,6 +256,9 @@ test('les libellés envoyés par le serveur sont traduits, eux aussi', async () 
   const libelles = [
     ...Object.values(INTENTS),
     ...Object.values(GENDERS),
+    // Le geste de vérification est tiré par le serveur et affiché tel quel : sans sa traduction,
+    // un membre anglophone lisait « Touche ton oreille gauche » (19 septembre 2026).
+    ...GESTURES,
     ...Object.values(COMPAT).flatMap(({ question, valeurs }) => [question, ...Object.values(valeurs)]),
     ...CRITERES.flatMap(({ titre, quoi, comment }) => [titre, quoi, comment]),
     ...questions,

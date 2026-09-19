@@ -630,4 +630,8 @@ export default {
   "Pas encore vérifié": "Not verified yet",
   "Un selfie avec un geste, regardé par une personne": "A selfie with a gesture, checked by a person",
   "Sur les cartes, seul le selfie apparaît pour l'instant : personne ne peut encore avoir trois mois d'ancienneté. La jauge complète y reviendra le {date}.": "On cards, only the selfie shows for now: nobody can have three months of seniority yet. The full gauge returns there on {date}.",
+  'Lève deux doigts et souris': 'Hold up two fingers and smile',
+  'Touche ton oreille gauche': 'Touch your left ear',
+  'Fais un pouce levé': 'Give a thumbs up',
+  'Pose ta main sur ta joue': 'Put your hand on your cheek',
 };

@@ -84,9 +84,8 @@ thème sombre, prises sur `main` le 18 septembre 2026) :
 (786 × 1454), l'interface en anglais et la politique de la production (`badge`, « Vérifié » seul).
 Trois textes y ont été traduits à la main dans la capture, parce qu'ils ne viennent pas des
 dictionnaires : la réponse du profil de démonstration, sa réponse dans la discussion, et **le
-geste de vérification** — `GESTURES` dans `server/routes.js` n'existe qu'en français, donc un
-membre anglophone lit aujourd'hui « Touche ton oreille gauche » sur son écran de vérification.
-C'est un trou réel, à part des captures.
+geste de vérification** — qui, au moment des captures, n'existait qu'en français ; il est traduit
+dans les six langues depuis le 19 septembre 2026, et les captures lui sont désormais fidèles.
 
 Les profils des captures sont ceux de démonstration, à initiales : il n'y a pas encore de portraits
 (audit 15, constat K). Si tu préfères de vrais visages, prends les captures sur ton téléphone avec
