@@ -619,4 +619,8 @@ export default {
   "Pas encore vérifié": "Bado haijathibitishwa",
   "Un selfie avec un geste, regardé par une personne": "Selfie yenye ishara, iliyoangaliwa na mtu",
   "Sur les cartes, seul le selfie apparaît pour l'instant : personne ne peut encore avoir trois mois d'ancienneté. La jauge complète y reviendra le {date}.": "Kwenye kadi, ni selfie pekee inayoonekana kwa sasa: hakuna anayeweza kuwa na miezi mitatu bado. Kipimo kamili kitarudi hapo tarehe {date}.",
+  'Lève deux doigts et souris': 'Inua vidole viwili na utabasamu',
+  'Touche ton oreille gauche': 'Gusa sikio lako la kushoto',
+  'Fais un pouce levé': 'Onyesha kidole gumba juu',
+  'Pose ta main sur ta joue': 'Weka mkono wako kwenye shavu lako',
 };

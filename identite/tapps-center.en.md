@@ -87,9 +87,8 @@ The screenshots are in French, the app's source language. **The same six screens
 `identite/tapps-center/en/`, same names, same size (786 × 1454), interface in English and the
 production policy (`badge`, "Verified" alone). Three texts were translated by hand in the capture
 because they do not come from the dictionaries: the demo profile's answer, its reply in the chat,
-and **the verification gesture** — `GESTURES` in `server/routes.js` exists in French only, so an
-English-speaking member today reads "Touche ton oreille gauche" on their verification screen. That
-is a real gap, separate from the screenshots. The profiles shown are demo profiles with initials, as there are no
+and **the verification gesture** — which, when the captures were taken, existed in French only;
+it is translated into the six languages since 19 September 2026, and the captures now match it. The profiles shown are demo profiles with initials, as there are no
 portraits yet (audit 15, finding K). If you prefer real faces, take the screenshots on your phone
 with members who agreed — never a stock photo library.
 

@@ -619,4 +619,8 @@ export default {
   "Pas encore vérifié": "Ще не перевірено",
   "Un selfie avec un geste, regardé par une personne": "Селфі з жестом, перевірене людиною",
   "Sur les cartes, seul le selfie apparaît pour l'instant : personne ne peut encore avoir trois mois d'ancienneté. La jauge complète y reviendra le {date}.": "На картках поки видно лише селфі: ні в кого ще не може бути трьох місяців стажу. Повна шкала повернеться туди {date}.",
+  'Lève deux doigts et souris': 'Підніми два пальці й усміхнися',
+  'Touche ton oreille gauche': 'Торкнися лівого вуха',
+  'Fais un pouce levé': 'Покажи великий палець угору',
+  'Pose ta main sur ta joue': 'Поклади долоню на щоку',
 };

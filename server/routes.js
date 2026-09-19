@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
-import { config, runtime, genreAuChoix, entreeLibre, venues, INTENTS, INTENTS_RETIRES, GENDERS, COMPAT, sourceConnue } from './config.js';
+import { config, runtime, genreAuChoix, entreeLibre, venues, INTENTS, INTENTS_RETIRES, GENDERS, GESTURES, COMPAT, sourceConnue } from './config.js';
 import { estPlus, etatDuPass, palier, PALIERS, DROITS_DU_PASS, ORDRES, ORDRE_DEFAUT, OFFRES, OFFRE_CONSEILLEE, offre, chargeUtile } from './plus.js';
 import { arrondir, dansLaFenetre, discret, MAX_FICHES } from './vues.js';
 import { quiPrevenir, RALENTI_MS } from './nouveaux.js';
@@ -41,7 +41,6 @@ api.use(async (req, res, next) => { await store.touchActivity(req.user.id); next
 // L'interface traduit les erreurs par leur code ; certaines phrases ont besoin d'une valeur
 // (le nombre de messages, le nom du lieu). extra les transporte, sans jamais traduire côté serveur.
 const fail = (res, status, code, message, extra) => res.status(status).json({ code, message, ...extra });
-const GESTURES = ['Lève deux doigts et souris', 'Touche ton oreille gauche', 'Fais un pouce levé', 'Pose ta main sur ta joue'];
 // Durée de validité d'un geste de vérification
 const GESTURE_TTL_MS = 10 * 60 * 1000;
 

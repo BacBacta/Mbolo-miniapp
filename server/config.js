@@ -218,6 +218,12 @@ export const COMPAT = {
   },
 };
 export const GENDERS = { femme: 'Femme', homme: 'Homme' };
+// Les gestes de vérification. Comme les intentions et les genres, le serveur les envoie en
+// français et l'interface les passe par t() : un membre anglophone lisait « Touche ton oreille
+// gauche » sur son écran de vérification (19 septembre 2026). La modération, elle, les lit en
+// français dans la légende du selfie, et c'est voulu. Le test des langues exige que chaque
+// dictionnaire porte les quatre.
+export const GESTURES = ['Lève deux doigts et souris', 'Touche ton oreille gauche', 'Fais un pouce levé', 'Pose ta main sur ta joue'];
 
 // D'où vient la personne — et surtout, ce qu'on ne retient pas.
 //

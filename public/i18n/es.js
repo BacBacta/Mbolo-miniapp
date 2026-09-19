@@ -619,4 +619,8 @@ export default {
   "Pas encore vérifié": "Aún sin verificar",
   "Un selfie avec un geste, regardé par une personne": "Un selfie con un gesto, revisado por una persona",
   "Sur les cartes, seul le selfie apparaît pour l'instant : personne ne peut encore avoir trois mois d'ancienneté. La jauge complète y reviendra le {date}.": "En las tarjetas solo aparece el selfie por ahora: nadie puede tener aún tres meses de antigüedad. La barra completa volverá el {date}.",
+  'Lève deux doigts et souris': 'Levanta dos dedos y sonríe',
+  'Touche ton oreille gauche': 'Tócate la oreja izquierda',
+  'Fais un pouce levé': 'Levanta el pulgar',
+  'Pose ta main sur ta joue': 'Pon la mano en tu mejilla',
 };
