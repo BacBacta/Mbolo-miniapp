@@ -12,6 +12,11 @@ one with the fields below. Everything the form asks for is below, ready to paste
 days. The exact labels of the bot's menus are not documented publicly; what is certain is the
 list of fields. The French version of this file is `identite/tapps-center.md`.
 
+> **On 19 September 2026, submissions are paused.** `tapps.center` only shows "Something new is
+> coming. We're building the next chapter for apps on TON & Telegram", with no submission link, and
+> `@app_moderation_bot` does not answer. No reopening date is announced. This listing stays ready
+> for that day; meanwhile the fallback is FindMini.app, at the bottom of this file.
+
 ## Before you press "Submit"
 
 - [ ] The **Main Mini App** is enabled in BotFather (`/mybots` → Bot Settings → Configure Mini
@@ -92,6 +97,30 @@ with members who agreed — never a stock photo library.
 the directory accepts apps without Web3.
 
 **Age rating**: 18+. It is stated on the welcome screen, in the description and in the terms.
+
+## Fallback: FindMini.app
+
+`https://www.findmini.app/submit/` — a third-party directory of mini apps (6,600 apps), free,
+listed within 24 hours, a web form that works from the phone. It refuses "18+ apps" in the sense of
+adult content: Odo is adults-only, which is not the same thing, and the full description says so
+through verification, public places and blocked money requests — not through the bare word "18+".
+
+| Field | What to put |
+|---|---|
+| Bot/App Start link | the `t.me` link of the Main Mini App, as BotFather gives it |
+| App Name | `Odo` |
+| Profile picture | `identite/tapps-center/icone-512.png` (512 × 512, 186 KB — the 1024 px icon is just over one megabyte, the form's limit) |
+| Screenshots | the six captures in `identite/tapps-center/`, all 786 × 1454: the form requires the same size for all |
+| Short description in English (20 words) | the short description above (16 words) |
+| Short description in Russian | empty, or the same sentence from the app's Russian dictionary |
+| Full description in English | the description above |
+| TON blockchain | unchecked |
+| Interface languages | EN, RU, ES, PT, and "Others" for French, Swahili and Ukrainian |
+| Additional links | the two public pages, and the bot link |
+| Developer's Telegram contact | your Telegram username; it is not published |
+
+Download the images to the phone from GitHub ("Raw" on each file in `identite/tapps-center/`),
+then pick them from the gallery.
 
 ## What can get a listing rejected
 
