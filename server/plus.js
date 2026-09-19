@@ -49,7 +49,7 @@ export const ORDRE_DEFAUT = 'defaut';
 
 // Le palier qui s'applique à cette personne. `estPlus()` reste le seul endroit qui tranche : cette
 // fonction ne fait que lire la table à la lumière de sa réponse.
-export const palier = (nom, user, maintenant = Date.now()) => PALIERS[nom][estPlus(user, maintenant) ? 'avec' : 'sans'];
+export const palier = (nom, user, maintenant = Date.now()) => PALIERS[nom][droitsOuverts(user, maintenant) ? 'avec' : 'sans'];
 
 // Les sources possibles, reprises telles quelles de la table `entitlements` (section 10.4), pour
 // que la migration soit une recopie et pas une traduction.
@@ -63,6 +63,44 @@ export const SOURCES = ['momo', 'stars', 'sponsor', 'gift'];
 // (PLUS_PRIX_STARS) ; elle est lue ici, une fois, et nulle part ailleurs — l'interface la reçoit
 // par GET /api/me, le bot la lit pour la facture et la revérifie au moment de payer.
 import { config } from './config.js';
+import { AFRIQUE, COUNTRY_CODES } from './geo.js';
+
+// ---------- Où le pass se vend, et où il est offert ----------
+//
+// Décision du propriétaire, 19 septembre 2026 : **pas de monétisation dans les pays d'Afrique
+// pour l'instant.** Le pass n'y est pas vendu, et ce qu'il ouvre y est offert à tout le monde —
+// à une exception, le quota de « J'aime » par jour, qui est d'abord un frein contre les faux
+// comptes et garde ses marches (badge ou pas). Un cadenas sans caisse derrière n'apprend rien
+// et frustre ; une porte ouverte se mesure au moins par l'usage.
+//
+// Le pays est celui **déclaré** sur le profil — ni le fuseau, qui n'est pas stocké, ni une
+// géolocalisation, qu'on ne demande pas. C'est falsifiable : qui déclare Yaoundé depuis
+// Bruxelles a le pass gratuit. Le sens du risque est bénin, et le README le dit.
+//
+// `PLUS_SANS_VENTE_PAYS` : des codes ISO séparés par des virgules, ou le mot « afrique » qui
+// se déplie en 55 codes (server/geo.js). Une valeur illisible est ignorée en le disant. Vide :
+// vendu partout, rien ne change.
+function lireLesPaysSansVente(texte) {
+  const pays = new Set();
+  for (const morceau of String(texte || '').split(',')) {
+    const mot = morceau.trim();
+    if (!mot) continue;
+    if (mot.toLowerCase() === 'afrique') { for (const c of AFRIQUE) pays.add(c); continue; }
+    const code = mot.toUpperCase();
+    if (!COUNTRY_CODES.includes(code)) { console.warn(`PLUS_SANS_VENTE_PAYS : « ${mot} » n'est ni un code de pays ni « afrique », ignoré.`); continue; }
+    pays.add(code);
+  }
+  return pays;
+}
+export const PAYS_SANS_VENTE = lireLesPaysSansVente(config.plusSansVentePays);
+const paysDe = (user) => String(user?.profile?.country || config.defaultCountry).toUpperCase();
+// Le pass est-il proposé à cette personne ? Lu par la facture, par le pre_checkout, par
+// GET /me (options.passEnVente) et par les chiffres.
+export const passEnVente = (user) => !PAYS_SANS_VENTE.has(paysDe(user));
+// Ce que le pass ouvre est-il ouvert à cette personne : parce qu'elle a un pass, ou parce
+// qu'on ne lui en vend pas. C'est cette fonction que lisent les portes (liste, pays entier,
+// langue, ordre, qui t'a aimé, vues, paliers) — et pas le quota, qui ne lit qu'estPlus().
+export const droitsOuverts = (user, maintenant = Date.now()) => estPlus(user, maintenant) || !passEnVente(user);
 
 function lireLaGrille(texte) {
   const offres = [];

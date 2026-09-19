@@ -293,6 +293,10 @@ const verifie = () => S.me?.verification === 'approved';
 const membre = () => !!S.me?.profile && (entreeLibre() || verifie());
 // Le pass. Comme au-dessus : le serveur tranche, l'interface lit et ne recopie aucune règle.
 const plus = () => !!S.me?.plus?.actif;
+// Le pass se vend-il ici ? Faux dans les pays où la monétisation est coupée : ce qu'il ouvre
+// est déjà ouvert (le serveur le dit par `limites`), et rien ne doit y proposer un prix — ni
+// porte, ni feuille, ni ligne des réglages, ni l'écran lui-même.
+const passEnVente = () => S.me?.options?.passEnVente !== false;
 // Le quota du jour, tel que /discover le rend. **`null` veut dire « aucun compte à tenir »** —
 // c'est le contrat posé par `auClient()` côté serveur. Sans cette fonction, `!S.remaining` prend
 // l'absence de limite pour une limite atteinte, et l'écran le plus ouvert devient le plus fermé.
@@ -879,7 +883,7 @@ function blocsQuestionsSupplementaires(f) {
     ? `<button type="button" class="btn btn-ghost btn-sm" data-action="extra-add">${icon('plus', 15)} ${t('Ajouter une question')}</button>`
     // Rien à vendre avant le premier visage (audit 16, n° 11) : la porte n'apparaît qu'en
     // modification, jamais pendant la première inscription.
-    : extras.length < total - 1 && S.me?.profile
+    : extras.length < total - 1 && S.me?.profile && passEnVente()
       ? porteDuPass({ quoi: 'questions', titre: t('{n} questions sur ta fiche', { n: total }), sous: t('Avec {app} Plus', { app: APP }) })
       : '';
   return blocs + suite;
@@ -1578,7 +1582,7 @@ const SCREENS = {
       // Le mur du quota est l'endroit où le pass a le plus de sens : la personne voulait
       // continuer. On le propose là, en premier — sauf quand se faire vérifier est le chemin
       // gratuit qui ouvre le même quota, auquel cas il reste devant.
-      const versLePass = !sansLimite() && !S.remaining && !plus() ? { text: t('Continuer avec {app} Plus', { app: APP }), onClick: () => ouvrirLePass('quota') } : null;
+      const versLePass = !sansLimite() && !S.remaining && !plus() && passEnVente() ? { text: t('Continuer avec {app} Plus', { app: APP }), onClick: () => ouvrirLePass('quota') } : null;
       const verifier = entreeLibre() && !verifie();
       return tg.setButtons(versLePass ? (verifier ? { main: bouton, secondary: versLePass } : { main: versLePass, secondary: bouton }) : { main: bouton, ...(secondaire ? { secondary: secondaire } : {}) });
     }
@@ -1794,7 +1798,7 @@ function dessinerMessages() {
     const likesStrip = S.likes.length ? `
       <div class="group"><span class="eyebrow">${t('Ont aimé ton profil')}</span>
         <div class="new-strip">${S.likes.map((p) => `<button type="button" class="new-item like-item" data-action="person" data-id="${esc(p.id)}">${avatar(p, 'md')}<span>${esc(p.name)}</span></button>`).join('')}</div>
-      </div>` : plus() ? '' : `
+      </div>` : plus() || !passEnVente() ? '' : `
       <div class="group"><span class="eyebrow">${S.likesN ? tn('{n} personne a aimé ton profil', '{n} personnes ont aimé ton profil', S.likesN) : t('Ont aimé ton profil')}</span>
         ${S.likesFlous.length ? `<div class="new-strip">${S.likesFlous.map((src) => `<button type="button" class="new-item like-item" data-action="porte-feuille" data-quoi="likes">${avatarFlou(src)}<span>${t('Qui ?')}</span></button>`).join('')}</div>` : ''}
         ${porteDuPass({ quoi: 'likes', titre: t("Voir qui t'a aimé"), sous: t('Ces personnes passent déjà devant dans ton paquet. Le pass les nomme.') })}
@@ -2066,6 +2070,9 @@ Object.assign(SCREENS, {
   // Le paiement se fait en Telegram Stars, dans Telegram, par une facture que le serveur fabrique
   // et que Telegram ouvre par-dessus l'app (règle 7). Hors de Telegram, on le dit.
   async plus() {
+    // Là où le pass ne se vend pas, l'écran n'existe pas : un lien ancien ou un paramètre de
+    // lancement ramène d'où l'on vient. Un pass déjà posé (offert) garde son écran, pour la date.
+    if (!passEnVente() && !plus()) return go(S.plusRetour || 'me');
     const quoi = S.plusContexte || 'profil';
     render(`<div class="step-head"><h1>${t('{app} Plus', { app: APP })}</h1></div>${skeleton.rows(4)}`);
     tg.setBack(() => go(S.plusRetour || 'me'));
@@ -2317,10 +2324,10 @@ Object.assign(SCREENS, {
       </div>
       <div class="group"><span class="eyebrow">${t('{app} Plus', { app: APP })}</span>
         <div class="list">
-          ${listRow({ iconName: 'sparkles', tile: plus() ? 'tile-ok' : '', title: t('{app} Plus', { app: APP }),
+          ${passEnVente() || plus() ? listRow({ iconName: 'sparkles', tile: plus() ? 'tile-ok' : '', title: t('{app} Plus', { app: APP }),
             sub: plus() ? t('Actif jusqu\'au {date}', { date: new Date(S.me.plus.finLe).toLocaleDateString(langue(), { dateStyle: 'long' }) })
               : t("Qui t'a aimé, des « J'aime » sans compter, tout le pays"),
-            action: 'plus', extra: ' data-quoi="profil"' })}
+            action: 'plus', extra: ' data-quoi="profil"' }) : ''}
           ${listRow({ iconName: 'users', title: t("Se sont arrêtés sur ta fiche"), sub: t('Combien, en gros, et les cinq dernières fiches'), action: 'go', extra: ' data-screen="vues"' })}
         </div>
       </div>
@@ -2961,10 +2968,13 @@ async function expliquerLeQuota() {
     : t("Tes « J'aime » du jour sont partis.");
   const lignes = [reste, t("Seul un « J'aime » compte : passer une carte ne coûte rien. Le compteur repart chaque nuit.")];
   if (!verifie() && marches.avecBadge) lignes.push(t('Avec le badge de vérification, tu en as {n} par jour.', { n: marches.avecBadge }));
-  lignes.push(t("Avec le pass, il n'y a plus de compteur."));
+  // Le pass n'est proposé que là où il se vend : ailleurs, la feuille explique le compteur et
+  // s'arrête là.
+  if (passEnVente()) lignes.push(t("Avec le pass, il n'y a plus de compteur."));
+  const versLePass = passEnVente() ? [{ id: 'pass', texte: t('Voir le pass') }] : [];
   const boutons = verifie()
-    ? [{ id: 'pass', texte: t('Voir le pass'), principal: true }, { id: 'non', texte: t("D'accord") }]
-    : [{ id: 'verif', texte: t('Me faire vérifier'), principal: true }, { id: 'pass', texte: t('Voir le pass') }, { id: 'non', texte: t("D'accord") }];
+    ? [...versLePass.map((b) => ({ ...b, principal: true })), { id: 'non', texte: t("D'accord") }]
+    : [{ id: 'verif', texte: t('Me faire vérifier'), principal: true }, ...versLePass, { id: 'non', texte: t("D'accord") }];
   const r = await feuille({ titre: t("Tes « J'aime » du jour"), texte: lignes.join(' '), boutons });
   if (r === 'pass') ouvrirLePass('quota');
   else if (r === 'verif') go(S.me.verification === 'pending' ? 'pending' : 'verify');

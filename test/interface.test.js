@@ -539,7 +539,8 @@ test("l'erreur d'un formulaire revient à l'écran, avec le focus sur le champ f
 
 test("rien n'est vendu à la première inscription", () => {
   const suite = entre('  const suite = extras.length < plafond', '  return blocs + suite;');
-  assert.match(suite, /extras\.length < total - 1 && S\.me\?\.profile\s*\? porteDuPass\(\{ quoi: 'questions'/);
+  // Et rien n'est vendu non plus là où le pass ne se vend pas (PLUS_SANS_VENTE_PAYS).
+  assert.match(suite, /extras\.length < total - 1 && S\.me\?\.profile && passEnVente\(\)\s*\? porteDuPass\(\{ quoi: 'questions'/);
 });
 
 // Audit 16, lot B (n° 4) : le bot ne peut écrire qu'à qui l'a autorisé, et la demande ne vivait

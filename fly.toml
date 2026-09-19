@@ -53,6 +53,12 @@ swap_size_mb = 256
   # atteignable par personne, et chaque carte disait « 1 sur 2 ». Jusque-là, « Vérifié » seul
   # (server/jauge.js). Décision du propriétaire, 18 septembre 2026.
   LANCEMENT_LE = "2026-09-13"
+  # Pas de monétisation dans les pays d'Afrique pour l'instant : le pass n'y est pas vendu, et
+  # ce qu'il ouvre y est offert (sauf le quota de « J'aime », qui reste un frein anti-abus).
+  # Le pays est celui déclaré sur le profil ; passEnVente() dans server/plus.js est le seul
+  # endroit qui tranche. Vider la ligne rouvre la vente partout. Décision du propriétaire,
+  # 19 septembre 2026.
+  PLUS_SANS_VENTE_PAYS = "afrique"
   # AUTO_APPROVE n'est volontairement pas ici : NODE_ENV vaut production, et la validation
   # automatique des selfies y est éteinte quoi qu'on écrive (server/config.js). La modération
   # passe par ADMIN_CHAT_ID, posé en secret par deployer-fly.sh.

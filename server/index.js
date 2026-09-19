@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import express from 'express';
 import QRCode from 'qrcode';
 import { config, venues, secretsPartages, genreAuChoix, entreeLibre } from './config.js';
+import { PAYS_SANS_VENTE } from './plus.js';
 import { codeDuLieu } from './lieux.js';
 import { store, modeStockage, pret } from './store.js';
 import { api } from './routes.js';
@@ -179,9 +180,14 @@ const bloc = (html, nom, garder) => {
     .replaceAll(`<!--SI_${nom}_${garder}-->`, '')
     .replaceAll(`<!--/SI_${nom}_${garder}-->`, '');
 };
+// Et le pass : là où PLUS_SANS_VENTE_PAYS ferme la vente, les conditions disent que ce qu'il
+// ouvre est offert — un document opposable ne vend pas ce qu'on ne vend pas.
 const selonLaPolitique = (html) => bloc(
-  bloc(html, 'GENRE', genreAuChoix() ? 'OUVERT' : 'FERME'),
-  'VERIF', entreeLibre() ? 'OUVERT' : 'FERME',
+  bloc(
+    bloc(html, 'GENRE', genreAuChoix() ? 'OUVERT' : 'FERME'),
+    'VERIF', entreeLibre() ? 'OUVERT' : 'FERME',
+  ),
+  'PASS', PAYS_SANS_VENTE.size ? 'FERME' : 'OUVERT',
 );
 
 const PAGES_PUBLIQUES = { '/confidentialite': 'confidentialite.html', '/conditions': 'conditions.html' };

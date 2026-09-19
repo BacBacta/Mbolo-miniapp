@@ -21,6 +21,15 @@ VE VG VI VN VU WF WS YE YT ZA ZM ZW
 `.trim().split(/\s+/);
 
 export const COUNTRY_CODES = CODES;
+
+// Les 54 États d'Afrique, plus le Sahara occidental. Une liste fermée, lue par le mot « afrique »
+// de PLUS_SANS_VENTE_PAYS (server/plus.js) : là où le pass n'est pas vendu, ce qu'il ouvre est
+// offert. Les territoires européens du continent (La Réunion, Mayotte, Sainte-Hélène) n'y sont
+// pas : leur pouvoir d'achat n'est pas celui que la liste vise.
+export const AFRIQUE = `
+DZ AO BJ BW BF BI CM CV CF TD KM CG CD CI DJ EG GQ ER SZ ET GA GM GH GN GW KE LS LR LY MG MW ML MR
+MU MA MZ NA NE NG RW ST SN SC SL SO ZA SS SD TZ TG TN UG ZM ZW EH
+`.trim().split(/\s+/);
 const VALIDES = new Set(CODES);
 export const estPays = (code) => VALIDES.has(String(code || '').toUpperCase());
 

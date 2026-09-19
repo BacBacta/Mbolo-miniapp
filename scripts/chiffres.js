@@ -26,7 +26,8 @@ const titre = (t) => `\n\x1b[1m${t}\x1b[0m`;
 const ligne = (nom, valeur, note = '') => `  ${nom.padEnd(46)} ${String(valeur).padStart(10)}${note ? `   ${note}` : ''}`;
 const liste = (o) => (Object.keys(o).length ? Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k, v]) => ligne(`  ${k}`, v)).join('\n') : '  (aucun)');
 
-const r = calculer(await collecter(store));
+const { PAYS_SANS_VENTE } = await import('../server/plus.js');
+const r = calculer({ ...(await collecter(store)), paysSansVente: [...PAYS_SANS_VENTE] });
 
 if (process.argv.includes('--json')) {
   console.log(JSON.stringify(r, null, 2));

@@ -44,7 +44,7 @@ export async function collecter(store) {
   return { users, events, reports, matches: [...matches.values()], messages, dates, blocks };
 }
 
-export function calculer({ users, events, reports = [], matches = [], messages = new Map(), dates = [], blocks = [] }, maintenant = Date.now()) {
+export function calculer({ users, events, reports = [], matches = [], messages = new Map(), dates = [], blocks = [], paysSansVente = [] }, maintenant = Date.now()) {
   const parId = new Map(users.map((u) => [String(u.id), u]));
   const vrais = users.filter(reel);
   const estReel = (id) => reel(parId.get(String(id)));
@@ -308,6 +308,9 @@ export function calculer({ users, events, reports = [], matches = [], messages =
   }
   if (plus.achats === 0 && (plus.actifs > 0 || plus.passPoses > 0)) {
     avertissements.push("Aucun pass n'a été vendu : tous ont été offerts à la main depuis le groupe de modération. Les refus mesurent une curiosité, jamais un consentement à payer — seul un achat en Stars le mesure.");
+  }
+  if (paysSansVente.length) {
+    avertissements.push(`Le pass n'est pas vendu dans ${paysSansVente.length} pays (PLUS_SANS_VENTE_PAYS) : là, aucune porte n'est fermée, donc pass_refuse, pass_vu et pass_usage n'y comptent rien. Une demande absente n'y est pas une absence de demande.`);
   }
   if (plus.vusPersonnes > 0) {
     avertissements.push("La conversion compte les personnes qui ont ouvert l'écran du pass, par une porte fermée ou depuis l'onglet Profil par curiosité : c'est une borne basse. Et pass_vu est ralenti à cinq minutes par personne, donc les gestes ne se comptent pas, seules les personnes.");

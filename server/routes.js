@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { config, runtime, genreAuChoix, entreeLibre, venues, INTENTS, INTENTS_RETIRES, GENDERS, GESTURES, COMPAT, sourceConnue } from './config.js';
-import { estPlus, etatDuPass, palier, PALIERS, DROITS_DU_PASS, ORDRES, ORDRE_DEFAUT, OFFRES, OFFRE_CONSEILLEE, offre, chargeUtile } from './plus.js';
+import { estPlus, droitsOuverts, passEnVente, etatDuPass, palier, PALIERS, DROITS_DU_PASS, ORDRES, ORDRE_DEFAUT, OFFRES, OFFRE_CONSEILLEE, offre, chargeUtile } from './plus.js';
 import { arrondir, dansLaFenetre, discret, MAX_FICHES } from './vues.js';
 import { quiPrevenir, RALENTI_MS } from './nouveaux.js';
 import { codeValide } from './lieux.js';
@@ -187,7 +187,7 @@ const auClient = (n) => (Number.isFinite(n) ? n : null);
 // posé à côté d'un paquet qui met cette personne en tête, fait un nom. Il ne vaut donc pas zéro
 // pour qui n'a pas le pass — zéro serait faux, et « personne ne t'a aimé » est un mensonge — il
 // vaut `null`, comme le quota : on ne le dit pas.
-const voitSesLikes = (u) => estPlus(u);
+const voitSesLikes = (u) => droitsOuverts(u);
 //
 // Le refus est **la mesure la plus utile du pass**, et c'est pour ça qu'il pose un événement.
 // Sans caisse, on ne peut pas compter qui paie ; on peut compter qui bute sur le mur, et c'est la
@@ -203,7 +203,7 @@ const PORTES_DU_PASS = {
   liste: 'Il faut un pass pour la vue Liste. Les mêmes personnes restent dans tes cartes.',
 };
 const requirePlus = (quoi) => (req, res, next) => {
-  if (estPlus(req.user)) return next();
+  if (droitsOuverts(req.user)) return next();
   mesurer('pass_refuse', req.user.id, { quoi });
   return res.status(403).json({ code: 'PASS_REQUIS', quoi, message: PORTES_DU_PASS[quoi] || 'Il faut un pass pour ça.' });
 };
@@ -275,7 +275,7 @@ api.get('/me', async (req, res) => {
     // Le pass, tel que la personne le voit pour elle-même. Il ne va nulle part ailleurs : il
     // n'est pas dans `publicProfile`, et il n'y entrera pas. Un pass visible deviendrait un signe
     // extérieur — et surtout il dirait qui peut voir la liste des « J'aime », donc qui sait.
-    plus: { ...etatDuPass(u), offres: OFFRES, conseillee: OFFRE_CONSEILLEE },
+    plus: { ...etatDuPass(u), offres: passEnVente(u) ? OFFRES : [], conseillee: passEnVente(u) ? OFFRE_CONSEILLEE : null },
     // Le quota du jour voyage aussi ici, et pas seulement avec le paquet : l'écran du pass doit
     // pouvoir dire le nombre sans que la personne soit passée par Découvrir d'abord. Même
     // contrat que là-bas — `null` veut dire « aucun compte à tenir ».
@@ -290,7 +290,7 @@ api.get('/me', async (req, res) => {
       voixSecondes: palier('voixSecondes', u),
       questions: palier('questions', u),
       // Les droits sans nombre : la vue Liste, le pays entier, le filtre par langue.
-      ...Object.fromEntries(DROITS_DU_PASS.map((d) => [d, estPlus(u)])),
+      ...Object.fromEntries(DROITS_DU_PASS.map((d) => [d, droitsOuverts(u)])),
       avecPass: Object.fromEntries(Object.entries(PALIERS).map(([k, v]) => [k, v.avec])),
       // Les « J'aime » par jour, en deux marches : sans le badge et avec. La feuille du quota les
       // dit à côté du compteur — pour que se faire vérifier ait un nombre, pas une promesse. Le
@@ -309,6 +309,10 @@ api.get('/me', async (req, res) => {
       // Ce que la vérification décide sur ce serveur : une porte (false) ou un badge (true).
       // L'interface en tire tout le reste — les onglets, l'écran d'arrivée, ce qu'elle promet.
       entreeLibre: entreeLibre(),
+      // Le pass se vend-il à cette personne ? Faux dans les pays de PLUS_SANS_VENTE_PAYS : ce
+      // qu'il ouvre y est déjà ouvert (limites ci-dessus), et l'interface n'y montre ni porte,
+      // ni prix, ni écran du pass. La règle vit dans server/plus.js ; ici on la transporte.
+      passEnVente: passEnVente(u),
       // La carte montre la fraction de la jauge seulement quand un second critère est atteignable
       // par quelqu'un ; avant, « Vérifié » seul. La règle est ici, l'interface la lit (jauge.js).
       jaugeEnFraction: fractionVisible(),
@@ -595,7 +599,7 @@ const DEFAULT_FILTERS = { ageMin: 18, ageMax: 99, gender: '', verifiesSeulement:
 
 // L'ordre du paquet. Sans pass, c'est l'ordre conseillé, quoi qu'on ait rangé : le réglage dort,
 // comme la zone et la langue. Les clés secondaires ne lisent que ce que la carte montre déjà.
-const ordreChoisi = (me) => (estPlus(me) && ORDRES.includes(filtersOf(me).ordre) ? filtersOf(me).ordre : ORDRE_DEFAUT);
+const ordreChoisi = (me) => (droitsOuverts(me) && ORDRES.includes(filtersOf(me).ordre) ? filtersOf(me).ordre : ORDRE_DEFAUT);
 const ACTIVITE_RANG = { recent: 3, today: 2, week: 1 };
 const rangActivite = (u) => ACTIVITE_RANG[activityBucket(u.lastActiveAt)] || 0;
 const estNouveau = (u) => !u.demo && Date.now() - u.createdAt < 7 * 86400e3;
@@ -620,7 +624,7 @@ const decouperLangues = (texte) => [...new Set(String(texte || '').split(/[,;/·
 const clesLangues = (p) => p?.languageKeys || decouperLangues(p?.languages);
 // Le filtre par langue est ce que le pass ouvre. Sans pass il dort, comme la zone : accepté,
 // rangé, sans effet — et il reprend le jour où le pass arrive.
-const langueCherchee = (me) => (estPlus(me) ? cleVille(filtersOf(me).langue) : '');
+const langueCherchee = (me) => (droitsOuverts(me) ? cleVille(filtersOf(me).langue) : '');
 const dansLaLangue = (me, other) => { const k = langueCherchee(me); return !k || clesLangues(other.profile).includes(k); };
 
 const zoneParDefaut = (u) => ({ country: u.profile?.country || config.defaultCountry, city: u.profile?.city || null });
@@ -656,7 +660,7 @@ const selonLeBadge = (me, other) => !filtersOf(me).verifiesSeulement || verifie(
 // C'est la ligne qui **retire** le plus au gratuit, et la seule du lot. À surveiller en premier
 // dans les chiffres : sur un vivier de quelques dizaines de comptes, une ville peut être vide, et
 // un paquet vide ne convertit personne — il fait partir.
-const zoneCherchee = (me) => (estPlus(me) ? (filtersOf(me).zone || zoneParDefaut(me)) : zoneParDefaut(me));
+const zoneCherchee = (me) => (droitsOuverts(me) ? (filtersOf(me).zone || zoneParDefaut(me)) : zoneParDefaut(me));
 
 // La zone de la personne qui cherche s'applique à son seul paquet.
 function dansLaZone(me, other) {
@@ -945,10 +949,12 @@ api.get('/plus', async (req, res) => {
   const quoi = /^[a-z]{2,16}$/.test(String(req.query.quoi || '')) ? String(req.query.quoi) : 'profil';
   mesurerRalenti('pass_vu', req.user, CINQ_MINUTES, { quoi }, `pass_vu:${quoi}`);
   const achats = (await store.paiementsDe(req.user.id)).map((p) => ({ jours: p.jours, stars: p.stars, statut: p.statut, at: p.at, ref: p.chargeId.slice(-6) }));
-  res.json({ ...etatDuPass(req.user), offres: OFFRES, conseillee: OFFRE_CONSEILLEE, achats });
+  res.json({ ...etatDuPass(req.user), offres: passEnVente(req.user) ? OFFRES : [], conseillee: passEnVente(req.user) ? OFFRE_CONSEILLEE : null, achats });
 });
 
 api.post('/plus/facture', requireMembre, limiter('facture'), async (req, res) => {
+  // Là où le pass n'est pas vendu, aucune facture ne part — quoi que l'écran ait demandé.
+  if (!passEnVente(req.user)) return fail(res, 403, 'PASS_INDISPONIBLE', "Le pass n'est pas proposé dans ton pays pour l'instant : ce qu'il ouvre est déjà à toi.");
   const o = offre(req.body?.jours);
   if (!o) return fail(res, 400, 'OFFRE_INCONNUE', 'Cette durée n\'est pas proposée.');
   if (!bot) return fail(res, 503, 'PAS_DE_CAISSE', 'Le paiement n\'est pas disponible sur ce serveur.');
@@ -1047,7 +1053,7 @@ api.get('/likes', requireMembre, async (req, res) => {
   const me = req.user;
   const rel = await relations(me);
   const likers = likersOf(me, rel, await likersDe(rel));
-  if (!estPlus(me)) {
+  if (!droitsOuverts(me)) {
     // La porte fermée se compte toujours, ralentie : l'onglet Messages la demande à chaque visite.
     await mesurerRalenti('pass_refuse', me, CINQ_MINUTES, { quoi: 'likes' }, 'pass_refuse:likes');
     return res.json({ flou: true, n: likers.length, apercus: await apercusFlous(likers, APERCUS_MAX), profiles: [] });
@@ -1056,7 +1062,8 @@ api.get('/likes', requireMembre, async (req, res) => {
   // cinq minutes — l'écran se recharge à chaque retour sur l'onglet Messages.
   // Attendu : sur PostgreSQL, une liste vide répondait avant que la ligne soit écrite, et le
   // test qui lit la trace juste après la réponse ne la trouvait pas.
-  await mesurerRalenti('pass_usage', me, CINQ_MINUTES, { quoi: 'likes' }, 'pass_usage:likes');
+  // Là où le pass n'est pas vendu, la liste est ouverte à tous : ce n'est pas l'usage d'un pass.
+  if (passEnVente(me)) await mesurerRalenti('pass_usage', me, CINQ_MINUTES, { quoi: 'likes' }, 'pass_usage:likes');
   const profiles = await Promise.all(likers.slice(0, 20).map(async (u) => {
     const p = await publicProfile(u);
     return { ...p, activity: p.activity ? 'week' : null, likedYou: true, status: null, matchId: null };
@@ -1077,8 +1084,9 @@ api.get('/likes', requireMembre, async (req, res) => {
 //     pas par la vigilance.
 api.get('/vues', requireMembre, async (req, res) => {
   const me = req.user;
-  const avecPass = estPlus(me);
-  await mesurerRalenti(avecPass ? 'pass_usage' : 'pass_refuse', me, CINQ_MINUTES, { quoi: 'vues' }, avecPass ? 'pass_usage:vues' : 'pass_refuse:vues');
+  const avecPass = droitsOuverts(me);
+  // Là où le pass n'est pas vendu, ni refus ni usage : la liste est ouverte à tous.
+  if (passEnVente(me)) await mesurerRalenti(avecPass ? 'pass_usage' : 'pass_refuse', me, CINQ_MINUTES, { quoi: 'vues' }, avecPass ? 'pass_usage:vues' : 'pass_refuse:vues');
   // La symétrie : qui se retire n'apparaît nulle part, et ne regarde nulle part non plus.
   if (discret(me)) return res.json({ discret: true, flou: !avecPass, arrondi: arrondir(0), apercus: [], profiles: [] });
   const [recus, rel] = await Promise.all([store.swipesTo(me.id), relations(me)]);
