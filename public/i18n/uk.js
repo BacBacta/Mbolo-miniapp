@@ -453,7 +453,7 @@ export default {
   "Tu n'apparais plus dans « qui s'est arrêté sur ta fiche »": "Тебе більше немає в «затрималися на твоїй анкеті»",
   "Tu apparais de nouveau": "Ти знову видимий",
   // Ce que le pass ouvre
-  "Sans pass, tu vois les profils de ta ville. Un pass ouvre le pays entier.": "Без пропуску ти бачиш анкети свого міста. Пропуск відкриває всю країну.",
+  "Sans pass, tu cherches dans une ville à la fois. Un pass ouvre le pays entier.": "Без пропуску ти шукаєш в одному місті за раз. Пропуск відкриває всю країну.",
   "Sans pass, tu vois les profils de ta ville.": "Без пропуску ти бачиш анкети свого міста.",
   // Questions supplémentaires et filtre par langue
   "Une autre question": "Ще одне запитання",

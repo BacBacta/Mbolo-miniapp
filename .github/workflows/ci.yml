@@ -77,7 +77,10 @@ jobs:
   # Lent, donc peu de cas : les chemins qui coûteraient cher à casser, pas chaque cas limite.
   e2e:
     name: Parcours navigateur
-    runs-on: ubuntu-latest
+    # Pas ubuntu-latest : il est passé à Ubuntu 26.04 en novembre 2026, et Playwright 1.56
+    # (épinglé, voir package.json) n'y sait pas installer Chromium — l'étape échouait avant le
+    # premier test. 24.04 est la dernière version qu'il prend en charge ; à relever avec Playwright.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
 

@@ -100,3 +100,25 @@ test("au-delà d'une minute, trop tard", async () => {
   } finally { Date.now = vrai; }
   assert.ok(await store.swipeOf('9321', '9322'), 'la ligne est restée');
 });
+
+// Le quota du jour ne compte que les « J'aime ». Quand il est épuisé, la découverte ne disparaît
+// pas : le paquet part quand même, et passer marche. Les deux étaient faux — le paquet partait
+// vide jusqu'à minuit (en deux « J'aime » sans le badge), et « Passer » recevait le même 429.
+test('quota épuisé : le paquet part quand même, passer marche, aimer est refusé', async () => {
+  await creer('9331', 'Hawa', 'femme');
+  await creer('9332', 'Ibrahim', 'homme');
+  await creer('9333', 'Joel', 'homme');
+  const { config } = await import('../server/config.js');
+  for (let i = 0; i < config.dailyProfiles; i++) await store.addSwipe('9331', `quota-${i}`, 'like');
+
+  const d = (await call('9331', '/discover')).body;
+  assert.equal(d.remaining, 0, 'plus aucun « J\'aime » aujourd\'hui');
+  const noms = d.profiles.map((p) => p.name);
+  assert.ok(noms.includes('Ibrahim') && noms.includes('Joel'), `les cartes sont là quand même (${noms})`);
+
+  const passe = await call('9331', '/swipes', 'POST', { targetId: await pid('9332'), action: 'pass' });
+  assert.equal(passe.status, 200, 'passer ne consomme rien, donc ne bute pas sur le quota');
+  const aime = await call('9331', '/swipes', 'POST', { targetId: await pid('9333'), action: 'like' });
+  assert.equal(aime.status, 429);
+  assert.equal(aime.body.code, 'DAILY_LIMIT');
+});

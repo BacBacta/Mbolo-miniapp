@@ -652,15 +652,20 @@ const dansLeGenre = (me, other) => { const g = genreRecherche(me); return !g || 
 // Le vœu de ne voir que des profils vérifiés. Il s'applique comme le genre : à mon seul paquet.
 const selonLeBadge = (me, other) => !filtersOf(me).verifiesSeulement || verifie(other);
 
-// La zone réellement cherchée. **Sans pass, c'est sa ville** ; le pays entier est ce que le pass
-// ouvre. Le réglage de la personne n'est pas effacé pour autant — il est seulement sans effet tant
-// qu'elle n'a pas de pass, et il reprend le jour où elle en a un. Effacer aurait demandé de le
+// La zone réellement cherchée. **Sans pass, une ville à la fois** — la sienne par défaut, ou celle
+// choisie dans les filtres ; le pays entier est ce que le pass ouvre. Un « tout le pays » rangé
+// sans pass n'est pas effacé pour autant — il est seulement sans effet, la recherche retombe sur
+// la ville du profil, et il reprend le jour où le pass arrive. Effacer aurait demandé de le
 // refaire, et aurait puni quelqu'un pour un changement de règle qu'il n'a pas décidé.
 //
-// C'est la ligne qui **retire** le plus au gratuit, et la seule du lot. À surveiller en premier
-// dans les chiffres : sur un vivier de quelques dizaines de comptes, une ville peut être vide, et
-// un paquet vide ne convertit personne — il fait partir.
-const zoneCherchee = (me) => (droitsOuverts(me) ? (filtersOf(me).zone || zoneParDefaut(me)) : zoneParDefaut(me));
+// Jusqu'au 6 novembre 2026, sans pass, la ville choisie était ignorée elle aussi : l'écran vide
+// proposait « Changer de ville », la personne en tapait une autre, et le paquet restait vide sans
+// rien dire. Choisir une autre ville est ouvert à tout le monde (décision du propriétaire).
+const zoneCherchee = (me) => {
+  const choisie = filtersOf(me).zone || zoneParDefaut(me);
+  if (droitsOuverts(me) || choisie.city) return choisie;
+  return zoneParDefaut(me);
+};
 
 // La zone de la personne qui cherche s'applique à son seul paquet.
 function dansLaZone(me, other) {
@@ -896,10 +901,10 @@ api.get('/discover', requireMembre, async (req, res) => {
   const me = req.user;
   const remaining = Math.max(0, quotaDe(me) - await store.swipesToday(me.id));
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
-  if (!remaining) {
-    mesurer('deck_empty', me.id, { why: 'quota' });
-    return res.json({ profiles: [], remaining: 0, quota: auClient(quotaDe(me)), vivier: vivier(me, rel, tous) });
-  }
+  // Quota épuisé : **le paquet part quand même**. Il partait vide, et la découverte entière
+  // disparaissait jusqu'à minuit — en deux « J'aime » sans le badge. Or passer reste possible,
+  // et regarder aussi : le ♥ s'éteint côté interface (quotaEpuise) et ouvre la feuille du quota.
+  if (!remaining) mesurer('deck_empty', me.id, { why: 'quota' });
   // Le tri passe avant la mise en forme : publicProfile n'est appelé que sur les dix cartes
   // envoyées, au lieu de l'être sur tout le vivier pour en jeter la plus grande part.
   // Ceux qui t'ont liké, puis — par défaut — les profils vérifiés, puis ton quartier. Le badge
@@ -919,7 +924,7 @@ api.get('/discover', requireMembre, async (req, res) => {
   }));
   // Le symptôme numéro un d'un lancement à vivier vide : combien de personnes vérifiées n'ont
   // jamais vu une seule carte. Sans cette ligne, personne ne le saura jamais.
-  if (!profiles.length) mesurer('deck_empty', me.id, { why: 'vide' });
+  if (!profiles.length) { if (remaining) mesurer('deck_empty', me.id, { why: 'vide' }); }
   // Une ligne par paquet, pas une par carte : n suffit et coûte dix fois moins. Ralenti à cinq
   // minutes, parce que l'écran se recharge à chaque retour et que ça n'apprend rien de plus.
   // `r` est le reste du quota, et il n'existe que s'il y a un quota : avec un pass, la clé
@@ -1163,7 +1168,10 @@ api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {
     mesurer('antiscam_block', me.id, { c: surReponse.bloque.code });
     return fail(res, 422, surReponse.bloque.code, surReponse.bloque.message, { categorie: surReponse.bloque.categorie, unlockAfter: config.contactUnlockAfter });
   }
-  if (await store.swipesToday(me.id) >= quotaDe(me)) {
+  // Seul un « J'aime » compte : passer ne consomme rien (`swipesToday` ne compte que les
+  // « J'aime »), donc un « Passer » ne bute jamais sur le quota. Il y butait, et le message
+  // lui-même disait le contraire.
+  if (action === 'like' && await store.swipesToday(me.id) >= quotaDe(me)) {
     // Le palier touché, pas seulement le fait de buter : 2 (sans badge) et 5 (gratuit) ne
     // racontent pas la même histoire, et un jour où le chiffre bougera il faudra savoir lequel
     // des deux murs les gens rencontraient. Les lignes posées avant ce jour n'ont pas de `q` :
