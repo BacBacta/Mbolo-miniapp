@@ -896,10 +896,10 @@ api.get('/discover', requireMembre, async (req, res) => {
   const me = req.user;
   const remaining = Math.max(0, quotaDe(me) - await store.swipesToday(me.id));
   const [tous, rel] = await Promise.all([store.allUsers(), relations(me)]);
-  if (!remaining) {
-    mesurer('deck_empty', me.id, { why: 'quota' });
-    return res.json({ profiles: [], remaining: 0, quota: auClient(quotaDe(me)), vivier: vivier(me, rel, tous) });
-  }
+  // Quota épuisé : **le paquet part quand même**. Il partait vide, et la découverte entière
+  // disparaissait jusqu'à minuit — en deux « J'aime » sans le badge. Or passer reste possible,
+  // et regarder aussi : le ♥ s'éteint côté interface (quotaEpuise) et ouvre la feuille du quota.
+  if (!remaining) mesurer('deck_empty', me.id, { why: 'quota' });
   // Le tri passe avant la mise en forme : publicProfile n'est appelé que sur les dix cartes
   // envoyées, au lieu de l'être sur tout le vivier pour en jeter la plus grande part.
   // Ceux qui t'ont liké, puis — par défaut — les profils vérifiés, puis ton quartier. Le badge
@@ -919,7 +919,7 @@ api.get('/discover', requireMembre, async (req, res) => {
   }));
   // Le symptôme numéro un d'un lancement à vivier vide : combien de personnes vérifiées n'ont
   // jamais vu une seule carte. Sans cette ligne, personne ne le saura jamais.
-  if (!profiles.length) mesurer('deck_empty', me.id, { why: 'vide' });
+  if (!profiles.length) { if (remaining) mesurer('deck_empty', me.id, { why: 'vide' }); }
   // Une ligne par paquet, pas une par carte : n suffit et coûte dix fois moins. Ralenti à cinq
   // minutes, parce que l'écran se recharge à chaque retour et que ça n'apprend rien de plus.
   // `r` est le reste du quota, et il n'existe que s'il y a un quota : avec un pass, la clé
@@ -1163,7 +1163,10 @@ api.post('/swipes', requireMembre, limiter('swipe'), async (req, res) => {
     mesurer('antiscam_block', me.id, { c: surReponse.bloque.code });
     return fail(res, 422, surReponse.bloque.code, surReponse.bloque.message, { categorie: surReponse.bloque.categorie, unlockAfter: config.contactUnlockAfter });
   }
-  if (await store.swipesToday(me.id) >= quotaDe(me)) {
+  // Seul un « J'aime » compte : passer ne consomme rien (`swipesToday` ne compte que les
+  // « J'aime »), donc un « Passer » ne bute jamais sur le quota. Il y butait, et le message
+  // lui-même disait le contraire.
+  if (action === 'like' && await store.swipesToday(me.id) >= quotaDe(me)) {
     // Le palier touché, pas seulement le fait de buter : 2 (sans badge) et 5 (gratuit) ne
     // racontent pas la même histoire, et un jour où le chiffre bougera il faudra savoir lequel
     // des deux murs les gens rencontraient. Les lignes posées avant ce jour n'ont pas de `q` :
