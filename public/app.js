@@ -1642,7 +1642,7 @@ const SCREENS = {
           <button type="button" data-action="zone-mode" data-mode="ville" aria-pressed="${!toutLePays}">${t('Une ville')}</button>
           <button type="button" data-action="zone-mode" data-mode="pays" aria-pressed="${toutLePays && limite('paysEntier')}">${icon(limite('paysEntier') ? 'globe' : 'lock', 14)} ${t('Tout le pays')}</button>
         </div>
-        ${limite('paysEntier') ? '' : `<p class="fine">${icon('info', 14)}<span>${t('Sans pass, tu vois les profils de ta ville. Un pass ouvre le pays entier.')}</span></p>`}
+        ${limite('paysEntier') ? '' : `<p class="fine">${icon('info', 14)}<span>${t('Sans pass, tu cherches dans une ville à la fois. Un pass ouvre le pays entier.')}</span></p>`}
         ${toutLePays ? '' : `
         <label class="field"><span class="label">${t('Ville')}</span>
           <input name="zoneCity" maxlength="40" value="${esc(z.city || '')}" placeholder="${esc((S.me.options.knownCities[z.country] || [])[0] || t('Ta ville'))}" autocomplete="off">

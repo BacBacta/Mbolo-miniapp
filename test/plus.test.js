@@ -301,6 +301,27 @@ test('sans pass, la zone est sa ville ; le réglage dort au lieu de disparaître
     'le pass réveille le réglage déjà posé, sans rien redemander');
 });
 
+// Le pass ouvre le pays entier, pas « une autre ville ». Sans pass, la ville choisie dans les
+// filtres s'applique : l'écran vide propose « Changer de ville », et jusqu'au 6 novembre 2026 la
+// ville tapée était ignorée en silence — le paquet restait vide.
+test('sans pass, on cherche dans une autre ville que la sienne ; le pays entier reste au pass', async () => {
+  await membre('9255', 'Rita', 'femme', 43);
+  await membre('9256', 'Sami', 'homme', 43);
+  await membre('9257', 'Theo', 'homme', 43);
+  await call('9256', '/me/profile', 'PUT', { name: 'Sami', age: 43, gender: 'homme', intent: 'amitie', city: 'Bafoussam', promptA: 'Le poisson braisé' });
+  await call('9257', '/me/profile', 'PUT', { name: 'Theo', age: 43, gender: 'homme', intent: 'amitie', city: 'Garoua', promptA: 'Le poisson braisé' });
+  const noms = async () => (await call('9255', '/discover')).body.profiles.map((p) => p.name);
+  assert.ok(!(await noms()).includes('Sami'), 'par défaut, sa ville');
+
+  await call('9255', '/me/filters', 'PUT', { ageMin: 43, ageMax: 43, zone: { country: 'CM', city: 'bafoussam' } });
+  assert.deepEqual(await noms(), ['Sami'], 'une autre ville, sans pass');
+
+  await call('9255', '/me/filters', 'PUT', { ageMin: 43, ageMax: 43, zone: { country: 'CM', city: null } });
+  assert.deepEqual(await noms(), [], 'tout le pays retombe sur sa ville (Douala) sans pass');
+  await donnerLePass('9255');
+  assert.deepEqual((await noms()).sort(), ['Sami', 'Theo'], 'et le pass ouvre tout le pays');
+});
+
 test('les paliers voyagent jusqu\'à l\'interface, qui ne les recopie pas', async () => {
   await membre('9260', 'Pia', 'femme', 22);
   const sans = (await call('9260', '/me')).body.limites;

@@ -760,7 +760,7 @@ Et pour la personne, dans le bot : `/paysupport` (ses reçus, et la marche à su
 | Qui t'a aimé | le nombre, et **des tuiles floutées** — ces personnes passent devant dans le paquet | la liste, avec les fiches |
 | Se sont arrêtés sur ta fiche | le nombre arrondi, et cinq tuiles floutées au plus | un nombre arrondi, et cinq fiches — jamais ce qu'elles ont décidé |
 | Parcourir | les cartes, dix à la fois | **+ la vue Liste** : cinquante d'un coup, avec leur statut — les mêmes personnes |
-| Zone | **sa ville** | tout le pays |
+| Zone | **une ville à la fois** — la sienne, ou celle choisie dans les filtres | tout le pays |
 | Photos | 2 | 6 |
 | Présentation vocale | 15 s | 30 s |
 | Questions sur ta fiche | 1 | 3 |

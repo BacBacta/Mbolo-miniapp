@@ -453,7 +453,7 @@ export default {
   "Tu n'apparais plus dans « qui s'est arrêté sur ta fiche »": "Hutokei tena katika “walisimama kwenye wasifu wako”",
   "Tu apparais de nouveau": "Unatokea tena",
   // Ce que le pass ouvre
-  "Sans pass, tu vois les profils de ta ville. Un pass ouvre le pays entier.": "Bila pasi, unaona wasifu wa jiji lako. Pasi inafungua nchi nzima.",
+  "Sans pass, tu cherches dans une ville à la fois. Un pass ouvre le pays entier.": "Bila pasi, unatafuta katika jiji moja kwa wakati. Pasi inafungua nchi nzima.",
   "Sans pass, tu vois les profils de ta ville.": "Bila pasi, unaona wasifu wa jiji lako.",
   // Questions supplémentaires et filtre par langue
   "Une autre question": "Swali lingine",

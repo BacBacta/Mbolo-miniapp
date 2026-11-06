@@ -464,7 +464,7 @@ export default {
   "Tu n'apparais plus dans « qui s'est arrêté sur ta fiche »": "You no longer appear in “stopped on your profile”",
   "Tu apparais de nouveau": "You appear again",
   // Ce que le pass ouvre
-  "Sans pass, tu vois les profils de ta ville. Un pass ouvre le pays entier.": "Without the pass, you see profiles from your city. The pass opens the whole country.",
+  "Sans pass, tu cherches dans une ville à la fois. Un pass ouvre le pays entier.": "Without the pass, you search one city at a time. The pass opens the whole country.",
   "Sans pass, tu vois les profils de ta ville.": "Without the pass, you see profiles from your city.",
   // Questions supplémentaires et filtre par langue
   "Une autre question": "Another question",

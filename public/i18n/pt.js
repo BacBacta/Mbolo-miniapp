@@ -453,7 +453,7 @@ export default {
   "Tu n'apparais plus dans « qui s'est arrêté sur ta fiche »": "Já não apareces em «pararam no teu perfil»",
   "Tu apparais de nouveau": "Voltas a aparecer",
   // Ce que le pass ouvre
-  "Sans pass, tu vois les profils de ta ville. Un pass ouvre le pays entier.": "Sem passe, vês os perfis da tua cidade. O passe abre o país inteiro.",
+  "Sans pass, tu cherches dans une ville à la fois. Un pass ouvre le pays entier.": "Sem passe, procuras numa cidade de cada vez. O passe abre o país inteiro.",
   "Sans pass, tu vois les profils de ta ville.": "Sem passe, vês os perfis da tua cidade.",
   // Questions supplémentaires et filtre par langue
   "Une autre question": "Outra pergunta",
